@@ -1,3 +1,50 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Webkit browsers like Chrome, Safari */
+::-webkit-scrollbar {
+   width: 6px;
+}
+
+::-webkit-scrollbar-track {
+   background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+   background: #888;
+   border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+   background: #555;
+}
+
+/* Firefox */
+* {
+   scrollbar-width: thin;
+   scrollbar-color: #888 #f1f1f1;
+}
+
+/* For the main content area */
+.thin-scrollbar {
+   scrollbar-width: thin;
+   scrollbar-color: #888 #f1f1f1;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+   width: 6px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+   background: #f1f1f1;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+   background: #888;
+   border-radius: 3px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+   background: #555;
+}

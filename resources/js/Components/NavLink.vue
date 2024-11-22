@@ -14,8 +14,8 @@ const props = defineProps({
 
 const classes = computed(() =>
     props.active
-        ? 'block py-2 px-2 text-sm font-medium text-indigo-700 bg-indigo-200 rounded-sm'
-        : 'block py-2 px-2 text-sm font-medium text-gray-900 hover:text-indigo-700 rounded-sm'
+        ? 'block py-2 px-2 text-sm font-medium text-main-900 bg-main-100 rounded-sm'
+        : 'block py-2 px-2 text-sm font-medium text-gray-900 hover:text-main-700 rounded-sm'
 );
 </script>
 

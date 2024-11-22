@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use App\Models\User;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -29,10 +30,37 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $centralUser = $request->user();
+        $tenantUser = null;
+        $permissions = [];
+
+        if ($centralUser) {
+            // Get the current tenant
+            $tenant = tenant();
+            
+            if ($tenant) {
+                // Find the corresponding tenant user
+                $tenantUser = User::where('global_id', $centralUser->global_id)->first();
+                
+                if ($tenantUser) {
+                    // Get all permissions for the tenant user
+                    $permissions = $tenantUser->getAllPermissions()->pluck('name');
+                }
+            }
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $centralUser,
+                'tenantUser' => $tenantUser,
+                'permissions' => $permissions,
+            ],
+            'flash' => [
+                'success' => $request->session()->get('success'),
+                'error' => $request->session()->get('error'),
+                'warning' => $request->session()->get('warning'),
+                'hash' => hash('sha256', now()),
             ],
         ];
     }

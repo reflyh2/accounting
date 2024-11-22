@@ -1,22 +1,75 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, nextTick, watch, computed, onMounted } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link } from '@inertiajs/vue3';
-import { HomeIcon } from '@heroicons/vue/24/solid';
+import { BanknotesIcon, HomeIcon } from '@heroicons/vue/24/solid';
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue';
 import { Cog8ToothIcon, ChevronRightIcon } from '@heroicons/vue/24/solid';
+import AlertNotification from '@/Components/AlertNotification.vue';
 
 const showingNavigationDropdown = ref(false);
 const showingMobileMenu = ref(false);
+
+const page = usePage();
+const alert = ref(null);
+
+function checkFlashMessages() {
+    const flash = page.props.flash;
+    if (flash) {
+        if (flash.success) {
+            alert.value = { type: 'success', message: flash.success };
+        } else if (flash.warning) {
+            alert.value = { type: 'warning', message: flash.warning };
+        } else if (flash.error) {
+            alert.value = { type: 'error', message: flash.error };
+        } else {
+            alert.value = null;
+            return;
+        }
+    } else {
+        alert.value = null;
+    }
+}
+
+onMounted(checkFlashMessages);
+
+// Watch for changes in flash messages
+watch(() => page.props.flash, (newFlash, oldFlash) => {
+    // Only update if the flash message has actually changed
+    if (JSON.stringify(newFlash) !== JSON.stringify(oldFlash)) {
+        nextTick(checkFlashMessages);
+    }
+}, { deep: true });
+
+// Add this computed property to check if any settings route is active
+const isSettingsActive = computed(() => {
+    return route().current('companies.*') 
+        || route().current('branches.*') 
+        || route().current('branch-groups.*')
+        || route().current('roles.*');
+});
+
+const isAccountingActive = computed(() => {
+    return route().current('accounts.*')
+        || route().current('currencies.*')
+        || route().current('journals.*')
+        || route().current('cash-receipt-journals.*')
+        || route().current('cash-payment-journals.*')
+        || route().current('general-ledger.*')
+        || route().current('cash-bank-book.*')
+        || route().current('income.*')
+        || route().current('balance-sheet.*');
+});
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-100">
-        <nav class="bg-white border-b border-gray-100">
+    <div class="min-h-screen bg-gray-100 flex flex-col">
+        <nav class="bg-white border-b border-gray-100 no-print">
             <div class="pl-6">
                 <div class="flex justify-between h-16">
                     <div class="flex">
@@ -64,14 +117,78 @@ const showingMobileMenu = ref(false);
             </div>
 
             <!-- Mobile menu -->
-            <div :class="{'block': showingMobileMenu, 'hidden': !showingMobileMenu}" class="sm:hidden">
-                <div class="pt-2 pb-3 space-y-1">
-                    <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')">
+            <div :class="{'block': showingMobileMenu, 'hidden': !showingMobileMenu}" class="sm:hidden bg-white fixed inset-0 top-16 z-50">
+                <div class="pt-2 pb-3 space-y-1 bg-white">
+                    <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')" class="flex items-center ps-3">
+                        <HomeIcon class="h-5 w-5 mr-2" />
                         Dashboard
                     </ResponsiveNavLink>
-                    <!-- Add more mobile menu items here -->
+
+                    <!-- Accounting Section -->
+                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isAccountingActive">
+                        <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                            <BanknotesIcon class="h-5 w-5 mr-2" />
+                            <span>Akuntansi & Keuangan</span>
+                            <ChevronRightIcon
+                                :class="open ? 'transform rotate-90' : ''"
+                                class="ml-auto h-4 w-4 text-gray-400"
+                            />
+                        </DisclosureButton>
+                        <DisclosurePanel class="mt-1 space-y-1 text-sm">
+                            <ResponsiveNavLink :href="route('accounts.index')" :active="route().current('accounts.*')" class="pl-11">
+                                Bagan Akun
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('currencies.index')" :active="route().current('currencies.*')" class="pl-11">
+                                Mata Uang
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('journals.index')" 
+                                :active="route().current('journals.*') || route().current('cash-receipt-journals.*') || route().current('cash-payment-journals.*')" 
+                                class="pl-11"
+                            >
+                                Jurnal
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('general-ledger.index')" 
+                                :active="
+                                    route().current('general-ledger.*') 
+                                    || route().current('cash-bank-book.*') 
+                                    || route().current('income.*') 
+                                    || route().current('balance-sheet.*')
+                                " 
+                                class="pl-11"
+                            >
+                                Laporan Akuntansi
+                            </ResponsiveNavLink>
+                        </DisclosurePanel>
+                    </Disclosure>
+
+                    <!-- Settings Section -->
+                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isSettingsActive">
+                        <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                            <Cog8ToothIcon class="h-5 w-5 mr-2" />
+                            <span>Pengaturan</span>
+                            <ChevronRightIcon
+                                :class="open ? 'transform rotate-90' : ''"
+                                class="ml-auto h-4 w-4 text-gray-400"
+                            />
+                        </DisclosureButton>
+                        <DisclosurePanel class="mt-1 space-y-1 text-sm">
+                            <ResponsiveNavLink :href="route('dashboard')" :active="route().current('/')" class="pl-11">
+                                General
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('companies.index')" 
+                                :active="route().current('companies.*') || route().current('branches.*') || route().current('branch-groups.*')" 
+                                class="pl-11"
+                            >
+                                Perusahaan
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('roles.index')" :active="route().current('roles.*')" class="pl-11">
+                                Hak Akses Pengguna
+                            </ResponsiveNavLink>
+                        </DisclosurePanel>
+                    </Disclosure>
                 </div>
 
+                <!-- Existing profile section -->
                 <div class="pt-4 pb-1 border-t border-gray-200">
                     <div class="px-4">
                         <div class="font-medium text-base text-gray-800">{{ $page.props.auth.user.name }}</div>
@@ -88,18 +205,53 @@ const showingMobileMenu = ref(false);
             </div>
         </nav>
 
-        <div class="flex h-screen">
+        <div class="flex flex-1 overflow-hidden">
             <!-- Side Navigation -->
-            <div class="hidden sm:block w-72 bg-transparent h-full">
+            <div class="hidden sm:block w-72 flex-shrink-0 overflow-y-auto thin-scrollbar fixed top-16 bottom-0 left-0 no-print">
                 <div class="py-6 px-2">
                     <nav class="space-y-1">
                         <NavLink :href="route('dashboard')" :active="route().current('dashboard')" class="flex items-center">
                             <HomeIcon class="h-6 w-6 mr-2" />
                             <span>Dashboard</span>
                         </NavLink>
+
+                        <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isAccountingActive">
+                            <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
+                                <BanknotesIcon class="h-6 w-6 mr-2" />
+                                <span>Akuntansi & Keuangan</span>
+                                <ChevronRightIcon
+                                    :class="open ? 'transform rotate-90' : ''"
+                                    class="ml-auto h-4 w-4 text-gray-400"
+                                />
+                            </DisclosureButton>
+                            <DisclosurePanel class="mt-2 space-y-2 pl-8">
+                                <NavLink :href="route('accounts.index')" :active="route().current('accounts.*')" class="flex items-center">
+                                    Bagan Akun
+                                </NavLink>
+                                <NavLink :href="route('currencies.index')" :active="route().current('currencies.*')" class="flex items-center">
+                                    Mata Uang
+                                </NavLink>
+                                <NavLink :href="route('journals.index')" :active="route().current('journals.*') || route().current('cash-receipt-journals.*') || route().current('cash-payment-journals.*')" class="flex items-center">
+                                    Jurnal
+                                </NavLink>
+                                <NavLink 
+                                    :href="route('general-ledger.index')" 
+                                    :active="
+                                        route().current('general-ledger.*') 
+                                        || route().current('cash-bank-book.*') 
+                                        || route().current('income.*')
+                                        || route().current('balance-sheet.*')
+                                    " 
+                                    class="flex items-center"
+                                >
+                                    Laporan Akuntansi
+                                </NavLink>
+                                <!-- Add more settings menu items as needed -->
+                            </DisclosurePanel>
+                        </Disclosure>
                         
-                        <Disclosure v-slot="{ open }" as="div" class="mt-2">
-                            <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-indigo-700 focus:outline-none">
+                        <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isSettingsActive">
+                            <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
                                 <Cog8ToothIcon class="h-6 w-6 mr-2" />
                                 <span>Pengaturan</span>
                                 <ChevronRightIcon
@@ -111,8 +263,11 @@ const showingMobileMenu = ref(false);
                                 <NavLink :href="route('dashboard')" :active="route().current('/')" class="flex items-center">
                                     General
                                 </NavLink>
-                                <NavLink :href="route('dashboard')" :active="route().current('/')" class="flex items-center">
-                                    Cabang
+                                <NavLink :href="route('companies.index')" :active="route().current('companies.*') || route().current('branches.*') || route().current('branch-groups.*')" class="flex items-center">
+                                    Perusahaan
+                                </NavLink>
+                                <NavLink :href="route('roles.index')" :active="route().current('roles.*')" class="flex items-center">
+                                    Hak Akses Pengguna
                                 </NavLink>
                                 <!-- Add more settings menu items as needed -->
                             </DisclosurePanel>
@@ -121,27 +276,27 @@ const showingMobileMenu = ref(false);
                 </div>
             </div>
             
-            <div class="block w-full">
+            <!-- Main Content -->
+            <div class="flex-1 overflow-y-auto thin-scrollbar fixed top-16 bottom-0 right-0 left-0 sm:left-72 main-content print:p-0 print:m-0 print:bg-white print:left-0 print:w-full print:h-full z-0">
                 <!-- Page Heading -->
-                <header class="block">
-                    <div class="mx-auto p-6">
+                <header class="bg-gray-100 no-print">
+                    <div class="min-w-min md:min-w-max mx-auto py-6 pl-6 sm:pl-0">
                         <h2 class="font-semibold text-2xl text-gray-800 leading-tight">
                             <slot name="header"></slot>
                         </h2>
                     </div>
                 </header>
 
+                <AlertNotification 
+                    v-if="alert"
+                    :type="alert.type"
+                    :message="alert.message"
+                    @close="alert = null" 
+                />
+
                 <!-- Page Content -->
-                <main class="flex-1 overflow-y-auto">
-                    <div>
-                        <div class="max-w-7xl mx-auto">
-                            <div>
-                                <div>
-                                    <slot />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <main>
+                    <slot />
                 </main>
             </div>
         </div>

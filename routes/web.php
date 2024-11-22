@@ -2,20 +2,33 @@
 
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Foundation\Application;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\RegisterTenantController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
+        'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
     ]);
 });
 
-Route::get('/register-tenant', [RegisterTenantController::class, 'create'])
-    ->name('register.tenant');
-Route::post('/register-tenant', [RegisterTenantController::class, 'store'])
-    ->name('store.tenant');
+Route::middleware(['web', 'guest'])->group(function () {
+    Route::get('/register', [RegisteredUserController::class, 'create'])
+        ->name('register');
+    Route::post('/register', [RegisteredUserController::class, 'store']);
+    Route::get('/login', [AuthenticatedSessionController::class, 'create'])
+        ->name('login');
+    Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+});
+
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
+        ->name('logout');
+    Route::get('/dashboard', [AuthController::class, 'dashboard'])
+        ->name('central.dashboard');
+    Route::get('/register-tenant', [RegisterTenantController::class, 'create'])->name('register.tenant');
+    Route::post('/register-tenant', [RegisterTenantController::class, 'store'])->name('store.tenant');
+});

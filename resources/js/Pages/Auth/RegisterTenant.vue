@@ -1,10 +1,11 @@
 <script setup>
-import GuestLayout from '@/Layouts/GuestLayout.vue';
+import CentralLayout from '@/Layouts/CentralLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
+import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 
 const props = defineProps({
     central_domain: {
@@ -20,51 +21,63 @@ const form = useForm({
 
 const submit = () => {
     form.post(route('store.tenant'), {
-        onFinish: () => form.reset('password', 'password_confirmation'),
+        onFinish: () => form.reset(),
     });
 };
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Register Tenant" />
+    <Head title="Register Tenant" />
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="tenant_name" value="Tenant Name" />
-                <TextInput
-                    id="tenant_name"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.tenant_name"
-                    required
-                    autofocus
-                />
-                <InputError class="mt-2" :message="form.errors.tenant_name" />
-            </div>
+    <CentralLayout>
+        <template #header>
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Register New Tenant</h2>
+        </template>
 
-            <div class="mt-4">
-                <InputLabel for="subdomain" value="Subdomain" />
-                <div class="flex items-center">
-                    <TextInput
-                        id="subdomain"
-                        type="text"
-                        class="mt-1 block w-full rounded-r-none"
-                        v-model="form.subdomain"
-                        required
-                    />
-                    <span class="mt-1 px-3 py-2 bg-gray-100 text-gray-600 border border-gray-300 border-l-0 rounded-r-md">
-                        .{{ central_domain }}
-                    </span>
+        <div class="py-12">
+            <div class="min-w-min md:min-w-max mx-auto sm:px-6 lg:px-8">
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                    <div class="p-6 text-gray-900">
+                        <form @submit.prevent="submit">
+                            <div>
+                                <InputLabel for="tenant_name" value="Nama Database" />
+                                <TextInput
+                                    id="tenant_name"
+                                    type="text"
+                                    class="mt-1 block w-full"
+                                    v-model="form.tenant_name"
+                                    required
+                                    autofocus
+                                />
+                                <InputError class="mt-2" :message="form.errors.tenant_name" />
+                            </div>
+
+                            <div class="mt-4">
+                                <InputLabel for="subdomain" value="Subdomain" />
+                                <div class="flex items-center">
+                                    <TextInput
+                                        id="subdomain"
+                                        type="text"
+                                        class="mt-1 block w-full rounded-r-none"
+                                        v-model="form.subdomain"
+                                        required
+                                    />
+                                    <span class="mt-1 px-3 py-2 bg-gray-100 text-gray-600 border border-gray-300 border-l-0 rounded-r-md">
+                                        .{{ central_domain }}
+                                    </span>
+                                </div>
+                                <InputError class="mt-2" :message="form.errors.subdomain" />
+                            </div>
+
+                            <div class="flex items-center justify-end mt-4">
+                                <AppPrimaryButton type="submit" class="ms-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
+                                    Buat Database
+                                </AppPrimaryButton>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <InputError class="mt-2" :message="form.errors.subdomain" />
             </div>
-
-            <div class="flex items-center justify-end mt-4">
-                <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
-                    Register
-                </PrimaryButton>
-            </div>
-        </form>
-    </GuestLayout>
+        </div>
+    </CentralLayout>
 </template>
