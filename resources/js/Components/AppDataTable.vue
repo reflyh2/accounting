@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { debounce } from 'lodash';
 import { router, Link } from '@inertiajs/vue3';
 import AppInput from '@/Components/AppInput.vue';
@@ -9,7 +9,7 @@ import AppDeleteButton from '@/Components/AppDeleteButton.vue';
 import AppViewButton from '@/Components/AppViewButton.vue';
 import Pagination from '@/Components/Pagination.vue';
 import { PlusIcon, ArrowDownTrayIcon, TrashIcon } from '@heroicons/vue/16/solid';
-import { FunnelIcon } from '@heroicons/vue/24/outline';
+import { FunnelIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 import AppTable from '@/Components/AppTable.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppUtilityButton from '@/Components/AppUtilityButton.vue';
@@ -62,7 +62,30 @@ const emit = defineEmits(['delete', 'sort', 'filter', 'bulkDelete']);
 
 const search = ref(props.filters?.search || '');
 const customFilterValues = ref({});
-const showFilters = ref(false);
+const hasAppliedFilters = computed(() => {
+    // Check search filter
+    if (search.value) return true;
+    
+    // Check if any custom filter has a value
+    for (const key in customFilterValues.value) {
+        const value = customFilterValues.value[key];
+        if (Array.isArray(value) && value.length > 0) return true;
+        if (!Array.isArray(value) && value) return true;
+    }
+
+    // Check initial filters from props
+    if (props.filters) {
+        for (const key in props.filters) {
+            const value = props.filters[key];
+            if (key === 'per_page' || key === 'sort' || key === 'order') continue; // Skip per_page, sort, and order filter
+            if (Array.isArray(value) && value.length > 0) return true;
+            if (!Array.isArray(value) && value) return true;
+        }
+    }
+
+    return false;
+});
+const showFilters = ref(hasAppliedFilters.value);
 const rowsPerPage = ref(props.data.per_page || 10);
 const showDeleteConfirmation = ref(false);
 const itemToDelete = ref(null);
@@ -161,6 +184,22 @@ function bulkDelete() {
     emit('bulkDelete', selectedItems.value);
     showBulkDeleteConfirmation.value = false;
 }
+
+function clearFilters() {
+    search.value = '';
+    Object.keys(customFilterValues.value).forEach(key => {
+        customFilterValues.value[key] = Array.isArray(customFilterValues.value[key]) ? [] : '';
+    });
+    rowsPerPage.value = props.perPage || 10;
+    
+    emit('filter', {
+        search: '',
+        ...Object.fromEntries(
+            Object.keys(customFilterValues.value).map(key => [key, ''])
+        ),
+        per_page: rowsPerPage.value
+    });
+}
 </script>
 
 <template>
@@ -195,10 +234,20 @@ function bulkDelete() {
                     </div>
                 </div>
             </div>
-            <AppUtilityButton @click="showFilters = !showFilters">
-                <FunnelIcon class="w-5 h-5 mr-1" />
-                Filter
-            </AppUtilityButton>
+
+            <div class="flex items-center">
+                <a
+                    v-if="hasAppliedFilters"
+                    @click="clearFilters"
+                    class="inline-flex items-center px-4 py-2 mr-2 text-sm font-medium text-red-700 hover:underline cursor-pointer"
+                >
+                    Hapus Filter
+                </a>
+                <AppUtilityButton @click="showFilters = !showFilters">
+                    <FunnelIcon class="w-5 h-5 mr-1" />
+                    Filter
+                </AppUtilityButton>
+            </div>
         </div>
 
         <div v-if="showFilters">

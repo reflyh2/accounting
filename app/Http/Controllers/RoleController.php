@@ -89,7 +89,7 @@ class RoleController extends Controller
 
         if ($request->input('create_another', false)) {
             return redirect()->route('roles.create')
-                ->with('success', 'Hak akses berhasil dibuat. Silakan buat role lainnya.');
+                ->with('success', 'Hak akses berhasil dibuat. Silakan buat hak akses lainnya.');
         }
 
         return redirect()->route('roles.show', $role->id)

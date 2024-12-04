@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ApiController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\AssetController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CompanyController;
@@ -18,8 +19,10 @@ use App\Http\Controllers\BranchGroupController;
 use App\Http\Controllers\BalanceSheetController;
 use App\Http\Controllers\CashBankBookController;
 use App\Http\Controllers\IncomeReportController;
+use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\GeneralLedgerController;
+use App\Http\Controllers\AssetMaintenanceController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\CashPaymentJournalController;
@@ -34,6 +37,11 @@ use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\MemberController;
+use App\Http\Controllers\PartnerController;
+use App\Http\Controllers\EmployeeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -173,6 +181,31 @@ Route::middleware([
         Route::get('cash-payment-journals/{journalId}/print', [CashPaymentJournalController::class, 'print'])->name('cash-payment-journals.print');
         Route::resource('cash-payment-journals', CashPaymentJournalController::class);
 
+        Route::delete('assets/bulk-delete', [AssetController::class, 'bulkDelete'])->name('assets.bulk-delete');
+        Route::get('assets/export-xlsx', [AssetController::class, 'exportXLSX'])->name('assets.export-xlsx');
+        Route::get('assets/export-csv', [AssetController::class, 'exportCSV'])->name('assets.export-csv');
+        Route::get('assets/export-pdf', [AssetController::class, 'exportPDF'])->name('assets.export-pdf');
+        Route::resource('assets', AssetController::class);
+
+        Route::delete('asset-categories/bulk-delete', [AssetCategoryController::class, 'bulkDelete'])->name('asset-categories.bulk-delete');
+        Route::get('asset-categories/export-xlsx', [AssetCategoryController::class, 'exportXLSX'])->name('asset-categories.export-xlsx');
+        Route::get('asset-categories/export-csv', [AssetCategoryController::class, 'exportCSV'])->name('asset-categories.export-csv');
+        Route::get('asset-categories/export-pdf', [AssetCategoryController::class, 'exportPDF'])->name('asset-categories.export-pdf');
+        Route::resource('asset-categories', AssetCategoryController::class);
+
+        Route::delete('asset-maintenance/bulk-delete', [AssetMaintenanceController::class, 'bulkDelete'])->name('asset-maintenance.bulk-delete');
+        Route::get('asset-maintenance/export-xlsx', [AssetMaintenanceController::class, 'exportXLSX'])->name('asset-maintenance.export-xlsx');
+        Route::get('asset-maintenance/export-csv', [AssetMaintenanceController::class, 'exportCSV'])->name('asset-maintenance.export-csv');
+        Route::get('asset-maintenance/export-pdf', [AssetMaintenanceController::class, 'exportPDF'])->name('asset-maintenance.export-pdf');
+        Route::post('asset-maintenance/{maintenanceRecord}/complete', [AssetMaintenanceController::class, 'complete'])->name('asset-maintenance.complete');
+        Route::get('asset-maintenance/{asset}', [AssetMaintenanceController::class, 'index'])->name('asset-maintenance.index');
+        Route::get('asset-maintenance/{asset}/create', [AssetMaintenanceController::class, 'create'])->name('asset-maintenance.create');
+        Route::post('asset-maintenance/{asset}', [AssetMaintenanceController::class, 'store'])->name('asset-maintenance.store');
+        Route::get('asset-maintenance/{maintenanceRecord}', [AssetMaintenanceController::class, 'show'])->name('asset-maintenance.show');
+        Route::get('asset-maintenance/{maintenanceRecord}/edit', [AssetMaintenanceController::class, 'edit'])->name('asset-maintenance.edit');
+        Route::put('asset-maintenance/{maintenanceRecord}', [AssetMaintenanceController::class, 'update'])->name('asset-maintenance.update');
+        Route::delete('asset-maintenance/{maintenanceRecord}', [AssetMaintenanceController::class, 'destroy'])->name('asset-maintenance.destroy');
+
         Route::get('general-ledger', [GeneralLedgerController::class, 'index'])->name('general-ledger.index');
         Route::get('general-ledger/download', [GeneralLedgerController::class, 'download'])->name('general-ledger.download');
 
@@ -184,6 +217,41 @@ Route::middleware([
 
         Route::get('balance-sheet', [BalanceSheetController::class, 'index'])->name('balance-sheet.index');
         Route::get('balance-sheet/download', [BalanceSheetController::class, 'download'])->name('balance-sheet.download');
+
+        // Suppliers routes
+        Route::delete('suppliers/bulk-delete', [SupplierController::class, 'bulkDelete'])->name('suppliers.bulk-delete');
+        Route::get('suppliers/export-xlsx', [SupplierController::class, 'exportXLSX'])->name('suppliers.export-xlsx');
+        Route::get('suppliers/export-csv', [SupplierController::class, 'exportCSV'])->name('suppliers.export-csv');
+        Route::get('suppliers/export-pdf', [SupplierController::class, 'exportPDF'])->name('suppliers.export-pdf');
+        Route::resource('suppliers', SupplierController::class);
+
+        // Customers routes
+        Route::delete('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->name('customers.bulk-delete');
+        Route::get('customers/export-xlsx', [CustomerController::class, 'exportXLSX'])->name('customers.export-xlsx');
+        Route::get('customers/export-csv', [CustomerController::class, 'exportCSV'])->name('customers.export-csv');
+        Route::get('customers/export-pdf', [CustomerController::class, 'exportPDF'])->name('customers.export-pdf');
+        Route::resource('customers', CustomerController::class);
+
+        // Members routes
+        Route::delete('members/bulk-delete', [MemberController::class, 'bulkDelete'])->name('members.bulk-delete');
+        Route::get('members/export-xlsx', [MemberController::class, 'exportXLSX'])->name('members.export-xlsx');
+        Route::get('members/export-csv', [MemberController::class, 'exportCSV'])->name('members.export-csv');
+        Route::get('members/export-pdf', [MemberController::class, 'exportPDF'])->name('members.export-pdf');
+        Route::resource('members', MemberController::class);
+
+        // Partners routes
+        Route::delete('partners/bulk-delete', [PartnerController::class, 'bulkDelete'])->name('partners.bulk-delete');
+        Route::get('partners/export-xlsx', [PartnerController::class, 'exportXLSX'])->name('partners.export-xlsx');
+        Route::get('partners/export-csv', [PartnerController::class, 'exportCSV'])->name('partners.export-csv');
+        Route::get('partners/export-pdf', [PartnerController::class, 'exportPDF'])->name('partners.export-pdf');
+        Route::resource('partners', PartnerController::class);
+
+        // Employees routes
+        Route::delete('employees/bulk-delete', [EmployeeController::class, 'bulkDelete'])->name('employees.bulk-delete');
+        Route::get('employees/export-xlsx', [EmployeeController::class, 'exportXLSX'])->name('employees.export-xlsx');
+        Route::get('employees/export-csv', [EmployeeController::class, 'exportCSV'])->name('employees.export-csv');
+        Route::get('employees/export-pdf', [EmployeeController::class, 'exportPDF'])->name('employees.export-pdf');
+        Route::resource('employees', EmployeeController::class);
     });
 
     Route::middleware('guest')->group(function () {

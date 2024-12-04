@@ -86,11 +86,15 @@ const deleteAccount = () => {
                             </div>
                             <div>
                                 <p class="font-semibold">Perusahaan:</p>
-                                <ul>
-                                    <li v-for="company in account.companies" :key="company.id">
+                                <div class="flex flex-wrap gap-2 mt-1">
+                                    <span 
+                                        v-for="company in account.companies" 
+                                        :key="company.id"
+                                        class="px-2 py-1 bg-main-100 text-main-800 rounded-full text-xs"
+                                    >
                                         {{ company.name }}
-                                    </li>
-                                </ul>
+                                    </span>
+                                </div>
                             </div>
                             <div>
                                 <p class="font-semibold">Mata Uang:</p>

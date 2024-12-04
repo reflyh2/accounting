@@ -146,7 +146,7 @@ function submitAndCreateAnother() {
                {{ props.currency ? 'Ubah' : 'Tambah' }} Mata Uang
             </AppPrimaryButton>
             <AppUtilityButton v-if="!props.currency" type="button" @click="submitAndCreateAnother" class="mr-2">
-               Tambahkan dan buat yang lain
+               Tambah & Buat Lagi
             </AppUtilityButton>
             <AppSecondaryButton @click="$inertia.visit(route('currencies.index', filters))">
                Batal
