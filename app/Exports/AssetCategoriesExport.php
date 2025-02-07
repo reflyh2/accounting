@@ -12,25 +12,40 @@ use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder;
+use App\Models\AssetCategory;
+use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\Exportable;
 
-class AssetCategoriesExport extends DefaultValueBinder implements 
-    FromCollection, 
-    WithHeadings, 
-    WithMapping, 
-    WithCustomValueBinder,
-    WithEvents,
-    ShouldAutoSize
+class AssetCategoriesExport implements FromQuery, WithHeadings, WithMapping
 {
-    protected $categories;
+    use Exportable;
 
-    public function __construct($categories)
+    protected $filters;
+
+    public function __construct($filters = [])
     {
-        $this->categories = $categories;
+        $this->filters = $filters;
     }
 
-    public function collection()
+    public function query()
     {
-        return $this->categories;
+        $query = AssetCategory::query()
+            ->with([
+                'companies',
+                'fixedAssetAccount',
+                'purchasePayableAccount',
+                'accumulatedDepreciationAccount',
+                'depreciationExpenseAccount',
+                'prepaidRentAccount',
+                'rentExpenseAccount'
+            ])
+            ->withCount('assets');
+
+        if (!empty($this->filters['search'])) {
+            $query->where('name', 'like', '%' . $this->filters['search'] . '%');
+        }
+
+        return $query;
     }
 
     public function headings(): array
@@ -38,7 +53,14 @@ class AssetCategoriesExport extends DefaultValueBinder implements
         return [
             'Nama Kategori',
             'Deskripsi',
-            'Jumlah Aset',
+            'Perusahaan',
+            'Akun Aset Tetap',
+            'Akun Hutang Pembelian',
+            'Akun Akumulasi Penyusutan',
+            'Akun Beban Penyusutan',
+            'Akun Sewa Dibayar Dimuka',
+            'Akun Beban Sewa',
+            'Jumlah Aset'
         ];
     }
 
@@ -47,7 +69,14 @@ class AssetCategoriesExport extends DefaultValueBinder implements
         return [
             $category->name,
             $category->description,
-            $category->assets_count,
+            $category->companies->pluck('name')->implode(', '),
+            $category->fixedAssetAccount?->name ?? '-',
+            $category->purchasePayableAccount?->name ?? '-',
+            $category->accumulatedDepreciationAccount?->name ?? '-',
+            $category->depreciationExpenseAccount?->name ?? '-',
+            $category->prepaidRentAccount?->name ?? '-',
+            $category->rentExpenseAccount?->name ?? '-',
+            $category->assets_count
         ];
     }
 
@@ -60,7 +89,7 @@ class AssetCategoriesExport extends DefaultValueBinder implements
                 $event->sheet->getDelegate()->getPageSetup()->setFitToWidth(1);
                 $event->sheet->getDelegate()->getPageSetup()->setFitToHeight(0);
                 
-                $event->sheet->getStyle('A1:C1')->applyFromArray([
+                $event->sheet->getStyle('A1:J1')->applyFromArray([
                     'font' => ['bold' => true],
                     'fill' => [
                         'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
@@ -68,7 +97,7 @@ class AssetCategoriesExport extends DefaultValueBinder implements
                     ]
                 ]);
 
-                $event->sheet->getStyle('A1:C'.$event->sheet->getHighestRow())->applyFromArray([
+                $event->sheet->getStyle('A1:J'.$event->sheet->getHighestRow())->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
@@ -85,19 +114,26 @@ class AssetCategoriesExport extends DefaultValueBinder implements
                 $columnWidths = [
                     'A' => 30, // Name
                     'B' => 55, // Description
-                    'C' => 15, // Asset Count
+                    'C' => 15, // Company
+                    'D' => 15, // Fixed Asset Account
+                    'E' => 15, // Purchase Payable Account
+                    'F' => 15, // Accumulated Depreciation Account
+                    'G' => 15, // Depreciation Expense Account
+                    'H' => 15, // Prepaid Rent Account
+                    'I' => 15, // Rent Expense Account
+                    'J' => 15, // Asset Count
                 ];
 
-                foreach (range('A', 'C') as $column) {
+                foreach (range('A', 'J') as $column) {
                     $event->sheet->getColumnDimension($column)->setWidth($columnWidths[$column]);
                 }
 
                 // Add padding to cells
-                $event->sheet->getStyle('A1:C'.$event->sheet->getHighestRow())
+                $event->sheet->getStyle('A1:J'.$event->sheet->getHighestRow())
                     ->getAlignment()->setIndent(1);
 
                 // Right-align the asset count column
-                $event->sheet->getStyle('C2:C'.$event->sheet->getHighestRow())
+                $event->sheet->getStyle('J2:J'.$event->sheet->getHighestRow())
                     ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
             },
         ];

@@ -82,7 +82,7 @@ function downloadReport(format) {
          <h2 class="font-semibold text-xl text-gray-800 leading-tight">Laba/Rugi</h2>
       </template>
 
-      <div class="min-w-min md:min-w-max mx-auto">
+      <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
          <TabLinks :tabs="tabs" />
 
          <div class="bg-white shadow-sm sm:rounded border border-gray-200">

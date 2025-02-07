@@ -15,13 +15,13 @@ return new class extends Migration
             $table->foreignId('category_id')->constrained('asset_categories');
             $table->string('serial_number')->nullable();
             $table->string('status')->default('active');
-            $table->decimal('purchase_cost', 15, 2);
-            $table->date('purchase_date');
+            $table->decimal('purchase_cost', 15, 2)->nullable();
+            $table->date('purchase_date')->nullable();
             $table->string('supplier')->nullable();
             $table->date('warranty_expiry')->nullable();
             $table->string('depreciation_method')->default('straight-line');
-            $table->integer('useful_life_months');
-            $table->decimal('salvage_value', 15, 2)->default(0);
+            $table->integer('useful_life_months')->nullable();
+            $table->decimal('salvage_value', 15, 2)->nullable()->default(0);
             $table->text('notes')->nullable();
             $table->timestamps();
             $table->softDeletes();

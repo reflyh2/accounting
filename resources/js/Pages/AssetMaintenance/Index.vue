@@ -137,7 +137,7 @@ function handleFilter(newFilters) {
          <h2>Pemeliharaan Aset</h2>
       </template>
 
-      <div class="min-w-min md:min-w-max mx-auto">
+      <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
          <div class="bg-white shadow-sm sm:rounded border border-gray-200 mb-6">
             <div class="p-6">
                <div class="mb-6">

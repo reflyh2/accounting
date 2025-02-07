@@ -5,30 +5,45 @@ import AssetForm from './Partials/AssetForm.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 
 defineProps({
-    filters: Object,
-    categories: Array,
-    companies: Array,
-    branches: Array,
+    companies: {
+        type: Array,
+        required: true
+    },
+    branches: {
+        type: Array,
+        required: true
+    },
+    categories: {
+        type: Array,
+        required: true
+    },
+    filters: {
+        type: Object,
+        default: () => ({})
+    },
 });
 </script>
 
 <template>
-    <Head title="Create Asset" />
+    <Head title="Tambah Aset Baru" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Buat Aset Baru</h2>
+            <h2>Tambah Aset Baru</h2>
         </template>
 
-        <div>
-            <div class="min-w-min md:min-w-max mx-auto">
-                <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
-                    <div class="p-6 text-gray-900">
-                        <div class="mb-6">
-                            <AppBackLink :href="route('assets.index', filters)" text="Kembali ke Daftar Aset" />
-                        </div>
-                        <AssetForm :categories="categories" :filters="filters" :companies="companies" :branches="branches" />
+        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+            <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
+                <div class="p-6 text-gray-900">
+                    <div class="mb-6">
+                        <AppBackLink :href="route('assets.index', filters)" text="Kembali ke Daftar Aset" />
                     </div>
+                    <AssetForm
+                        :companies="companies"
+                        :branches="branches"
+                        :categories="categories"
+                        :filters="filters"
+                    />
                 </div>
             </div>
         </div>

@@ -4,44 +4,85 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Asset extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'name',
         'branch_id',
         'category_id',
+        'name',
+        'asset_type',
+        'acquisition_type',
         'serial_number',
         'status',
+        'current_value',
+        'residual_value',
         'purchase_cost',
         'purchase_date',
         'supplier',
-        'warranty_expiry',
+        'down_payment',
+        'financing_amount',
+        'interest_rate',
+        'financing_term_months',
+        'first_payment_date',
+        'first_depreciation_date',
+        'rental_start_date',
+        'rental_end_date',
+        'rental_period',
+        'rental_amount',
+        'rental_terms',
+        'payment_frequency',
         'depreciation_method',
         'useful_life_months',
         'salvage_value',
-        'notes'
+        'revaluation_method',
+        'last_revaluation_date',
+        'last_revaluation_amount',
+        'revaluation_notes',
+        'is_impaired',
+        'impairment_amount',
+        'impairment_date',
+        'impairment_notes',
+        'department',
+        'location',
+        'warranty_expiry',
+        'notes',
     ];
 
     protected $casts = [
         'purchase_date' => 'date',
         'warranty_expiry' => 'date',
+        'rental_start_date' => 'date',
+        'rental_end_date' => 'date',
+        'first_payment_date' => 'date',
+        'first_depreciation_date' => 'date',
+        'last_revaluation_date' => 'date',
+        'impairment_date' => 'date',
+        'is_impaired' => 'boolean',
         'purchase_cost' => 'decimal:2',
+        'current_value' => 'decimal:2',
+        'residual_value' => 'decimal:2',
+        'down_payment' => 'decimal:2',
+        'financing_amount' => 'decimal:2',
+        'interest_rate' => 'decimal:4',
+        'rental_amount' => 'decimal:2',
         'salvage_value' => 'decimal:2',
+        'last_revaluation_amount' => 'decimal:2',
+        'impairment_amount' => 'decimal:2',
     ];
 
-    public function branch(): BelongsTo
+    public function branch()
     {
         return $this->belongsTo(Branch::class);
     }
 
-    public function category(): BelongsTo
+    public function category()
     {
-        return $this->belongsTo(AssetCategory::class, 'category_id');
+        return $this->belongsTo(AssetCategory::class);
     }
 
     public function maintenanceRecords(): HasMany
@@ -49,25 +90,52 @@ class Asset extends Model
         return $this->hasMany(AssetMaintenanceRecord::class);
     }
 
-    public function calculateDepreciation(): float
+    public function financingPayments(): HasMany
     {
-        $ageInMonths = now()->diffInMonths($this->purchase_date);
-        
-        if ($ageInMonths >= $this->useful_life_months) {
+        return $this->hasMany(AssetFinancingPayment::class);
+    }
+
+    public function rentalPayments(): HasMany
+    {
+        return $this->hasMany(AssetRentalPayment::class);
+    }
+
+    public function transfers(): HasMany
+    {
+        return $this->hasMany(AssetTransfer::class);
+    }
+
+    public function disposals(): HasMany
+    {
+        return $this->hasMany(AssetDisposal::class);
+    }
+
+    public function maintenances(): HasMany
+    {
+        return $this->hasMany(AssetMaintenance::class);
+    }
+
+    public function calculateDepreciation()
+    {
+        if (!in_array($this->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
+            return null;
+        }
+
+        $age = now()->diffInMonths($this->purchase_date);
+        if ($age >= $this->useful_life_months) {
             return $this->salvage_value;
         }
 
-        switch ($this->depreciation_method) {
-            case 'straight-line':
-                $monthlyDepreciation = ($this->purchase_cost - $this->salvage_value) / $this->useful_life_months;
-                return $this->purchase_cost - ($monthlyDepreciation * $ageInMonths);
-            
-            case 'declining-balance':
-                $monthlyRate = (2 / $this->useful_life_months); // Double declining balance
-                return $this->purchase_cost * pow((1 - $monthlyRate), $ageInMonths);
-            
-            default:
-                return $this->purchase_cost;
+        if ($this->depreciation_method === 'straight-line') {
+            $monthlyDepreciation = ($this->purchase_cost - $this->salvage_value) / $this->useful_life_months;
+            return $this->purchase_cost - ($monthlyDepreciation * $age);
         }
+
+        if ($this->depreciation_method === 'declining-balance') {
+            $rate = 2 / $this->useful_life_months; // Double declining rate
+            return $this->purchase_cost * pow((1 - $rate), $age);
+        }
+
+        return $this->purchase_cost;
     }
 } 

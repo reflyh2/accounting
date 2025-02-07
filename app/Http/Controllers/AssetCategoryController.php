@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AssetCategory;
+use App\Models\Company;
+use App\Models\Account;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -10,7 +12,7 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Redirect;
 use App\Exports\AssetCategoriesExport;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Models\Company;
+use App\Http\Requests\AssetCategoryRequest;
 
 class AssetCategoryController extends Controller
 {
@@ -19,7 +21,17 @@ class AssetCategoryController extends Controller
         $filters = $request->all() ?: Session::get('asset_categories.index_filters', []);
         Session::put('asset_categories.index_filters', $filters);
 
-        $query = AssetCategory::withCount('assets');
+        $query = AssetCategory::query()
+            ->with([
+                'companies',
+                'fixedAssetAccount',
+                'purchasePayableAccount',
+                'accumulatedDepreciationAccount',
+                'depreciationExpenseAccount',
+                'prepaidRentAccount',
+                'rentExpenseAccount'
+            ])
+            ->withCount('assets');
 
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
@@ -48,74 +60,98 @@ class AssetCategoryController extends Controller
 
     public function create()
     {
-        $filters = Session::get('asset_categories.index_filters', []);
-        
         return Inertia::render('AssetCategories/Create', [
+            'filters' => request()->all('search', 'trashed'),
             'companies' => Company::orderBy('name')->get(),
-            'filters' => $filters,
+            'accounts' => Account::where('is_parent', false)->orderBy('code')->get()
         ]);
     }
 
-    public function store(Request $request)
+    public function store(AssetCategoryRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:asset_categories,name',
-            'description' => 'nullable|string',
-            'company_ids' => 'required|array',
-            'company_ids.*' => 'exists:companies,id',
-        ]);
+        DB::transaction(function () use ($request) {
+            $category = AssetCategory::create([
+                'name' => $request->name,
+                'description' => $request->description,
+                'fixed_asset_account_id' => $request->fixed_asset_account_id,
+                'purchase_payable_account_id' => $request->purchase_payable_account_id,
+                'accumulated_depreciation_account_id' => $request->accumulated_depreciation_account_id,
+                'depreciation_expense_account_id' => $request->depreciation_expense_account_id,
+                'prepaid_rent_account_id' => $request->prepaid_rent_account_id,
+                'rent_expense_account_id' => $request->rent_expense_account_id,
+            ]);
 
-        $category = AssetCategory::create([
-            'name' => $validated['name'],
-            'description' => $validated['description'],
-        ]);
+            if ($request->company_ids) {
+                $category->companies()->sync($request->company_ids);
+            }
+        });
 
-        $category->companies()->sync($validated['company_ids']);
-
-        if ($request->input('create_another', false)) {
-            return redirect()->route('asset-categories.create')
-                ->with('success', 'Kategori aset berhasil dibuat. Silakan buat kategori lainnya.');
-        }
-
-        return redirect()->route('asset-categories.index')
+        return redirect()
+            ->route('asset-categories.index')
             ->with('success', 'Kategori aset berhasil dibuat.');
     }
 
-    public function show(AssetCategory $assetCategory)
+    public function show(Request $request, AssetCategory $assetCategory)
     {
+        $sort = $request->sort ?? 'name';
+        $order = $request->order ?? 'asc';
+        $perPage = $request->per_page ?? 10;
+
+        $assets = $assetCategory->assets()
+            ->with('branch.branchGroup.company')
+            ->orderBy($sort, $order)
+            ->paginate($perPage)
+            ->withQueryString();
+
         return Inertia::render('AssetCategories/Show', [
-            'category' => $assetCategory->load('companies', 'assets.branch.branchGroup.company'),
+            'category' => $assetCategory->load('companies'),
+            'assets' => $assets,
+            'filters' => $request->only(['sort', 'order', 'per_page']),
+            'sort' => $sort,
+            'order' => $order,
+            'perPage' => $perPage,
         ]);
     }
 
     public function edit(AssetCategory $assetCategory)
     {
-        $filters = Session::get('asset_categories.index_filters', []);
-        
         return Inertia::render('AssetCategories/Edit', [
-            'category' => $assetCategory->load('companies'),
+            'category' => $assetCategory->load([
+                'companies',
+                'fixedAssetAccount',
+                'purchasePayableAccount',
+                'accumulatedDepreciationAccount',
+                'depreciationExpenseAccount',
+                'prepaidRentAccount',
+                'rentExpenseAccount'
+            ]),
+            'filters' => request()->all('search', 'trashed'),
             'companies' => Company::orderBy('name')->get(),
-            'filters' => $filters,
+            'accounts' => Account::orderBy('code')->get()
         ]);
     }
 
-    public function update(Request $request, AssetCategory $assetCategory)
+    public function update(AssetCategoryRequest $request, AssetCategory $assetCategory)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:asset_categories,name,' . $assetCategory->id,
-            'description' => 'nullable|string',
-            'company_ids' => 'required|array',
-            'company_ids.*' => 'exists:companies,id',
-        ]);
+        DB::transaction(function () use ($request, $assetCategory) {
+            $assetCategory->update([
+                'name' => $request->name,
+                'description' => $request->description,
+                'fixed_asset_account_id' => $request->fixed_asset_account_id,
+                'purchase_payable_account_id' => $request->purchase_payable_account_id,
+                'accumulated_depreciation_account_id' => $request->accumulated_depreciation_account_id,
+                'depreciation_expense_account_id' => $request->depreciation_expense_account_id,
+                'prepaid_rent_account_id' => $request->prepaid_rent_account_id,
+                'rent_expense_account_id' => $request->rent_expense_account_id,
+            ]);
 
-        $assetCategory->update([
-            'name' => $validated['name'],
-            'description' => $validated['description'],
-        ]);
+            if ($request->company_ids) {
+                $assetCategory->companies()->sync($request->company_ids);
+            }
+        });
 
-        $assetCategory->companies()->sync($validated['company_ids']);
-
-        return redirect()->route('asset-categories.index')
+        return redirect()
+            ->route('asset-categories.index')
             ->with('success', 'Kategori aset berhasil diubah.');
     }
 

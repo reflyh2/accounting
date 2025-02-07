@@ -19,8 +19,23 @@ import AppDangerButton from './AppDangerButton.vue';
 const props = defineProps({
     data: Object,
     filters: Object,
+    enableFilters: {
+        type: Boolean,
+        default: true
+    },
     tableHeaders: Array,
-    createRoute: [String, Object],
+    createRoute: {
+        type: [Object, Boolean],
+        default: null
+    },
+    createButtonLabel: {
+        type: String,
+        default: 'Buat'
+    },
+    useCreateEvent: {
+        type: Boolean,
+        default: false
+    },
     editRoute: [String, Object],
     deleteRoute: [String, Object],
     viewRoute: [String, Object],
@@ -58,7 +73,7 @@ const props = defineProps({
     }
 });
 
-const emit = defineEmits(['delete', 'sort', 'filter', 'bulkDelete']);
+const emit = defineEmits(['delete', 'sort', 'filter', 'bulkDelete', 'create']);
 
 const search = ref(props.filters?.search || '');
 const customFilterValues = ref({});
@@ -200,18 +215,34 @@ function clearFilters() {
         per_page: rowsPerPage.value
     });
 }
+
+function handleCreate() {
+    if (props.useCreateEvent) {
+        emit('create');
+    }
+}
 </script>
 
 <template>
     <div>
-        <div class="mb-4 px-6 pt-6 flex justify-between items-center">
+        <div v-if="enableFilters || createRoute || useCreateEvent || downloadOptions || enableBulkActions" class="mb-4 px-6 pt-6 flex justify-between items-center">
             <div class="flex items-center">
-                <Link :href="getRoute(createRoute)" class="mr-2">
-                    <AppPrimaryButton>
+                <template v-if="createRoute || useCreateEvent">
+                    <Link v-if="createRoute" :href="getRoute(createRoute)" class="mr-2">
+                        <AppPrimaryButton>
+                            <PlusIcon class="w-5 h-5 mr-1" />
+                            {{ createButtonLabel }}
+                        </AppPrimaryButton>
+                    </Link>
+                    <AppPrimaryButton 
+                        v-else 
+                        @click="handleCreate"
+                        class="mr-2"
+                    >
                         <PlusIcon class="w-5 h-5 mr-1" />
-                        Buat
+                        {{ createButtonLabel }}
                     </AppPrimaryButton>
-                </Link>
+                </template>
                 <AppDangerButton 
                     v-if="enableBulkActions && selectedItems.length > 0"
                     @click="confirmBulkDelete"
@@ -235,7 +266,7 @@ function clearFilters() {
                 </div>
             </div>
 
-            <div class="flex items-center">
+            <div v-if="enableFilters" class="flex items-center">
                 <a
                     v-if="hasAppliedFilters"
                     @click="clearFilters"
@@ -271,6 +302,7 @@ function clearFilters() {
                                 :multiple="filter.multiple"
                                 :placeholder="filter.placeholder"
                                 :label="filter.label"
+                                :maxRows="filter.maxRows"
                                 @update:modelValue="handleFilterChange(filter.name, $event)"
                             />
                         </div>
@@ -303,14 +335,16 @@ function clearFilters() {
             @selectionChange="handleSelectionChange"
         >
             <template #actions="{ item }">
-                <slot name="custom_actions" :item="item" />
-                <Link v-if="viewRoute" :href="getRoute(viewRoute, { id: item.id })">
-                    <AppViewButton title="Detail" />
-                </Link>
-                <Link v-if="editRoute" :href="getRoute(editRoute, { id: item.id })">
-                    <AppEditButton title="Ubah" />
-                </Link>
-                <AppDeleteButton v-if="deleteRoute" @click="confirmDelete(item.id)" title="Hapus" />
+                <div class="flex items-center">
+                    <slot name="custom_actions" :item="item" />
+                    <Link v-if="viewRoute" :href="getRoute(viewRoute, { id: item.id })">
+                        <AppViewButton title="Detail" />
+                    </Link>
+                    <Link v-if="editRoute" :href="getRoute(editRoute, { id: item.id })">
+                        <AppEditButton title="Ubah" />
+                    </Link>
+                    <AppDeleteButton v-if="deleteRoute" @click="confirmDelete(item.id)" title="Hapus" />
+                </div>
             </template>
         </AppTable>
 

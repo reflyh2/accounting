@@ -154,7 +154,7 @@ function handleFilter(newFilters) {
             <h2>Jurnal Umum</h2>
         </template>
 
-        <div class="min-w-min md:min-w-max mx-auto">
+        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
             <TabLinks :tabs="tabs" />
 
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
@@ -183,7 +183,7 @@ function handleFilter(newFilters) {
                         @filter="handleFilter"
                     >
                         <template #custom_actions="{ item }">
-                            <a :href="route('journals.print', item.id)" class="mr-3" target="_blank">
+                            <a :href="route('journals.print', item.id)" target="_blank">
                                 <AppPrintButton />
                             </a>
                         </template>

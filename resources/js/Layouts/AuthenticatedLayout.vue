@@ -69,6 +69,8 @@ const isAccountingActive = computed(() => {
         || route().current('assets.*')
         || route().current('asset-categories.*')
         || route().current('asset-maintenance.*')
+        || route().current('asset-financing-payments.*')
+        || route().current('asset-rental-payments.*')
         || route().current('general-ledger.*')
         || route().current('cash-bank-book.*')
         || route().current('income.*')
@@ -89,7 +91,7 @@ const isAccountingActive = computed(() => {
                         </div>
                     </div>
 
-                    <div class="hidden sm:flex sm:items-center sm:ms-6">
+                    <div class="hidden md:flex md:items-center md:ms-6">
                         <div class="ms-3 relative">
                             <Dropdown align="right" width="48">
                                 <template #trigger>
@@ -114,7 +116,7 @@ const isAccountingActive = computed(() => {
                         </div>
                     </div>
 
-                    <div class="-me-2 flex items-center sm:hidden">
+                    <div class="-me-2 flex items-center md:hidden">
                         <button @click="showingMobileMenu = !showingMobileMenu" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out">
                             <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                                 <path :class="{'hidden': showingMobileMenu, 'inline-flex': !showingMobileMenu }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -126,7 +128,7 @@ const isAccountingActive = computed(() => {
             </div>
 
             <!-- Mobile menu -->
-            <div :class="{'block': showingMobileMenu, 'hidden': !showingMobileMenu}" class="sm:hidden bg-white fixed inset-0 top-16 z-50">
+            <div :class="{'block': showingMobileMenu, 'hidden': !showingMobileMenu}" class="md:hidden bg-white fixed inset-0 top-16 z-50">
                 <div class="pt-2 pb-3 space-y-1 bg-white">
                     <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')" class="flex items-center ps-3">
                         <HomeIcon class="h-5 w-5 mr-2" />
@@ -157,7 +159,13 @@ const isAccountingActive = computed(() => {
                                 Jurnal
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('assets.index')" 
-                                :active="route().current('assets.*') || route().current('asset-categories.*') || route().current('asset-maintenance.*')" 
+                                :active="
+                                    route().current('assets.*') 
+                                    || route().current('asset-categories.*') 
+                                    || route().current('asset-maintenance.*')
+                                    || route().current('asset-financing-payments.*')
+                                    || route().current('asset-rental-payments.*')
+                                " 
                                 class="pl-11"
                             >
                                 Aset
@@ -241,7 +249,7 @@ const isAccountingActive = computed(() => {
 
         <div class="flex flex-1 overflow-hidden">
             <!-- Side Navigation -->
-            <div class="hidden sm:block w-72 flex-shrink-0 overflow-y-auto thin-scrollbar fixed top-16 bottom-0 left-0 no-print">
+            <div class="hidden md:block w-72 flex-shrink-0 overflow-y-auto thin-scrollbar fixed top-16 bottom-0 left-0 no-print">
                 <div class="py-6 px-2">
                     <nav class="space-y-1">
                         <NavLink :href="route('dashboard')" :active="route().current('dashboard')" class="flex items-center">
@@ -286,6 +294,8 @@ const isAccountingActive = computed(() => {
                                         route().current('assets.*') 
                                         || route().current('asset-categories.*') 
                                         || route().current('asset-maintenance.*')
+                                        || route().current('asset-financing-payments.*')
+                                        || route().current('asset-rental-payments.*')
                                     " 
                                     class="flex items-center"
                                 >
@@ -357,15 +367,16 @@ const isAccountingActive = computed(() => {
                                 <!-- Add more settings menu items as needed -->
                             </DisclosurePanel>
                         </Disclosure>
+                        
                     </nav>
                 </div>
             </div>
             
             <!-- Main Content -->
-            <div class="flex-1 overflow-y-auto thin-scrollbar fixed top-16 bottom-0 right-0 left-0 sm:left-72 main-content print:p-0 print:m-0 print:bg-white print:left-0 print:w-full print:h-full z-0">
+            <div class="flex-1 overflow-y-auto thin-scrollbar fixed top-16 bottom-0 right-0 left-0 md:left-72 main-content print:p-0 print:m-0 print:bg-white print:left-0 print:w-full print:h-full z-0">
                 <!-- Page Heading -->
                 <header class="bg-gray-100 no-print">
-                    <div class="min-w-min md:min-w-max mx-auto py-6 pl-6 sm:pl-0">
+                    <div class="min-w-max sm:min-w-min md:max-w-full mx-auto py-6 pl-6 sm:pl-0">
                         <h2 class="font-semibold text-2xl text-gray-800 leading-tight">
                             <slot name="header"></slot>
                         </h2>

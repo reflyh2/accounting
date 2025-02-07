@@ -1,29 +1,52 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import AppHint from '@/Components/AppHint.vue';
 
 defineOptions({
    inheritAttrs: false
 });
 
 const props = defineProps({
-   modelValue: [String, Number, Array],
-   label: String,
-   options: Array,
-   error: String,
-   multiple: Boolean,
-   placeholder: {
-     type: String,
-     default: 'Select options'
+   modelValue: {
+      type: [String, Number, Array],
+      default: ''
    },
-   required: Boolean,
+   label: {
+      type: String,
+      default: ''
+   },
+   options: {
+      type: Array,
+      required: true
+   },
+   error: {
+      type: String,
+      default: ''
+   },
+   multiple: {
+      type: Boolean,
+      default: false
+   },
+   placeholder: {
+      type: String,
+      default: 'Pilih opsi'
+   },
+   required: {
+      type: Boolean,
+      default: false
+   },
    submitted: Boolean,
    maxRows: {
-     type: Number,
-     default: 0 // 0 means no limit
+      type: Number,
+      default: 4
    },
    disabled: {
-     type: Boolean,
-     default: false
+      type: Boolean,
+      default: false
+   },
+   hint: {
+      type: String,
+      default: ''
    }
 });
 
@@ -193,6 +216,7 @@ onUnmounted(() => {
     <label v-if="label" class="block mb-1 text-sm">
       {{ label }}
       <span v-if="required" class="text-red-500 ml-1">*</span>
+      <AppHint v-if="hint" :text="hint" />
     </label>
     <div class="relative" ref="selectRef">
       <div 
@@ -202,6 +226,7 @@ onUnmounted(() => {
         tabindex="0"
         :class="[
           'w-full px-2 py-2 border text-sm border-gray-300 rounded flex items-center justify-between',
+          multiple && selectedOptions.length ? 'py-1.5' : 'py-2',
           isFocused ? 'outline-none ring-1 ring-main-500' : '',
           !isFocused && props.error && !hasChanged ? 'border-red-500' : '',
           props.disabled ? 'bg-gray-50 cursor-not-allowed' : 'bg-white cursor-pointer'
@@ -218,7 +243,7 @@ onUnmounted(() => {
             <span 
               v-for="option in selectedOptions" 
               :key="option.value"
-              class="bg-main-100 text-main-800 text-xs font-medium px-2 py-0.5 rounded mr-1 flex items-center"
+              class="bg-main-100 text-main-800 text-xs font-medium px-2 py-0.5 rounded mr-1 my-0.5 flex items-center"
             >
               {{ option.label }}
               <button @click.stop="removeOption(option.value)" class="ml-1 text-main-600 hover:text-main-800">&times;</button>

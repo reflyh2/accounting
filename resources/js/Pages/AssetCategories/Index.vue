@@ -29,15 +29,6 @@ const tableHeaders = [
     { key: 'actions', label: '' }
 ];
 
-const customFilters = computed(() => [
-    {
-        name: 'search',
-        type: 'text',
-        placeholder: 'Cari kategori...',
-        label: 'Pencarian'
-    }
-]);
-
 const downloadOptions = [
     { format: 'pdf', label: 'Download PDF' },
     { format: 'xlsx', label: 'Download Excel' },
@@ -116,14 +107,13 @@ function handleFilter(newFilters) {
 
         <TabLinks :tabs="tabs" />
 
-        <div class="min-w-min md:min-w-max mx-auto">
+        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">
                     <AppDataTable
                         :data="categories"
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
-                        :customFilters="customFilters"
                         :createRoute="{ name: 'asset-categories.create' }"
                         :viewRoute="{ name: 'asset-categories.show' }"
                         :editRoute="{ name: 'asset-categories.edit' }"

@@ -1,160 +1,304 @@
 <script setup>
+import { ref } from 'vue';
+import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm, Link } from '@inertiajs/vue3';
-import AppPrintButton from '@/Components/AppPrintButton.vue';
+import AppBackLink from '@/Components/AppBackLink.vue';
+import AppModal from '@/Components/AppModal.vue';
 import AppEditButton from '@/Components/AppEditButton.vue';
 import AppDeleteButton from '@/Components/AppDeleteButton.vue';
-import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
-import AppBackLink from '@/Components/AppBackLink.vue';
-import { ref } from 'vue';
-import { formatNumber } from '@/utils/numberFormat';
-import { WrenchScrewdriverIcon } from '@heroicons/vue/24/solid';
-import { statusOptions, getStatusClass } from '@/constants/assetStatus';
+import AppTransferButton from '@/Components/AppTransferButton.vue';
+import AppMaintenanceButton from '@/Components/AppMaintenanceButton.vue';
+import AppPaymentButton from '@/Components/AppPaymentButton.vue';
+import AppDisposeButton from '@/Components/AppDisposeButton.vue';
 
 const props = defineProps({
-    asset: Object,
-    filters: Object,
+    asset: {
+        type: Object,
+        required: true
+    },
+    currentValue: {
+        type: Number,
+        required: true
+    },
+    filters: {
+        type: Object,
+        default: () => ({})
+    },
 });
 
-const form = useForm({});
-const showDeleteConfirmation = ref(false);
+const confirmingAssetDeletion = ref(false);
 
-const deleteAsset = () => {
-    form.delete(route('assets.destroy', props.asset.id), {
-        onSuccess: () => {
-            showDeleteConfirmation.value = false;
-        },
+const acquisitionType = {
+    'outright_purchase': 'Pembelian Langsung',
+    'financed_purchase': 'Pembelian Kredit',
+    'fixed_rental': 'Sewa Periode Tetap',
+    'periodic_rental': 'Sewa Berkala',
+    'casual_rental': 'Sewa Sekali Pakai',
+};
+
+const assetType = {
+    'tangible': 'Berwujud',
+    'intangible': 'Tidak Berwujud',
+};
+
+function deleteAsset() {
+    router.delete(route('assets.destroy', props.asset.id), {
+        preserveScroll: true,
     });
+}
+
+const getStatusClass = (status) => {
+    switch (status) {
+        case 'active':
+            return 'bg-green-100 text-green-800';
+        case 'inactive':
+            return 'bg-gray-100 text-gray-800';
+        case 'maintenance':
+            return 'bg-yellow-100 text-yellow-800';
+        case 'disposed':
+            return 'bg-red-100 text-red-800';
+        default:
+            return 'bg-gray-100 text-gray-800';
+    }
+};
+
+const formatCurrency = (value) => {
+    if (!value && value !== 0) return '-';
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value);
+};
+
+const formatDate = (date) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString();
+};
+
+const getNestedValue = (obj, path) => {
+    if (!obj) return '-';
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj) ?? '-';
 };
 </script>
 
 <template>
-   <Head title="Detail Aset" />
+    <Head title="Detail Aset" />
 
-   <AuthenticatedLayout>
-      <template #header>
-         <h2>Detail Aset</h2>
-      </template>
+    <AuthenticatedLayout>
+        <template #header>
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Detail Aset</h2>
+        </template>
 
-      <div>
-         <div class="min-w-min md:min-w-max mx-auto">
-               <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
-                  <div class="p-6 text-gray-900">
-                     <div class="mb-6">
-                           <AppBackLink :href="route('assets.index', filters)" text="Kembali ke Daftar Aset" />
-                     </div>
-                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-bold">{{ asset.name }}</h3>
-                        <div class="flex items-center">
-                           <Link
-                              :href="route('asset-maintenance.index', asset.id)"
-                              class="inline-flex items-center justify-center align-middle w-4 h-4 md:ml-3 text-main-500 hover:text-main-700 focus:outline-none focus:ring-2 focus:ring-main-500 focus:ring-opacity-50"
-                           >
-                              <WrenchScrewdriverIcon class="h-4 w-4" />
-                           </Link>
-                           <Link :href="route('assets.edit', asset.id)">
-                              <AppEditButton title="Edit" />
-                           </Link>
-                           <AppDeleteButton @click="showDeleteConfirmation = true" title="Delete" />
+        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+            <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
+                <div class="p-6 text-gray-900">
+                    <div class="mb-6 flex justify-between items-center">
+                        <AppBackLink :href="route('assets.index', filters)" text="Kembali ke Daftar Aset" />
+                        <div class="flex items-center gap-2">
+                            <template v-if="asset">
+                                <!-- Asset Management Actions -->
+                                <AppTransferButton
+                                    v-if="asset.status !== 'disposed'"
+                                    @click="$inertia.visit(route('asset-transfers.create', asset.id))"
+                                    title="Transfer Aset"
+                                />
+                                <AppDisposeButton
+                                    v-if="asset.status !== 'disposed'"
+                                    @click="$inertia.visit(route('asset-disposals.create', asset.id))"
+                                    title="Lepas Aset"
+                                />
+                                <AppMaintenanceButton
+                                    @click="$inertia.visit(route('asset-maintenance.index', asset.id))"
+                                    title="Catatan Pemeliharaan"
+                                />
+                                <AppPaymentButton
+                                    v-if="['outright_purchase', 'financed_purchase'].includes(asset.acquisition_type)"
+                                    @click="$inertia.visit(route('asset-financing-payments.index', asset.id))"
+                                    title="Kelola Pembayaran Pembiayaan"
+                                />
+                                <AppPaymentButton
+                                    v-if="['fixed_rental', 'periodic_rental', 'casual_rental'].includes(asset.acquisition_type)"
+                                    @click="$inertia.visit(route('asset-rental-payments.index', asset.id))"
+                                    title="Kelola Pembayaran Sewa"
+                                />
+
+                                <!-- Basic Actions -->
+                                <AppEditButton
+                                    @click="$inertia.visit(route('assets.edit', asset.id))"
+                                    title="Ubah Aset"
+                                />
+                                <AppDeleteButton 
+                                    @click="confirmingAssetDeletion = true"
+                                    title="Hapus Aset"
+                                />
+                            </template>
                         </div>
-                     </div>
-                     <div class="grid grid-cols-2 gap-4 *:py-1 text-sm">
-                           <div>
-                              <p class="font-semibold">Perusahaan:</p>
-                              <p>{{ asset.branch.branch_group.company.name }}</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Cabang:</p>
-                              <p>{{ asset.branch.name }}</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Kategori:</p>
-                              <p>{{ asset.category.name }}</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Status:</p>
-                              <p><span :class="getStatusClass(asset.status)">{{ statusOptions.find(option => option.value === asset.status)?.label || asset.status }}</span></p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Nomor Seri:</p>
-                              <p>{{ asset.serial_number || '-' }}</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Supplier:</p>
-                              <p>{{ asset.supplier || '-' }}</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Tanggal Pembelian:</p>
-                              <p>{{ new Date(asset.purchase_date).toLocaleDateString() }}</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Harga Pembelian:</p>
-                              <p>{{ formatNumber(asset.purchase_cost) }}</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Nilai Sisa:</p>
-                              <p>{{ formatNumber(asset.salvage_value) }}</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Nilai Sekarang:</p>
-                              <p>{{ formatNumber(asset.current_value) }}</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Metode Penyusutan:</p>
-                              <p>{{ asset.depreciation_method === 'straight-line' ? 'Garis Lurus' : 'Saldo Menurun' }}</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Masa Manfaat:</p>
-                              <p>{{ asset.useful_life_months }} bulan</p>
-                           </div>
-                           <div>
-                              <p class="font-semibold">Garansi Berakhir:</p>
-                              <p>{{ asset.warranty_expiry ? new Date(asset.warranty_expiry).toLocaleDateString() : '-' }}</p>
-                           </div>
-                           <div class="col-span-2">
-                              <p class="font-semibold">Catatan:</p>
-                              <p>{{ asset.notes || '-' }}</p>
-                           </div>
-                     </div>
+                    </div>
 
-                     <div class="mt-6">
-                           <div class="flex justify-between items-center mb-4">
-                              <h4 class="text-lg font-semibold">Riwayat Pemeliharaan</h4>
-                           </div>
-                           <table v-if="asset.maintenance_records?.length" class="w-full border-collapse border border-gray-300 text-sm">
-                              <thead>
-                                 <tr class="bg-gray-100">
-                                       <th class="border border-gray-300 px-4 py-2">Tanggal</th>
-                                       <th class="border border-gray-300 px-4 py-2">Jenis</th>
-                                       <th class="border border-gray-300 px-4 py-2">Biaya</th>
-                                       <th class="border border-gray-300 px-4 py-2">Status</th>
-                                 </tr>
-                              </thead>
-                              <tbody>
-                                 <tr v-for="record in asset.maintenance_records" :key="record.id">
-                                       <td class="border border-gray-300 px-4 py-2">{{ new Date(record.maintenance_date).toLocaleDateString() }}</td>
-                                       <td class="border border-gray-300 px-4 py-2">{{ record.maintenance_type }}</td>
-                                       <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(record.cost) }}</td>
-                                       <td class="border border-gray-300 px-4 py-2 text-center">
-                                          <span :class="record.completed_at ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
-                                             {{ record.completed_at ? 'Selesai' : 'Dalam Proses' }}
-                                          </span>
-                                       </td>
-                                 </tr>
-                              </tbody>
-                           </table>
-                           <p v-else class="text-gray-500 italic">Belum ada catatan pemeliharaan</p>
-                     </div>
-                  </div>
-               </div>
-         </div>
-      </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Basic Information -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Informasi Dasar</h3>
+                            <dl class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <dt class="font-medium">Nama</dt>
+                                    <dd>{{ asset.name }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Kategori</dt>
+                                    <dd>{{ getNestedValue(asset, 'category.name') }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Jenis Aset</dt>
+                                    <dd class="capitalize">{{ assetType[asset.asset_type] }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Jenis Perolehan</dt>
+                                    <dd class="capitalize">{{ acquisitionType[asset.acquisition_type] }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Nomor Seri</dt>
+                                    <dd>{{ asset.serial_number || '-' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Status</dt>
+                                    <dd>
+                                        <span :class="[
+                                            'px-2 inline-flex text-xs leading-5 font-semibold rounded-full',
+                                            getStatusClass(asset.status)
+                                        ]">
+                                            {{ asset.status === 'active' ? 'Aktif' :
+                                                asset.status === 'inactive' ? 'Tidak Aktif' :
+                                                asset.status === 'maintenance' ? 'Pemeliharaan' :
+                                                'Dilepas' }}
+                                        </span>
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
 
-      <DeleteConfirmationModal
-         :show="showDeleteConfirmation"
-         title="Hapus Aset"
-         @close="showDeleteConfirmation = false"
-         @confirm="deleteAsset"
-      />
-   </AuthenticatedLayout>
+                        <!-- Purchase Information -->
+                        <div v-if="['outright_purchase', 'financed_purchase'].includes(asset.acquisition_type)">
+                            <h3 class="text-lg font-semibold mb-4">Informasi Pembelian</h3>
+                            <dl class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <dt class="font-medium">Harga Perolehan</dt>
+                                    <dd>{{ formatCurrency(asset.purchase_cost) }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Tanggal Perolehan</dt>
+                                    <dd>{{ formatDate(asset.purchase_date) }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Pemasok</dt>
+                                    <dd>{{ asset.supplier || '-' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Masa Garansi</dt>
+                                    <dd>{{ formatDate(asset.warranty_expiry) }}</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <!-- Rental Information -->
+                        <div v-if="['fixed_rental', 'periodic_rental'].includes(asset.acquisition_type)">
+                            <h3 class="text-lg font-semibold mb-4">Informasi Sewa</h3>
+                            <dl class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <dt class="font-medium">Tanggal Mulai Sewa</dt>
+                                    <dd>{{ formatDate(asset.rental_start_date) }}</dd>
+                                </div>
+                                <div v-if="asset.acquisition_type === 'fixed_rental'">
+                                    <dt class="font-medium">Tanggal Selesai Sewa</dt>
+                                    <dd>{{ formatDate(asset.rental_end_date) }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Biaya Sewa</dt>
+                                    <dd>{{ formatCurrency(asset.rental_amount) }}</dd>
+                                </div>
+                                <div v-if="asset.acquisition_type === 'periodic_rental'">
+                                    <dt class="font-medium">Frekuensi Pembayaran</dt>
+                                    <dd>{{ {
+                                        'monthly': 'Bulanan',
+                                        'quarterly': 'Per 3 Bulan',
+                                        'annually': 'Tahunan'
+                                    }[asset.payment_frequency] || '-' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Ketentuan Sewa</dt>
+                                    <dd>{{ asset.rental_terms || '-' }}</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <!-- Location Information -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Informasi Lokasi</h3>
+                            <dl class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <dt class="font-medium">Cabang</dt>
+                                    <dd>{{ getNestedValue(asset, 'branch.name') }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Departemen</dt>
+                                    <dd>{{ asset.department || '-' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Lokasi</dt>
+                                    <dd>{{ asset.location || '-' }}</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <!-- Depreciation Information -->
+                        <div v-if="['outright_purchase', 'financed_purchase'].includes(asset.acquisition_type)">
+                            <h3 class="text-lg font-semibold mb-4">Informasi Penyusutan</h3>
+                            <dl class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <dt class="font-medium">Metode Penyusutan</dt>
+                                    <dd>{{ asset.depreciation_method === 'straight-line' ? 'Garis Lurus' : 'Saldo Menurun' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Masa Manfaat</dt>
+                                    <dd>{{ asset.useful_life_months }} bulan</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Nilai Sisa</dt>
+                                    <dd>{{ formatCurrency(asset.salvage_value) }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="font-medium">Nilai Sekarang</dt>
+                                    <dd>{{ formatCurrency(currentValue) }}</dd>
+                                </div>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <AppModal 
+            :show="confirmingAssetDeletion" 
+            @close="confirmingAssetDeletion = false"
+            :closeable="true"
+        >
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-gray-900">
+                    Apakah Anda yakin ingin menghapus aset ini?
+                </h2>
+
+                <p class="mt-1 text-sm text-gray-600">
+                    Tindakan ini tidak dapat dibatalkan.
+                </p>
+
+                <div class="mt-6 flex justify-end">
+                    <AppSecondaryButton @click="confirmingAssetDeletion = false" class="mr-3">
+                        Batal
+                    </AppSecondaryButton>
+
+                    <AppDangerButton @click="deleteAsset">
+                        Hapus Aset
+                    </AppDangerButton>
+                </div>
+            </div>
+        </AppModal>
+    </AuthenticatedLayout>
 </template> 

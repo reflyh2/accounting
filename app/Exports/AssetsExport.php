@@ -38,15 +38,25 @@ class AssetsExport extends DefaultValueBinder implements
         return [
             'Name',
             'Category',
+            'Type',
+            'Acquisition Type',
             'Serial Number',
             'Status',
             'Purchase Cost',
+            'Current Value',
             'Purchase Date',
             'Supplier',
             'Location',
             'Department',
-            'Current Value',
             'Warranty Expiry',
+            'Depreciation Method',
+            'Useful Life (Months)',
+            'Salvage Value',
+            'Last Revaluation Date',
+            'Last Revaluation Amount',
+            'Impairment Status',
+            'Impairment Amount',
+            'Impairment Date',
         ];
     }
 
@@ -55,15 +65,25 @@ class AssetsExport extends DefaultValueBinder implements
         return [
             $asset->name,
             $asset->category->name,
+            ucfirst($asset->asset_type),
+            ucfirst($asset->acquisition_type),
             $asset->serial_number,
-            $asset->status,
+            ucfirst($asset->status),
             number_format($asset->purchase_cost, 2),
+            number_format($asset->current_value ?? $asset->calculateDepreciation(), 2),
             date('d/m/Y', strtotime($asset->purchase_date)),
             $asset->supplier,
             $asset->location,
             $asset->department,
-            number_format($asset->calculateDepreciation(), 2),
             $asset->warranty_expiry ? date('d/m/Y', strtotime($asset->warranty_expiry)) : '-',
+            ucfirst(str_replace('-', ' ', $asset->depreciation_method)),
+            $asset->useful_life_months,
+            number_format($asset->salvage_value, 2),
+            $asset->last_revaluation_date ? date('d/m/Y', strtotime($asset->last_revaluation_date)) : '-',
+            $asset->last_revaluation_amount ? number_format($asset->last_revaluation_amount, 2) : '-',
+            $asset->is_impaired ? 'Yes' : 'No',
+            $asset->impairment_amount ? number_format($asset->impairment_amount, 2) : '-',
+            $asset->impairment_date ? date('d/m/Y', strtotime($asset->impairment_date)) : '-',
         ];
     }
 
@@ -76,7 +96,7 @@ class AssetsExport extends DefaultValueBinder implements
                 $event->sheet->getDelegate()->getPageSetup()->setFitToWidth(1);
                 $event->sheet->getDelegate()->getPageSetup()->setFitToHeight(0);
                 
-                $event->sheet->getStyle('A1:K1')->applyFromArray([
+                $event->sheet->getStyle('A1:U1')->applyFromArray([
                     'font' => ['bold' => true],
                     'fill' => [
                         'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
@@ -84,7 +104,7 @@ class AssetsExport extends DefaultValueBinder implements
                     ]
                 ]);
 
-                $event->sheet->getStyle('A1:K'.$event->sheet->getHighestRow())->applyFromArray([
+                $event->sheet->getStyle('A1:U'.$event->sheet->getHighestRow())->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
@@ -101,30 +121,41 @@ class AssetsExport extends DefaultValueBinder implements
                 $columnWidths = [
                     'A' => 30, // Name
                     'B' => 20, // Category
-                    'C' => 20, // Serial Number
-                    'D' => 15, // Status
-                    'E' => 15, // Purchase Cost
-                    'F' => 15, // Purchase Date
-                    'G' => 25, // Supplier
-                    'H' => 20, // Location
-                    'I' => 20, // Department
-                    'J' => 15, // Current Value
-                    'K' => 15, // Warranty Expiry
+                    'C' => 15, // Type
+                    'D' => 20, // Acquisition Type
+                    'E' => 20, // Serial Number
+                    'F' => 15, // Status
+                    'G' => 15, // Purchase Cost
+                    'H' => 15, // Current Value
+                    'I' => 15, // Purchase Date
+                    'J' => 25, // Supplier
+                    'K' => 20, // Location
+                    'L' => 20, // Department
+                    'M' => 15, // Warranty Expiry
+                    'N' => 20, // Depreciation Method
+                    'O' => 15, // Useful Life
+                    'P' => 15, // Salvage Value
+                    'Q' => 20, // Last Revaluation Date
+                    'R' => 20, // Last Revaluation Amount
+                    'S' => 15, // Impairment Status
+                    'T' => 15, // Impairment Amount
+                    'U' => 15, // Impairment Date
                 ];
 
-                foreach (range('A', 'K') as $column) {
+                foreach (range('A', 'U') as $column) {
                     $event->sheet->getColumnDimension($column)->setWidth($columnWidths[$column]);
                 }
 
                 // Add padding to cells
-                $event->sheet->getStyle('A1:K'.$event->sheet->getHighestRow())
+                $event->sheet->getStyle('A1:U'.$event->sheet->getHighestRow())
                     ->getAlignment()->setIndent(1);
 
                 // Right-align the numeric columns
-                $event->sheet->getStyle('E1:E'.$event->sheet->getHighestRow())
-                    ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                $event->sheet->getStyle('J1:J'.$event->sheet->getHighestRow())
-                    ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $numericColumns = ['G', 'H', 'O', 'P', 'R', 'T'];
+                foreach ($numericColumns as $column) {
+                    $event->sheet->getStyle($column.'2:'.$column.$event->sheet->getHighestRow())
+                        ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                }
             },
         ];
     }

@@ -24,7 +24,7 @@ defineProps({
       </template>
 
       <div>
-         <div class="min-w-min md:min-w-max mx-auto">
+         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
             <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
                <div class="p-6 text-gray-900">
                   <div class="mb-6">

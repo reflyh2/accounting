@@ -1,21 +1,41 @@
 <script setup>
-import { computed, ref, useAttrs, watch, nextTick } from 'vue';
+import { computed, ref, useAttrs, watch, nextTick, onMounted } from 'vue';
 import { formatNumber, unformatNumber } from '@/utils/numberFormat';
+import AppHint from '@/Components/AppHint.vue';
 
 defineOptions({
    inheritAttrs: false
 });
 
 const props = defineProps({
-   modelValue: String,
-   label: String,
-   error: String,
-   required: Boolean,
+   modelValue: {
+      type: [String, Number],
+      default: ''
+   },
+   label: {
+      type: String,
+      default: ''
+   },
+   error: {
+      type: String,
+      default: ''
+   },
+   required: {
+      type: Boolean,
+      default: false
+   },
    submitted: Boolean,
-   numberFormat: Boolean,
+   numberFormat: {
+      type: Boolean,
+      default: false
+   },
    prefix: [String, Object],
    suffix: [String, Object],
    disabled: Boolean,
+   hint: {
+      type: String,
+      default: ''
+   }
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -138,6 +158,7 @@ function onKeyDown(event) {
       <label v-if="label" class="block mb-1 text-sm">
          {{ label }}
          <span v-if="required" class="text-red-500 ml-1">*</span>
+         <AppHint v-if="hint" :text="hint" />
       </label>
       <div class="flex">
          <div v-if="prefix" class="flex items-center px-2 bg-gray-100 border border-r-0 border-gray-300 rounded-l text-sm">
