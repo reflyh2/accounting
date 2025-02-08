@@ -27,7 +27,7 @@ class AssetCategoryRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('asset_categories')->ignore($this->route('assetCategory')),
+                Rule::unique('asset_categories', 'name')->ignore($this->route('asset_category')),
             ],
             'description' => 'nullable|string',
             'company_ids' => 'required|array',

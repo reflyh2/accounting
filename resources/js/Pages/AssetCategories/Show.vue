@@ -88,26 +88,63 @@ function handleSort(newSort) {
                                 <AppDeleteButton @click="showDeleteConfirmation = true" title="Delete" />
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-4 *:py-1 text-sm">
-                            <div class="col-span-2">
-                                <p class="font-semibold">Deskripsi:</p>
-                                <p>{{ category.description || '-' }}</p>
-                            </div>
-                            <div class="col-span-2">
-                                <p class="font-semibold">Perusahaan:</p>
-                                <div class="flex flex-wrap gap-2 mt-1">
-                                    <span 
-                                        v-for="company in category.companies" 
-                                        :key="company.id"
-                                        class="px-2 py-1 bg-main-100 text-main-800 rounded-full text-xs"
-                                    >
-                                        {{ company.name }}
-                                    </span>
+
+                        <!-- Basic Information -->
+                        <div class="mb-8">
+                            <h4 class="text-md font-semibold mb-3">Informasi Dasar</h4>
+                            <div class="grid grid-cols-2 gap-4 *:py-1 text-sm">
+                                <div class="col-span-2">
+                                    <p class="font-semibold">Deskripsi:</p>
+                                    <p>{{ category.description || '-' }}</p>
+                                </div>
+                                <div class="col-span-2">
+                                    <p class="font-semibold">Perusahaan:</p>
+                                    <div class="flex flex-wrap gap-2 mt-1">
+                                        <span 
+                                            v-for="company in category.companies" 
+                                            :key="company.id"
+                                            class="px-2 py-1 bg-main-100 text-main-800 rounded-full text-xs"
+                                        >
+                                            {{ company.name }}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="mt-12">
+                        <!-- Account Information -->
+                        <div class="mb-8">
+                            <h4 class="text-md font-semibold mb-3">Pengaturan Akun</h4>
+                            <div class="grid grid-cols-2 gap-4 *:py-1 text-sm">
+                                <div>
+                                    <p class="font-semibold">Akun Aset Tetap:</p>
+                                    <p>{{ category.fixed_asset_account?.code + ' - ' + category.fixed_asset_account?.name || '-' }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-semibold">Akun Hutang Pembelian:</p>
+                                    <p>{{ category.purchase_payable_account?.code + ' - ' + category.purchase_payable_account?.name || '-' }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-semibold">Akun Akumulasi Penyusutan:</p>
+                                    <p>{{ category.accumulated_depreciation_account?.code + ' - ' + category.accumulated_depreciation_account?.name || '-' }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-semibold">Akun Beban Penyusutan:</p>
+                                    <p>{{ category.depreciation_expense_account?.code + ' - ' + category.depreciation_expense_account?.name || '-' }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-semibold">Akun Sewa Dibayar Dimuka:</p>
+                                    <p>{{ category.prepaid_rent_account?.code + ' - ' + category.prepaid_rent_account?.name || '-' }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-semibold">Akun Beban Sewa:</p>
+                                    <p>{{ category.rent_expense_account?.code + ' - ' + category.rent_expense_account?.name || '-' }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Asset List -->
+                        <div class="mt-8">
                             <div class="flex justify-between items-center">
                                 <h4 class="text-lg font-semibold">Daftar Aset {{ category.name }}</h4>
                             </div>

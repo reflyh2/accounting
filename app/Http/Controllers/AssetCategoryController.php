@@ -104,7 +104,15 @@ class AssetCategoryController extends Controller
             ->withQueryString();
 
         return Inertia::render('AssetCategories/Show', [
-            'category' => $assetCategory->load('companies'),
+            'category' => $assetCategory->load([
+                'companies',
+                'fixedAssetAccount',
+                'purchasePayableAccount',
+                'accumulatedDepreciationAccount',
+                'depreciationExpenseAccount',
+                'prepaidRentAccount',
+                'rentExpenseAccount'
+            ]),
             'assets' => $assets,
             'filters' => $request->only(['sort', 'order', 'per_page']),
             'sort' => $sort,
@@ -127,7 +135,7 @@ class AssetCategoryController extends Controller
             ]),
             'filters' => request()->all('search', 'trashed'),
             'companies' => Company::orderBy('name')->get(),
-            'accounts' => Account::orderBy('code')->get()
+            'accounts' => Account::where('is_parent', false)->orderBy('code')->get()
         ]);
     }
 
