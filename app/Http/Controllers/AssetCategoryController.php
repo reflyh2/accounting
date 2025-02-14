@@ -159,7 +159,7 @@ class AssetCategoryController extends Controller
         });
 
         return redirect()
-            ->route('asset-categories.index')
+            ->route('asset-categories.edit', $assetCategory->id)
             ->with('success', 'Kategori aset berhasil diubah.');
     }
 

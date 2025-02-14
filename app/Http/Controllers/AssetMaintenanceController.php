@@ -86,7 +86,7 @@ class AssetMaintenanceController extends Controller
                 ->with('success', 'Catatan pemeliharaan berhasil dibuat. Silakan buat catatan lainnya.');
         }
 
-        return redirect()->route('asset-maintenance.index', ['asset_id' => $asset->id, 'maintenance_id' => $maintenanceRecord->id])
+        return redirect()->route('asset-maintenance.index', $asset->id)
             ->with('success', 'Catatan pemeliharaan berhasil dibuat.');
     }
 
@@ -152,15 +152,14 @@ class AssetMaintenanceController extends Controller
             ->with('success', 'Pemeliharaan berhasil diselesaikan.');
     }
 
-    public function bulkDelete(Request $request, Asset $asset)
+    public function bulkDelete(Request $request)
     {
-        $asset->maintenanceRecords()->whereIn('id', $request->ids)->delete();
+        AssetMaintenanceRecord::whereIn('id', $request->ids)->delete();
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('asset-maintenance.index', $asset->id) . ($currentQuery ? '?' . $currentQuery : '');
             
-            return Redirect::to($redirectUrl)
+            return redirect()->back()
                 ->with('success', 'Catatan pemeliharaan berhasil dihapus.');
         }
     }

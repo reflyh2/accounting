@@ -68,6 +68,9 @@ const form = useForm({
     rental_end_date: props.asset?.rental_end_date ? new Date(props.asset.rental_end_date).toISOString().split('T')[0] : '',
     rental_amount: props.asset?.rental_amount || '',
     rental_terms: props.asset?.rental_terms || '',
+    rental_period: props.asset?.rental_period || '',
+    amortization_term_months: props.asset?.amortization_term_months || '',
+    first_amortization_date: props.asset?.first_amortization_date ? new Date(props.asset.first_amortization_date).toISOString().split('T')[0] : '',
 });
 
 // Format options for select inputs
@@ -291,23 +294,30 @@ watch(() => form.acquisition_type, (newValue) => {
                                 type="date"
                                 label="Tanggal Mulai Sewa"
                                 :error="form.errors.rental_start_date"
-                                required
                             />
-
                             <AppInput
                                 v-model="form.rental_end_date"
                                 type="date"
                                 label="Tanggal Selesai Sewa"
                                 :error="form.errors.rental_end_date"
-                                required
                             />
-
                             <AppInput
                                 v-model="form.rental_amount"
-                                label="Biaya Sewa Total"
-                                :number-format="true"
+                                type="number"
+                                label="Biaya Sewa"
                                 :error="form.errors.rental_amount"
-                                required
+                            />
+                            <AppInput
+                                v-model="form.amortization_term_months"
+                                type="number"
+                                label="Masa Amortisasi (Bulan)"
+                                :error="form.errors.amortization_term_months"
+                            />
+                            <AppInput
+                                v-model="form.first_amortization_date"
+                                type="date"
+                                label="Tanggal Mulai Amortisasi"
+                                :error="form.errors.first_amortization_date"
                             />
                         </template>
 

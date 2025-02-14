@@ -7,6 +7,7 @@ import AppSelect from '@/Components/AppSelect.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import { formatNumber } from '@/utils/numberFormat';
+import AppTextarea from '@/Components/AppTextarea.vue';
 
 const props = defineProps({
     show: Boolean,
@@ -22,7 +23,7 @@ const emit = defineEmits(['close']);
 
 const form = useForm({
     payment_date: new Date().toISOString().split('T')[0],
-    notes: '',
+    notes: props.payment?.notes || '',
     credited_account_id: '',
     amount: props.payment?.amount || 0,
 });
@@ -31,6 +32,7 @@ const form = useForm({
 watch(() => props.payment, (newPayment) => {
     if (newPayment) {
         form.amount = newPayment.amount;
+        form.notes = newPayment.notes;
     } else {
         form.reset();
     }
@@ -93,9 +95,8 @@ function submit() {
                     required
                 />
 
-                <AppInput
+                <AppTextarea
                     v-model="form.notes"
-                    type="textarea"
                     label="Catatan"
                     :error="form.errors.notes"
                 />

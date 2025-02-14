@@ -2,31 +2,20 @@
 
 namespace App\Providers;
 
-use App\Models\Asset;
-use App\Observers\AssetObserver;
-use App\Models\AssetRentalPayment;
-use App\Models\AssetFinancingPayment;
 use Illuminate\Support\ServiceProvider;
-use App\Observers\AssetRentalPaymentObserver;
+use App\Models\Asset;
+use App\Models\AssetFinancingPayment;
+use App\Models\AssetRentalPayment;
+use App\Observers\AssetObserver;
 use App\Observers\AssetFinancingPaymentObserver;
+use App\Observers\AssetRentalPaymentObserver;
 
-class AppServiceProvider extends ServiceProvider
+class EventServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
-    public function register(): void
-    {
-        //
-    }
-
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         Asset::observe(AssetObserver::class);
         AssetFinancingPayment::observe(AssetFinancingPaymentObserver::class);
         AssetRentalPayment::observe(AssetRentalPaymentObserver::class);
     }
-}
+} 

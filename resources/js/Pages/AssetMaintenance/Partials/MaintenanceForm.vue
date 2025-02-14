@@ -26,7 +26,7 @@ function submitForm(createAnother = false) {
     form.create_another = createAnother;
     
     if (props.maintenance) {
-        form.put(route('asset-maintenance.update', [props.asset.id, props.maintenance.id]), {
+        form.put(route('asset-maintenance.update', props.maintenance.id), {
             preserveScroll: true,
             onSuccess: () => {
                 if (createAnother) {

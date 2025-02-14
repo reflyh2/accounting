@@ -69,6 +69,9 @@ class Journal extends Model
             'cash_receipt' => 'Jurnal Penerimaan Kas',
             'cash_payment' => 'Jurnal Pembayaran Kas',
             'retained_earnings' => 'Jurnal Laba Ditahan',
+            'asset_purchase' => 'Jurnal Pembelian Aset',
+            'asset_financing_payment' => 'Jurnal Pembayaran Pembelian Aset',
+            'asset_rental_payment' => 'Jurnal Pembayaran Sewa Aset',
         ];
     }
 
@@ -81,6 +84,9 @@ class Journal extends Model
             'cash_receipt' => 'CR',
             'cash_payment' => 'CP',
             'retained_earnings' => 'RE',
+            'asset_purchase' => 'AP',
+            'asset_financing_payment' => 'FP',
+            'asset_rental_payment' => 'RP',
         ];
     }
 }

@@ -80,6 +80,9 @@ function getJournalViewRoute(journal) {
         'cash_receipt': 'cash-receipt-journals.show',
         'cash_payment': 'cash-payment-journals.show',
         'retained_earnings': 'journals.show',
+        'asset_purchase': 'journals.show',
+        'asset_financing_payment': 'journals.show',
+        'asset_rental_payment': 'journals.show',
     };
 
     const routeName = routes[journal.journal_type];

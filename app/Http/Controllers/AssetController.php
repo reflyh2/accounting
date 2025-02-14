@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Redirect;
+use App\Http\Requests\AssetRequest;
 
 class AssetController extends Controller
 {
@@ -133,74 +134,12 @@ class AssetController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(AssetRequest $request)
     {
         try {
-            $validated = $request->validate([
-                'branch_id' => 'required|exists:branches,id',
-                'name' => 'required|string|max:255',
-                'category_id' => 'required|exists:asset_categories,id',
-                'asset_type' => 'required|in:tangible,intangible',
-                'acquisition_type' => 'required|in:outright_purchase,financed_purchase,fixed_rental,periodic_rental,casual_rental',
-                'serial_number' => 'nullable|string|max:255',
-                'status' => 'required|in:active,inactive,maintenance,disposed',
-                'purchase_cost' => 'required_if:acquisition_type,outright_purchase,financed_purchase|nullable|numeric|min:0',
-                'purchase_date' => 'required_if:acquisition_type,outright_purchase,financed_purchase|nullable|date',
-                'supplier' => 'nullable|string|max:255',
-                'warranty_expiry' => 'nullable|date',
-                'location' => 'nullable|string|max:255',
-                'department' => 'nullable|string|max:255',
-                'notes' => 'nullable|string',
-
-                // Depreciation fields (required for outright_purchase and financed_purchase)
-                'depreciation_method' => 'required_if:acquisition_type,outright_purchase,financed_purchase|nullable|in:straight-line,declining-balance',
-                'useful_life_months' => 'required_if:acquisition_type,outright_purchase,financed_purchase|nullable|integer|min:1',
-                'salvage_value' => 'required_if:acquisition_type,outright_purchase,financed_purchase|nullable|numeric|min:0',
-                'first_depreciation_date' => 'required_if:acquisition_type,outright_purchase,financed_purchase|nullable|date',
-
-                // Financing fields (required for financed_purchase)
-                'down_payment' => 'required_if:acquisition_type,financed_purchase|nullable|numeric|min:0',
-                'financing_amount' => 'required_if:acquisition_type,financed_purchase|nullable|numeric|min:0',
-                'interest_rate' => 'required_if:acquisition_type,financed_purchase|nullable|numeric|min:0',
-                'financing_term_months' => 'required_if:acquisition_type,financed_purchase|nullable|integer|min:1',
-                'first_payment_date' => 'required_if:acquisition_type,financed_purchase|nullable|date',
-
-                // Rental fields
-                'rental_start_date' => 'required_if:acquisition_type,fixed_rental,periodic_rental|nullable|date',
-                'rental_end_date' => 'required_if:acquisition_type,fixed_rental,periodic_rental|nullable|date|after:rental_start_date',
-                'rental_amount' => 'required_if:acquisition_type,fixed_rental,periodic_rental|nullable|numeric|min:0',
-                'rental_terms' => 'nullable|string',
-                'payment_frequency' => 'required_if:acquisition_type,periodic_rental|nullable|in:monthly,quarterly,annually',
-
-                // Revaluation fields
-                'revaluation_method' => 'nullable|string|max:255',
-                'last_revaluation_date' => 'nullable|date',
-                'last_revaluation_amount' => 'nullable|numeric|min:0',
-                'revaluation_notes' => 'nullable|string',
-
-                // Impairment fields
-                'is_impaired' => 'boolean',
-                'impairment_amount' => 'required_if:is_impaired,true|nullable|numeric|min:0',
-                'impairment_date' => 'required_if:is_impaired,true|nullable|date',
-                'impairment_notes' => 'nullable|string',
-            ], [
-                'required' => 'Kolom :attribute wajib diisi.',
-                'required_if' => 'Kolom :attribute wajib diisi untuk jenis perolehan yang dipilih.',
-                'numeric' => 'Kolom :attribute harus berupa angka.',
-                'min' => 'Kolom :attribute minimal :min.',
-                'date' => 'Kolom :attribute harus berupa tanggal yang valid.',
-                'after' => 'Kolom :attribute harus setelah tanggal mulai sewa.',
-                'exists' => 'Pilihan :attribute tidak valid.',
-                'in' => 'Pilihan :attribute tidak valid.',
-                'string' => 'Kolom :attribute harus berupa teks.',
-                'max' => 'Kolom :attribute maksimal :max karakter.',
-                'integer' => 'Kolom :attribute harus berupa bilangan bulat.',
-                'boolean' => 'Kolom :attribute harus berupa nilai boolean.',
-            ]);
-
             DB::beginTransaction();
 
-            $asset = Asset::create($validated);
+            $asset = Asset::create($request->validated());
 
             if ($asset->acquisition_type === 'outright_purchase' || $asset->acquisition_type === 'financed_purchase') {
                 $this->createFinancingPayments($asset);
@@ -219,9 +158,6 @@ class AssetController extends Controller
             return redirect()->route('assets.show', $asset->id)
                 ->with('success', 'Aset berhasil dibuat.');
             
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
-            return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => 'Terjadi kesalahan saat menyimpan aset: ' . $e->getMessage()])->withInput();
@@ -266,83 +202,21 @@ class AssetController extends Controller
         ]);
     }
 
-    public function update(Request $request, Asset $asset)
+    public function update(AssetRequest $request, Asset $asset)
     {
         try {
-            $validated = $request->validate([
-                'branch_id' => 'required|exists:branches,id',
-                'name' => 'required|string|max:255',
-                'category_id' => 'required|exists:asset_categories,id',
-                'asset_type' => 'required|in:tangible,intangible',
-                'acquisition_type' => 'required|in:outright_purchase,financed_purchase,fixed_rental,periodic_rental,casual_rental',
-                'serial_number' => 'nullable|string|max:255',
-                'status' => 'required|in:active,inactive,maintenance,disposed',
-                'purchase_cost' => 'required_if:acquisition_type,outright_purchase,financed_purchase|numeric|min:0',
-                'purchase_date' => 'required_if:acquisition_type,outright_purchase,financed_purchase|date',
-                'supplier' => 'nullable|string|max:255',
-                'warranty_expiry' => 'nullable|date',
-                'location' => 'nullable|string|max:255',
-                'department' => 'nullable|string|max:255',
-                'notes' => 'nullable|string',
-
-                // Depreciation fields (required for outright_purchase and financed_purchase)
-                'depreciation_method' => 'required_if:acquisition_type,outright_purchase,financed_purchase|in:straight-line,declining-balance',
-                'useful_life_months' => 'required_if:acquisition_type,outright_purchase,financed_purchase|integer|min:1',
-                'salvage_value' => 'required_if:acquisition_type,outright_purchase,financed_purchase|numeric|min:0',
-                'first_depreciation_date' => 'required_if:acquisition_type,outright_purchase,financed_purchase|date',
-
-                // Financing fields (required for financed_purchase)
-                'down_payment' => 'required_if:acquisition_type,financed_purchase|nullable|numeric|min:0',
-                'financing_amount' => 'required_if:acquisition_type,financed_purchase|nullable|numeric|min:0',
-                'interest_rate' => 'required_if:acquisition_type,financed_purchase|nullable|numeric|min:0',
-                'financing_term_months' => 'required_if:acquisition_type,financed_purchase|nullable|integer|min:1',
-                'first_payment_date' => 'required_if:acquisition_type,financed_purchase|nullable|date',
-
-                // Rental fields
-                'rental_start_date' => 'required_if:acquisition_type,fixed_rental,periodic_rental,casual_rental|nullable|date',
-                'rental_end_date' => 'required_if:acquisition_type,fixed_rental,periodic_rental|nullable|date|after:rental_start_date',
-                'rental_amount' => 'required_if:acquisition_type,fixed_rental,periodic_rental,casual_rental|nullable|numeric|min:0',
-                'rental_terms' => 'nullable|string',
-                'payment_frequency' => 'required_if:acquisition_type,periodic_rental|nullable|in:monthly,quarterly,annually',
-
-                // Revaluation fields
-                'revaluation_method' => 'nullable|string|max:255',
-                'last_revaluation_date' => 'nullable|date',
-                'last_revaluation_amount' => 'nullable|numeric|min:0',
-                'revaluation_notes' => 'nullable|string',
-
-                // Impairment fields
-                'is_impaired' => 'boolean',
-                'impairment_amount' => 'required_if:is_impaired,true|nullable|numeric|min:0',
-                'impairment_date' => 'required_if:is_impaired,true|nullable|date',
-                'impairment_notes' => 'nullable|string',
-            ], [
-                'required' => 'Kolom :attribute wajib diisi.',
-                'required_if' => 'Kolom :attribute wajib diisi untuk jenis perolehan yang dipilih.',
-                'numeric' => 'Kolom :attribute harus berupa angka.',
-                'min' => 'Kolom :attribute minimal :min.',
-                'date' => 'Kolom :attribute harus berupa tanggal yang valid.',
-                'after' => 'Kolom :attribute harus setelah tanggal mulai sewa.',
-                'exists' => 'Pilihan :attribute tidak valid.',
-                'in' => 'Pilihan :attribute tidak valid.',
-                'string' => 'Kolom :attribute harus berupa teks.',
-                'max' => 'Kolom :attribute maksimal :max karakter.',
-                'integer' => 'Kolom :attribute harus berupa bilangan bulat.',
-                'boolean' => 'Kolom :attribute harus berupa nilai boolean.',
-            ]);
-
             DB::beginTransaction();
 
             // Check if acquisition type changed to outright_purchase
             $wasOutrightPurchase = $asset->acquisition_type === 'outright_purchase';
-            $isOutrightPurchase = $validated['acquisition_type'] === 'outright_purchase';
+            $isOutrightPurchase = $request->validated()['acquisition_type'] === 'outright_purchase';
             $wasFinancedPurchase = $asset->acquisition_type === 'financed_purchase';
-            $isFinancedPurchase = $validated['acquisition_type'] === 'financed_purchase';
+            $isFinancedPurchase = $request->validated()['acquisition_type'] === 'financed_purchase';
 
-            $asset->update($validated);
+            $asset->update($request->validated());
 
             // Handle financing payment for outright purchase
-            if ($validated['acquisition_type'] === 'outright_purchase') {
+            if ($request->validated()['acquisition_type'] === 'outright_purchase') {
                 $this->updateFinancingPayments($asset);
             }
             else {
@@ -351,12 +225,9 @@ class AssetController extends Controller
 
             DB::commit();
 
-            return redirect()->route('assets.show', $asset->id)
+            return redirect()->route('assets.edit', $asset->id)
                 ->with('success', 'Aset berhasil diubah.');
             
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
-            return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => 'Terjadi kesalahan saat mengubah aset.'])->withInput();

@@ -34,6 +34,10 @@ class Asset extends Model
         'rental_end_date',
         'rental_period',
         'rental_amount',
+        'amortization_term_months',
+        'first_amortization_date',
+        'accumulated_amortization',
+        'last_amortization_date',
         'rental_terms',
         'payment_frequency',
         'depreciation_method',
@@ -60,6 +64,8 @@ class Asset extends Model
         'rental_end_date' => 'date',
         'first_payment_date' => 'date',
         'first_depreciation_date' => 'date',
+        'first_amortization_date' => 'date',
+        'last_amortization_date' => 'date',
         'last_revaluation_date' => 'date',
         'impairment_date' => 'date',
         'is_impaired' => 'boolean',
@@ -70,6 +76,7 @@ class Asset extends Model
         'financing_amount' => 'decimal:2',
         'interest_rate' => 'decimal:4',
         'rental_amount' => 'decimal:2',
+        'accumulated_amortization' => 'decimal:2',
         'salvage_value' => 'decimal:2',
         'last_revaluation_amount' => 'decimal:2',
         'impairment_amount' => 'decimal:2',
@@ -115,6 +122,11 @@ class Asset extends Model
         return $this->hasMany(AssetMaintenance::class);
     }
 
+    public function journal()
+    {
+        return $this->belongsTo(Journal::class);
+    }
+
     public function calculateDepreciation()
     {
         if (!in_array($this->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
@@ -137,5 +149,24 @@ class Asset extends Model
         }
 
         return $this->purchase_cost;
+    }
+
+    public function calculateAmortization()
+    {
+        if ($this->acquisition_type !== 'fixed_rental') {
+            return null;
+        }
+
+        if (!$this->first_amortization_date || !$this->rental_amount || !$this->amortization_term_months) {
+            return null;
+        }
+
+        $age = now()->diffInMonths($this->first_amortization_date);
+        if ($age >= $this->amortization_term_months) {
+            return 0;
+        }
+
+        $monthlyAmortization = $this->rental_amount / $this->amortization_term_months;
+        return $this->rental_amount - ($monthlyAmortization * $age);
     }
 } 

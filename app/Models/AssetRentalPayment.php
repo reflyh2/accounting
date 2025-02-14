@@ -37,4 +37,9 @@ class AssetRentalPayment extends Model
     {
         return $this->belongsTo(Account::class, 'credited_account_id');
     }
+
+    public function journal()
+    {
+        return $this->belongsTo(Journal::class);
+    }
 } 
