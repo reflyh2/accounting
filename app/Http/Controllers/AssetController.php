@@ -207,12 +207,62 @@ class AssetController extends Controller
         try {
             DB::beginTransaction();
 
-            // Check if acquisition type changed to outright_purchase
+            // Check if acquisition type changed
             $wasOutrightPurchase = $asset->acquisition_type === 'outright_purchase';
             $isOutrightPurchase = $request->validated()['acquisition_type'] === 'outright_purchase';
             $wasFinancedPurchase = $asset->acquisition_type === 'financed_purchase';
             $isFinancedPurchase = $request->validated()['acquisition_type'] === 'financed_purchase';
 
+            // Check for paid payments
+            $hasPaidFinancingPayments = $asset->financingPayments()->where('status', 'paid')->exists();
+            $hasPaidRentalPayments = $asset->rentalPayments()->where('status', 'paid')->exists();
+
+            // Define fields that can't be changed if there are paid payments
+            $financingFields = [
+                'acquisition_type',
+                'purchase_cost',
+                'down_payment',
+                'financing_amount',
+                'interest_rate',
+                'financing_term_months',
+                'first_payment_date',
+            ];
+
+            $rentalFields = [
+                'acquisition_type',
+                'rental_start_date',
+                'rental_end_date',
+                'rental_amount',
+                'payment_frequency',
+                'amortization_term_months',
+                'first_amortization_date',
+            ];
+
+            // Check if any financing fields are being changed while having paid payments
+            if ($hasPaidFinancingPayments && 
+                in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
+                foreach ($financingFields as $field) {
+                    if (isset($request->validated()[$field]) && $request->validated()[$field] != $asset->$field) {
+                        return back()
+                            ->with(['error' => 'Tidak dapat mengubah informasi pembiayaan karena sudah ada pembayaran yang dilakukan.'])
+                            ->withInput();
+                    }
+                }
+            }
+
+            // Check if any rental fields are being changed while having paid payments
+            if ($hasPaidRentalPayments && 
+                in_array($asset->acquisition_type, ['fixed_rental', 'periodic_rental'])) {
+                foreach ($rentalFields as $field) {
+                    if (isset($request->validated()[$field]) && $request->validated()[$field] != $asset->$field) {
+                        return back()
+                            ->with(['error' => 'Tidak dapat mengubah informasi sewa karena sudah ada pembayaran yang dilakukan.'])
+                            ->withInput();
+                    }
+                }
+            }
+
+            // If we get here, either there are no paid payments or no restricted fields are being changed
             $asset->update($request->validated());
 
             // Handle financing payment for outright purchase

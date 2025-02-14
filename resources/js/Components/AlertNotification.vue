@@ -36,11 +36,14 @@ onMounted(() => {
 
 <template>
   <Transition name="fade">
-    <div v-if="isVisible" class="fixed top-4 left-1/2 transform p-4 z-50 rounded-md shadow-md flex items-center" :class="{
-      'bg-green-100 text-green-800': type === 'success',
-      'bg-yellow-100 text-yellow-800': type === 'warning',
-      'bg-red-100 text-red-800': type === 'error'
-    }">
+    <div v-if="isVisible" 
+      class="fixed top-4 z-50 rounded-md shadow-md flex items-center p-4 -translate-x-1/2 md:left-[calc(50%+144px)] left-1/2" 
+      :class="{
+        'bg-green-100 text-green-800': type === 'success',
+        'bg-yellow-100 text-yellow-800': type === 'warning',
+        'bg-red-100 text-red-800': type === 'error'
+      }"
+    >
       <p class="mr-2 text-sm">{{ message }}</p>
       <button @click="close" class="text-gray-500 text-sm hover:text-gray-700">
         <XMarkIcon class="h-4 w-4" />
