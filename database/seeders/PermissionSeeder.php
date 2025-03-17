@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Permission;
+use App\Models\Role;
+use App\Models\User;
 
 class PermissionSeeder extends Seeder
 {
@@ -33,5 +35,20 @@ class PermissionSeeder extends Seeder
                 }
             }
         }
+
+        // Create Super Admin Role and grant all permissions
+        $superAdminRole = Role::create([
+            'name' => 'Super Administrator',
+            'guard_name' => 'web',
+            'access_level' => 'company',
+            'description' => 'Super Administrator bisa mengakses semua data',
+        ]);
+
+        $permissions = Permission::all();
+        $superAdminRole->permissions()->attach($permissions);
+
+        // Assign Super Admin Role to first user
+        $firstUser = User::first();
+        $firstUser->roles()->attach($superAdminRole);
     }
 }
