@@ -10,7 +10,7 @@ import AppTransferButton from '@/Components/AppTransferButton.vue';
 import AppMaintenanceButton from '@/Components/AppMaintenanceButton.vue';
 import AppPaymentButton from '@/Components/AppPaymentButton.vue';
 import AppDisposeButton from '@/Components/AppDisposeButton.vue';
-
+import AppDepreciationButton from '@/Components/AppDepreciationButton.vue';
 const props = defineProps({
     asset: {
         type: Object,
@@ -98,6 +98,21 @@ const getNestedValue = (obj, path) => {
                             <div class="flex items-center gap-2">
                                 <template v-if="asset">
                                     <!-- Asset Management Actions -->
+                                    <AppPaymentButton
+                                        v-if="['outright_purchase', 'financed_purchase'].includes(asset.acquisition_type)"
+                                        @click="$inertia.visit(route('asset-financing-payments.index', asset.id))"
+                                        title="Kelola Pembayaran Pembiayaan"
+                                    />
+                                    <AppPaymentButton
+                                        v-if="['fixed_rental', 'periodic_rental', 'casual_rental'].includes(asset.acquisition_type)"
+                                        @click="$inertia.visit(route('asset-rental-payments.index', asset.id))"
+                                        title="Kelola Pembayaran Sewa"
+                                    />
+                                    <AppDepreciationButton
+                                        v-if="['outright_purchase', 'financed_purchase', 'fixed_rental'].includes(asset.acquisition_type)"
+                                        @click="$inertia.visit(route('asset-depreciation.index', asset.id))"
+                                        :title="['fixed_rental'].includes(asset.acquisition_type) ? 'Amortisasi Aset' : 'Penyusutan Aset'"
+                                    />
                                     <AppTransferButton
                                         v-if="asset.status !== 'disposed'"
                                         @click="$inertia.visit(route('asset-transfers.create', asset.id))"
@@ -111,16 +126,6 @@ const getNestedValue = (obj, path) => {
                                     <AppMaintenanceButton
                                         @click="$inertia.visit(route('asset-maintenance.index', asset.id))"
                                         title="Catatan Pemeliharaan"
-                                    />
-                                    <AppPaymentButton
-                                        v-if="['outright_purchase', 'financed_purchase'].includes(asset.acquisition_type)"
-                                        @click="$inertia.visit(route('asset-financing-payments.index', asset.id))"
-                                        title="Kelola Pembayaran Pembiayaan"
-                                    />
-                                    <AppPaymentButton
-                                        v-if="['fixed_rental', 'periodic_rental', 'casual_rental'].includes(asset.acquisition_type)"
-                                        @click="$inertia.visit(route('asset-rental-payments.index', asset.id))"
-                                        title="Kelola Pembayaran Sewa"
                                     />
 
                                     <!-- Basic Actions -->

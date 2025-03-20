@@ -48,6 +48,7 @@ use App\Http\Controllers\AssetTransferController;
 use App\Http\Controllers\AssetDisposalController;
 use App\Http\Controllers\AssetFinancingPaymentController;
 use App\Http\Controllers\AssetRentalPaymentController;
+use App\Http\Controllers\AssetDepreciationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -322,6 +323,21 @@ Route::middleware([
         Route::put('asset-rental-payments/{assetRentalPayment}', [AssetRentalPaymentController::class, 'update'])->name('asset-rental-payments.update');
         Route::delete('asset-rental-payments/{assetRentalPayment}', [AssetRentalPaymentController::class, 'destroy'])->name('asset-rental-payments.destroy');
         Route::post('asset-rental-payments/{assetRentalPayment}/complete', [AssetRentalPaymentController::class, 'complete'])->name('asset-rental-payments.complete');
+
+        // Asset Depreciation routes
+        Route::delete('asset-depreciation/bulk-delete', [AssetDepreciationController::class, 'bulkDelete'])->name('asset-depreciation.bulk-delete');
+        Route::get('asset-depreciation/export-xlsx', [AssetDepreciationController::class, 'exportXLSX'])->name('asset-depreciation.export-xlsx');
+        Route::get('asset-depreciation/export-csv', [AssetDepreciationController::class, 'exportCSV'])->name('asset-depreciation.export-csv');
+        Route::get('asset-depreciation/export-pdf', [AssetDepreciationController::class, 'exportPDF'])->name('asset-depreciation.export-pdf');
+        Route::get('asset-depreciation/{asset}', [AssetDepreciationController::class, 'index'])->name('asset-depreciation.index');
+        Route::get('asset-depreciation/{asset}/create', [AssetDepreciationController::class, 'create'])->name('asset-depreciation.create');
+        Route::post('asset-depreciation/{asset}', [AssetDepreciationController::class, 'store'])->name('asset-depreciation.store');
+        Route::get('asset-depreciation/{assetDepreciation}', [AssetDepreciationController::class, 'show'])->name('asset-depreciation.show');
+        Route::get('asset-depreciation/{assetDepreciation}/edit', [AssetDepreciationController::class, 'edit'])->name('asset-depreciation.edit');
+        Route::put('asset-depreciation/{assetDepreciation}', [AssetDepreciationController::class, 'update'])->name('asset-depreciation.update');
+        Route::delete('asset-depreciation/{assetDepreciation}', [AssetDepreciationController::class, 'destroy'])->name('asset-depreciation.destroy');
+        Route::post('asset-depreciation/{assetDepreciation}/process', [AssetDepreciationController::class, 'process'])->name('asset-depreciation.process');
+        Route::get('asset-depreciation/{asset}/generate-schedule', [AssetDepreciationController::class, 'generateSchedule'])->name('asset-depreciation.generate-schedule');
 
         // Asset Transfer routes
         Route::resource('assets.transfers', AssetTransferController::class)->except(['edit', 'update']);

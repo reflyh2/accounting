@@ -102,6 +102,11 @@ class Asset extends Model
         return $this->hasMany(AssetFinancingPayment::class);
     }
 
+    public function depreciationEntries(): HasMany
+    {
+        return $this->hasMany(AssetDepreciationEntry::class);
+    }
+
     public function rentalPayments(): HasMany
     {
         return $this->hasMany(AssetRentalPayment::class);

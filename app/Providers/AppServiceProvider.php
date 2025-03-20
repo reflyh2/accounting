@@ -6,9 +6,11 @@ use App\Models\Asset;
 use App\Observers\AssetObserver;
 use App\Models\AssetRentalPayment;
 use App\Models\AssetFinancingPayment;
+use App\Models\AssetDepreciationEntry;
 use Illuminate\Support\ServiceProvider;
 use App\Observers\AssetRentalPaymentObserver;
 use App\Observers\AssetFinancingPaymentObserver;
+use App\Observers\AssetDepreciationObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,5 +30,6 @@ class AppServiceProvider extends ServiceProvider
         Asset::observe(AssetObserver::class);
         AssetFinancingPayment::observe(AssetFinancingPaymentObserver::class);
         AssetRentalPayment::observe(AssetRentalPaymentObserver::class);
+        AssetDepreciationEntry::observe(AssetDepreciationObserver::class);
     }
 }
