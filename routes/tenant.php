@@ -298,6 +298,7 @@ Route::middleware([
 
         // Asset Financing Payment routes
         Route::delete('asset-financing-payments/bulk-delete', [AssetFinancingPaymentController::class, 'bulkDelete'])->name('asset-financing-payments.bulk-delete');
+        Route::delete('asset-financing-payments/{assetFinancingPayment}/cancel', [AssetFinancingPaymentController::class, 'cancel'])->name('asset-financing-payments.cancel');
         Route::get('asset-financing-payments/export-xlsx', [AssetFinancingPaymentController::class, 'exportXLSX'])->name('asset-financing-payments.export-xlsx');
         Route::get('asset-financing-payments/export-csv', [AssetFinancingPaymentController::class, 'exportCSV'])->name('asset-financing-payments.export-csv');
         Route::get('asset-financing-payments/export-pdf', [AssetFinancingPaymentController::class, 'exportPDF'])->name('asset-financing-payments.export-pdf');

@@ -7,6 +7,7 @@ import AppDataTable from '@/Components/AppDataTable.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 import { formatNumber } from '@/utils/numberFormat';
 import PaymentModal from './Partials/PaymentModal.vue';
+import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
 
 const props = defineProps({
     asset: {
@@ -32,7 +33,7 @@ const currentFilters = ref(props.filters || {});
 
 const showPaymentModal = ref(false);
 const selectedPayment = ref(null);
-
+const showCancelConfirmation = ref(false);
 const tableHeaders = [
     { key: 'due_date', label: 'Tanggal Jatuh Tempo' },
     { key: 'payment_date', label: 'Tanggal Bayar' },
@@ -40,7 +41,7 @@ const tableHeaders = [
     { key: 'amount', label: 'Jumlah' },
     { key: 'principal_portion', label: 'Porsi Pokok' },
     { key: 'interest_portion', label: 'Porsi Bunga' },
-    { key: 'credited_account', label: 'Bayar dari Akun' },
+    { key: 'journal_id', label: 'No. Jurnal' },
     { key: 'status', label: 'Status' },
     { key: 'actions', label: '' }
 ];
@@ -85,6 +86,10 @@ const columnFormatters = {
         'paid': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Lunas</span>',
         'overdue': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Terlambat</span>'
     })[value] || value
+};
+
+const columnRenderers = {
+    journal_id: (value) => value ? `<a href="${route('journals.show', value)}" class="text-blue-500 hover:text-blue-700" target="_blank">${props.payments.data.find(payment => payment.journal_id === value)?.journal?.journal_number}</a>` : '-'
 };
 
 const sortableColumns = ['due_date', 'payment_date', 'amount', 'principal_portion', 'interest_portion', 'status'];
@@ -161,6 +166,26 @@ function closePaymentModal() {
 function handlePaymentSubmitted(payment) {
     // Handle payment submission logic here
 }
+
+function openCancelPaymentModal(payment) {
+    selectedPayment.value = payment;
+    showCancelConfirmation.value = true;
+}
+
+function closeCancelConfirmation() {
+    selectedPayment.value = null;
+    showCancelConfirmation.value = false;
+}
+
+function cancelPayment() {
+    router.delete(route('asset-financing-payments.cancel', selectedPayment.value.id), {
+        preserveScroll: true,
+        preserveState: true,
+        onFinish: () => {
+            closeCancelConfirmation();
+        }
+    });
+}
 </script>
 
 <template>
@@ -205,6 +230,7 @@ function handlePaymentSubmitted(payment) {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :sortable="sortableColumns"
                         :defaultSort="defaultSort"
@@ -227,6 +253,14 @@ function handlePaymentSubmitted(payment) {
                             >
                                 Bayar
                             </button>
+
+                            <button
+                                v-if="item.status === 'paid'"
+                                @click="openCancelPaymentModal(item)"
+                                class="text-red-600 hover:text-red-900 mr-3"
+                            >
+                                Batal
+                            </button>
                         </template>
                     </AppDataTable>
                 </div>
@@ -242,5 +276,14 @@ function handlePaymentSubmitted(payment) {
         :accounts="accounts"
         @close="closePaymentModal"
         @submitted="handlePaymentSubmitted"
+    />
+
+    <DeleteConfirmationModal
+        :show="showCancelConfirmation"
+        title="Batalkan Pembayaran"
+        message="Apakah Anda yakin ingin membatalkan pembayaran ini?"
+        confirmButtonText="Batalkan Pembayaran"
+        @close="closeCancelConfirmation"
+        @confirm="cancelPayment"
     />
 </template> 

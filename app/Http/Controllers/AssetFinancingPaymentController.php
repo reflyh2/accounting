@@ -18,7 +18,7 @@ class AssetFinancingPaymentController extends Controller
         $filters = $request->all() ?: Session::get('asset_financing_payments.index_filters', []);
         Session::put('asset_financing_payments.index_filters', $filters);
 
-        $query = $asset->financingPayments();
+        $query = $asset->financingPayments()->with('journal');
 
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
@@ -181,6 +181,18 @@ class AssetFinancingPaymentController extends Controller
 
         return redirect()->back()
             ->with('success', 'Pembayaran pembiayaan berhasil diselesaikan.');
+    }
+
+    public function cancel(AssetFinancingPayment $assetFinancingPayment)
+    {
+        $assetFinancingPayment->update([
+            'status' => 'pending',
+            'payment_date' => null,
+            'credited_account_id' => null
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Pembayaran pembiayaan berhasil dibatalkan.');
     }
 
     public function bulkDelete(Request $request)

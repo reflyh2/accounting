@@ -46,9 +46,12 @@ class AssetFinancingPaymentObserver
                         $journalEntry->delete();
                     }
 
-                    $payment->journal->delete();
+                    $journalId = $payment->journal_id;
+
                     $payment->journal_id = null;
-                    $payment->save();
+                    $payment->saveQuietly();
+
+                    Journal::where('id', $journalId)->delete();
                 }
                 return;
             }
@@ -77,7 +80,12 @@ class AssetFinancingPaymentObserver
                 $journalEntry->delete();
             }
 
-            $payment->journal->delete();
+            $journalId = $payment->journal_id;
+
+            $payment->journal_id = null;
+            $payment->saveQuietly();
+
+            Journal::where('id', $journalId)->delete();
         }
     }
 
