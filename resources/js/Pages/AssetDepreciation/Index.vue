@@ -78,17 +78,6 @@ const customFilters = computed(() => [
         multiple: true,
         placeholder: 'Pilih status',
         label: 'Status'
-    },
-    {
-        name: 'type',
-        type: 'select',
-        options: [
-            { value: 'depreciation', label: 'Penyusutan' },
-            { value: 'amortization', label: 'Amortisasi' }
-        ],
-        multiple: true,
-        placeholder: 'Pilih tipe',
-        label: 'Tipe'
     }
 ]);
 
