@@ -266,7 +266,7 @@ class AssetController extends Controller
             $asset->update($request->validated());
 
             // Handle financing payment for outright purchase
-            if ($request->validated()['acquisition_type'] === 'outright_purchase') {
+            if (in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
                 $this->updateFinancingPayments($asset);
             }
             else {
