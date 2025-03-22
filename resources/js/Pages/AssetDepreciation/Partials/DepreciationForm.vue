@@ -120,8 +120,6 @@ const form = useForm({
     entry_date: props.entry?.entry_date ? new Date(props.entry.entry_date).toISOString().split('T')[0] : nextEntryDate.value,
     type: props.entry?.type || 'depreciation',
     amount: props.entry?.amount || calculatedAmount.value,
-    cumulative_amount: props.entry?.cumulative_amount || (currentValues.value.cumulative + calculatedAmount.value),
-    remaining_value: props.entry?.remaining_value || (currentValues.value.remaining - calculatedAmount.value),
     period_start: props.entry?.period_start ? new Date(props.entry.period_start).toISOString().split('T')[0] : nextPeriodDates.value.start,
     period_end: props.entry?.period_end ? new Date(props.entry.period_end).toISOString().split('T')[0] : nextPeriodDates.value.end,
     notes: props.entry?.notes || '',
@@ -187,7 +185,7 @@ function submitForm(createAnother = false) {
             <AppInput
                 v-model="form.entry_date"
                 type="date"
-                label="Tanggal Entri"
+                label="Tanggal Penyusutan"
                 :error="form.errors.entry_date"
                 required
             />
@@ -226,36 +224,6 @@ function submitForm(createAnother = false) {
                 :error="form.errors.amount"
                 required
             />
-
-            <AppInput
-                v-model="form.cumulative_amount"
-                label="Akumulasi Penyusutan"
-                :number-format="true"
-                :error="form.errors.cumulative_amount"
-                required
-            />
-
-            <AppInput
-                v-model="form.remaining_value"
-                label="Nilai Sisa"
-                :number-format="true"
-                :error="form.errors.remaining_value"
-                required
-            />
-        </div>
-
-        <div class="bg-gray-50 p-4 rounded-lg mb-4">
-            <h3 class="font-medium mb-2">Informasi Penyusutan</h3>
-            <div class="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                    <p>Nilai Perolehan: {{ formatNumber(asset.purchase_cost) }}</p>
-                    <p>Nilai Residu: {{ formatNumber(asset.salvage_value) }}</p>
-                </div>
-                <div>
-                    <p>Metode Penyusutan: {{ depreciationMethods.find(method => method.value === asset.depreciation_method)?.label || 'Garis Lurus (default)' }}</p>
-                    <p>Masa Manfaat: {{ asset.useful_life_months || 0 }} bulan</p>
-                </div>
-            </div>
         </div>
 
         <AppTextarea

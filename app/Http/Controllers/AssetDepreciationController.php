@@ -18,7 +18,7 @@ class AssetDepreciationController extends Controller
         $filters = $request->all() ?: Session::get('asset_depreciation.index_filters', []);
         Session::put('asset_depreciation.index_filters', $filters);
 
-        $query = $asset->depreciationEntries();
+        $query = $asset->depreciationEntries()->with('journal');
 
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
@@ -51,7 +51,9 @@ class AssetDepreciationController extends Controller
         $entries = $query->paginate($perPage)->onEachSide(0)->withQueryString();
 
         return Inertia::render('AssetDepreciation/Index', [
-            'asset' => $asset->load(['branch.branchGroup.company', 'category']),
+            'asset' => Asset::where('id', $asset->id)->with(['branch.branchGroup.company', 'category'])->withSum(['depreciationEntries' => function($query) {
+                $query->where('status', 'processed');
+            }], 'amount')->first(),
             'accounts' => Account::whereIn('type', ['akumulasi_penyusutan', 'beban_penyusutan'])
                 ->where('is_parent', false)
                 ->orderBy('code')
@@ -67,7 +69,9 @@ class AssetDepreciationController extends Controller
     public function create(Asset $asset)
     {
         return Inertia::render('AssetDepreciation/Create', [
-            'asset' => $asset->load(['branch.branchGroup.company', 'category']),
+            'asset' => Asset::where('id', $asset->id)->with(['branch.branchGroup.company', 'category'])->withSum(['depreciationEntries' => function($query) {
+                $query->where('status', 'processed');
+            }], 'amount')->first(),
             'accounts' => Account::where('type', 'akumulasi_penyusutan')
                 ->where('is_parent', false)
                 ->orderBy('code')
@@ -81,20 +85,38 @@ class AssetDepreciationController extends Controller
             'entry_date' => 'required|date',
             'type' => 'required|in:depreciation,amortization',
             'amount' => 'required|numeric|min:0',
-            'cumulative_amount' => 'required|numeric|min:0',
-            'remaining_value' => 'required|numeric|min:0',
             'period_start' => 'required|date',
             'period_end' => 'required|date|after_or_equal:period_start',
             'notes' => 'nullable|string|max:1000',
         ]);
+
+        // Calculate cumulative amount and remaining value
+        $latestEntry = $asset->depreciationEntries()
+            ->orderBy('entry_date', 'desc')
+            ->first();
+
+        $cumulativeAmount = $validated['amount'];
+        $remainingValue = $asset->purchase_cost - $validated['amount'];
+
+        if ($latestEntry) {
+            $cumulativeAmount = $latestEntry->cumulative_amount + $validated['amount'];
+            $remainingValue = $latestEntry->remaining_value - $validated['amount'];
+        }
+
+        // Ensure remaining value never goes below salvage value
+        if ($remainingValue < $asset->salvage_value) {
+            $remainingValue = $asset->salvage_value;
+            // Adjust amount if needed
+            $cumulativeAmount = $asset->purchase_cost - $remainingValue;
+        }
 
         $entry = $asset->depreciationEntries()->create([
             'entry_date' => $validated['entry_date'],
             'type' => $validated['type'],
             'status' => 'scheduled',
             'amount' => $validated['amount'],
-            'cumulative_amount' => $validated['cumulative_amount'],
-            'remaining_value' => $validated['remaining_value'],
+            'cumulative_amount' => $cumulativeAmount,
+            'remaining_value' => $remainingValue,
             'period_start' => $validated['period_start'],
             'period_end' => $validated['period_end'],
             'notes' => $validated['notes'],
@@ -122,7 +144,9 @@ class AssetDepreciationController extends Controller
     public function edit(AssetDepreciationEntry $assetDepreciation)
     {
         return Inertia::render('AssetDepreciation/Edit', [
-            'asset' => $assetDepreciation->asset->load(['branch.branchGroup.company']),
+            'asset' => Asset::where('id', $assetDepreciation->asset_id)->with(['branch.branchGroup.company', 'category'])->withSum(['depreciationEntries' => function($query) {
+                $query->where('status', 'processed');
+            }], 'amount')->first(),
             'entry' => $assetDepreciation,
             'accounts' => Account::where('type', 'akumulasi_penyusutan')
                 ->where('is_parent', false)
@@ -137,14 +161,73 @@ class AssetDepreciationController extends Controller
             'entry_date' => 'required|date',
             'type' => 'required|in:depreciation,amortization',
             'amount' => 'required|numeric|min:0',
-            'cumulative_amount' => 'required|numeric|min:0',
-            'remaining_value' => 'required|numeric|min:0',
             'period_start' => 'required|date',
             'period_end' => 'required|date|after_or_equal:period_start',
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        $assetDepreciation->update($validated);
+        $asset = $assetDepreciation->asset;
+        
+        // Find the previous entry (if it exists)
+        $previousEntry = $asset->depreciationEntries()
+            ->where('entry_date', '<', $assetDepreciation->entry_date)
+            ->orderBy('entry_date', 'desc')
+            ->first();
+
+        // Calculate new values
+        $previousCumulative = $previousEntry ? $previousEntry->cumulative_amount : 0;
+        $previousRemaining = $previousEntry ? $previousEntry->remaining_value : $asset->purchase_cost;
+        
+        $cumulativeAmount = $previousCumulative + $validated['amount'];
+        $remainingValue = $previousRemaining - $validated['amount'];
+        
+        // Ensure remaining value never goes below salvage value
+        if ($remainingValue < $asset->salvage_value) {
+            $remainingValue = $asset->salvage_value;
+            // Adjust amount if needed
+            $validated['amount'] = $previousRemaining - $remainingValue;
+            $cumulativeAmount = $previousCumulative + $validated['amount'];
+        }
+
+        // Update the entry with calculated values
+        $assetDepreciation->update([
+            'entry_date' => $validated['entry_date'],
+            'type' => $validated['type'],
+            'amount' => $validated['amount'],
+            'cumulative_amount' => $cumulativeAmount,
+            'remaining_value' => $remainingValue,
+            'period_start' => $validated['period_start'],
+            'period_end' => $validated['period_end'],
+            'notes' => $validated['notes'],
+        ]);
+
+        // Update subsequent entries
+        $subsequentEntries = $asset->depreciationEntries()
+            ->where('entry_date', '>', $assetDepreciation->entry_date)
+            ->orderBy('entry_date', 'asc')
+            ->get();
+
+        $currentCumulative = $cumulativeAmount;
+        $currentRemaining = $remainingValue;
+
+        foreach ($subsequentEntries as $entry) {
+            $newCumulative = $currentCumulative + $entry->amount;
+            $newRemaining = $currentRemaining - $entry->amount;
+            
+            // Ensure remaining value doesn't go below salvage value
+            if ($newRemaining < $asset->salvage_value) {
+                $newRemaining = $asset->salvage_value;
+                $entry->amount = $currentRemaining - $newRemaining;
+                $newCumulative = $currentCumulative + $entry->amount;
+            }
+            
+            $entry->cumulative_amount = $newCumulative;
+            $entry->remaining_value = $newRemaining;
+            $entry->saveQuietly(); // Use saveQuietly to avoid triggering observers
+            
+            $currentCumulative = $newCumulative;
+            $currentRemaining = $newRemaining;
+        }
 
         return redirect()
             ->route('asset-depreciation.index', $assetDepreciation->asset->id)
@@ -200,11 +283,26 @@ class AssetDepreciationController extends Controller
 
         $assetDepreciation->update([
             'status' => 'processed',
+            'debit_account_id' => $validated['debit_account_id'],
+            'credit_account_id' => $validated['credit_account_id'],
             'notes' => $validated['notes'] ?? $assetDepreciation->notes,
         ]);
 
         return redirect()->back()
             ->with('success', 'Penyusutan berhasil diproses.');
+    }
+
+    public function cancel(AssetDepreciationEntry $assetDepreciation)
+    {
+        $assetDepreciation->update([
+            'status' => 'scheduled',
+            'debit_account_id' => null,
+            'credit_account_id' => null,
+            'notes' => null,
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Penyusutan berhasil dibatalkan.');
     }
 
     public function generateSchedule(Request $request, Asset $asset)

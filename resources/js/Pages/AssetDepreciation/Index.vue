@@ -7,6 +7,7 @@ import AppDataTable from '@/Components/AppDataTable.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 import { formatNumber } from '@/utils/numberFormat';
 import DepreciationModal from './Partials/DepreciationModal.vue';
+import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
 
 const props = defineProps({
     asset: {
@@ -27,20 +28,27 @@ const props = defineProps({
     order: String,
 });
 
+const depreciationMethods = [
+    { value: 'straight-line', label: 'Garis Lurus' },
+    { value: 'declining-balance', label: 'Saldo Menurun' },
+];
+
 const currentSort = ref({ key: props.sort || 'entry_date', order: props.order || 'desc' });
 const currentFilters = ref(props.filters || {});
 
 const showProcessModal = ref(false);
 const selectedEntry = ref(null);
+const showCancelConfirmation = ref(false);
 
 const tableHeaders = [
-    { key: 'entry_date', label: 'Tanggal Entri' },
+    { key: 'entry_date', label: 'Tanggal Penyusutan' },
     { key: 'period_start', label: 'Awal Periode' },
     { key: 'period_end', label: 'Akhir Periode' },
     { key: 'type', label: 'Tipe' },
     { key: 'amount', label: 'Jumlah' },
     { key: 'cumulative_amount', label: 'Akumulasi' },
     { key: 'remaining_value', label: 'Nilai Sisa' },
+    { key: 'journal_id', label: 'No. Jurnal' },
     { key: 'status', label: 'Status' },
     { key: 'actions', label: '' }
 ];
@@ -99,6 +107,10 @@ const columnFormatters = {
         'scheduled': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Terjadwal</span>',
         'processed': '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Diproses</span>'
     })[value] || value
+};
+
+const columnRenderers = {
+    journal_id: (value) => value ? `<a href="${route('journals.show', value)}" class="text-blue-500 hover:text-blue-700" target="_blank">${props.entries.data.find(entry => entry.journal_id === value)?.journal?.journal_number}</a>` : '-'
 };
 
 const sortableColumns = ['entry_date', 'period_start', 'period_end', 'amount', 'cumulative_amount', 'remaining_value', 'type', 'status'];
@@ -172,6 +184,26 @@ function closeProcessModal() {
     showProcessModal.value = false;
 }
 
+function openCancelConfirmation(entry) {
+    selectedEntry.value = entry;
+    showCancelConfirmation.value = true;
+}
+
+function closeCancelConfirmation() {
+    selectedEntry.value = null;
+    showCancelConfirmation.value = false;
+}
+
+function cancelEntry() {
+    router.delete(route('asset-depreciation.cancel', selectedEntry.value.id), {
+        preserveScroll: true,
+        preserveState: true,
+        onFinish: () => {
+            closeCancelConfirmation();
+        }
+    });
+}
+
 function handleGenerateSchedule() {
     router.get(route('asset-depreciation.generate-schedule', props.asset.id));
 }
@@ -192,31 +224,39 @@ function handleGenerateSchedule() {
                         <AppBackLink :href="route('assets.show', asset.id)" :text="`Kembali ke Detail Aset: ${asset.name}`" />
                     </div>
 
-                    <h3 class="text-lg font-semibold mb-4">Informasi Aset</h3>
+                    <h3 class="text-lg font-semibold mb-4">Informasi Aset {{ asset?.name }}</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <p class="text-sm text-gray-600">Nama Aset</p>
-                            <p class="font-medium">{{ asset?.name }}</p>
+                            <p class="text-sm text-gray-600">Perusahaan</p>
+                            <p class="font-medium">{{ asset.branch.branch_group.company.name }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-600">Nilai Perolehan</p>
                             <p class="font-medium">{{ formatNumber(asset.purchase_cost) }}</p>
                         </div>
                         <div>
-                            <p class="text-sm text-gray-600">Perusahaan</p>
-                            <p class="font-medium">{{ asset.branch.branch_group.company.name }}</p>
-                        </div>
-                        <div>
                             <p class="text-sm text-gray-600">Cabang</p>
                             <p class="font-medium">{{ asset.branch.name }}</p>
                         </div>
                         <div>
+                            <p class="text-sm text-gray-600">Nilai Residu</p>
+                            <p class="font-medium">{{ formatNumber(asset.salvage_value) }}</p>
+                        </div>
+                        <div>
                             <p class="text-sm text-gray-600">Metode Penyusutan</p>
-                            <p class="font-medium">{{ asset.depreciation_method }}</p>
+                            <p class="font-medium">{{ depreciationMethods.find(method => method.value === asset.depreciation_method)?.label || 'Garis Lurus' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Akumulasi Penyusutan</p>
+                            <p class="font-medium">{{ asset.depreciation_entries_sum_amount ? formatNumber(asset.depreciation_entries_sum_amount) : '-' }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-600">Masa Manfaat</p>
                             <p class="font-medium">{{ asset.useful_life_months }} bulan</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Nilai Sisa</p>
+                            <p class="font-medium">{{ formatNumber(asset.purchase_cost - asset.depreciation_entries_sum_amount) }}</p>
                         </div>
                     </div>
                 </div>
@@ -227,6 +267,7 @@ function handleGenerateSchedule() {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :sortable="sortableColumns"
                         :defaultSort="defaultSort"
@@ -248,6 +289,14 @@ function handleGenerateSchedule() {
                                 class="text-green-600 hover:text-green-900 mr-3"
                             >
                                 Proses
+                            </button>
+
+                            <button
+                                v-if="item.status === 'processed'"
+                                @click="openCancelConfirmation(item)"
+                                class="text-red-600 hover:text-red-900 mr-3"
+                            >
+                                Batal
                             </button>
                         </template>
 
@@ -272,5 +321,14 @@ function handleGenerateSchedule() {
         :entry="selectedEntry"
         :accounts="accounts"
         @close="closeProcessModal"
+    />
+
+    <DeleteConfirmationModal
+        :show="showCancelConfirmation"
+        title="Batalkan Penyusutan"
+        message="Apakah Anda yakin ingin membatalkan penyusutan ini?"
+        confirmButtonText="Batalkan Penyusutan"
+        @close="closeCancelConfirmation"
+        @confirm="cancelEntry"
     />
 </template> 

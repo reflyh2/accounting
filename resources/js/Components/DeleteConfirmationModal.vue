@@ -13,6 +13,14 @@ defineProps({
     message: {
         type: String,
         default: 'Apakah Anda yakin ingin menghapus data ini secara permanen?'
+    },
+    confirmButtonText: {
+        type: String,
+        default: 'Hapus'
+    },
+    cancelButtonText: {
+        type: String,
+        default: 'Tidak'
     }
 });
 
@@ -26,10 +34,10 @@ const emit = defineEmits(['close', 'confirm']);
             <p class="mb-4 text-gray-600 text-sm">{{ message }}</p>
             <div class="flex justify-end space-x-2">
                 <button @click="$emit('close')" class="px-4 py-2 text-sm bg-gray-300 text-gray-800 rounded hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    Batal
+                    {{ cancelButtonText }}
                 </button>
                 <button @click="$emit('confirm')" class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                    Hapus
+                    {{ confirmButtonText }}
                 </button>
             </div>
         </div>

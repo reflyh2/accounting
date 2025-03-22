@@ -28,7 +28,7 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const form = useForm({
-    journal_date: new Date().toISOString().split('T')[0],
+    journal_date: props.entry ? new Date(props.entry.entry_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     debit_account_id: props.asset?.category?.depreciation_expense_account_id || '',
     credit_account_id: props.asset?.category?.accumulated_depreciation_account_id || '',
     notes: props.entry?.notes || '',
@@ -59,6 +59,7 @@ function submit() {
                     label="Tanggal Jurnal"
                     :error="form.errors.journal_date"
                     required
+                    disabled
                 />
 
                 <AppSelect

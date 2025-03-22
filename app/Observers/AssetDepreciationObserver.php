@@ -38,24 +38,25 @@ class AssetDepreciationObserver
             }
             
             // If changed from processed to another status, delete journal
-            if ($entry->getOriginal('status') === 'processed' && $entry->journal_id) {
-                if ($entry->journal_id) {
-                    $journalEntries = $entry->journal->journalEntries;
+            if ($entry->getOriginal('status') === 'processed' && $entry->journal_id) {                
+                $journalEntries = $entry->journal->journalEntries;
 
-                    foreach ($journalEntries as $journalEntry) {
-                        $journalEntry->delete();
-                    }
-
-                    $entry->journal->delete();
-                    $entry->journal_id = null;
-                    $entry->save();
+                foreach ($journalEntries as $journalEntry) {
+                    $journalEntry->delete();
                 }
+
+                $journalId = $entry->journal_id;
+                $entry->journal_id = null;
+                $entry->saveQuietly();
+
+                Journal::where('id', $journalId)->delete();
+                
                 return;
             }
         }
 
-        // If entry amount changed and status is processed, update journal
-        if ($entry->isDirty(['amount']) && $entry->status === 'processed') {
+        // If entry amount changed or entry date changed and status is processed, update journal
+        if ($entry->isDirty(['amount', 'entry_date']) && $entry->status === 'processed') {
             if ($entry->journal_id) {
                 $this->updateJournal($entry);
             } else {
@@ -77,7 +78,12 @@ class AssetDepreciationObserver
                 $journalEntry->delete();
             }
 
-            $entry->journal->delete();
+            $journalId = $entry->journal_id;
+
+            $entry->journal_id = null;
+            $entry->saveQuietly();
+
+            Journal::where('id', $journalId)->delete();
         }
     }
 
@@ -105,7 +111,7 @@ class AssetDepreciationObserver
             // Debit depreciation expense account
             $entry1 = JournalEntry::create([
                 'journal_id' => $journal->id,
-                'account_id' => $entry->asset->category->expense_account_id,
+                'account_id' => $entry->debit_account_id,
                 'debit' => $entry->amount,
                 'credit' => 0,
                 'currency_id' => $mainCurrency->id,
@@ -117,7 +123,7 @@ class AssetDepreciationObserver
             // Credit accumulated depreciation account
             $entry2 = JournalEntry::create([
                 'journal_id' => $journal->id,
-                'account_id' => $entry->asset->category->accumulated_depreciation_account_id,
+                'account_id' => $entry->credit_account_id,
                 'debit' => 0,
                 'credit' => $entry->amount,
                 'currency_id' => $mainCurrency->id,
@@ -144,9 +150,13 @@ class AssetDepreciationObserver
                 ->where('company_id', $entry->asset->branch->branchGroup->company_id)
                 ->first()->exchange_rate;
 
+            // Update journal date
+            $journal->date = $entry->entry_date;
+            $journal->saveQuietly();
+
             // Update debit entry (expense account)
             $journal->journalEntries()
-                ->where('account_id', $entry->asset->category->expense_account_id)
+                ->where('account_id', $entry->debit_account_id)
                 ->update([
                     'debit' => $entry->amount,
                     'credit' => 0,
@@ -156,7 +166,7 @@ class AssetDepreciationObserver
 
             // Update credit entry (accumulated depreciation account)
             $journal->journalEntries()
-                ->where('account_id', $entry->asset->category->accumulated_depreciation_account_id)
+                ->where('account_id', $entry->credit_account_id)
                 ->update([
                     'debit' => 0,
                     'credit' => $entry->amount,

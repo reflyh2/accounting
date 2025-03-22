@@ -326,6 +326,7 @@ Route::middleware([
 
         // Asset Depreciation routes
         Route::delete('asset-depreciation/bulk-delete', [AssetDepreciationController::class, 'bulkDelete'])->name('asset-depreciation.bulk-delete');
+        Route::delete('asset-depreciation/{assetDepreciation}/cancel', [AssetDepreciationController::class, 'cancel'])->name('asset-depreciation.cancel');
         Route::get('asset-depreciation/export-xlsx', [AssetDepreciationController::class, 'exportXLSX'])->name('asset-depreciation.export-xlsx');
         Route::get('asset-depreciation/export-csv', [AssetDepreciationController::class, 'exportCSV'])->name('asset-depreciation.export-csv');
         Route::get('asset-depreciation/export-pdf', [AssetDepreciationController::class, 'exportPDF'])->name('asset-depreciation.export-pdf');

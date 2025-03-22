@@ -71,6 +71,7 @@ const isAccountingActive = computed(() => {
         || route().current('asset-maintenance.*')
         || route().current('asset-financing-payments.*')
         || route().current('asset-rental-payments.*')
+        || route().current('asset-depreciation.*')
         || route().current('general-ledger.*')
         || route().current('cash-bank-book.*')
         || route().current('income.*')
@@ -165,6 +166,7 @@ const isAccountingActive = computed(() => {
                                     || route().current('asset-maintenance.*')
                                     || route().current('asset-financing-payments.*')
                                     || route().current('asset-rental-payments.*')
+                                    || route().current('asset-depreciation.*')
                                 " 
                                 class="pl-11"
                             >
@@ -296,6 +298,7 @@ const isAccountingActive = computed(() => {
                                         || route().current('asset-maintenance.*')
                                         || route().current('asset-financing-payments.*')
                                         || route().current('asset-rental-payments.*')
+                                        || route().current('asset-depreciation.*')
                                     " 
                                     class="flex items-center"
                                 >

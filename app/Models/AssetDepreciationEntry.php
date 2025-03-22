@@ -22,6 +22,8 @@ class AssetDepreciationEntry extends Model
         'period_start',
         'period_end',
         'notes',
+        'debit_account_id',
+        'credit_account_id',
     ];
 
     protected $casts = [
@@ -42,4 +44,15 @@ class AssetDepreciationEntry extends Model
     {
         return $this->belongsTo(Journal::class);
     }
+
+    public function debitAccount()
+    {
+        return $this->belongsTo(Account::class, 'debit_account_id');
+    }
+
+    public function creditAccount()
+    {
+        return $this->belongsTo(Account::class, 'credit_account_id');
+    }
+    
 } 
