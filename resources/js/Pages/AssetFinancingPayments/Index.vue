@@ -37,10 +37,10 @@ const showCancelConfirmation = ref(false);
 const tableHeaders = [
     { key: 'due_date', label: 'Tanggal Jatuh Tempo' },
     { key: 'payment_date', label: 'Tanggal Bayar' },
-    { key: 'notes', label: 'Catatan' },
     { key: 'amount', label: 'Jumlah' },
     { key: 'principal_portion', label: 'Porsi Pokok' },
     { key: 'interest_portion', label: 'Porsi Bunga' },
+    { key: 'notes', label: 'Catatan' },
     { key: 'journal_id', label: 'No. Jurnal' },
     { key: 'status', label: 'Status' },
     { key: 'actions', label: '' }
