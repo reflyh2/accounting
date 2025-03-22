@@ -17,7 +17,7 @@ class AssetRentalPaymentController extends Controller
 {
     public function index(Request $request, Asset $asset)
     {
-        $query = $asset->rentalPayments();
+        $query = $asset->rentalPayments()->with('journal');
 
         if ($request->has('from_date')) {
             $query->where('payment_date', '>=', $request->from_date);
@@ -157,6 +157,18 @@ class AssetRentalPaymentController extends Controller
 
         return redirect()->back()
             ->with('success', 'Pembayaran sewa berhasil diselesaikan.');
+    }
+
+    public function cancel(AssetRentalPayment $assetRentalPayment)
+    {
+        $assetRentalPayment->update([
+            'status' => 'pending',
+            'payment_date' => null,
+            'credited_account_id' => null
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Pembayaran sewa berhasil dibatalkan.');
     }
 
     public function bulkDelete(Request $request)

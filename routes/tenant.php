@@ -313,6 +313,7 @@ Route::middleware([
 
         // Asset Rental Payment routes
         Route::delete('asset-rental-payments/bulk-delete', [AssetRentalPaymentController::class, 'bulkDelete'])->name('asset-rental-payments.bulk-delete');
+        Route::delete('asset-rental-payments/{assetRentalPayment}/cancel', [AssetRentalPaymentController::class, 'cancel'])->name('asset-rental-payments.cancel');
         Route::get('asset-rental-payments/export-xlsx', [AssetRentalPaymentController::class, 'exportXLSX'])->name('asset-rental-payments.export-xlsx');
         Route::get('asset-rental-payments/export-csv', [AssetRentalPaymentController::class, 'exportCSV'])->name('asset-rental-payments.export-csv');
         Route::get('asset-rental-payments/export-pdf', [AssetRentalPaymentController::class, 'exportPDF'])->name('asset-rental-payments.export-pdf');
