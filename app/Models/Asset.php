@@ -138,19 +138,13 @@ class Asset extends Model
             return null;
         }
 
-        $age = now()->diffInMonths($this->purchase_date);
-        if ($age >= $this->useful_life_months) {
-            return $this->salvage_value;
-        }
+        $latestEntry = $this->depreciationEntries()
+            ->where('status', 'processed')
+            ->orderBy('entry_date', 'desc')
+            ->first();
 
-        if ($this->depreciation_method === 'straight-line') {
-            $monthlyDepreciation = ($this->purchase_cost - $this->salvage_value) / $this->useful_life_months;
-            return $this->purchase_cost - ($monthlyDepreciation * $age);
-        }
-
-        if ($this->depreciation_method === 'declining-balance') {
-            $rate = 2 / $this->useful_life_months; // Double declining rate
-            return $this->purchase_cost * pow((1 - $rate), $age);
+        if ($latestEntry) {
+            return $latestEntry->remaining_value;
         }
 
         return $this->purchase_cost;
