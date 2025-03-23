@@ -145,6 +145,10 @@ class AssetController extends Controller
                 $this->createFinancingPayments($asset);
                 $this->createDepreciationEntries($asset);
             }
+            else if ($asset->acquisition_type === 'fixed_rental') {
+                $this->createRentalPayments($asset);
+                $this->createDepreciationEntries($asset); // Will handle as amortization
+            }
             else {
                 $this->createRentalPayments($asset);
             }
@@ -213,6 +217,8 @@ class AssetController extends Controller
             $isOutrightPurchase = $request->validated()['acquisition_type'] === 'outright_purchase';
             $wasFinancedPurchase = $asset->acquisition_type === 'financed_purchase';
             $isFinancedPurchase = $request->validated()['acquisition_type'] === 'financed_purchase';
+            $wasFixedRental = $asset->acquisition_type === 'fixed_rental';
+            $isFixedRental = $request->validated()['acquisition_type'] === 'fixed_rental';
 
             // Check for paid payments
             $hasPaidFinancingPayments = $asset->financingPayments()->where('status', 'paid')->exists();
@@ -250,6 +256,14 @@ class AssetController extends Controller
                 'salvage_value',
             ];
 
+            // Define fields that can't be changed if there are amortization entries
+            $amortizationFields = [
+                'acquisition_type',
+                'rental_amount',
+                'amortization_term_months',
+                'first_amortization_date',
+            ];
+
             // Check if any financing fields are being changed while having paid payments
             if ($hasPaidFinancingPayments && 
                 in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
@@ -275,13 +289,22 @@ class AssetController extends Controller
             }
 
             // Check if any depreciation fields are being changed while having depreciation entries
-            if ($hasDepreciationEntries && 
-                in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
-                foreach ($depreciationFields as $field) {
-                    if (isset($request->validated()[$field]) && $request->validated()[$field] != $asset->$field) {
-                        return back()
-                            ->with(['error' => 'Tidak dapat mengubah informasi penyusutan karena sudah ada penyusutan yang diproses.'])
-                            ->withInput();
+            if ($hasDepreciationEntries) {
+                if (in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
+                    foreach ($depreciationFields as $field) {
+                        if (isset($request->validated()[$field]) && $request->validated()[$field] != $asset->$field) {
+                            return back()
+                                ->with(['error' => 'Tidak dapat mengubah informasi penyusutan karena sudah ada penyusutan yang diproses.'])
+                                ->withInput();
+                        }
+                    }
+                } else if ($asset->acquisition_type === 'fixed_rental') {
+                    foreach ($amortizationFields as $field) {
+                        if (isset($request->validated()[$field]) && $request->validated()[$field] != $asset->$field) {
+                            return back()
+                                ->with(['error' => 'Tidak dapat mengubah informasi amortisasi karena sudah ada amortisasi yang diproses.'])
+                                ->withInput();
+                        }
                     }
                 }
             }
@@ -293,15 +316,17 @@ class AssetController extends Controller
             if (in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
                 $this->updateFinancingPayments($asset);
                 $this->updateDepreciationEntries($asset);
+            } else if ($asset->acquisition_type === 'fixed_rental') {
+                $this->updateRentalPayments($asset);
+                $this->updateDepreciationEntries($asset); // Will handle as amortization
             } else {
                 $this->updateRentalPayments($asset);
             }
 
             DB::commit();
 
-            return redirect()->route('assets.edit', $asset->id)
-                ->with('success', 'Aset berhasil diubah.');
-            
+            return redirect()->route('assets.show', $asset->id)
+                ->with('success', 'Aset berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withErrors(['error' => 'Terjadi kesalahan saat memperbarui aset: ' . $e->getMessage()])->withInput();
@@ -574,10 +599,21 @@ class AssetController extends Controller
 
     private function createDepreciationEntries($asset)
     {
-        // Only create depreciation entries for depreciable assets
-        if (!in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase']) || 
-            !$asset->first_depreciation_date ||
-            !$asset->useful_life_months ||
+        // Handle depreciation for outright and financed purchases
+        if (in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
+            $this->createTangibleDepreciationEntries($asset);
+        } 
+        // Handle amortization for fixed rentals
+        else if ($asset->acquisition_type === 'fixed_rental') {
+            $this->createIntangibleAmortizationEntries($asset);
+        }
+    }
+    
+    private function createTangibleDepreciationEntries($asset)
+    {
+        // Only create depreciation entries if we have the required fields
+        if (!$asset->first_depreciation_date || 
+            !$asset->useful_life_months || 
             $asset->useful_life_months <= 0) {
             return;
         }
@@ -666,18 +702,112 @@ class AssetController extends Controller
             // Create the depreciation entry
             $asset->depreciationEntries()->create([
                 'entry_date' => $entryDate->format('Y-m-d'),
-                'type' => $asset->asset_type === 'tangible' ? 'depreciation' : 'amortization',
+                'type' => 'depreciation',
                 'status' => 'scheduled',
                 'amount' => round($monthlyAmount, 2),
                 'cumulative_amount' => round($cumulativeAmount, 2),
                 'remaining_value' => round($remainingValue, 2),
                 'period_start' => $periodStart->format('Y-m-d'),
                 'period_end' => $periodEnd->format('Y-m-d'),
-                'notes' => 'Jadwal ' . ($asset->asset_type === 'tangible' ? 'penyusutan' : 'amortisasi') . ' otomatis bulan ke-' . ($i + 1),
+                'notes' => 'Jadwal penyusutan otomatis bulan ke-' . ($i + 1),
             ]);
             
             // If we've depreciated to salvage value, stop creating entries
             if (abs($remainingValue - ($asset->salvage_value ?? 0)) < 0.01) {
+                break;
+            }
+        }
+    }
+    
+    private function createIntangibleAmortizationEntries($asset)
+    {
+        // Only create amortization entries if we have the required fields
+        if (!$asset->first_amortization_date || 
+            !$asset->amortization_term_months || 
+            $asset->amortization_term_months <= 0 ||
+            !$asset->rental_amount || 
+            $asset->rental_amount <= 0) {
+            return;
+        }
+        
+        // Calculate amortizable amount (use rental amount as the base)
+        $amortizableAmount = $asset->rental_amount;
+        
+        // Calculate monthly amortization amount (always straight-line for rentals)
+        $monthlyAmount = $amortizableAmount / $asset->amortization_term_months;
+        
+        // Set first entry date
+        $firstEntryDate = new \DateTime($asset->first_amortization_date);
+        
+        // Set rental start date as period start
+        $periodStart = new \DateTime($asset->rental_start_date ?? $asset->first_amortization_date);
+        
+        // Calculate first period end (one month after start date)
+        $periodEnd = clone $periodStart;
+        $periodEnd->modify('+1 month -1 day');
+        
+        // Create entries for the amortization term
+        $remainingValue = $amortizableAmount;
+        $cumulativeAmount = 0;
+        
+        for ($i = 0; $i < $asset->amortization_term_months; $i++) {
+            // Calculate entry date
+            $entryDate = clone $firstEntryDate;
+            
+            if ($i > 0) {
+                // For subsequent entries, add months to the first entry date
+                // But handle the date calculation carefully to avoid skipping months
+                $targetMonth = (int)$firstEntryDate->format('m') + $i;
+                $targetYear = (int)$firstEntryDate->format('Y') + floor(($targetMonth - 1) / 12);
+                $targetMonth = (($targetMonth - 1) % 12) + 1;
+                
+                // Get the last day of target month
+                $lastDayOfMonth = (new \DateTime())->setDate($targetYear, $targetMonth, 1)
+                    ->modify('last day of this month')
+                    ->format('d');
+                
+                // Use the minimum between original day and last day of target month
+                $targetDay = min((int)$firstEntryDate->format('d'), (int)$lastDayOfMonth);
+                
+                $entryDate->setDate($targetYear, $targetMonth, $targetDay);
+                
+                // Set period dates for subsequent entries
+                $periodStart = clone $periodEnd;
+                $periodStart->modify('+1 day');
+                
+                $periodEnd = clone $periodStart;
+                $periodEnd->modify('+1 month -1 day');
+            }
+                        
+            // If monthly amount becomes zero or negative, stop creating entries
+            if ($monthlyAmount <= 0 || $remainingValue <= 0) {
+                break;
+            }
+            
+            // For the last entry, adjust amount to exactly reach zero
+            if ($i == $asset->amortization_term_months - 1 || $remainingValue < $monthlyAmount) {
+                $monthlyAmount = $remainingValue;
+            }
+            
+            // Update running totals
+            $cumulativeAmount += $monthlyAmount;
+            $remainingValue -= $monthlyAmount;
+            
+            // Create the amortization entry
+            $asset->depreciationEntries()->create([
+                'entry_date' => $entryDate->format('Y-m-d'),
+                'type' => 'amortization',
+                'status' => 'scheduled',
+                'amount' => round($monthlyAmount, 2),
+                'cumulative_amount' => round($cumulativeAmount, 2),
+                'remaining_value' => round($remainingValue, 2),
+                'period_start' => $periodStart->format('Y-m-d'),
+                'period_end' => $periodEnd->format('Y-m-d'),
+                'notes' => 'Jadwal amortisasi otomatis bulan ke-' . ($i + 1),
+            ]);
+            
+            // If we've fully amortized, stop creating entries
+            if ($remainingValue <= 0) {
                 break;
             }
         }
