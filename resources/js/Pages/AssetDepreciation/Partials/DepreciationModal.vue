@@ -1,6 +1,6 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import AppModal from '@/Components/AppModal.vue';
 import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
@@ -25,12 +25,14 @@ const props = defineProps({
     }
 });
 
+const isAmortization = computed(() => props.asset.acquisition_type === 'fixed_rental');
+
 const emit = defineEmits(['close']);
 
 const form = useForm({
     journal_date: props.entry ? new Date(props.entry.entry_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-    debit_account_id: props.asset?.category?.depreciation_expense_account_id || '',
-    credit_account_id: props.asset?.category?.accumulated_depreciation_account_id || '',
+    debit_account_id: isAmortization ? props.asset?.category?.rent_expense_account_id || '' : props.asset?.category?.depreciation_expense_account_id || '',
+    credit_account_id: isAmortization ? props.asset?.category?.prepaid_rent_account_id || '' : props.asset?.category?.accumulated_depreciation_account_id || '',
     notes: props.entry?.notes || '',
 });
 
@@ -49,7 +51,7 @@ function submit() {
     <AppModal :show="show" @close="$emit('close')" max-width="md">
         <div class="p-6">
             <h2 class="text-lg font-medium text-gray-900 mb-4">
-                Proses Entri Penyusutan
+                {{ isAmortization ? 'Proses Entri Amortisasi' : 'Proses Entri Penyusutan' }}
             </h2>
 
             <form @submit.prevent="submit" class="space-y-4">
@@ -65,13 +67,13 @@ function submit() {
                 <AppSelect
                     v-model="form.debit_account_id"
                     :options="accounts
-                        .filter(a => a.type === 'beban_penyusutan')
+                        .filter(a => isAmortization ? a.type === 'beban_amortisasi' : a.type === 'beban_penyusutan')
                         .map(account => ({
                             value: account.id,
                             label: account.code + ' - ' + account.name
                         }))
                     "
-                    label="Akun Beban Penyusutan (Debit)"
+                    :label="isAmortization ? 'Akun Beban Amortisasi (Debit)' : 'Akun Beban Penyusutan (Debit)'"
                     :error="form.errors.debit_account_id"
                     required
                 />
@@ -79,19 +81,19 @@ function submit() {
                 <AppSelect
                     v-model="form.credit_account_id"
                     :options="accounts
-                        .filter(a => a.type === 'akumulasi_penyusutan')
+                        .filter(a => isAmortization ? a.type === 'aset_lancar_lainnya' : a.type === 'akumulasi_penyusutan')
                         .map(account => ({
                             value: account.id,
                             label: account.code + ' - ' + account.name
                         }))
                     "
-                    label="Akun Akumulasi Penyusutan (Kredit)"
+                    :label="isAmortization ? 'Akun Sewa Dibayar Dimuka (Kredit)' : 'Akun Akumulasi Penyusutan (Kredit)'"
                     :error="form.errors.credit_account_id"
                     required
                 />
 
                 <div class="bg-gray-50 p-4 rounded-lg mb-4">
-                    <h3 class="font-medium mb-2">Informasi Penyusutan</h3>
+                    <h3 class="font-medium mb-2">{{ isAmortization ? 'Informasi Amortisasi' : 'Informasi Penyusutan' }}</h3>
                     <div class="grid grid-cols-1 gap-2 text-sm">
                         <p>Aset: {{ asset?.name }}</p>
                         <p>Periode: {{ new Date(entry?.period_start).toLocaleDateString('id-ID') }} - {{ new Date(entry?.period_end).toLocaleDateString('id-ID') }}</p>
@@ -110,7 +112,7 @@ function submit() {
                         Batal
                     </AppSecondaryButton>
                     <AppPrimaryButton type="submit" :disabled="form.processing">
-                        Proses Penyusutan
+                        {{ isAmortization ? 'Proses Amortisasi' : 'Proses Penyusutan' }}
                     </AppPrimaryButton>
                 </div>
             </form>

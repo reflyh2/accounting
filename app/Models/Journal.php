@@ -73,6 +73,7 @@ class Journal extends Model
             'asset_financing_payment' => 'Jurnal Pembayaran Pembelian Aset',
             'asset_rental_payment' => 'Jurnal Pembayaran Sewa Aset',
             'asset_depreciation' => 'Jurnal Penyusutan Aset',
+            'asset_amortization' => 'Jurnal Amortisasi Aset',
         ];
     }
 
@@ -89,6 +90,7 @@ class Journal extends Model
             'asset_financing_payment' => 'FP',
             'asset_rental_payment' => 'RP',
             'asset_depreciation' => 'DP',
+            'asset_amortization' => 'AM',
         ];
     }
 }

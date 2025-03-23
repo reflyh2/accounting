@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
@@ -8,6 +9,8 @@ const props = defineProps({
     asset: Object,
     entry: Object,
 });
+
+const isAmortization = computed(() => props.asset.acquisition_type === 'fixed_rental');
 
 function formatDate(date) {
     return date ? new Date(date).toLocaleDateString('id-ID') : '-';
@@ -25,18 +28,18 @@ const typeLabels = {
 </script>
 
 <template>
-    <Head title="Detail Penyusutan Aset" />
+    <Head :title="isAmortization ? 'Detail Amortisasi Aset' : 'Detail Penyusutan Aset'" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Detail Penyusutan Aset</h2>
+            <h2>{{ isAmortization ? 'Detail Amortisasi Aset' : 'Detail Penyusutan Aset' }}</h2>
         </template>
 
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white shadow-sm sm:rounded border border-gray-200 mb-6">
                 <div class="p-6">
                     <div class="mb-6">
-                        <AppBackLink :href="route('asset-depreciation.index', asset.id)" text="Kembali ke Daftar Penyusutan" />
+                        <AppBackLink :href="route('asset-depreciation.index', asset.id)" :text="isAmortization ? 'Kembali ke Daftar Amortisasi' : 'Kembali ke Daftar Penyusutan'" />
                     </div>
 
                     <h3 class="text-lg font-semibold mb-4">Informasi Aset</h3>
@@ -45,7 +48,11 @@ const typeLabels = {
                             <p class="text-sm text-gray-600">Nama Aset</p>
                             <p class="font-medium">{{ asset?.name }}</p>
                         </div>
-                        <div>
+                        <div v-if="isAmortization">
+                            <p class="text-sm text-gray-600">Nilai Sewa</p>
+                            <p class="font-medium">{{ formatNumber(asset.rental_amount) }}</p>
+                        </div>
+                        <div v-else>
                             <p class="text-sm text-gray-600">Nilai Perolehan</p>
                             <p class="font-medium">{{ formatNumber(asset.purchase_cost) }}</p>
                         </div>
@@ -59,7 +66,9 @@ const typeLabels = {
                         </div>
                     </div>
 
-                    <h3 class="text-lg font-semibold mb-4">Detail Penyusutan</h3>
+                    <h3 class="text-lg font-semibold mb-4">
+                        {{ isAmortization ? 'Detail Amortisasi' : 'Detail Penyusutan' }}
+                    </h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <p class="text-sm text-gray-600">Tanggal Entri</p>

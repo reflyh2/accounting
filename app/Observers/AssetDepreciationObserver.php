@@ -50,7 +50,7 @@ class AssetDepreciationObserver
                 $entry->saveQuietly();
 
                 Journal::where('id', $journalId)->delete();
-                
+
                 return;
             }
         }
@@ -96,8 +96,8 @@ class AssetDepreciationObserver
             // Create journal
             $journal = Journal::create([
                 'date' => $entry->entry_date,
-                'description' => "Penyusutan aset: {$entry->asset->name} periode " . $entry->period_start->format('d/m/Y') . " - " . $entry->period_end->format('d/m/Y'),
-                'journal_type' => 'asset_depreciation',
+                'description' => ($entry->type === 'depreciation' ? 'Penyusutan' : 'Amortisasi') . " aset: {$entry->asset->name} periode " . $entry->period_start->format('d/m/Y') . " - " . $entry->period_end->format('d/m/Y'),
+                'journal_type' => $entry->type === 'depreciation' ? 'asset_depreciation' : 'asset_amortization',
                 'branch_id' => $entry->asset->branch_id,
                 'user_global_id' => Auth::user()->global_id ?? null,
             ]);
@@ -108,7 +108,8 @@ class AssetDepreciationObserver
                 ->first()->exchange_rate;
 
             // Create journal entries
-            // Debit depreciation expense account
+            // Debit depreciation expense account for depreciation entries
+            // Debit rent expense account for amortization entries
             $entry1 = JournalEntry::create([
                 'journal_id' => $journal->id,
                 'account_id' => $entry->debit_account_id,
@@ -120,7 +121,8 @@ class AssetDepreciationObserver
                 'primary_currency_credit' => 0
             ]);
 
-            // Credit accumulated depreciation account
+            // Credit accumulated depreciation account for depreciation entries
+            // Credit prepaid rent account for amortization entries
             $entry2 = JournalEntry::create([
                 'journal_id' => $journal->id,
                 'account_id' => $entry->credit_account_id,

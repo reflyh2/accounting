@@ -84,6 +84,7 @@ function getJournalViewRoute(journal) {
         'asset_financing_payment': 'journals.show',
         'asset_rental_payment': 'journals.show',
         'asset_depreciation': 'journals.show',
+        'asset_amortization': 'journals.show',
     };
 
     const routeName = routes[journal.journal_type];

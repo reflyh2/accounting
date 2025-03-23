@@ -24,6 +24,8 @@ const props = defineProps({
     }
 });
 
+const isAmortization = computed(() => props.asset.acquisition_type === 'fixed_rental');
+
 const depreciationMethods = [
     { value: 'straight-line', label: 'Garis Lurus' },
     { value: 'declining-balance', label: 'Saldo Menurun' },
@@ -67,9 +69,15 @@ const nextPeriodDates = computed(() => {
         };
     }
     
-    // If no existing entries, use the asset's purchase date as reference
-    const purchaseDate = props.asset.purchase_date ? new Date(props.asset.purchase_date) : new Date();
-    const periodStart = new Date(purchaseDate);
+    // If no existing entries, use the appropriate reference date
+    let referenceDate;
+    if (isAmortization.value) {
+        referenceDate = props.asset.rental_start_date ? new Date(props.asset.rental_start_date) : new Date();
+    } else {
+        referenceDate = props.asset.purchase_date ? new Date(props.asset.purchase_date) : new Date();
+    }
+    
+    const periodStart = new Date(referenceDate);
     const periodEnd = new Date(periodStart);
     periodEnd.setMonth(periodEnd.getMonth() + 1);
     periodEnd.setDate(periodEnd.getDate() - 1);
@@ -80,23 +88,35 @@ const nextPeriodDates = computed(() => {
     };
 });
 
-// Calculate the depreciation amount based on straight-line method as default
+// Calculate the depreciation or amortization amount
 const calculatedAmount = computed(() => {
-    const purchaseCost = props.asset.purchase_cost || 0;
-    const salvageValue = props.asset.salvage_value || 0;
-    const usefulLife = props.asset.useful_life_months || 60; // Default to 5 years if not set
-    
-    // Total depreciable amount
-    const depreciableAmount = purchaseCost - salvageValue;
-    
-    // Monthly depreciation amount (straight-line)
-    return depreciableAmount / usefulLife;
+    if (isAmortization.value) {
+        // Amortization calculation for rental assets
+        const rentalAmount = props.asset.rental_amount || 0;
+        const termMonths = props.asset.amortization_term_months || 12; // Default to 1 year if not set
+        
+        // Monthly amortization amount (always straight-line for amortization)
+        return rentalAmount / termMonths;
+    } else {
+        // Depreciation calculation for purchased assets
+        const purchaseCost = props.asset.purchase_cost || 0;
+        const salvageValue = props.asset.salvage_value || 0;
+        const usefulLife = props.asset.useful_life_months || 60; // Default to 5 years if not set
+        
+        // Total depreciable amount
+        const depreciableAmount = purchaseCost - salvageValue;
+        
+        // Monthly depreciation amount (straight-line)
+        return depreciableAmount / usefulLife;
+    }
 });
 
 // Get the current cumulative amount and remaining value
 const currentValues = computed(() => {
     const existing = props.asset.depreciation_entries || [];
-    const purchaseCost = props.asset.purchase_cost || 0;
+    const baseValue = isAmortization.value ? 
+                    (props.asset.rental_amount || 0) : 
+                    (props.asset.purchase_cost || 0);
     
     if (existing.length > 0) {
         // Find the entry with the highest cumulative amount
@@ -106,19 +126,19 @@ const currentValues = computed(() => {
         
         return {
             cumulative: Number(sortedEntries[0].cumulative_amount) || 0,
-            remaining: Number(sortedEntries[0].remaining_value) || purchaseCost
+            remaining: Number(sortedEntries[0].remaining_value) || baseValue
         };
     }
     
     return {
         cumulative: 0,
-        remaining: purchaseCost
+        remaining: baseValue
     };
 });
 
 const form = useForm({
     entry_date: props.entry?.entry_date ? new Date(props.entry.entry_date).toISOString().split('T')[0] : nextEntryDate.value,
-    type: props.entry?.type || 'depreciation',
+    type: props.entry?.type || (isAmortization.value ? 'amortization' : 'depreciation'),
     amount: props.entry?.amount || calculatedAmount.value,
     period_start: props.entry?.period_start ? new Date(props.entry.period_start).toISOString().split('T')[0] : nextPeriodDates.value.start,
     period_end: props.entry?.period_end ? new Date(props.entry.period_end).toISOString().split('T')[0] : nextPeriodDates.value.end,
@@ -185,7 +205,7 @@ function submitForm(createAnother = false) {
             <AppInput
                 v-model="form.entry_date"
                 type="date"
-                label="Tanggal Penyusutan"
+                :label="isAmortization ? 'Tanggal Amortisasi' : 'Tanggal Penyusutan'"
                 :error="form.errors.entry_date"
                 required
             />
@@ -199,6 +219,7 @@ function submitForm(createAnother = false) {
                 label="Tipe"
                 :error="form.errors.type"
                 required
+                :disabled="true"
             />
 
             <AppInput
@@ -219,11 +240,40 @@ function submitForm(createAnother = false) {
 
             <AppInput
                 v-model="form.amount"
-                label="Jumlah Penyusutan"
+                :label="isAmortization ? 'Jumlah Amortisasi' : 'Jumlah Penyusutan'"
                 :number-format="true"
                 :error="form.errors.amount"
                 required
             />
+        </div>
+
+        <div class="bg-gray-50 p-4 rounded-lg">
+            <h3 class="font-medium mb-2">{{ isAmortization ? 'Informasi Amortisasi' : 'Informasi Penyusutan' }}</h3>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+                <div v-if="isAmortization">
+                    <p class="text-gray-600">Nilai Sewa:</p>
+                    <p>{{ formatNumber(asset.rental_amount) }}</p>
+                </div>
+                <div v-else>
+                    <p class="text-gray-600">Nilai Perolehan:</p>
+                    <p>{{ formatNumber(asset.purchase_cost) }}</p>
+                </div>
+                
+                <div v-if="!isAmortization">
+                    <p class="text-gray-600">Nilai Residu:</p>
+                    <p>{{ formatNumber(asset.salvage_value) }}</p>
+                </div>
+                
+                <div v-if="!isAmortization">
+                    <p class="text-gray-600">Metode:</p>
+                    <p>{{ depreciationMethods.find(method => method.value === asset.depreciation_method)?.label || 'Garis Lurus' }}</p>
+                </div>
+                
+                <div>
+                    <p class="text-gray-600">{{ isAmortization ? 'Periode Amortisasi:' : 'Masa Manfaat:' }}</p>
+                    <p>{{ isAmortization ? asset.amortization_term_months : asset.useful_life_months }} bulan</p>
+                </div>
+            </div>
         </div>
 
         <AppTextarea

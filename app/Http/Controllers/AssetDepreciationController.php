@@ -50,11 +50,13 @@ class AssetDepreciationController extends Controller
 
         $entries = $query->paginate($perPage)->onEachSide(0)->withQueryString();
 
+        $accountTypes = $asset->acquisition_type === 'fixed_rental' ? ['beban_amortisasi', 'aset_lancar_lainnya'] : ['beban_penyusutan', 'akumulasi_penyusutan'];
+
         return Inertia::render('AssetDepreciation/Index', [
             'asset' => Asset::where('id', $asset->id)->with(['branch.branchGroup.company', 'category'])->withSum(['depreciationEntries' => function($query) {
                 $query->where('status', 'processed');
             }], 'amount')->first(),
-            'accounts' => Account::whereIn('type', ['akumulasi_penyusutan', 'beban_penyusutan'])
+            'accounts' => Account::whereIn('type', $accountTypes)
                 ->where('is_parent', false)
                 ->orderBy('code')
                 ->get(),

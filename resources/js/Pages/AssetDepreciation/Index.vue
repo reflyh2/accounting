@@ -28,6 +28,8 @@ const props = defineProps({
     order: String,
 });
 
+const isAmortization = computed(() => props.asset.acquisition_type === 'fixed_rental');
+
 const depreciationMethods = [
     { value: 'straight-line', label: 'Garis Lurus' },
     { value: 'declining-balance', label: 'Saldo Menurun' },
@@ -41,7 +43,7 @@ const selectedEntry = ref(null);
 const showCancelConfirmation = ref(false);
 
 const tableHeaders = [
-    { key: 'entry_date', label: 'Tanggal Penyusutan' },
+    { key: 'entry_date', label: isAmortization.value ? 'Tanggal Amortisasi' : 'Tanggal Penyusutan' },
     { key: 'period_start', label: 'Awal Periode' },
     { key: 'period_end', label: 'Akhir Periode' },
     { key: 'type', label: 'Tipe' },
@@ -199,11 +201,11 @@ function handleGenerateSchedule() {
 </script>
 
 <template>
-    <Head title="Penyusutan Aset" />
+    <Head :title="isAmortization ? 'Amortisasi Aset' : 'Penyusutan Aset'" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Penyusutan Aset</h2>
+            <h2>{{ isAmortization ? 'Amortisasi Aset' : 'Penyusutan Aset' }}</h2>
         </template>
 
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
@@ -219,7 +221,11 @@ function handleGenerateSchedule() {
                             <p class="text-sm text-gray-600">Perusahaan</p>
                             <p class="font-medium">{{ asset.branch.branch_group.company.name }}</p>
                         </div>
-                        <div>
+                        <div v-if="isAmortization">
+                            <p class="text-sm text-gray-600">Nilai Sewa</p>
+                            <p class="font-medium">{{ formatNumber(asset.rental_amount) }}</p>
+                        </div>
+                        <div v-else>
                             <p class="text-sm text-gray-600">Nilai Perolehan</p>
                             <p class="font-medium">{{ formatNumber(asset.purchase_cost) }}</p>
                         </div>
@@ -227,25 +233,45 @@ function handleGenerateSchedule() {
                             <p class="text-sm text-gray-600">Cabang</p>
                             <p class="font-medium">{{ asset.branch.name }}</p>
                         </div>
-                        <div>
+                        <div v-if="isAmortization">
+                            <p class="text-sm text-gray-600">Periode Sewa</p>
+                            <p class="font-medium">
+                                {{ asset.rental_start_date ? new Date(asset.rental_start_date).toLocaleDateString('id-ID') : '-' }} s/d
+                                {{ asset.rental_end_date ? new Date(asset.rental_end_date).toLocaleDateString('id-ID') : '-' }}
+                            </p>
+                        </div>
+                        <div v-else>
                             <p class="text-sm text-gray-600">Nilai Residu</p>
                             <p class="font-medium">{{ formatNumber(asset.salvage_value) }}</p>
                         </div>
-                        <div>
+                        <div v-if="isAmortization">
+                            <p class="text-sm text-gray-600">Metode Amortisasi</p>
+                            <p class="font-medium">Garis Lurus</p>
+                        </div>
+                        <div v-else>
                             <p class="text-sm text-gray-600">Metode Penyusutan</p>
                             <p class="font-medium">{{ depreciationMethods.find(method => method.value === asset.depreciation_method)?.label || 'Garis Lurus' }}</p>
                         </div>
                         <div>
-                            <p class="text-sm text-gray-600">Akumulasi Penyusutan</p>
+                            <p class="text-sm text-gray-600">{{ isAmortization ? 'Akumulasi Amortisasi' : 'Akumulasi Penyusutan' }}</p>
                             <p class="font-medium">{{ asset.depreciation_entries_sum_amount ? formatNumber(asset.depreciation_entries_sum_amount) : '-' }}</p>
                         </div>
-                        <div>
+                        <div v-if="isAmortization">
+                            <p class="text-sm text-gray-600">Periode Amortisasi</p>
+                            <p class="font-medium">{{ asset.amortization_term_months }} bulan</p>
+                        </div>
+                        <div v-else>
                             <p class="text-sm text-gray-600">Masa Manfaat</p>
                             <p class="font-medium">{{ asset.useful_life_months }} bulan</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-600">Nilai Sisa</p>
-                            <p class="font-medium">{{ formatNumber(asset.purchase_cost - asset.depreciation_entries_sum_amount) }}</p>
+                            <p class="font-medium">
+                                {{ isAmortization 
+                                   ? formatNumber(asset.rental_amount - (asset.depreciation_entries_sum_amount || 0)) 
+                                   : formatNumber(asset.purchase_cost - (asset.depreciation_entries_sum_amount || 0)) 
+                                }}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -294,7 +320,7 @@ function handleGenerateSchedule() {
                                 @click="handleGenerateSchedule"
                                 class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             >
-                                Buat Jadwal Penyusutan
+                                {{ isAmortization ? 'Buat Jadwal Amortisasi' : 'Buat Jadwal Penyusutan' }}
                             </button>
                         </template>
                     </AppDataTable>
@@ -314,9 +340,11 @@ function handleGenerateSchedule() {
 
     <DeleteConfirmationModal
         :show="showCancelConfirmation"
-        title="Batalkan Penyusutan"
-        message="Apakah Anda yakin ingin membatalkan penyusutan ini?"
-        confirmButtonText="Batalkan Penyusutan"
+        :title="isAmortization ? 'Batalkan Amortisasi' : 'Batalkan Penyusutan'"
+        :message="isAmortization 
+            ? 'Apakah Anda yakin ingin membatalkan amortisasi ini?' 
+            : 'Apakah Anda yakin ingin membatalkan penyusutan ini?'"
+        confirmButtonText="Batalkan"
         @close="closeCancelConfirmation"
         @confirm="cancelEntry"
     />
