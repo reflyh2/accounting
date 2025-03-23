@@ -143,6 +143,7 @@ class AssetController extends Controller
 
             if ($asset->acquisition_type === 'outright_purchase' || $asset->acquisition_type === 'financed_purchase') {
                 $this->createFinancingPayments($asset);
+                $this->createDepreciationEntries($asset);
             }
             else {
                 $this->createRentalPayments($asset);
@@ -216,6 +217,7 @@ class AssetController extends Controller
             // Check for paid payments
             $hasPaidFinancingPayments = $asset->financingPayments()->where('status', 'paid')->exists();
             $hasPaidRentalPayments = $asset->rentalPayments()->where('status', 'paid')->exists();
+            $hasDepreciationEntries = $asset->depreciationEntries()->where('status', 'processed')->exists();
 
             // Define fields that can't be changed if there are paid payments
             $financingFields = [
@@ -236,6 +238,16 @@ class AssetController extends Controller
                 'payment_frequency',
                 'amortization_term_months',
                 'first_amortization_date',
+            ];
+
+            // Define fields that can't be changed if there are depreciation entries
+            $depreciationFields = [
+                'acquisition_type',
+                'purchase_cost',
+                'useful_life_months',
+                'first_depreciation_date',
+                'depreciation_method',
+                'salvage_value',
             ];
 
             // Check if any financing fields are being changed while having paid payments
@@ -262,14 +274,26 @@ class AssetController extends Controller
                 }
             }
 
+            // Check if any depreciation fields are being changed while having depreciation entries
+            if ($hasDepreciationEntries && 
+                in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
+                foreach ($depreciationFields as $field) {
+                    if (isset($request->validated()[$field]) && $request->validated()[$field] != $asset->$field) {
+                        return back()
+                            ->with(['error' => 'Tidak dapat mengubah informasi penyusutan karena sudah ada penyusutan yang diproses.'])
+                            ->withInput();
+                    }
+                }
+            }
+
             // If we get here, either there are no paid payments or no restricted fields are being changed
             $asset->update($request->validated());
 
-            // Handle financing payment for outright purchase
+            // Handle financing payment and depreciation entries for outright purchase and financed purchase
             if (in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase'])) {
                 $this->updateFinancingPayments($asset);
-            }
-            else {
+                $this->updateDepreciationEntries($asset);
+            } else {
                 $this->updateRentalPayments($asset);
             }
 
@@ -280,7 +304,7 @@ class AssetController extends Controller
             
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Terjadi kesalahan saat mengubah aset.'])->withInput();
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat memperbarui aset: ' . $e->getMessage()])->withInput();
         }
     }
 
@@ -546,5 +570,125 @@ class AssetController extends Controller
 
         // Create new financing payments
         $this->createFinancingPayments($asset);
+    }
+
+    private function createDepreciationEntries($asset)
+    {
+        // Only create depreciation entries for depreciable assets
+        if (!in_array($asset->acquisition_type, ['outright_purchase', 'financed_purchase']) || 
+            !$asset->first_depreciation_date ||
+            !$asset->useful_life_months ||
+            $asset->useful_life_months <= 0) {
+            return;
+        }
+
+        // Calculate depreciable amount
+        $depreciableAmount = $asset->purchase_cost - ($asset->salvage_value ?? 0);
+        
+        // Skip if there's nothing to depreciate
+        if ($depreciableAmount <= 0) {
+            return;
+        }
+        
+        // Calculate monthly depreciation amount
+        $monthlyAmount = 0;
+        if ($asset->depreciation_method === 'straight-line') {
+            $monthlyAmount = $depreciableAmount / $asset->useful_life_months;
+        } else {
+            // Declining balance method - first month
+            $rate = (2 / $asset->useful_life_months);
+            $monthlyAmount = $depreciableAmount * $rate;
+        }
+        
+        // Set first entry date
+        $firstEntryDate = new \DateTime($asset->first_depreciation_date);
+        
+        // Set purchase date as period start
+        $periodStart = new \DateTime($asset->purchase_date);
+        
+        // Calculate first period end (one month after purchase date)
+        $periodEnd = clone $periodStart;
+        $periodEnd->modify('+1 month -1 day');
+        
+        // Create entries for the useful life
+        $remainingValue = $asset->purchase_cost;
+        $cumulativeAmount = 0;
+        
+        for ($i = 0; $i < $asset->useful_life_months; $i++) {
+            // Calculate entry date
+            $entryDate = clone $firstEntryDate;
+            
+            if ($i > 0) {
+                // For subsequent entries, add months to the first entry date
+                // But handle the date calculation carefully to avoid skipping months
+                $targetMonth = (int)$firstEntryDate->format('m') + $i;
+                $targetYear = (int)$firstEntryDate->format('Y') + floor(($targetMonth - 1) / 12);
+                $targetMonth = (($targetMonth - 1) % 12) + 1;
+                
+                // Get the last day of target month
+                $lastDayOfMonth = (new \DateTime())->setDate($targetYear, $targetMonth, 1)
+                    ->modify('last day of this month')
+                    ->format('d');
+                
+                // Use the minimum between original day and last day of target month
+                $targetDay = min((int)$firstEntryDate->format('d'), (int)$lastDayOfMonth);
+                
+                $entryDate->setDate($targetYear, $targetMonth, $targetDay);
+                
+                // Set period dates for subsequent entries
+                $periodStart = clone $periodEnd;
+                $periodStart->modify('+1 day');
+                
+                $periodEnd = clone $periodStart;
+                $periodEnd->modify('+1 month -1 day');
+            }
+            
+            // Calculate amount for declining balance method
+            if ($asset->depreciation_method === 'declining-balance' && $i > 0) {
+                $rate = (2 / $asset->useful_life_months);
+                $monthlyAmount = ($remainingValue - ($asset->salvage_value ?? 0)) * $rate;
+            }
+            
+            // Ensure we don't depreciate below salvage value
+            if ($remainingValue - $monthlyAmount < ($asset->salvage_value ?? 0)) {
+                $monthlyAmount = $remainingValue - ($asset->salvage_value ?? 0);
+            }
+            
+            // If monthly amount becomes zero or negative, stop creating entries
+            if ($monthlyAmount <= 0) {
+                break;
+            }
+            
+            // Update running totals
+            $cumulativeAmount += $monthlyAmount;
+            $remainingValue -= $monthlyAmount;
+            
+            // Create the depreciation entry
+            $asset->depreciationEntries()->create([
+                'entry_date' => $entryDate->format('Y-m-d'),
+                'type' => $asset->asset_type === 'tangible' ? 'depreciation' : 'amortization',
+                'status' => 'scheduled',
+                'amount' => round($monthlyAmount, 2),
+                'cumulative_amount' => round($cumulativeAmount, 2),
+                'remaining_value' => round($remainingValue, 2),
+                'period_start' => $periodStart->format('Y-m-d'),
+                'period_end' => $periodEnd->format('Y-m-d'),
+                'notes' => 'Jadwal ' . ($asset->asset_type === 'tangible' ? 'penyusutan' : 'amortisasi') . ' otomatis bulan ke-' . ($i + 1),
+            ]);
+            
+            // If we've depreciated to salvage value, stop creating entries
+            if (abs($remainingValue - ($asset->salvage_value ?? 0)) < 0.01) {
+                break;
+            }
+        }
+    }
+    
+    private function updateDepreciationEntries($asset)
+    {
+        // Delete existing scheduled depreciation entries
+        $asset->depreciationEntries()->where('status', 'scheduled')->delete();
+        
+        // Create new depreciation entries
+        $this->createDepreciationEntries($asset);
     }
 } 
