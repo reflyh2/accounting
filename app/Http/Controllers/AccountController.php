@@ -155,7 +155,7 @@ class AccountController extends Controller
             return redirect()->back()->with(['error' => 'Gagal mengubah akun. Silakan coba lagi.']);
         }
 
-        return redirect()->route('accounts.edit', $account->id)->with('success', 'Akun berhasil diubah.');
+        return redirect()->route('accounts.show', $account->id)->with('success', 'Akun berhasil diubah.');
     }
 
     public function destroy(Request $request, Account $account)

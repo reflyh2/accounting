@@ -38,6 +38,7 @@ const filteredBranches = computed(() => {
 const tabs = [
     { label: 'Aset', route: 'assets.index', active: true },
     { label: 'Kategori Aset', route: 'asset-categories.index', active: false },
+    { label: 'Tipe Pemeliharaan', route: 'asset-maintenance-types.index', active: false },
 ];
 
 const tableHeaders = [

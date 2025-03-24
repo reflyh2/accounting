@@ -49,6 +49,7 @@ use App\Http\Controllers\AssetDisposalController;
 use App\Http\Controllers\AssetFinancingPaymentController;
 use App\Http\Controllers\AssetRentalPaymentController;
 use App\Http\Controllers\AssetDepreciationController;
+use App\Http\Controllers\AssetMaintenanceTypeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -347,6 +348,17 @@ Route::middleware([
 
         // Asset Disposal routes
         Route::resource('assets.disposals', AssetDisposalController::class)->except(['edit', 'update']);
+
+        // Asset Maintenance Types
+        Route::delete('asset-maintenance-types/bulk-delete', [AssetMaintenanceTypeController::class, 'bulkDelete'])
+            ->name('asset-maintenance-types.bulk-delete');
+        Route::get('asset-maintenance-types/export/xlsx', [AssetMaintenanceTypeController::class, 'exportXLSX'])
+            ->name('asset-maintenance-types.export.xlsx');
+        Route::get('asset-maintenance-types/export/csv', [AssetMaintenanceTypeController::class, 'exportCSV'])
+            ->name('asset-maintenance-types.export.csv');
+        Route::get('asset-maintenance-types/export/pdf', [AssetMaintenanceTypeController::class, 'exportPDF'])
+            ->name('asset-maintenance-types.export.pdf');
+        Route::resource('asset-maintenance-types', AssetMaintenanceTypeController::class);
     });
 
     Route::middleware('guest')->group(function () {

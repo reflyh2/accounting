@@ -86,8 +86,12 @@ class AssetCategoryController extends Controller
             }
         });
 
-        return redirect()
-            ->route('asset-categories.index')
+        if ($request->input('create_another', false)) {
+            return redirect()->route('asset-categories.create')
+                ->with('success', 'Kategori aset berhasil dibuat. Silakan buat kategori aset lainnya.');
+        }
+
+        return redirect()->route('asset-categories.show', $category->id)
             ->with('success', 'Kategori aset berhasil dibuat.');
     }
 

@@ -28,6 +28,11 @@ class AssetCategory extends Model
         return $this->hasMany(Asset::class, 'category_id');
     }
 
+    public function maintenanceTypes(): HasMany
+    {
+        return $this->hasMany(AssetMaintenanceType::class, 'asset_category_id');
+    }
+
     public function companies(): BelongsToMany
     {
         return $this->belongsToMany(Company::class, 'asset_category_company')

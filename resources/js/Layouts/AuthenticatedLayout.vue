@@ -68,6 +68,7 @@ const isAccountingActive = computed(() => {
         || route().current('cash-payment-journals.*')
         || route().current('assets.*')
         || route().current('asset-categories.*')
+        || route().current('asset-maintenance-types.*')
         || route().current('asset-maintenance.*')
         || route().current('asset-financing-payments.*')
         || route().current('asset-rental-payments.*')
@@ -163,6 +164,7 @@ const isAccountingActive = computed(() => {
                                 :active="
                                     route().current('assets.*') 
                                     || route().current('asset-categories.*') 
+                                    || route().current('asset-maintenance-types.*')
                                     || route().current('asset-maintenance.*')
                                     || route().current('asset-financing-payments.*')
                                     || route().current('asset-rental-payments.*')
@@ -295,6 +297,7 @@ const isAccountingActive = computed(() => {
                                     :active="
                                         route().current('assets.*') 
                                         || route().current('asset-categories.*') 
+                                        || route().current('asset-maintenance-types.*')
                                         || route().current('asset-maintenance.*')
                                         || route().current('asset-financing-payments.*')
                                         || route().current('asset-rental-payments.*')
