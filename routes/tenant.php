@@ -352,12 +352,12 @@ Route::middleware([
         // Asset Maintenance Types
         Route::delete('asset-maintenance-types/bulk-delete', [AssetMaintenanceTypeController::class, 'bulkDelete'])
             ->name('asset-maintenance-types.bulk-delete');
-        Route::get('asset-maintenance-types/export/xlsx', [AssetMaintenanceTypeController::class, 'exportXLSX'])
-            ->name('asset-maintenance-types.export.xlsx');
-        Route::get('asset-maintenance-types/export/csv', [AssetMaintenanceTypeController::class, 'exportCSV'])
-            ->name('asset-maintenance-types.export.csv');
-        Route::get('asset-maintenance-types/export/pdf', [AssetMaintenanceTypeController::class, 'exportPDF'])
-            ->name('asset-maintenance-types.export.pdf');
+        Route::get('asset-maintenance-types/export-xlsx', [AssetMaintenanceTypeController::class, 'exportXLSX'])
+            ->name('asset-maintenance-types.export-xlsx');
+        Route::get('asset-maintenance-types/export-csv', [AssetMaintenanceTypeController::class, 'exportCSV'])
+            ->name('asset-maintenance-types.export-csv');
+        Route::get('asset-maintenance-types/export-pdf', [AssetMaintenanceTypeController::class, 'exportPDF'])
+            ->name('asset-maintenance-types.export-pdf');
         Route::resource('asset-maintenance-types', AssetMaintenanceTypeController::class);
     });
 

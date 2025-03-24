@@ -13,31 +13,25 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder;
 use App\Models\AssetMaintenanceType;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\Exportable;
 
-class AssetMaintenanceTypesExport implements FromQuery, WithHeadings, WithMapping, WithEvents
+class AssetMaintenanceTypesExport extends DefaultValueBinder implements 
+    FromCollection, 
+    WithHeadings, 
+    WithMapping, 
+    WithCustomValueBinder,
+    WithEvents,
+    ShouldAutoSize
 {
-    use Exportable;
-
     protected $maintenanceTypes;
 
-    public function __construct($maintenanceTypes = [])
+    public function __construct($maintenanceTypes)
     {
         $this->maintenanceTypes = $maintenanceTypes;
     }
 
-    public function query()
+    public function collection()
     {
-        if ($this->maintenanceTypes instanceof \Illuminate\Database\Eloquent\Collection) {
-            return AssetMaintenanceType::whereIn('id', $this->maintenanceTypes->pluck('id'))
-                ->with(['assetCategory', 'maintenanceCostAccount', 'companies'])
-                ->withCount('maintenanceRecords');
-        }
-
-        return AssetMaintenanceType::query()
-            ->with(['assetCategory', 'maintenanceCostAccount', 'companies'])
-            ->withCount('maintenanceRecords');
+        return $this->maintenanceTypes;
     }
 
     public function headings(): array
@@ -59,12 +53,38 @@ class AssetMaintenanceTypesExport implements FromQuery, WithHeadings, WithMappin
         return [
             $maintenanceType->name,
             $maintenanceType->assetCategory->name ?? '-',
-            $maintenanceType->description,
+            $maintenanceType->description ?? '-',
             $maintenanceType->maintenance_interval ?? '-',
             $maintenanceType->maintenance_interval_days ?? '-',
-            $maintenanceType->maintenanceCostAccount->name ?? '-',
+            $maintenanceType->maintenanceCostAccount ? $maintenanceType->maintenanceCostAccount->code . ' - ' . $maintenanceType->maintenanceCostAccount->name : '-',
             $maintenanceType->companies->pluck('name')->implode(', '),
             $maintenanceType->maintenance_records_count
+        ];
+    }
+
+    public function styles(Worksheet $sheet)
+    {
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setFitToWidth(1);
+
+        return [
+            // Style the first row as bold text
+            1    => ['font' => ['bold' => true]],
+
+            // Styling the entire sheet
+            'A1:H'.$sheet->getHighestRow() => [
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['argb' => '000000'],
+                    ],
+                ],
+                'alignment' => [
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                    'horizontal' => Alignment::HORIZONTAL_LEFT,
+                ],
+            ],
         ];
     }
 

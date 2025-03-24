@@ -13,39 +13,25 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
 use PhpOffice\PhpSpreadsheet\Cell\DefaultValueBinder;
 use App\Models\AssetCategory;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\Exportable;
 
-class AssetCategoriesExport implements FromQuery, WithHeadings, WithMapping
+class AssetCategoriesExport extends DefaultValueBinder implements 
+    FromCollection, 
+    WithHeadings, 
+    WithMapping, 
+    WithCustomValueBinder,
+    WithEvents,
+    ShouldAutoSize
 {
-    use Exportable;
+    protected $categories;
 
-    protected $filters;
-
-    public function __construct($filters = [])
+    public function __construct($categories)
     {
-        $this->filters = $filters;
+        $this->categories = $categories;
     }
 
-    public function query()
+    public function collection()
     {
-        $query = AssetCategory::query()
-            ->with([
-                'companies',
-                'fixedAssetAccount',
-                'purchasePayableAccount',
-                'accumulatedDepreciationAccount',
-                'depreciationExpenseAccount',
-                'prepaidRentAccount',
-                'rentExpenseAccount'
-            ])
-            ->withCount('assets');
-
-        if (!empty($this->filters['search'])) {
-            $query->where('name', 'like', '%' . $this->filters['search'] . '%');
-        }
-
-        return $query;
+        return $this->categories;
     }
 
     public function headings(): array
@@ -68,15 +54,41 @@ class AssetCategoriesExport implements FromQuery, WithHeadings, WithMapping
     {
         return [
             $category->name,
-            $category->description,
+            $category->description ?? '-',
             $category->companies->pluck('name')->implode(', '),
-            $category->fixedAssetAccount?->name ?? '-',
-            $category->purchasePayableAccount?->name ?? '-',
-            $category->accumulatedDepreciationAccount?->name ?? '-',
-            $category->depreciationExpenseAccount?->name ?? '-',
-            $category->prepaidRentAccount?->name ?? '-',
-            $category->rentExpenseAccount?->name ?? '-',
+            $category->fixedAssetAccount ? $category->fixedAssetAccount->code . ' - ' . $category->fixedAssetAccount->name : '-',
+            $category->purchasePayableAccount ? $category->purchasePayableAccount->code . ' - ' . $category->purchasePayableAccount->name : '-',
+            $category->accumulatedDepreciationAccount ? $category->accumulatedDepreciationAccount->code . ' - ' . $category->accumulatedDepreciationAccount->name : '-',
+            $category->depreciationExpenseAccount ? $category->depreciationExpenseAccount->code . ' - ' . $category->depreciationExpenseAccount->name : '-',
+            $category->prepaidRentAccount ? $category->prepaidRentAccount->code . ' - ' . $category->prepaidRentAccount->name : '-',
+            $category->rentExpenseAccount ? $category->rentExpenseAccount->code . ' - ' . $category->rentExpenseAccount->name : '-',
             $category->assets_count
+        ];
+    }
+
+    public function styles(Worksheet $sheet)
+    {
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setFitToWidth(1);
+
+        return [
+            // Style the first row as bold text
+            1    => ['font' => ['bold' => true]],
+
+            // Styling the entire sheet
+            'A1:J'.$sheet->getHighestRow() => [
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['argb' => '000000'],
+                    ],
+                ],
+                'alignment' => [
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                    'horizontal' => Alignment::HORIZONTAL_LEFT,
+                ],
+            ],
         ];
     }
 
@@ -112,15 +124,15 @@ class AssetCategoriesExport implements FromQuery, WithHeadings, WithMapping
 
                 // Set column widths
                 $columnWidths = [
-                    'A' => 30, // Name
-                    'B' => 55, // Description
-                    'C' => 15, // Company
-                    'D' => 15, // Fixed Asset Account
-                    'E' => 15, // Purchase Payable Account
-                    'F' => 15, // Accumulated Depreciation Account
-                    'G' => 15, // Depreciation Expense Account
-                    'H' => 15, // Prepaid Rent Account
-                    'I' => 15, // Rent Expense Account
+                    'A' => 25, // Name
+                    'B' => 35, // Description
+                    'C' => 30, // Company
+                    'D' => 25, // Fixed Asset Account
+                    'E' => 25, // Purchase Payable Account
+                    'F' => 25, // Accumulated Depreciation Account
+                    'G' => 25, // Depreciation Expense Account
+                    'H' => 25, // Prepaid Rent Account
+                    'I' => 25, // Rent Expense Account
                     'J' => 15, // Asset Count
                 ];
 

@@ -114,9 +114,9 @@ const customFilters = computed(() => [
 ]);
 
 const downloadOptions = [
-    { value: 'xlsx', label: 'Excel' },
-    { value: 'csv', label: 'CSV' },
-    { value: 'pdf', label: 'PDF' }
+    { format: 'pdf', label: 'Download PDF' },
+    { format: 'xlsx', label: 'Download Excel' },
+    { format: 'csv', label: 'Download CSV' }
 ];
 
 const sortableColumns = [
