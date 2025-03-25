@@ -21,7 +21,7 @@ const currentFilters = ref(props.filters || {});
 
 const tableHeaders = [
     { key: 'maintenance_date', label: 'Tanggal' },
-    { key: 'maintenance_type', label: 'Jenis' },
+    { key: 'maintenance_type_id', label: 'Jenis' },
     { key: 'cost', label: 'Biaya' },
     { key: 'performed_by', label: 'Dilakukan Oleh' },
     { key: 'next_maintenance_date', label: 'Jadwal Berikutnya' },
@@ -51,6 +51,10 @@ const columnFormatters = {
     completed_at: (value) => value ? 
         '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Selesai</span>' : 
         '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Dalam Proses</span>'
+};
+
+const columnRenderers = {
+    maintenance_type_id: (value, item) => item.maintenance_type ? item.maintenance_type.name : '-',
 };
 
 const sortableColumns = ['maintenance_date', 'maintenance_type', 'cost', 'performed_by', 'next_maintenance_date', 'completed_at'];
@@ -171,6 +175,7 @@ function handleFilter(newFilters) {
                   :filters="currentFilters"
                   :tableHeaders="tableHeaders"
                   :columnFormatters="columnFormatters"
+                  :columnRenderers="columnRenderers"
                   :customFilters="customFilters"
                   :createRoute="{ name: 'asset-maintenance.create', params: { asset: asset.id } }"
                   :editRoute="{ name: 'asset-maintenance.edit', params: { asset: asset.id } }"

@@ -8,6 +8,7 @@ defineProps({
     asset: Object,
     maintenance: Object,
     filters: Object,
+    maintenanceTypes: Array,
 });
 </script>
 
@@ -32,7 +33,8 @@ defineProps({
                         <MaintenanceForm 
                             :asset="asset" 
                             :maintenance="maintenance" 
-                            :filters="filters" 
+                            :filters="filters"
+                            :maintenanceTypes="maintenanceTypes"
                         />
                     </div>
                 </div>

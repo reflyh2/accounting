@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Asset;
 use App\Models\AssetMaintenanceRecord;
+use App\Models\AssetMaintenanceType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -17,11 +18,13 @@ class AssetMaintenanceController extends Controller
         $filters = $request->all() ?: Session::get('asset_maintenance.index_filters', []);
         Session::put('asset_maintenance.index_filters', $filters);
 
-        $query = $asset->maintenanceRecords();
+        $query = $asset->maintenanceRecords()->with('maintenanceType');
 
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
-                $q->where(DB::raw('lower(maintenance_type)'), 'like', '%' . strtolower($filters['search']) . '%')
+                $q->whereHas('maintenanceType', function($q) use ($filters) {
+                    $q->where(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%');
+                })
                   ->orWhere(DB::raw('lower(description)'), 'like', '%' . strtolower($filters['search']) . '%')
                   ->orWhere(DB::raw('lower(performed_by)'), 'like', '%' . strtolower($filters['search']) . '%');
             });
@@ -57,9 +60,17 @@ class AssetMaintenanceController extends Controller
     {
         $filters = Session::get('asset_maintenance.index_filters', []);
         
+        // Get maintenance types for this asset's category and company
+        $maintenanceTypes = AssetMaintenanceType::where('asset_category_id', $asset->category_id)
+            ->whereHas('companies', function($query) use ($asset) {
+                $query->where('company_id', $asset->branch->branchGroup->company_id);
+            })
+            ->get();
+        
         return Inertia::render('AssetMaintenance/Create', [
-            'asset' => $asset->load('branch.branchGroup.company'),
+            'asset' => $asset->load('branch.branchGroup.company', 'category'),
             'filters' => $filters,
+            'maintenanceTypes' => $maintenanceTypes,
         ]);
     }
 
@@ -67,13 +78,17 @@ class AssetMaintenanceController extends Controller
     {
         $validated = $request->validate([
             'maintenance_date' => 'required|date',
-            'maintenance_type' => 'required|string|max:255',
+            'maintenance_type_id' => 'required|exists:asset_maintenance_types,id',
             'cost' => 'required|numeric|min:0',
             'description' => 'required|string',
             'performed_by' => 'nullable|string|max:255',
             'next_maintenance_date' => 'nullable|date|after:maintenance_date',
         ]);
 
+        // Get the maintenance type to set the credited account
+        $maintenanceType = AssetMaintenanceType::findOrFail($validated['maintenance_type_id']);
+        $validated['credited_account_id'] = $maintenanceType->maintenance_cost_account_id;
+        
         $maintenanceRecord = $asset->maintenanceRecords()->create($validated);
 
         // Update asset status to 'maintenance' if not already
@@ -93,11 +108,20 @@ class AssetMaintenanceController extends Controller
     public function edit(AssetMaintenanceRecord $maintenanceRecord)
     {
         $filters = Session::get('asset_maintenance.index_filters', []);
+        $asset = $maintenanceRecord->asset;
+        
+        // Get maintenance types for this asset's category and company
+        $maintenanceTypes = AssetMaintenanceType::where('asset_category_id', $asset->category_id)
+            ->whereHas('companies', function($query) use ($asset) {
+                $query->where('company_id', $asset->branch->branchGroup->company_id);
+            })
+            ->get();
         
         return Inertia::render('AssetMaintenance/Edit', [
-            'asset' => $maintenanceRecord->asset->load('branch.branchGroup.company'),
-            'maintenance' => $maintenanceRecord,
+            'asset' => $asset->load('branch.branchGroup.company', 'category'),
+            'maintenance' => $maintenanceRecord->load('maintenanceType'),
             'filters' => $filters,
+            'maintenanceTypes' => $maintenanceTypes,
         ]);
     }
 
@@ -105,13 +129,17 @@ class AssetMaintenanceController extends Controller
     {
         $validated = $request->validate([
             'maintenance_date' => 'required|date',
-            'maintenance_type' => 'required|string|max:255',
+            'maintenance_type_id' => 'required|exists:asset_maintenance_types,id',
             'cost' => 'required|numeric|min:0',
             'description' => 'required|string',
             'performed_by' => 'nullable|string|max:255',
             'next_maintenance_date' => 'nullable|date|after:maintenance_date',
         ]);
 
+        // Get the maintenance type to set the credited account
+        $maintenanceType = AssetMaintenanceType::findOrFail($validated['maintenance_type_id']);
+        $validated['credited_account_id'] = $maintenanceType->maintenance_cost_account_id;
+        
         $maintenanceRecord->update($validated);
 
         return redirect()->route('asset-maintenance.index', $maintenanceRecord->asset->id)
@@ -150,6 +178,18 @@ class AssetMaintenanceController extends Controller
 
         return redirect()->route('asset-maintenance.index', $maintenanceRecord->asset->id)
             ->with('success', 'Pemeliharaan berhasil diselesaikan.');
+    }
+
+    public function show(AssetMaintenanceRecord $maintenanceRecord)
+    {
+        $filters = Session::get('asset_maintenance.index_filters', []);
+        $asset = $maintenanceRecord->asset;
+        
+        return Inertia::render('AssetMaintenance/Show', [
+            'asset' => $asset->load('branch.branchGroup.company', 'category'),
+            'maintenance' => $maintenanceRecord->load('maintenanceType'),
+            'filters' => $filters,
+        ]);
     }
 
     public function bulkDelete(Request $request)

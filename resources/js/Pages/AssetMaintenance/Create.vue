@@ -7,6 +7,7 @@ import AppBackLink from '@/Components/AppBackLink.vue';
 defineProps({
     asset: Object,
     filters: Object,
+    maintenanceTypes: Array,
 });
 </script>
 
@@ -28,7 +29,7 @@ defineProps({
                                 :text="`Kembali ke Daftar Pemeliharaan: ${asset.name}`" 
                             />
                         </div>
-                        <MaintenanceForm :asset="asset" :filters="filters" />
+                        <MaintenanceForm :asset="asset" :filters="filters" :maintenanceTypes="maintenanceTypes" />
                     </div>
                 </div>
             </div>

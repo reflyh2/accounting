@@ -52,7 +52,7 @@ const completeMaintenance = () => {
                             />
                         </div>
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-bold">{{ maintenance.maintenance_type }}</h3>
+                            <h3 class="text-lg font-bold">{{ maintenance.maintenance_type?.name || 'Pemeliharaan' }}</h3>
                             <div class="flex items-center">
                                 <a :href="route('asset-maintenance.print', [asset.id, maintenance.id])" target="_blank">
                                     <AppPrintButton title="Print" />
@@ -87,6 +87,10 @@ const completeMaintenance = () => {
                         </div>
 
                         <div class="grid grid-cols-2 gap-4 *:py-1 text-sm">
+                            <div>
+                                <p class="font-semibold">Jenis Pemeliharaan:</p>
+                                <p>{{ maintenance.maintenance_type?.name }}</p>
+                            </div>
                             <div>
                                 <p class="font-semibold">Tanggal Pemeliharaan:</p>
                                 <p>{{ new Date(maintenance.maintenance_date).toLocaleDateString() }}</p>
