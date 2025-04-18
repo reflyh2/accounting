@@ -29,10 +29,5 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Asset::observe(AssetObserver::class);
-        AssetFinancingPayment::observe(AssetFinancingPaymentObserver::class);
-        AssetRentalPayment::observe(AssetRentalPaymentObserver::class);
-        AssetDepreciationEntry::observe(AssetDepreciationObserver::class);
-        AssetMaintenanceRecord::observe(AssetMaintenanceRecordObserver::class);
     }
 }

@@ -8,11 +8,11 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('asset_categories', function (Blueprint $table) {
+        Schema::create('countries', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
             $table->string('code')->unique();
-            $table->string('description')->nullable();
+            $table->string('name');
+            $table->string('phone_code');
             $table->timestamps();
             $table->softDeletes();
         });
@@ -20,6 +20,6 @@ return new class extends Migration
 
     public function down()
     {
-        Schema::dropIfExists('asset_categories');
+        Schema::dropIfExists('countries');
     }
 }; 

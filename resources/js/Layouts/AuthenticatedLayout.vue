@@ -53,11 +53,6 @@ const isSettingsActive = computed(() => {
         || route().current('branch-groups.*')
         || route().current('roles.*')
         || route().current('users.*')
-        || route().current('suppliers.*')
-        || route().current('customers.*')
-        || route().current('employees.*')
-        || route().current('partners.*')
-        || route().current('members.*');
 });
 
 const isAccountingActive = computed(() => {
@@ -66,13 +61,6 @@ const isAccountingActive = computed(() => {
         || route().current('journals.*')
         || route().current('cash-receipt-journals.*')
         || route().current('cash-payment-journals.*')
-        || route().current('assets.*')
-        || route().current('asset-categories.*')
-        || route().current('asset-maintenance-types.*')
-        || route().current('asset-maintenance.*')
-        || route().current('asset-financing-payments.*')
-        || route().current('asset-rental-payments.*')
-        || route().current('asset-depreciation.*')
         || route().current('general-ledger.*')
         || route().current('cash-bank-book.*')
         || route().current('income.*')
@@ -160,20 +148,6 @@ const isAccountingActive = computed(() => {
                             >
                                 Jurnal
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('assets.index')" 
-                                :active="
-                                    route().current('assets.*') 
-                                    || route().current('asset-categories.*') 
-                                    || route().current('asset-maintenance-types.*')
-                                    || route().current('asset-maintenance.*')
-                                    || route().current('asset-financing-payments.*')
-                                    || route().current('asset-rental-payments.*')
-                                    || route().current('asset-depreciation.*')
-                                " 
-                                class="pl-11"
-                            >
-                                Aset
-                            </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('general-ledger.index')" 
                                 :active="
                                     route().current('general-ledger.*') 
@@ -207,18 +181,6 @@ const isAccountingActive = computed(() => {
                                 class="pl-11"
                             >
                                 Perusahaan
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('suppliers.index')" 
-                                :active="
-                                    route().current('suppliers.*')
-                                    || route().current('customers.*')
-                                    || route().current('employees.*')
-                                    || route().current('partners.*')
-                                    || route().current('members.*')
-                                " 
-                                class="pl-11"
-                            >
-                                Relasi Bisnis
                             </ResponsiveNavLink>
                             <ResponsiveNavLink 
                                 :href="route('roles.index')" 
@@ -292,20 +254,6 @@ const isAccountingActive = computed(() => {
                                     class="flex items-center"
                                 >
                                     Jurnal
-                                </NavLink>                                
-                                <NavLink :href="route('assets.index')" 
-                                    :active="
-                                        route().current('assets.*') 
-                                        || route().current('asset-categories.*') 
-                                        || route().current('asset-maintenance-types.*')
-                                        || route().current('asset-maintenance.*')
-                                        || route().current('asset-financing-payments.*')
-                                        || route().current('asset-rental-payments.*')
-                                        || route().current('asset-depreciation.*')
-                                    " 
-                                    class="flex items-center"
-                                >
-                                    Aset
                                 </NavLink>
                                 <NavLink 
                                     :href="route('general-ledger.index')" 
@@ -346,19 +294,6 @@ const isAccountingActive = computed(() => {
                                     class="flex items-center"
                                 >
                                     Perusahaan
-                                </NavLink>                                
-                                <NavLink
-                                    :href="route('suppliers.index')" 
-                                    :active="
-                                        route().current('suppliers.*')
-                                        || route().current('customers.*')
-                                        || route().current('employees.*')
-                                        || route().current('partners.*')
-                                        || route().current('members.*')
-                                    " 
-                                    class="flex items-center"
-                                >
-                                    Relasi Bisnis
                                 </NavLink>
                                 <NavLink 
                                     :href="route('roles.index')" 
