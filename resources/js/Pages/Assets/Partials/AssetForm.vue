@@ -59,10 +59,7 @@ watch(() => [form.cost_basis, form.accumulated_depreciation], () => {
 }, { deep: true });
 
 watch(selectedCompany, (newCompanyId) => {
-   if (!props.asset && newCompanyId) {
-      form.company_id = newCompanyId;
-      router.reload({ only: ['branches'], data: { company_id: newCompanyId } });
-   }
+   router.reload({ only: ['branches'], data: { company_id: newCompanyId } });
 }, { immediate: true });
 
 watch(

@@ -14,6 +14,7 @@ return new class extends Migration
             $table->string('type'); // purchase, lease, rental, sales
             $table->string('number')->unique();
             $table->foreignId('partner_id')->constrained()->onDelete('cascade');
+            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
             $table->date('due_date');
             $table->decimal('total_amount', 15, 2);
             $table->string('status')->default('open'); // open, paid, overdue, cancelled, voided, closed, partially_paid

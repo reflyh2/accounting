@@ -37,6 +37,7 @@ use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\AssetCategoryController;
+use App\Http\Controllers\AssetPurchaseController;
 
 /*
 |--------------------------------------------------------------------------
@@ -208,6 +209,14 @@ Route::middleware([
         Route::get('assets/export-pdf', [AssetController::class, 'exportPDF'])->name('assets.export-pdf');
         Route::get('assets/{asset}/print', [AssetController::class, 'print'])->name('assets.print');
         Route::resource('assets', AssetController::class);
+
+        // Asset Purchases Routes (Added)
+        Route::delete('asset-purchases/bulk-delete', [AssetPurchaseController::class, 'bulkDelete'])->name('asset-purchases.bulk-delete');
+        Route::get('asset-purchases/export-xlsx', [AssetPurchaseController::class, 'exportXLSX'])->name('asset-purchases.export-xlsx');
+        Route::get('asset-purchases/export-csv', [AssetPurchaseController::class, 'exportCSV'])->name('asset-purchases.export-csv');
+        Route::get('asset-purchases/export-pdf', [AssetPurchaseController::class, 'exportPDF'])->name('asset-purchases.export-pdf');
+        Route::get('asset-purchases/{assetPurchase}/print', [AssetPurchaseController::class, 'print'])->name('asset-purchases.print');
+        Route::resource('asset-purchases', AssetPurchaseController::class);
     });
 
     Route::middleware('guest')->group(function () {

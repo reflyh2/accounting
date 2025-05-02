@@ -40,13 +40,14 @@ class AssetController extends Controller
     public function create(Request $request)
     {
         $companies = Company::orderBy('name')->get();
-        $branches = $this->getBranchesByCompany($request->input('company_id', null));
         $categories = AssetCategory::orderBy('name')->get();
 
         return Inertia::render('Assets/Create', [
             'filters' => $request->all(),
             'companies' => $companies,
-            'branches' => $branches,
+            'branches' => fn() => Branch::whereHas('branchGroup', function ($query) use ($request) {
+                $query->where('company_id', $request->input('company_id'));
+            })->orderBy('name', 'asc')->get(),
             'categories' => $categories,
             'assetTypes' => Asset::assetTypes(),
             'acquisitionTypes' => Asset::acquisitionTypes(),
@@ -113,17 +114,19 @@ class AssetController extends Controller
         ]);
     }
 
-    public function edit(Asset $asset)
+    public function edit(Request $request, $assetId)
     {
+        $asset = Asset::find($assetId);
         $companies = Company::orderBy('name')->get();
-        $branches = Branch::where('branch_group_id', $asset->branch->branch_group_id)->orderBy('name')->get();
         $categories = AssetCategory::orderBy('name')->get();
 
         return Inertia::render('Assets/Edit', [
             'asset' => $asset,
             'filters' => request()->all('search', 'trashed'),
             'companies' => $companies,
-            'branches' => $branches,
+            'branches' => Branch::whereHas('branchGroup', function ($query) use ($request) {
+                $query->where('company_id', $request->input('company_id'));
+            })->orderBy('name', 'asc')->get(),
             'categories' => $categories,
             'assetTypes' => Asset::assetTypes(),
             'acquisitionTypes' => Asset::acquisitionTypes(),

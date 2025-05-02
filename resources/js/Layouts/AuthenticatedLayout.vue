@@ -70,7 +70,8 @@ const isAccountingActive = computed(() => {
 
 const isAssetActive = computed(() => {
     return route().current('asset-categories.*')
-        || route().current('assets.*');
+        || route().current('assets.*')
+        || route().current('asset-purchases.*');
 });
 </script>
 
@@ -184,6 +185,9 @@ const isAssetActive = computed(() => {
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('assets.index')" :active="route().current('assets.*')" class="pl-11">
                                 Daftar Aset
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('asset-purchases.index')" :active="route().current('asset-purchases.*')" class="pl-11">
+                                Pembelian Aset
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -321,6 +325,12 @@ const isAssetActive = computed(() => {
                                     class="flex items-center"
                                 >
                                     Daftar Aset
+                                </NavLink>
+                                <NavLink :href="route('asset-purchases.index')"
+                                    :active="route().current('asset-purchases.*')" 
+                                    class="flex items-center"
+                                >
+                                    Faktur Pembelian Aset
                                 </NavLink>
                                 <!-- Add more settings menu items as needed -->
                             </DisclosurePanel>
