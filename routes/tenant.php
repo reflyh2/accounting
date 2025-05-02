@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ApiController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\AssetController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CompanyController;
@@ -34,6 +35,8 @@ use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use App\Http\Controllers\PartnerController;
+use App\Http\Controllers\AssetCategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -159,6 +162,13 @@ Route::middleware([
         Route::get('journals/{journal}/print', [JournalController::class, 'print'])->name('journals.print');
         Route::resource('journals', JournalController::class);
 
+        // Partners Routes
+        Route::delete('partners/bulk-delete', [PartnerController::class, 'bulkDelete'])->name('partners.bulk-delete');
+        Route::get('partners/export-xlsx', [PartnerController::class, 'exportXLSX'])->name('partners.export-xlsx');
+        Route::get('partners/export-csv', [PartnerController::class, 'exportCSV'])->name('partners.export-csv');
+        Route::get('partners/export-pdf', [PartnerController::class, 'exportPDF'])->name('partners.export-pdf');
+        Route::resource('partners', PartnerController::class);
+
         Route::delete('cash-receipt-journals/bulk-delete', [CashReceiptJournalController::class, 'bulkDelete'])->name('cash-receipt-journals.bulk-delete');
         Route::get('cash-receipt-journals/export-xlsx', [CashReceiptJournalController::class, 'exportXLSX'])->name('cash-receipt-journals.export-xlsx');
         Route::get('cash-receipt-journals/export-csv', [CashReceiptJournalController::class, 'exportCSV'])->name('cash-receipt-journals.export-csv');
@@ -184,6 +194,20 @@ Route::middleware([
 
         Route::get('balance-sheet', [BalanceSheetController::class, 'index'])->name('balance-sheet.index');
         Route::get('balance-sheet/download', [BalanceSheetController::class, 'download'])->name('balance-sheet.download');
+
+        Route::delete('/asset-categories/bulk-delete', [AssetCategoryController::class, 'bulkDelete'])->name('asset-categories.bulk-delete');
+        Route::get('asset-categories/export-xlsx', [AssetCategoryController::class, 'exportXLSX'])->name('asset-categories.export-xlsx');
+        Route::get('asset-categories/export-csv', [AssetCategoryController::class, 'exportCSV'])->name('asset-categories.export-csv');
+        Route::get('asset-categories/export-pdf', [AssetCategoryController::class, 'exportPDF'])->name('asset-categories.export-pdf');
+        Route::resource('asset-categories', AssetCategoryController::class);
+        
+        // Assets Routes
+        Route::delete('/assets/bulk-delete', [AssetController::class, 'bulkDelete'])->name('assets.bulk-delete');
+        Route::get('assets/export-xlsx', [AssetController::class, 'exportXLSX'])->name('assets.export-xlsx');
+        Route::get('assets/export-csv', [AssetController::class, 'exportCSV'])->name('assets.export-csv');
+        Route::get('assets/export-pdf', [AssetController::class, 'exportPDF'])->name('assets.export-pdf');
+        Route::get('assets/{asset}/print', [AssetController::class, 'print'])->name('assets.print');
+        Route::resource('assets', AssetController::class);
     });
 
     Route::middleware('guest')->group(function () {

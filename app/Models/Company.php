@@ -77,6 +77,20 @@ class Company extends Model
         return $this->belongsToManyThrough(Currency::class, CompanyCurrencyRate::class);
     }
 
+    public function assetCategories()
+    {
+        return $this->belongsToMany(AssetCategory::class, 'asset_category_company')
+            ->withPivot([
+                'asset_account_id',
+                'asset_depreciation_account_id',
+                'asset_accumulated_depreciation_account_id',
+                'asset_amortization_account_id',
+                'asset_prepaid_amortization_account_id',
+                'asset_rental_cost_account_id',
+            ])
+            ->withTimestamps();
+    }
+
     public function defaultReceivableAccount()
     {
         return $this->belongsTo(Account::class, 'default_receivable_account_id');

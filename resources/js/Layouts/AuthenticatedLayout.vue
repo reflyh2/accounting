@@ -7,7 +7,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link } from '@inertiajs/vue3';
-import { BanknotesIcon, HomeIcon } from '@heroicons/vue/24/solid';
+import { BanknotesIcon, HomeIcon, BuildingOffice2Icon } from '@heroicons/vue/24/solid';
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue';
 import { Cog8ToothIcon, ChevronRightIcon } from '@heroicons/vue/24/solid';
 import AlertNotification from '@/Components/AlertNotification.vue';
@@ -51,6 +51,7 @@ const isSettingsActive = computed(() => {
     return route().current('companies.*') 
         || route().current('branches.*') 
         || route().current('branch-groups.*')
+        || route().current('partners.*')
         || route().current('roles.*')
         || route().current('users.*')
 });
@@ -66,11 +67,16 @@ const isAccountingActive = computed(() => {
         || route().current('income.*')
         || route().current('balance-sheet.*');
 });
+
+const isAssetActive = computed(() => {
+    return route().current('asset-categories.*')
+        || route().current('assets.*');
+});
 </script>
 
 <template>
     <div class="min-h-screen bg-gray-100 flex flex-col">
-        <nav class="bg-white border-b border-gray-100 no-print">
+        <nav class="bg-white border-b border-black no-print">
             <div class="pl-6">
                 <div class="flex justify-between h-16">
                     <div class="flex">
@@ -162,6 +168,26 @@ const isAccountingActive = computed(() => {
                         </DisclosurePanel>
                     </Disclosure>
 
+                    <!-- Asset Section -->
+                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isAssetActive">
+                        <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                            <BuildingOffice2Icon class="h-5 w-5 mr-2" />
+                            <span>Aset</span>
+                            <ChevronRightIcon
+                                :class="open ? 'transform rotate-90' : ''"
+                                class="ml-auto h-4 w-4 text-gray-400"
+                            />
+                        </DisclosureButton>
+                        <DisclosurePanel class="mt-1 space-y-1 text-sm">
+                            <ResponsiveNavLink :href="route('asset-categories.index')" :active="route().current('asset-categories.*')" class="pl-11">
+                                Kategori Aset
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('assets.index')" :active="route().current('assets.*')" class="pl-11">
+                                Daftar Aset
+                            </ResponsiveNavLink>
+                        </DisclosurePanel>
+                    </Disclosure>
+
                     <!-- Settings Section -->
                     <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isSettingsActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
@@ -181,6 +207,9 @@ const isAccountingActive = computed(() => {
                                 class="pl-11"
                             >
                                 Perusahaan
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('partners.index')" :active="route().current('partners.*')" class="pl-11">
+                                Partner Bisnis
                             </ResponsiveNavLink>
                             <ResponsiveNavLink 
                                 :href="route('roles.index')" 
@@ -215,8 +244,8 @@ const isAccountingActive = computed(() => {
 
         <div class="flex flex-1 overflow-hidden">
             <!-- Side Navigation -->
-            <div class="hidden md:block w-72 flex-shrink-0 overflow-y-auto thin-scrollbar fixed top-16 bottom-0 left-0 no-print">
-                <div class="py-6 px-2">
+            <div class="hidden md:shadow-sm md:block w-72 bg-white border-t border-r border-gray-200 flex-shrink-0 overflow-y-auto thin-scrollbar fixed top-16 bottom-0 left-0 no-print">
+                <div class="py-6 pl-2 pr-6">
                     <nav class="space-y-1">
                         <NavLink :href="route('dashboard')" :active="route().current('dashboard')" class="flex items-center">
                             <HomeIcon class="h-6 w-6 mr-2" />
@@ -270,6 +299,32 @@ const isAccountingActive = computed(() => {
                                 <!-- Add more settings menu items as needed -->
                             </DisclosurePanel>
                         </Disclosure>
+
+                        <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isAssetActive">
+                            <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
+                                <BuildingOffice2Icon class="h-6 w-6 mr-2" />
+                                <span>Aset</span>
+                                <ChevronRightIcon
+                                    :class="open ? 'transform rotate-90' : ''"
+                                    class="ml-auto h-4 w-4 text-gray-400"
+                                />
+                            </DisclosureButton>
+                            <DisclosurePanel class="mt-2 space-y-2 pl-8">
+                                <NavLink :href="route('asset-categories.index')"
+                                    :active="route().current('asset-categories.*')" 
+                                    class="flex items-center"
+                                >
+                                    Kategori Aset
+                                </NavLink>
+                                <NavLink :href="route('assets.index')"
+                                    :active="route().current('assets.*')" 
+                                    class="flex items-center"
+                                >
+                                    Daftar Aset
+                                </NavLink>
+                                <!-- Add more settings menu items as needed -->
+                            </DisclosurePanel>
+                        </Disclosure>
                         
                         <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isSettingsActive">
                             <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
@@ -295,6 +350,12 @@ const isAccountingActive = computed(() => {
                                 >
                                     Perusahaan
                                 </NavLink>
+                                <NavLink :href="route('partners.index')"
+                                    :active="route().current('partners.*')" 
+                                    class="flex items-center"
+                                >
+                                    Partner Bisnis
+                                </NavLink>
                                 <NavLink 
                                     :href="route('roles.index')" 
                                     :active="
@@ -314,10 +375,10 @@ const isAccountingActive = computed(() => {
             </div>
             
             <!-- Main Content -->
-            <div class="flex-1 overflow-y-auto thin-scrollbar fixed top-16 bottom-0 right-0 left-0 md:left-72 main-content print:p-0 print:m-0 print:bg-white print:left-0 print:w-full print:h-full z-0">
+            <div class="flex-1 overflow-y-auto thin-scrollbar border-t border-gray-200 fixed top-16 bottom-0 right-0 left-0 md:left-72 main-content print:p-0 print:m-0 print:bg-white print:left-0 print:w-full print:h-full z-0">
                 <!-- Page Heading -->
                 <header class="bg-gray-100 no-print">
-                    <div class="min-w-max sm:min-w-min md:max-w-full mx-auto py-6 pl-6 sm:pl-0">
+                    <div class="min-w-max sm:min-w-min md:max-w-full mx-auto pt-8 pb-6 pl-10">
                         <h2 class="font-semibold text-2xl text-gray-800 leading-tight">
                             <slot name="header"></slot>
                         </h2>
@@ -332,7 +393,7 @@ const isAccountingActive = computed(() => {
                 />
 
                 <!-- Page Content -->
-                <main>
+                <main class="px-10">
                     <slot />
                 </main>
             </div>
