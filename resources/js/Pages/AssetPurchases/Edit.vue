@@ -11,6 +11,8 @@ defineProps({
     branches: Array,
     partners: Array, // Added partners
     assets: Array,   // Added assets
+    assetCategories: Array,
+    currencies: Array,
 });
 </script>
 
@@ -27,7 +29,7 @@ defineProps({
                 <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
                     <div class="p-6 text-gray-900">
                         <div class="mb-6">
-                             <AppBackLink :href="route('asset-purchases.index', filters)" text="Kembali ke Daftar Faktur" />
+                             <AppBackLink :href="route('asset-purchases.index', filters)" text="Kembali ke Daftar Faktur Pembelian" />
                         </div>
                         <AssetPurchaseForm 
                             :assetPurchase="assetPurchase" 
@@ -36,6 +38,8 @@ defineProps({
                             :partners="partners"
                             :assets="assets"
                             :filters="filters" 
+                            :assetCategories="assetCategories"
+                            :currencies="currencies"
                         />
                     </div>
                 </div>

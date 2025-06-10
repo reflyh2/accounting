@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm, Link } from '@inertiajs/vue3';
+import { Head, useForm, Link, usePage } from '@inertiajs/vue3';
 import AppPrintButton from '@/Components/AppPrintButton.vue';
 import AppEditButton from '@/Components/AppEditButton.vue';
 import AppDeleteButton from '@/Components/AppDeleteButton.vue';
@@ -8,6 +8,8 @@ import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 import { ref, computed } from 'vue';
 import { formatNumber } from '@/utils/numberFormat';
+
+const page = usePage();
 
 const props = defineProps({
     assetPurchase: Object, // Renamed from journal
@@ -59,7 +61,7 @@ const totalAmount = computed(() => {
                 <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
                     <div class="p-6 text-gray-900">
                         <div class="mb-6">
-                            <AppBackLink :href="route('asset-purchases.index', filters)" text="Kembali ke Daftar Faktur" />
+                            <AppBackLink :href="route('asset-purchases.index', filters)" text="Kembali ke Daftar Faktur Pembelian Aset" />
                         </div>
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-bold">Faktur #{{ assetPurchase.number }}</h3>
@@ -120,31 +122,34 @@ const totalAmount = computed(() => {
                             <table class="w-full border-collapse border border-gray-300 text-sm">
                                 <thead>
                                     <tr class="bg-gray-50">
-                                        <th class="border border-gray-300 px-4 py-2 text-left">Kode Aset</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-left">Nama Aset</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-left">Deskripsi</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-right">Qty</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-right">Harga Satuan</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-right">Jumlah Baris</th>
+                                        <th class="border border-gray-300 px-1.5 py-1.5 text-left">Kode Aset</th>
+                                        <th class="border border-gray-300 px-1.5 py-1.5 text-left">Nama Aset</th>
+                                        <th class="border border-gray-300 px-1.5 py-1.5 text-left">Deskripsi</th>
+                                        <th class="border border-gray-300 px-1.5 py-1.5 text-right">Qty</th>
+                                        <th class="border border-gray-300 px-1.5 py-1.5 text-right" colspan="2">Harga Satuan</th>
+                                        <th class="border border-gray-300 px-1.5 py-1.5 text-right" colspan="2">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-for="detail in assetPurchase.asset_invoice_details" :key="detail.id">
-                                        <td class="border border-gray-300 px-4 py-2">{{ detail.asset?.code }}</td>
-                                        <td class="border border-gray-300 px-4 py-2">{{ detail.asset?.name }}</td>
-                                        <td class="border border-gray-300 px-4 py-2">{{ detail.description }}</td>
-                                        <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(detail.quantity, 0) }}</td>
-                                        <td class="border border-gray-300 px-4 py-2 text-right">Rp {{ formatNumber(detail.unit_price) }}</td>
-                                        <td class="border border-gray-300 px-4 py-2 text-right">Rp {{ formatNumber(detail.line_amount) }}</td>
+                                        <td class="border border-gray-300 px-1.5 py-1.5">{{ detail.asset?.code }}</td>
+                                        <td class="border border-gray-300 px-1.5 py-1.5">{{ detail.asset?.name }}</td>
+                                        <td class="border border-gray-300 px-1.5 py-1.5">{{ detail.description }}</td>
+                                        <td class="border border-gray-300 px-1.5 py-1.5 text-right">{{ formatNumber(detail.quantity, 0) }}</td>
+                                        <td class="border border-r-0 border-gray-300 px-1.5 py-1.5 text-right">{{ assetPurchase.currency?.symbol }}</td>
+                                        <td class="border border-l-0 border-gray-300 px-1.5 py-1.5 text-right">{{ formatNumber(detail.unit_price) }}</td>
+                                        <td class="border border-r-0 border-gray-300 px-1.5 py-1.5 text-right">{{ assetPurchase.currency?.symbol }}</td>
+                                        <td class="border border-l-0 border-gray-300 px-1.5 py-1.5 text-right">{{ formatNumber(detail.line_amount) }}</td>
                                     </tr>
                                      <tr v-if="!assetPurchase.asset_invoice_details || assetPurchase.asset_invoice_details.length === 0">
-                                        <td colspan="6" class="border border-gray-300 px-4 py-2 text-center text-gray-500">Tidak ada detail item.</td>
+                                        <td colspan="6" class="border border-gray-300 px-1.5 py-1.5 text-center text-gray-500">Tidak ada detail item.</td>
                                     </tr>
                                 </tbody>
                                 <tfoot>
                                     <tr class="bg-gray-50">
-                                        <td colspan="5" class="border border-gray-300 px-4 py-2 text-right font-semibold">Total Faktur</td>
-                                        <td class="border border-gray-300 px-4 py-2 text-right font-semibold">Rp {{ formatNumber(totalAmount) }}</td>
+                                        <td colspan="6" class="border border-gray-300 px-1.5 py-1.5 text-right font-semibold">Total Faktur</td>
+                                        <td class="border border-r-0 border-gray-300 px-1.5 py-1.5 text-right font-semibold">{{ assetPurchase.currency?.symbol }}</td>
+                                        <td class="border border-l-0 border-gray-300 px-1.5 py-1.5 text-right font-semibold">{{ formatNumber(totalAmount) }}</td>
                                     </tr>
                                 </tfoot>
                             </table>

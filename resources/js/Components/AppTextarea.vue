@@ -18,6 +18,15 @@ const props = defineProps({
    disabled: {
       type: Boolean,
       default: false
+   },
+   margins: {
+      type: Object,
+      default: () => ({
+         top: 0,
+         right: 0,
+         bottom: 4,
+         left: 0
+      })
    }
 });
 
@@ -35,7 +44,7 @@ const initialValue = ref(props.modelValue);
 const hasChanged = ref(false);
 
 const textareaClass = computed(() => [
-   'w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-main-500',
+   'w-full px-1.5 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-main-500',
    !focused.value && props.error && !hasChanged.value ? 'border-red-500' : '',
    props.disabled ? 'bg-gray-50 cursor-not-allowed' : ''
 ]);
@@ -60,7 +69,7 @@ function onFocus() {
 </script>
 
 <template>
-   <div class="mb-4 relative">
+   <div :class="`mt-${margins.top} mr-${margins.right} mb-${margins.bottom} ml-${margins.left} relative`">
       <label v-if="label" class="block mb-1 text-sm">
          {{ label }}
          <span v-if="required" class="text-red-500 ml-1">*</span>

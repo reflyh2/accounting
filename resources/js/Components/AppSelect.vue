@@ -47,6 +47,15 @@ const props = defineProps({
    hint: {
       type: String,
       default: ''
+   },
+   margins: {
+      type: Object,
+      default: () => ({
+         top: 0,
+         right: 0,
+         bottom: 4,
+         left: 0
+      })
    }
 });
 
@@ -212,7 +221,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="mb-4">
+  <div :class="`mt-${margins.top} mr-${margins.right} mb-${margins.bottom} ml-${margins.left}`">
     <label v-if="label" class="block mb-1 text-sm">
       {{ label }}
       <span v-if="required" class="text-red-500 ml-1">*</span>
@@ -225,8 +234,7 @@ onUnmounted(() => {
         @blur="handleBlur"
         tabindex="0"
         :class="[
-          'w-full px-2 py-2 border text-sm border-gray-300 rounded flex items-center justify-between',
-          multiple && selectedOptions.length ? 'py-1.5' : 'py-2',
+          'w-full px-1.5 py-1.5 border text-sm border-gray-300 rounded flex items-center justify-between',
           isFocused ? 'outline-none ring-1 ring-main-500' : '',
           !isFocused && props.error && !hasChanged ? 'border-red-500' : '',
           props.disabled ? 'bg-gray-50 cursor-not-allowed' : 'bg-white cursor-pointer'
@@ -243,7 +251,7 @@ onUnmounted(() => {
             <span 
               v-for="option in selectedOptions" 
               :key="option.value"
-              class="bg-main-100 text-main-800 text-xs font-medium px-2 py-0.5 rounded mr-1 my-0.5 flex items-center"
+              class="bg-main-100 text-main-800 text-xs font-medium px-1.5 py-0.5 rounded mr-1 my-0.5 flex items-center"
             >
               {{ option.label }}
               <button @click.stop="removeOption(option.value)" class="ml-1 text-main-600 hover:text-main-800">&times;</button>
@@ -253,6 +261,7 @@ onUnmounted(() => {
           <span v-else class="text-gray-500 text-sm">{{ placeholder }}</span>
         </div>
         <div class="flex items-center">
+          <!-- Suffix slot for custom content like buttons -->
           <button 
             v-if="(multiple && selectedOptions.length) || (!multiple && selectedOptions)"
             @click.stop="clearSelection"
@@ -266,7 +275,8 @@ onUnmounted(() => {
           </button>
           <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-          </svg>
+          </svg>          
+          <slot name="suffix"></slot>
         </div>
       </div>
     </div>
@@ -289,7 +299,7 @@ onUnmounted(() => {
               @click.stop
               placeholder="Cari..."
               :class="[
-               'w-full border-x-0 border-gray-200 py-2 focus:outline-none focus:ring-0 text-sm focus:border-gray-200',
+               'w-full border-x-0 border-gray-200 py-1.5 focus:outline-none focus:ring-0 text-sm focus:border-gray-200',
                isOpenUpwards ? 'rounded-b-md border-b-0 border-t' : 'rounded-t-md border-t-0 border-b'
               ]"
             />
@@ -300,7 +310,7 @@ onUnmounted(() => {
               :key="option.value"
               @click="toggleOption(option)"
               :class="[
-                'px-3 py-2 cursor-pointer hover:bg-gray-100',
+                'px-2 py-1.5 cursor-pointer hover:bg-gray-100',
                 (multiple && selectValue.includes(option.value)) || (!multiple && selectValue == option.value) ? 'bg-main-50 text-main-900' : ''
               ]"
             >

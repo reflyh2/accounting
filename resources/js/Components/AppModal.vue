@@ -57,28 +57,30 @@ const maxWidthClass = computed(() => {
 </script>
 
 <template>
-    <Dialog :open="show" @close="close" class="relative z-50">
-        <div class="fixed inset-0 overflow-y-auto px-4 py-6 sm:px-0">
-            <div class="fixed inset-0 transform transition-all" @click="close">
-                <div class="absolute inset-0 bg-gray-500/75"></div>
-            </div>
+    <Teleport to="body">
+        <Dialog :open="show" @close="close" class="relative z-[200]">
+            <div class="fixed inset-0 overflow-y-auto px-4 py-6 sm:px-0">
+                <div class="fixed inset-0 transform transition-all" @click="close">
+                    <div class="absolute inset-0 bg-gray-500/75"></div>
+                </div>
 
-            <transition
-                enter-active-class="ease-out duration-300"
-                enter-from-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                enter-to-class="opacity-100 translate-y-0 sm:scale-100"
-                leave-active-class="ease-in duration-200"
-                leave-from-class="opacity-100 translate-y-0 sm:scale-100"
-                leave-to-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-            >
-                <DialogPanel
-                    v-show="show"
-                    class="mb-6 bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:w-full sm:mx-auto"
-                    :class="maxWidthClass"
+                <transition
+                    enter-active-class="ease-out duration-300"
+                    enter-from-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                    enter-to-class="opacity-100 translate-y-0 sm:scale-100"
+                    leave-active-class="ease-in duration-200"
+                    leave-from-class="opacity-100 translate-y-0 sm:scale-100"
+                    leave-to-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                 >
-                    <slot />
-                </DialogPanel>
-            </transition>
-        </div>
-    </Dialog>
+                    <DialogPanel
+                        v-show="show"
+                        class="mb-6 bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:w-full sm:mx-auto"
+                        :class="maxWidthClass"
+                    >
+                        <slot />
+                    </DialogPanel>
+                </transition>
+            </div>
+        </Dialog>
+    </Teleport> 
 </template> 

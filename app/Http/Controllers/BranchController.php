@@ -21,7 +21,7 @@ class BranchController extends Controller
         $filters = $request->all() ?: Session::get('branches.index_filters', []);
         Session::put('branches.index_filters', $filters);
 
-        $query = Branch::query()->with(['branchGroup.company']);
+        $query = Branch::query()->withoutGlobalScope('userBranches')->with(['branchGroup.company']);
         
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
@@ -91,8 +91,8 @@ class BranchController extends Controller
         $filters = Session::get('branches.index_filters', []);
         
         return Inertia::render('Branches/Create', [
-            'branchGroups' => BranchGroup::orderBy('name', 'asc')->get(),
-            'companies' => Company::orderBy('name', 'asc')->get(),
+            'branchGroups' => BranchGroup::withoutGlobalScope('userBranchGroups')->orderBy('name', 'asc')->get(),
+            'companies' => Company::withoutGlobalScope('userCompanies')->orderBy('name', 'asc')->get(),
             'filters' => $filters,
         ]);
     }
@@ -116,30 +116,39 @@ class BranchController extends Controller
             ->with('success', 'Data cabang berhasil dibuat.');
     }    
 
-    public function show(Branch $branch)
+    public function show(Request $request, $branchId)
     {
+        $branch = Branch::withoutGlobalScope('userBranches')->find($branchId);
         $filters = Session::get('branches.index_filters', []);
         
         return Inertia::render('Branches/Show', [
-            'branch' => $branch->load('branchGroup'),
+            'branch' => $branch->load(['branchGroup' => function($query) {
+                $query->withoutGlobalScope('userBranchGroups');
+            }]),
             'filters' => $filters,
         ]);
     }
 
-    public function edit(Request $request, Branch $branch)
+    public function edit(Request $request, $branchId)
     {
+        $branch = Branch::withoutGlobalScope('userBranches')->find($branchId);
         $filters = Session::get('branches.index_filters', []);
 
         return Inertia::render('Branches/Edit', [
-            'branch' => $branch->load('branchGroup.company'),
-            'branchGroups' => BranchGroup::orderBy('name', 'asc')->get(),
-            'companies' => Company::orderBy('name', 'asc')->get(),
+            'branch' => $branch->load(['branchGroup' => function($query) {
+                $query->withoutGlobalScope('userBranchGroups');
+            }, 'branchGroup.company' => function($query) {
+                $query->withoutGlobalScope('userCompanies');
+            }]),
+            'branchGroups' => BranchGroup::withoutGlobalScope('userBranchGroups')->orderBy('name', 'asc')->get(),
+            'companies' => Company::withoutGlobalScope('userCompanies')->orderBy('name', 'asc')->get(),
             'filters' => $filters,
         ]);
     }
 
-    public function update(Request $request, Branch $branch)
+    public function update(Request $request, $branchId)
     {
+        $branch = Branch::withoutGlobalScope('userBranches')->find($branchId);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'required|string',
@@ -151,8 +160,9 @@ class BranchController extends Controller
         return redirect()->route('branches.edit', $branch->id)->with('success', 'Data cabang berhasil diubah.');;
     }
 
-    public function destroy(Request $request, Branch $branch)
+    public function destroy(Request $request, $branchId)
     {
+        $branch = Branch::withoutGlobalScope('userBranches')->find($branchId);
         if ($branch->journals()->exists()) {
             return redirect()->back()->with(['error' => 'Cabang tidak dapat dihapus karena memiliki transaksi.']);
         }
@@ -179,7 +189,7 @@ class BranchController extends Controller
             return redirect()->back()->with(['error' => 'Cabang tidak dapat dihapus karena memiliki transaksi.']);
         }
 
-        Branch::whereIn('id', $request->ids)->delete();
+        Branch::withoutGlobalScope('userBranches')->whereIn('id', $request->ids)->delete();
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');

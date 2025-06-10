@@ -57,6 +57,11 @@ class Company extends Model
         return $this->hasMany(BranchGroup::class);
     }
 
+    public function branchGroupsAll()
+    {
+        return $this->hasMany(BranchGroup::class)->withoutGlobalScope('userBranchGroups');
+    }
+
     public function branches()
     {
         return $this->hasManyThrough(Branch::class, BranchGroup::class);

@@ -8,6 +8,8 @@ import TabLinks from '@/Components/TabLinks.vue';
 import { formatNumber } from '@/utils/numberFormat';
 import AppPrintButton from '@/Components/AppPrintButton.vue';
 
+const page = usePage();
+
 const props = defineProps({
     assetPurchases: Object, // Renamed from journals
     filters: Object,
@@ -20,8 +22,8 @@ const props = defineProps({
 });
 
 const tabs = [
-    { label: 'Faktur Pembelian Aset', route: 'asset-purchases.index', active: true },
-    { label: 'Pembayaran Pembelian Aset', route: 'asset-purchases.index', active: false },
+    { label: 'Pembelian Aset', route: 'asset-purchases.index', active: true },
+    { label: 'Penyewaan Aset', route: 'asset-rentals.index', active: false },
 ];
 
 const currentSort = ref({ key: props.sort || 'invoice_date', order: props.order || 'desc' });
@@ -34,6 +36,7 @@ const tableHeaders = [
     { key: 'partner.name', label: 'Partner (Vendor)' },
     { key: 'branch.name', label: 'Cabang' },
     { key: 'due_date', label: 'Jatuh Tempo' },
+    { key: 'currency.code', label: 'Mata Uang' },
     { key: 'total_amount', label: 'Total' },
     { key: 'status', label: 'Status' },
     { key: 'actions', label: '' }
@@ -82,8 +85,8 @@ const customFilters = computed(() => [
         type: 'select',
         options: partnerOptions.value,
         multiple: true,
-        placeholder: 'Pilih Partner',
-        label: 'Partner (Vendor)'
+        placeholder: 'Pilih Supplier',
+        label: 'Supplier'
     }
 ]);
 
@@ -98,7 +101,7 @@ const downloadOptions = [
 const columnFormatters = {
     invoice_date: (value) => new Date(value).toLocaleDateString('id-ID'),
     due_date: (value) => new Date(value).toLocaleDateString('id-ID'),
-    total_amount: (value) => `Rp ${formatNumber(value)}`,
+    total_amount: (value) => `${formatNumber(value)}`,
     status: (value) => value ? value.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : ''
 };
 
@@ -108,7 +111,6 @@ const defaultSort = { key: 'invoice_date', order: 'desc' };
 
 // --- Event Handlers ---
 function deleteItem(id) { // Renamed from deleteJournal
-    const page = usePage();
     const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
 
     router.delete(route('asset-purchases.destroy', id), {
@@ -122,7 +124,6 @@ function deleteItem(id) { // Renamed from deleteJournal
 }
 
 function handleBulkDelete(ids) {
-    const page = usePage();
     const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
 
     router.delete(route('asset-purchases.bulk-delete'), {
@@ -172,7 +173,7 @@ function handleFilter(newFilters) {
 </script>
 
 <template>
-    <Head title="Faktur Pembelian Aset" />
+    <Head title="Pembelian Aset" />
 
     <AuthenticatedLayout>
         <template #header>

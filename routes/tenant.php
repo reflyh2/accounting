@@ -38,6 +38,10 @@ use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\AssetPurchaseController;
+use App\Http\Controllers\AssetRentalController;
+use App\Http\Controllers\AssetInvoicePaymentController;
+use App\Http\Controllers\PartnerBankAccountController;
+use App\Http\Controllers\AssetSalesController;
 
 /*
 |--------------------------------------------------------------------------
@@ -103,7 +107,13 @@ Route::middleware([
         Route::get('companies/export-xlsx', [CompanyController::class, 'exportXLSX'])->name('companies.export-xlsx');
         Route::get('companies/export-csv', [CompanyController::class, 'exportCSV'])->name('companies.export-csv');
         Route::get('companies/export-pdf', [CompanyController::class, 'exportPDF'])->name('companies.export-pdf');
-        Route::resource('companies', CompanyController::class);
+        Route::get('/companies', [CompanyController::class, 'index'])->name('companies.index');
+        Route::get('/companies/create', [CompanyController::class, 'create'])->name('companies.create');
+        Route::post('/companies', [CompanyController::class, 'store'])->name('companies.store');
+        Route::get('/companies/{company}', [CompanyController::class, 'show'])->name('companies.show');
+        Route::get('/companies/{company}/edit', [CompanyController::class, 'edit'])->name('companies.edit');
+        Route::put('/companies/{company}', [CompanyController::class, 'update'])->name('companies.update');
+        Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
 
         Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
         Route::delete('/branches/bulk-delete', [BranchController::class, 'bulkDelete'])->name('branches.bulk-delete');
@@ -208,6 +218,8 @@ Route::middleware([
         Route::get('assets/export-csv', [AssetController::class, 'exportCSV'])->name('assets.export-csv');
         Route::get('assets/export-pdf', [AssetController::class, 'exportPDF'])->name('assets.export-pdf');
         Route::get('assets/{asset}/print', [AssetController::class, 'print'])->name('assets.print');
+        Route::post('assets/ajax-store', [AssetController::class, 'ajaxStore'])->name('assets.ajax-store');
+        Route::patch('assets/{asset}/update-cost-basis', [AssetController::class, 'updateCostBasis'])->name('assets.update-cost-basis');
         Route::resource('assets', AssetController::class);
 
         // Asset Purchases Routes (Added)
@@ -217,6 +229,36 @@ Route::middleware([
         Route::get('asset-purchases/export-pdf', [AssetPurchaseController::class, 'exportPDF'])->name('asset-purchases.export-pdf');
         Route::get('asset-purchases/{assetPurchase}/print', [AssetPurchaseController::class, 'print'])->name('asset-purchases.print');
         Route::resource('asset-purchases', AssetPurchaseController::class);
+
+        // Asset Rentals Routes
+        Route::delete('asset-rentals/bulk-delete', [AssetRentalController::class, 'bulkDelete'])->name('asset-rentals.bulk-delete');
+        Route::get('asset-rentals/export-xlsx', [AssetRentalController::class, 'exportXLSX'])->name('asset-rentals.export-xlsx');
+        Route::get('asset-rentals/export-csv', [AssetRentalController::class, 'exportCSV'])->name('asset-rentals.export-csv');
+        Route::get('asset-rentals/export-pdf', [AssetRentalController::class, 'exportPDF'])->name('asset-rentals.export-pdf');
+        Route::get('asset-rentals/{assetRental}/print', [AssetRentalController::class, 'print'])->name('asset-rentals.print');
+        Route::resource('asset-rentals', AssetRentalController::class);
+
+        // Asset Sales Routes
+        Route::delete('asset-sales/bulk-delete', [AssetSalesController::class, 'bulkDelete'])->name('asset-sales.bulk-delete');
+        Route::get('asset-sales/export-xlsx', [AssetSalesController::class, 'exportXLSX'])->name('asset-sales.export-xlsx');
+        Route::get('asset-sales/export-csv', [AssetSalesController::class, 'exportCSV'])->name('asset-sales.export-csv');
+        Route::get('asset-sales/export-pdf', [AssetSalesController::class, 'exportPDF'])->name('asset-sales.export-pdf');
+        Route::get('asset-sales/{assetSale}/print', [AssetSalesController::class, 'print'])->name('asset-sales.print');
+        Route::resource('asset-sales', AssetSalesController::class);
+
+        // Asset Invoice Payments Routes
+        Route::delete('asset-invoice-payments/bulk-delete', [AssetInvoicePaymentController::class, 'bulkDelete'])->name('asset-invoice-payments.bulk-delete');
+        Route::get('asset-invoice-payments/export-xlsx', [AssetInvoicePaymentController::class, 'exportXLSX'])->name('asset-invoice-payments.export-xlsx');
+        Route::get('asset-invoice-payments/export-csv', [AssetInvoicePaymentController::class, 'exportCSV'])->name('asset-invoice-payments.export-csv');
+        Route::get('asset-invoice-payments/export-pdf', [AssetInvoicePaymentController::class, 'exportPDF'])->name('asset-invoice-payments.export-pdf');
+        Route::get('asset-invoice-payments/{assetInvoicePayment}/print', [AssetInvoicePaymentController::class, 'print'])->name('asset-invoice-payments.print');
+        Route::resource('asset-invoice-payments', AssetInvoicePaymentController::class);
+
+        // Partner Bank Account Routes
+        Route::post('partner-bank-accounts', [PartnerBankAccountController::class, 'store'])->name('partner-bank-accounts.store');
+        Route::put('partner-bank-accounts/{partnerBankAccount}', [PartnerBankAccountController::class, 'update'])->name('partner-bank-accounts.update');
+        Route::delete('partner-bank-accounts/{partnerBankAccount}', [PartnerBankAccountController::class, 'destroy'])->name('partner-bank-accounts.destroy');
+        Route::get('partners/{partner}/bank-accounts', [PartnerBankAccountController::class, 'getByPartner'])->name('partners.bank-accounts');
     });
 
     Route::middleware('guest')->group(function () {

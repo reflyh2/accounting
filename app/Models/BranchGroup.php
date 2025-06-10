@@ -49,8 +49,18 @@ class BranchGroup extends Model
         return $this->hasMany(Branch::class);
     }
 
+    public function branchesAll()
+    {
+        return $this->hasMany(Branch::class)->withoutGlobalScope('userBranches');
+    }
+
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function companyAll()
+    {
+        return $this->belongsTo(Company::class)->withoutGlobalScope('userCompanies');
     }
 }

@@ -55,8 +55,8 @@ class UserController extends Controller
         $users = $query->paginate($perPage)->onEachSide(0)->withQueryString();
 
         $roles = Role::orderBy('name', 'asc')->get();
-        $branches = Branch::orderBy('name', 'asc')->get();
-        $companies = Company::orderBy('name', 'asc')->get();
+        $branches = Branch::withoutGlobalScope('userBranches')->with('branchGroupAll.companyAll')->orderBy('name', 'asc')->get();
+        $companies = Company::withoutGlobalScope('userCompanies')->orderBy('name', 'asc')->get();
 
         return Inertia::render('Users/Index', [
             'users' => $users,
@@ -76,8 +76,8 @@ class UserController extends Controller
         
         return Inertia::render('Users/Create', [
             'roles' => Role::orderBy('name', 'asc')->get(),
-            'branches' => Branch::with('branchGroup.company')->orderBy('name', 'asc')->get(),
-            'companies' => Company::orderBy('name', 'asc')->get(),
+            'branches' => Branch::withoutGlobalScope('userBranches')->with('branchGroupAll.companyAll')->orderBy('name', 'asc')->get(),
+            'companies' => Company::withoutGlobalScope('userCompanies')->orderBy('name', 'asc')->get(),
             'filters' => $filters,
         ]);
     }
@@ -126,11 +126,22 @@ class UserController extends Controller
     {
         $filters = Session::get('users.index_filters', []);
 
+        // $branches = Branch::withoutGlobalScope('userBranches')->with(['branchGroup' => function($query) {
+        //     $query->withoutGlobalScope('userBranchGroups');
+        // }, 'branchGroup.company' => function($query) {
+        //     $query->withoutGlobalScope('userCompanies');
+        // }])->orderBy('name', 'asc')->get();
+        // dd($branches);
+
         return Inertia::render('Users/Edit', [
             'user' => $user->load(['roles', 'branches.branchGroup.company']),
             'roles' => Role::orderBy('name', 'asc')->get(),
-            'branches' => Branch::with('branchGroup.company')->orderBy('name', 'asc')->get(),
-            'companies' => Company::orderBy('name', 'asc')->get(),
+            'branches' => Branch::withoutGlobalScope('userBranches')->with(['branchGroup' => function($query) {
+                $query->withoutGlobalScope('userBranchGroups');
+            }, 'branchGroup.company' => function($query) {
+                $query->withoutGlobalScope('userCompanies');
+            }])->orderBy('name', 'asc')->get(),
+            'companies' => Company::withoutGlobalScope('userCompanies')->orderBy('name', 'asc')->get(),
             'filters' => $filters,
         ]);
     }

@@ -45,6 +45,21 @@ class Partner extends Model
         return $this->hasMany(PartnerContact::class);
     }
 
+    public function bankAccounts()
+    {
+        return $this->hasMany(PartnerBankAccount::class);
+    }
+
+    public function primaryBankAccount()
+    {
+        return $this->hasOne(PartnerBankAccount::class)->where('is_primary', true);
+    }
+
+    public function activeBankAccounts()
+    {
+        return $this->hasMany(PartnerBankAccount::class)->where('is_active', true);
+    }
+
     public function companies()
     {
         return $this->belongsToMany(Company::class, 'partner_company');

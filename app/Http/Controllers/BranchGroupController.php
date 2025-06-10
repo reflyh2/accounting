@@ -20,7 +20,7 @@ class BranchGroupController extends Controller
         $filters = $request->all() ?: Session::get('branch-groups.index_filters', []);
         Session::put('branch-groups.index_filters', $filters);
 
-        $query = BranchGroup::withCount('branches')->with('company');
+        $query = BranchGroup::withoutGlobalScope('userBranchGroups')->withCount('branches')->with('company');
 
         if (!empty($filters['search'])) {
             $query->where(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%')
@@ -59,7 +59,7 @@ class BranchGroupController extends Controller
     public function create(Request $request)
     {
         $filters = Session::get('branch-groups.index_filters', []);
-        $companies = Company::all();
+        $companies = Company::withoutGlobalScope('userCompanies')->orderBy('name', 'asc')->get();
         
         return Inertia::render('BranchGroups/Create', [
             'filters' => $filters,
@@ -85,30 +85,39 @@ class BranchGroupController extends Controller
             ->with('success', 'Kelompok cabang berhasil dibuat.');
     }
 
-    public function show(Request $request, BranchGroup $branchGroup)
+    public function show(Request $request, $branchGroupId)
     {
+        $branchGroup = BranchGroup::withoutGlobalScope('userBranchGroups')->find($branchGroupId);
         $filters = Session::get('branch-groups.index_filters', []);
         
         return Inertia::render('BranchGroups/Show', [
-            'branchGroup' => $branchGroup->load('branches', 'company'),
+            'branchGroup' => $branchGroup->load(['branches' => function($query) {
+                $query->withoutGlobalScope('userBranches');
+            }, 'company' => function($query) {
+                $query->withoutGlobalScope('userCompanies');
+            }]),
             'filters' => $filters,
         ]);
     }
 
-    public function edit(Request $request, BranchGroup $branchGroup)
+    public function edit(Request $request, $branchGroupId)
     {
+        $branchGroup = BranchGroup::withoutGlobalScope('userBranchGroups')->find($branchGroupId);
         $filters = Session::get('branch-groups.index_filters', []);
-        $companies = Company::all();
+        $companies = Company::withoutGlobalScope('userCompanies')->orderBy('name', 'asc')->get();
         
         return Inertia::render('BranchGroups/Edit', [
-            'branchGroup' => $branchGroup->load('company'),
+            'branchGroup' => $branchGroup->load(['company' => function($query) {
+                $query->withoutGlobalScope('userCompanies');
+            }]),
             'filters' => $filters,
             'companies' => $companies,
         ]);
     }
 
-    public function update(Request $request, BranchGroup $branchGroup)
+    public function update(Request $request, $branchGroupId)
     {
+        $branchGroup = BranchGroup::withoutGlobalScope('userBranchGroups')->find($branchGroupId);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'company_id' => 'required|exists:companies,id',
@@ -120,8 +129,9 @@ class BranchGroupController extends Controller
             ->with('success', 'Data kelompok cabang berhasil diubah.');
     }
 
-    public function destroy(Request $request, BranchGroup $branchGroup)
+    public function destroy(Request $request, $branchGroupId)
     {
+        $branchGroup = BranchGroup::withoutGlobalScope('userBranchGroups')->find($branchGroupId);
         if ($branchGroup->branches()->exists()) {
             return redirect()->back()->with(['error' => 'Kelompok cabang tidak dapat dihapus karena memiliki cabang.']);
         }
@@ -142,13 +152,13 @@ class BranchGroupController extends Controller
 
     public function bulkDelete(Request $request)
     {
-        $branchGroupBranchesCount = Branch::whereIn('branch_group_id', $request->ids)->count();
+        $branchGroupBranchesCount = Branch::withoutGlobalScope('userBranches')->whereIn('branch_group_id', $request->ids)->count();
 
         if ($branchGroupBranchesCount > 0) {
             return redirect()->back()->with(['error' => 'Kelompok cabang tidak dapat dihapus karena memiliki cabang.']);
         }
 
-        BranchGroup::whereIn('id', $request->ids)->delete();        
+        BranchGroup::withoutGlobalScope('userBranchGroups')->whereIn('id', $request->ids)->delete();        
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');

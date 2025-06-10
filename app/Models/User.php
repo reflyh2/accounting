@@ -85,7 +85,7 @@ class User extends Model implements Syncable
 
     public function branches(): BelongsToMany
     {
-        return $this->belongsToMany(Branch::class, 'branch_has_users', 'user_id', 'branch_id');
+        return $this->belongsToMany(Branch::class, 'branch_has_users', 'user_id', 'branch_id')->withoutGlobalScope('userBranches');
     }
 
     public function journals(): HasMany

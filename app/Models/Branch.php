@@ -50,11 +50,16 @@ class Branch extends Model
         });
     }
 
+    public function branchGroupAll()
+    {
+        return $this->belongsTo(BranchGroup::class)->withoutGlobalScope('userBranchGroups');
+    }
+
+
     public function branchGroup()
     {
         return $this->belongsTo(BranchGroup::class);
     }
-
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'branch_has_users', 'branch_id', 'user_id');

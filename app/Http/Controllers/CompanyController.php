@@ -98,8 +98,9 @@ class CompanyController extends Controller
             ->with('success', 'Data perusahaan berhasil dibuat.');
     }
 
-    public function show(Request $request, Company $company)
+    public function show(Request $request, $companyId)
     {
+        $company = Company::withoutGlobalScope('userCompanies')->find($companyId);
         $filters = Session::get('companies.index_filters', []);
         
         return Inertia::render('Companies/Show', [
@@ -108,8 +109,9 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function edit(Request $request, Company $company)
+    public function edit(Request $request, $companyId)
     {
+        $company = Company::withoutGlobalScope('userCompanies')->find($companyId);
         $filters = Session::get('companies.index_filters', []);
         
         return Inertia::render('Companies/Edit', [
@@ -118,8 +120,9 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function update(Request $request, Company $company)
+    public function update(Request $request, $companyId)
     {
+        $company = Company::withoutGlobalScope('userCompanies')->find($companyId);
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'legal_name' => 'nullable|string|max:255',
@@ -146,8 +149,9 @@ class CompanyController extends Controller
             ->with('success', 'Data perusahaan berhasil diubah.');
     }
 
-    public function destroy(Request $request, Company $company)
+    public function destroy(Request $request, $companyId)
     {
+        $company = Company::withoutGlobalScope('userCompanies')->find($companyId);
         // Check if the company has branches
         if ($company->branches()->exists()) {
             return redirect()->back()->with(['error' => 'Perusahaan tidak dapat dihapus karena memiliki cabang.']);
@@ -175,8 +179,8 @@ class CompanyController extends Controller
 
     public function bulkDelete(Request $request)
     {
-        $companyBranchesCount = Branch::whereIn('branch_group_id', BranchGroup::whereIn('company_id', $request->ids)->pluck('id'))->count();
-        $companyJournalsCount = Journal::whereIn('branch_id', Branch::whereIn('branch_group_id', BranchGroup::whereIn('company_id', $request->ids)->pluck('id'))->pluck('id'))->count();
+        $companyBranchesCount = Branch::withoutGlobalScope('userBranches')->whereIn('branch_group_id', BranchGroup::whereIn('company_id', $request->ids)->pluck('id'))->count();
+        $companyJournalsCount = Journal::withoutGlobalScope('userJournals')->whereIn('branch_id', Branch::whereIn('branch_group_id', BranchGroup::whereIn('company_id', $request->ids)->pluck('id'))->pluck('id'))->count();
 
         if ($companyBranchesCount > 0) {
             return redirect()->back()->with(['error' => 'Perusahaan tidak dapat dihapus karena memiliki cabang.']);
@@ -186,7 +190,7 @@ class CompanyController extends Controller
             return redirect()->back()->with(['error' => 'Perusahaan tidak dapat dihapus karena memiliki transaksi.']);
         }
 
-        Company::whereIn('id', $request->ids)->delete();
+        Company::withoutGlobalScope('userCompanies')->whereIn('id', $request->ids)->delete();
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');

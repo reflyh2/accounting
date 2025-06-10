@@ -182,17 +182,17 @@ function submitForm(createAnother = false) {
          <table class="min-w-full bg-white border border-gray-300">
             <thead>
                <tr class="bg-gray-100">
-                  <th class="border border-gray-300 text-sm min-w-48 lg:min-w-72 px-4 py-2">Akun</th>
-                  <th class="border border-gray-300 text-sm min-w-36 px-4 py-2">Debet</th>
-                  <th class="border border-gray-300 text-sm min-w-36 px-4 py-2">Kredit</th>
-                  <th class="border border-gray-300 text-sm px-4 py-2">Mata Uang</th>
-                  <th class="border border-gray-300 text-sm min-w-36 px-4 py-2">Kurs</th>
-                  <th class="border border-gray-300 px-4 py-2"></th>
+                  <th class="border border-gray-300 text-sm min-w-48 lg:min-w-72 px-1.5 py-1.5">Akun</th>
+                  <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Debet</th>
+                  <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Kredit</th>
+                  <th class="border border-gray-300 text-sm px-1.5 py-1.5">Mata Uang</th>
+                  <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Kurs</th>
+                  <th class="border border-gray-300 px-1.5 py-1.5"></th>
                </tr>
             </thead>
             <tbody>
                <tr v-for="(entry, index) in form.entries" :key="index">
-                  <td class="border border-gray-300 px-4 pt-4">
+                  <td class="border border-gray-300 px-1.5 py-1.5">
                      <AppSelect
                         v-model="entry.account_id"
                         :options="props.accounts.map(account => ({ value: account.id, label: account.code + ' - ' + account.name }))"
@@ -200,29 +200,32 @@ function submitForm(createAnother = false) {
                         :maxRows="3"
                         @update:modelValue="updateSelectedCurrency(index)"
                         required
+                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                   </td>
-                  <td class="border border-gray-300 px-4 pt-4">
+                  <td class="border border-gray-300 px-1.5 py-1.5">
                      <AppInput
                         v-model="entry.debit"
                         :numberFormat="true"
                         :error="form.errors[`entries.${index}.debit`]"
                         :prefix="props.accounts.find(a => a.id === entry.account_id)?.currencies.find(c => c.id === entry.currency_id)?.symbol"
                         required
+                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                      <div v-if="entry.currency_id != null && entry.currency_id != props.primaryCurrency.id" class="text-gray-500 text-xs -mt-4">= {{ props.primaryCurrency.symbol + ' ' + formatNumber(entry.debit * entry.exchange_rate) }}</div>
                   </td>
-                  <td class="border border-gray-300 px-4 pt-4">
+                  <td class="border border-gray-300 px-1.5 py-1.5">
                      <AppInput
                         v-model="entry.credit"
                         :numberFormat="true"
                         :error="form.errors[`entries.${index}.credit`]"
                         :prefix="props.accounts.find(a => a.id === entry.account_id)?.currencies.find(c => c.id === entry.currency_id)?.symbol"
                         required
+                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                      <div v-if="entry.currency_id != null && entry.currency_id != props.primaryCurrency.id" class="text-gray-500 text-xs -mt-4">= {{ props.primaryCurrency.symbol + ' ' + formatNumber(entry.credit * entry.exchange_rate) }}</div>
                   </td>
-                  <td class="border border-gray-300 px-4 pt-4">
+                  <td class="border border-gray-300 px-1.5 py-1.5">
                      <AppSelect
                         v-model="entry.currency_id"
                         :maxRows="1"
@@ -230,17 +233,19 @@ function submitForm(createAnother = false) {
                         :error="form.errors[`entries.${index}.currency_id`]"
                         @update:modelValue="updateRate(index)"
                         required
+                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                   </td>
-                  <td class="border border-gray-300 px-4 pt-4">
+                  <td class="border border-gray-300 px-1.5 py-1.5">
                      <AppInput
                         v-model="entry.exchange_rate"
                         :numberFormat="true"
                         :error="form.errors[`entries.${index}.exchange_rate`]"
                         required
+                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                   </td>
-                  <td class="border border-gray-300 px-4 pt-4 text-center align-middle">
+                  <td class="border border-gray-300 px-1.5 py-1.5 text-center align-middle">
                      <button type="button" @click="removeEntry(index)" class="text-red-500 hover:text-red-700 mb-4">
                         <TrashIcon class="w-5 h-5" />
                      </button>

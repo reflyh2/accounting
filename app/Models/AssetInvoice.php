@@ -23,7 +23,12 @@ class AssetInvoice extends Model
             // YY = Year
             // BRANCH = Branch ID padded
             // NNNNN = Sequence
-            $invoicePrefix = 'AI'; // Could be dynamic based on $model->type
+            $invoicePrefix = match($model->type) {
+                'purchase' => 'AB', // Asset Purchase
+                'rental' => 'AR',   // Asset Rental
+                'sales' => 'AS',    // Asset Sales
+                default => 'AI'     // Default to Asset Invoice
+            };
             $invoiceYear = date('y', strtotime($model->invoice_date));
             $paddedBranchId = str_pad($model->branch_id, 3, '0', STR_PAD_LEFT); // Assuming branch_id exists
 
@@ -67,6 +72,11 @@ class AssetInvoice extends Model
     public function branch()
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function currency()
+    {
+        return $this->belongsTo(Currency::class);
     }
 
     public function creator()

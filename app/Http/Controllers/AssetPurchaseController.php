@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Exports\AssetPurchasesExport;
 use App\Models\Asset;
 use App\Models\AssetInvoice;
+use App\Models\AssetInvoiceDetail;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Partner;
+use App\Models\Currency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
@@ -22,7 +24,7 @@ class AssetPurchaseController extends Controller
         $filters = $request->all() ?: Session::get('asset_purchases.index_filters', []);
         Session::put('asset_purchases.index_filters', $filters);
 
-        $query = AssetInvoice::with(['branch', 'partner', 'assetInvoiceDetails'])
+        $query = AssetInvoice::with(['branch', 'partner', 'assetInvoiceDetails', 'currency'])
             ->where('type', 'purchase');
 
         if (!empty($filters['search'])) {
@@ -107,16 +109,48 @@ class AssetPurchaseController extends Controller
     public function create(Request $request)
     {
         $filters = Session::get('asset_purchases.index_filters', []);
+        
+        // Get companies
+        $companies = Company::orderBy('name', 'asc')->get();
+        
+        // Get primary currency
+        $primaryCurrency = Currency::where('is_primary', true)->first();
+
+        // Get branches based on company selection (if any)
+        $branches = collect();
+        $partners = collect();
+        $currencies = collect();
+        
+        if ($request->input('company_id')) {
+            $companyId = $request->input('company_id');
+            
+            // Get branches for selected company
+            $branches = Branch::whereHas('branchGroup', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })->orderBy('name', 'asc')->get();
+            
+            // Get partners with asset supplier role
+            $partners = Partner::whereHas('roles', function ($query) {
+                $query->where('role', 'asset_supplier');
+            })->orderBy('name', 'asc')->get();
+            
+            // Get currencies available for the company
+            $currencies = Currency::whereHas('companyRates', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })->with(['companyRates' => function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            }])->orderBy('code', 'asc')->get();
+        }
+
         return Inertia::render('AssetPurchases/Create', [
             'filters' => $filters,
-            'companies' => Company::orderBy('name', 'asc')->get(),
-            'branches' => fn() => Branch::whereHas('branchGroup', function ($query) use ($request) {
-                $query->where('company_id', $request->input('company_id'));
-            })->orderBy('name', 'asc')->get(),
-            'partners' => Partner::whereHas('roles', function ($query) {
-                $query->where('role', 'asset_supplier');
-            })->orderBy('name', 'asc')->get(),
-            'assets' => Asset::orderBy('name', 'asc')->get(), // Pass assets for selection
+            'companies' => $companies,
+            'branches' => fn() => $branches,
+            'partners' => fn() => $partners,
+            'currencies' => fn() => $currencies,
+            'primaryCurrency' => $primaryCurrency,
+            'assets' => fn() => $this->getAvailableAssets(),
+            'assetCategories' => \App\Models\AssetCategory::orderBy('name', 'asc')->get(),
         ]);
     }
 
@@ -125,10 +159,11 @@ class AssetPurchaseController extends Controller
         $validated = $request->validate([
             'branch_id' => 'required|exists:branches,id',
             'partner_id' => 'required|exists:partners,id',
+            'currency_id' => 'required|exists:currencies,id',
+            'exchange_rate' => 'required|numeric|min:0.000001',
             'invoice_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:invoice_date',
             'notes' => 'nullable|string',
-            'status' => 'required|string|in:open,paid,overdue,cancelled,voided,closed,partially_paid', // Ensure status is valid
             'details' => 'required|array|min:1',
             'details.*.asset_id' => 'required|exists:assets,id',
             'details.*.description' => 'nullable|string',
@@ -145,13 +180,14 @@ class AssetPurchaseController extends Controller
             $invoice = AssetInvoice::create([
                 'branch_id' => $validated['branch_id'],
                 'partner_id' => $validated['partner_id'],
+                'currency_id' => $validated['currency_id'],
+                'exchange_rate' => $validated['exchange_rate'],
                 'invoice_date' => $validated['invoice_date'],
                 'due_date' => $validated['due_date'],
                 'total_amount' => $totalAmount,
-                'status' => $validated['status'],
                 'notes' => $validated['notes'],
-                'type' => 'purchase', // Explicitly set type
-                // created_by is handled by model boot method
+                'type' => 'purchase',
+                'status' => 'open',
             ]);
 
             foreach ($validated['details'] as $detail) {
@@ -187,7 +223,7 @@ class AssetPurchaseController extends Controller
     {
         $this->ensureIsPurchase($assetPurchase);
         $filters = Session::get('asset_purchases.index_filters', []);
-        $assetPurchase->load(['branch.branchGroup.company', 'partner', 'assetInvoiceDetails.asset', 'creator', 'updater']);
+        $assetPurchase->load(['branch.branchGroup.company', 'partner', 'assetInvoiceDetails.asset', 'currency', 'creator', 'updater']);
 
         return Inertia::render('AssetPurchases/Show', [
             'assetPurchase' => $assetPurchase,
@@ -199,14 +235,24 @@ class AssetPurchaseController extends Controller
     {
         $this->ensureIsPurchase($assetPurchase);
         $filters = Session::get('asset_purchases.index_filters', []);
-        $assetPurchase->load(['branch.branchGroup', 'partner', 'assetInvoiceDetails.asset']);
+        $assetPurchase->load(['branch.branchGroup', 'partner', 'assetInvoiceDetails.asset', 'currency']);
 
         $companyId = $assetPurchase->branch->branchGroup->company_id;
+        
+        // Get primary currency
+        $primaryCurrency = Currency::where('is_primary', true)->first();
 
         // This logic might be needed if changing company affects available branches/partners/assets on edit
         // if ($request->company_id) {
         //     $companyId = $request->company_id;
         // }
+        
+        // Get currencies available for the company
+        $currencies = Currency::whereHas('companyRates', function ($query) use ($companyId) {
+            $query->where('company_id', $companyId);
+        })->with(['companyRates' => function ($query) use ($companyId) {
+            $query->where('company_id', $companyId);
+        }])->orderBy('code', 'asc')->get();
 
         return Inertia::render('AssetPurchases/Edit', [
             'assetPurchase' => $assetPurchase,
@@ -218,7 +264,10 @@ class AssetPurchaseController extends Controller
             'partners' => Partner::whereHas('roles', function ($query) {
                 $query->where('role', 'asset_supplier');
             })->orderBy('name', 'asc')->get(),
-            'assets' => Asset::orderBy('name', 'asc')->get(),
+            'currencies' => $currencies,
+            'primaryCurrency' => $primaryCurrency,
+            'assets' => $this->getAvailableAssets($assetPurchase->id), // Allow current invoice assets
+            'assetCategories' => \App\Models\AssetCategory::orderBy('name', 'asc')->get(),
         ]);
     }
 
@@ -228,10 +277,11 @@ class AssetPurchaseController extends Controller
         $validated = $request->validate([
             'branch_id' => 'required|exists:branches,id',
             'partner_id' => 'required|exists:partners,id',
+            'currency_id' => 'required|exists:currencies,id',
+            'exchange_rate' => 'required|numeric|min:0.000001',
             'invoice_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:invoice_date',
             'notes' => 'nullable|string',
-            'status' => 'required|string|in:open,paid,overdue,cancelled,voided,closed,partially_paid',
             'details' => 'required|array|min:1',
             'details.*.id' => 'nullable|exists:asset_invoice_details,id',
             'details.*.asset_id' => 'required|exists:assets,id',
@@ -254,12 +304,12 @@ class AssetPurchaseController extends Controller
         DB::transaction(function () use ($validated, $assetPurchase, $totalAmount) {
             $assetPurchase->update([
                 'partner_id' => $validated['partner_id'],
+                'currency_id' => $validated['currency_id'],
+                'exchange_rate' => $validated['exchange_rate'],
                 'invoice_date' => $validated['invoice_date'],
                 'due_date' => $validated['due_date'],
                 'total_amount' => $totalAmount,
-                'status' => $validated['status'],
                 'notes' => $validated['notes'],
-                // updated_by is handled by model boot method
             ]);
 
             $existingDetailIds = $assetPurchase->assetInvoiceDetails->pluck('id')->toArray();
@@ -293,11 +343,9 @@ class AssetPurchaseController extends Controller
             }
 
             // TODO: Update or Reverse/Recreate Journal Entry for Asset Purchase
-            // $this->updatePurchaseJournal($assetPurchase);
-
         });
 
-        return redirect()->route('asset-purchases.edit', $assetPurchase->id)
+        return redirect()->route('asset-purchases.show', $assetPurchase->id)
             ->with('success', 'Faktur Pembelian Aset berhasil diubah.');
     }
 
@@ -354,7 +402,7 @@ class AssetPurchaseController extends Controller
     private function getFilteredAssetPurchases(Request $request)
     {
         $filters = $request->all() ?: Session::get('asset_purchases.index_filters', []);
-        $query = AssetInvoice::with(['branch.branchGroup.company', 'partner', 'assetInvoiceDetails.asset'])
+        $query = AssetInvoice::with(['branch.branchGroup.company', 'partner', 'assetInvoiceDetails.asset', 'currency'])
             ->where('type', 'purchase');
 
         // Apply filters similar to index method
@@ -433,7 +481,7 @@ class AssetPurchaseController extends Controller
     public function print(AssetInvoice $assetPurchase)
     {
         $this->ensureIsPurchase($assetPurchase);
-        $assetPurchase->load(['branch.branchGroup.company', 'partner', 'assetInvoiceDetails.asset', 'creator', 'updater']);
+        $assetPurchase->load(['branch.branchGroup.company', 'partner', 'assetInvoiceDetails.asset', 'currency', 'creator', 'updater']);
 
         // Optional: Load primary currency if needed for display
         // $primaryCurrency = Currency::where('is_primary', true)->first();
@@ -452,6 +500,27 @@ class AssetPurchaseController extends Controller
         if ($assetInvoice->type !== 'purchase') {
             abort(404); // Or handle as appropriate, e.g., redirect with error
         }
+    }
+
+    /**
+     * Get assets that are not yet used in any purchase or rental invoice.
+     * For edit mode, exclude the current invoice from the check.
+     */
+    private function getAvailableAssets($excludeInvoiceId = null)
+    {
+        $usedAssetIds = AssetInvoiceDetail::query()
+            ->when($excludeInvoiceId, function ($query, $excludeInvoiceId) {
+                $query->whereHas('assetInvoice', function ($subQuery) use ($excludeInvoiceId) {
+                    $subQuery->where('id', '!=', $excludeInvoiceId);
+                });
+            })
+            ->pluck('asset_id')
+            ->unique()
+            ->toArray();
+
+        return Asset::whereNotIn('id', $usedAssetIds)
+            ->orderBy('name', 'asc')
+            ->get();
     }
 
     // Placeholder for journaling logic

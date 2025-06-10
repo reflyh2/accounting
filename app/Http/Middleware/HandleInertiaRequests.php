@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use App\Models\User;
+use App\Models\Currency;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -62,6 +63,7 @@ class HandleInertiaRequests extends Middleware
                 'warning' => $request->session()->get('warning'),
                 'hash' => hash('sha256', now()),
             ],
+            'primaryCurrency' => Currency::where('is_primary', true)->first(),
         ];
     }
 }

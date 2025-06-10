@@ -35,6 +35,15 @@ const props = defineProps({
    hint: {
       type: String,
       default: ''
+   },
+   margins: {
+      type: Object,
+      default: () => ({
+         top: 0,
+         right: 0,
+         bottom: 4,
+         left: 0
+      })
    }
 });
 
@@ -55,7 +64,7 @@ const initialValue = ref(props.modelValue);
 const hasChanged = ref(false);
 
 const inputClass = computed(() => [
-   'w-full px-2 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-main-500 focus:border-gray-300',
+   'w-full px-1.5 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-main-500 focus:border-gray-300',
    !focused.value && props.error && !hasChanged.value ? 'border-red-500' : '',
    props.prefix ? 'rounded-l-none' : '',
    props.suffix ? 'rounded-r-none' : '',
@@ -154,7 +163,7 @@ function onKeyDown(event) {
 </script>
 
 <template>
-   <div class="mb-4 relative">
+   <div :class="`mt-${margins.top} mr-${margins.right} mb-${margins.bottom} ml-${margins.left} relative`">
       <label v-if="label" class="block mb-1 text-sm">
          {{ label }}
          <span v-if="required" class="text-red-500 ml-1">*</span>

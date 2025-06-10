@@ -182,6 +182,76 @@ class AssetController extends Controller
         return redirect()->route('assets.index')->with('success', 'Aset berhasil dihapus');
     }
 
+    public function ajaxStore(Request $request)
+    {
+        $validated = $request->validate([
+            'company_id' => 'required|exists:companies,id',
+            'branch_id' => 'required|exists:branches,id',
+            'asset_category_id' => 'required|exists:asset_categories,id',
+            'name' => 'required|string|max:255',
+            'type' => 'required|string|in:' . implode(',', array_keys(Asset::assetTypes())),
+            'acquisition_type' => 'required|string|in:' . implode(',', array_keys(Asset::acquisitionTypes())),
+            'acquisition_date' => 'nullable|date',
+            'cost_basis' => 'nullable|numeric|min:0',
+            'salvage_value' => 'nullable|numeric|min:0',
+            'is_depreciable' => 'boolean',
+            'is_amortizable' => 'boolean',
+            'depreciation_method' => 'required|string|in:' . implode(',', array_keys(Asset::depreciationMethods())),
+            'useful_life_months' => 'nullable|integer|min:0',
+            'depreciation_start_date' => 'nullable|date',
+            'accumulated_depreciation' => 'nullable|numeric|min:0',
+            'net_book_value' => 'nullable|numeric|min:0',
+            'status' => 'required|string|in:' . implode(',', array_keys(Asset::statusOptions())),
+            'notes' => 'nullable|string',
+            'warranty_expiry' => 'nullable|date',
+        ]);
+
+        $user = User::find(Auth::user()->global_id);
+        
+        // Add the user who created this asset
+        $validated['created_by'] = $user->global_id;
+        $validated['updated_by'] = $user->global_id;
+
+        // Calculate net book value if not provided
+        if (!isset($validated['net_book_value'])) {
+            $validated['net_book_value'] = isset($validated['cost_basis']) ? 
+                ($validated['cost_basis'] - ($validated['accumulated_depreciation'] ?? 0)) : 0;
+        }
+
+        $asset = Asset::create($validated);
+
+        // Load relationships for the response
+        $asset->load(['company', 'branch', 'category']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Aset berhasil ditambahkan',
+            'asset' => $asset
+        ]);
+    }
+
+    public function updateCostBasis(Request $request, Asset $asset)
+    {
+        $validated = $request->validate([
+            'cost_basis' => 'required|numeric|min:0'
+        ]);
+
+        $user = User::find(Auth::user()->global_id);
+        
+        // Update cost basis and net book value
+        $asset->update([
+            'cost_basis' => $validated['cost_basis'],
+            'net_book_value' => $validated['cost_basis'] - ($asset->accumulated_depreciation ?? 0),
+            'updated_by' => $user->global_id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Nilai perolehan aset berhasil diperbarui',
+            'asset' => $asset->fresh()
+        ]);
+    }
+
     public function bulkDelete(Request $request)
     {
         $validated = $request->validate([
