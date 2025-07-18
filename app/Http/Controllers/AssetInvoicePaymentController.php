@@ -114,6 +114,9 @@ class AssetInvoicePaymentController extends Controller
             
             // Get partners associated with selected company
             $partners = Partner::with(['roles', 'activeBankAccounts'])
+                ->whereHas('roles', function ($query) {
+                    $query->whereIn('role', ['asset_supplier', 'asset_customer']);
+                })
                 ->whereHas('companies', function ($query) use ($companyId) {
                     $query->where('company_id', $companyId);
                 })

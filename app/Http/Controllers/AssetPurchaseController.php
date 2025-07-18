@@ -24,7 +24,7 @@ class AssetPurchaseController extends Controller
         $filters = $request->all() ?: Session::get('asset_purchases.index_filters', []);
         Session::put('asset_purchases.index_filters', $filters);
 
-        $query = AssetInvoice::with(['branch', 'partner', 'assetInvoiceDetails', 'currency'])
+        $query = AssetInvoice::with(['branch', 'partner', 'assetInvoiceDetails.asset', 'currency'])
             ->where('type', 'purchase');
 
         if (!empty($filters['search'])) {
@@ -103,6 +103,7 @@ class AssetPurchaseController extends Controller
             'perPage' => $perPage,
             'sort' => $sortColumn,
             'order' => $sortOrder,
+            'statusOptions' => AssetInvoice::statusOptions(),
         ]);
     }
 

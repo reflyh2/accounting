@@ -6,10 +6,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\AvoidDuplicateConstraintOnSoftDelete;
 
 class Asset extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, AvoidDuplicateConstraintOnSoftDelete;
 
     protected $guarded = [];
 
@@ -46,6 +47,11 @@ class Asset extends Model
                 }
             }
         });
+    }
+
+    public function getDuplicateAvoidColumns(): array
+    {
+        return ['code'];
     }
 
     public function company()

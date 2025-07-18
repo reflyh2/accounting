@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Auth;
+use App\Traits\AvoidDuplicateConstraintOnSoftDelete;
 
 class AssetInvoice extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, AvoidDuplicateConstraintOnSoftDelete;
 
     protected $guarded = [];
 
@@ -59,6 +60,11 @@ class AssetInvoice extends Model
         // static::addGlobalScope('userScope', function ($builder) { ... });
     }
 
+    public function getDuplicateAvoidColumns(): array
+    {
+        return ['number'];
+    }
+
     public function assetInvoiceDetails()
     {
         return $this->hasMany(AssetInvoiceDetail::class);
@@ -87,5 +93,19 @@ class AssetInvoice extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by', 'global_id');
+    }
+
+    public static function statusOptions()
+    {
+        return [
+            'open' => 'Aktif',
+            'partially_paid' => 'Dibayar Sebagian',
+            'paid' => 'Lunas',
+            'overdue' => 'Jatuh Tempo',
+            'cancelled' => 'Dibatalkan',
+            'defaulted' => 'Gagal Bayar',
+            'closed' => 'Selesai',
+            'financed' => 'Dibiayai',
+        ];
     }
 } 

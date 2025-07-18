@@ -92,7 +92,8 @@ const isAssetActive = computed(() => {
         || route().current('asset-purchases.*')
         || route().current('asset-rentals.*')
         || route().current('asset-sales.*')
-        || route().current('asset-invoice-payments.*');
+        || route().current('asset-invoice-payments.*')
+        || route().current('asset-financing-agreements.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -232,6 +233,9 @@ function toggleSidebar() {
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('asset-invoice-payments.index')" :active="route().current('asset-invoice-payments.*')" class="pl-11">
                                 Pembayaran Aset
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*')" class="pl-11">
+                                Perjanjian Pembiayaan
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -463,6 +467,9 @@ function toggleSidebar() {
                                         >
                                             Pembayaran Aset
                                         </NavLink>
+                                        <NavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
+                                            Perjanjian Pembiayaan
+                                        </NavLink>
                                     </div>
                                 </div>
                                 
@@ -517,6 +524,9 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Pembayaran Aset
+                                        </NavLink>
+                                        <NavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*')" class="flex items-center">
+                                            Perjanjian Pembiayaan
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>

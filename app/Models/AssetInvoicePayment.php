@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use App\Traits\AvoidDuplicateConstraintOnSoftDelete;
 
 class AssetInvoicePayment extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, AvoidDuplicateConstraintOnSoftDelete;
 
     protected $guarded = [];
 
@@ -66,6 +67,11 @@ class AssetInvoicePayment extends Model
                 }
             }
         });
+    }
+
+    public function getDuplicateAvoidColumns(): array
+    {
+        return ['number'];
     }
 
     public function allocations()

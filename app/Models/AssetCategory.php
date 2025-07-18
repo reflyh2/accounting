@@ -5,12 +5,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\AvoidDuplicateConstraintOnSoftDelete;
 
 class AssetCategory extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, AvoidDuplicateConstraintOnSoftDelete;
 
     protected $guarded = [];
+
+    public function getDuplicateAvoidColumns(): array
+    {
+        return ['code'];
+    }
 
     /**
      * The companies that belong to the asset category.

@@ -42,6 +42,7 @@ use App\Http\Controllers\AssetRentalController;
 use App\Http\Controllers\AssetInvoicePaymentController;
 use App\Http\Controllers\PartnerBankAccountController;
 use App\Http\Controllers\AssetSalesController;
+use App\Http\Controllers\AssetFinancingAgreementController;
 
 /*
 |--------------------------------------------------------------------------
@@ -253,6 +254,14 @@ Route::middleware([
         Route::get('asset-invoice-payments/export-pdf', [AssetInvoicePaymentController::class, 'exportPDF'])->name('asset-invoice-payments.export-pdf');
         Route::get('asset-invoice-payments/{assetInvoicePayment}/print', [AssetInvoicePaymentController::class, 'print'])->name('asset-invoice-payments.print');
         Route::resource('asset-invoice-payments', AssetInvoicePaymentController::class);
+
+        // Asset Financing Agreements Routes
+        Route::delete('asset-financing-agreements/bulk-delete', [AssetFinancingAgreementController::class, 'bulkDelete'])->name('asset-financing-agreements.bulk-delete');
+        Route::get('asset-financing-agreements/export-xlsx', [AssetFinancingAgreementController::class, 'exportXLSX'])->name('asset-financing-agreements.export-xlsx');
+        Route::get('asset-financing-agreements/export-csv', [AssetFinancingAgreementController::class, 'exportCSV'])->name('asset-financing-agreements.export-csv');
+        Route::get('asset-financing-agreements/export-pdf', [AssetFinancingAgreementController::class, 'exportPDF'])->name('asset-financing-agreements.export-pdf');
+        Route::get('asset-financing-agreements/{assetFinancingAgreement}/print', [AssetFinancingAgreementController::class, 'print'])->name('asset-financing-agreements.print');
+        Route::resource('asset-financing-agreements', AssetFinancingAgreementController::class);
 
         // Partner Bank Account Routes
         Route::post('partner-bank-accounts', [PartnerBankAccountController::class, 'store'])->name('partner-bank-accounts.store');

@@ -19,6 +19,7 @@ const props = defineProps({
     perPage: [String, Number],
     sort: String,
     order: String,
+    statusOptions: Object,
 });
 
 const tabs = [
@@ -33,11 +34,11 @@ const currentFilters = ref(props.filters || {});
 const tableHeaders = [
     { key: 'invoice_date', label: 'Tgl Faktur' },
     { key: 'number', label: 'Nomor Faktur' },
-    { key: 'partner.name', label: 'Partner (Vendor)' },
+    { key: 'partner.name', label: 'Supplier' },
     { key: 'branch.name', label: 'Cabang' },
-    { key: 'due_date', label: 'Jatuh Tempo' },
-    { key: 'currency.code', label: 'Mata Uang' },
+    { key: 'asset_invoice_details', label: 'Aset' },
     { key: 'total_amount', label: 'Total' },
+    { key: 'due_date', label: 'Jatuh Tempo' },
     { key: 'status', label: 'Status' },
     { key: 'actions', label: '' }
 ];
@@ -102,11 +103,28 @@ const columnFormatters = {
     invoice_date: (value) => new Date(value).toLocaleDateString('id-ID'),
     due_date: (value) => new Date(value).toLocaleDateString('id-ID'),
     total_amount: (value) => `${formatNumber(value)}`,
-    status: (value) => value ? value.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : ''
+};
+
+const columnRenderers = {
+    asset_invoice_details: (value) => value.map(detail => 
+        `<a href="/assets/${detail.asset.id}" class="text-main-600 hover:text-main-800 hover:underline">${detail.asset.name}</a>`
+    ).join(', '),    
+    status: (value) => {
+        const statusColors = {
+            paid: 'bg-green-100 text-green-800',
+            financed: 'bg-blue-100 text-blue-800',
+            overdue: 'bg-orange-100 text-orange-800',
+            cancelled: 'bg-red-100 text-red-800',
+            defaulted: 'bg-red-100 text-red-800',
+            default: 'bg-gray-100 text-gray-800'
+        };
+        const color = statusColors[value] || statusColors.default;
+        return `<span class="px-2 py-1 text-xs font-medium rounded-full ${color}">${props.statusOptions[value] || value}</span>`;
+    },
 };
 
 // Define sortable columns
-const sortableColumns = ['invoice_date', 'number', 'partner.name', 'branch.name', 'due_date', 'total_amount', 'status'];
+const sortableColumns = ['invoice_date', 'number', 'partner.name', 'branch.name', 'due_date', 'total_amount', 'status', 'asset_invoice_details'];
 const defaultSort = { key: 'invoice_date', order: 'desc' };
 
 // --- Event Handlers ---
@@ -190,6 +208,7 @@ function handleFilter(newFilters) {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'asset-purchases.create' }"
                         :editRoute="{ name: 'asset-purchases.edit' }"
