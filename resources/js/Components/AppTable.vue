@@ -95,15 +95,15 @@ function toggleSort(key) {
 }
 
 function updateSort() {
-  router.get(route(props.routeName), {
-    ...route().params,
-    sort: sort.value.key,
-    order: sort.value.order
-  }, {
-    preserveState: true,
-    preserveScroll: true,
-    replace: true
-  });
+  // router.get(route(props.routeName), {
+  //   ...route().params,
+  //   sort: sort.value.key,
+  //   order: sort.value.order
+  // }, {
+  //   preserveState: true,
+  //   preserveScroll: true,
+  //   replace: true
+  // });
   emit('sort', sort.value);
 }
 

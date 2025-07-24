@@ -43,6 +43,7 @@ use App\Http\Controllers\AssetInvoicePaymentController;
 use App\Http\Controllers\PartnerBankAccountController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
+use App\Http\Controllers\AssetFinancingScheduleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -262,6 +263,8 @@ Route::middleware([
         Route::get('asset-financing-agreements/export-pdf', [AssetFinancingAgreementController::class, 'exportPDF'])->name('asset-financing-agreements.export-pdf');
         Route::get('asset-financing-agreements/{assetFinancingAgreement}/print', [AssetFinancingAgreementController::class, 'print'])->name('asset-financing-agreements.print');
         Route::resource('asset-financing-agreements', AssetFinancingAgreementController::class);
+
+        Route::put('asset-financing-schedules/{schedule}/pay', [AssetFinancingScheduleController::class, 'pay'])->name('asset-financing-schedules.pay');
 
         // Partner Bank Account Routes
         Route::post('partner-bank-accounts', [PartnerBankAccountController::class, 'store'])->name('partner-bank-accounts.store');

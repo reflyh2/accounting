@@ -7,6 +7,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegisterTenantController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\AssetFinancingAgreementController;
+use Illuminate\Foundation\Application;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -31,4 +33,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         ->name('central.dashboard');
     Route::get('/register-tenant', [RegisterTenantController::class, 'create'])->name('register.tenant');
     Route::post('/register-tenant', [RegisterTenantController::class, 'store'])->name('store.tenant');
+
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 });

@@ -73,11 +73,22 @@ const maxWidthClass = computed(() => {
                     leave-to-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                 >
                     <DialogPanel
-                        v-show="show"
                         class="mb-6 bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:w-full sm:mx-auto"
                         :class="maxWidthClass"
                     >
-                        <slot />
+                        <div v-if="$slots.title" class="px-6 py-4">
+                            <h3 class="text-lg font-medium text-gray-900">
+                                <slot name="title" />
+                            </h3>
+                        </div>
+
+                        <div class="px-6 py-4">
+                            <slot name="content" />
+                        </div>
+
+                        <div v-if="$slots.footer" class="px-6 py-4 bg-gray-50 text-right">
+                            <slot name="footer" />
+                        </div>
                     </DialogPanel>
                 </transition>
             </div>

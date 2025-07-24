@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Traits\AvoidDuplicateConstraintOnSoftDelete;
+use App\Services\AssetFinancing\ScheduleService;
 
 class AssetFinancingAgreement extends Model
 {
@@ -42,6 +43,11 @@ class AssetFinancingAgreement extends Model
             // Update the asset invoice status to financed when the agreement is created
             if ($model->assetInvoice) {
                 $model->assetInvoice->update(['status' => 'financed']);
+            }
+
+            // Generate the schedule
+            if ($model->interest_calculation_method) {
+                (new ScheduleService())->generate($model);
             }
         });
 
@@ -80,6 +86,13 @@ class AssetFinancingAgreement extends Model
                     }
                 }
             }
+
+            // Regenerate the schedule if relevant fields have changed
+            if ($model->isDirty('total_amount', 'interest_rate', 'start_date', 'end_date', 'payment_frequency', 'interest_calculation_method')) {
+                if ($model->interest_calculation_method) {
+                    (new ScheduleService())->generate($model);
+                }
+            }
         });
 
         static::deleted(function ($model) {
@@ -97,7 +110,8 @@ class AssetFinancingAgreement extends Model
                 }
             }
 
-            parent::deleted($model);
+            // Delete the schedule
+            $model->schedules()->delete();
         });
 
         static::addGlobalScope('userAgreements', function ($builder) {
@@ -176,6 +190,11 @@ class AssetFinancingAgreement extends Model
     public function getInterestCalculationMethodLabelAttribute()
     {
         return self::interestCalculationMethodOptions()[$this->interest_calculation_method] ?? $this->interest_calculation_method;
+    }
+
+    public function schedules()
+    {
+        return $this->hasMany(AssetFinancingSchedule::class);
     }
 
     public static function interestCalculationMethodOptions()

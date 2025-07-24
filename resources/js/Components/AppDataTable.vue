@@ -170,15 +170,15 @@ function downloadData(format) {
 }
 
 function handleSort(sort) {
-    router.get(route(props.indexRoute.name), {
-        ...route().params,
-        sort: sort.key,
-        order: sort.order
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-        replace: true
-    });
+    // router.get(route(props.indexRoute.name), {
+    //     ...route().params,
+    //     sort: sort.key,
+    //     order: sort.order
+    // }, {
+    //     preserveState: true,
+    //     preserveScroll: true,
+    //     replace: true
+    // });
     emit('sort', sort);
 }
 

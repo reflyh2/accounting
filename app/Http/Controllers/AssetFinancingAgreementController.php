@@ -198,14 +198,21 @@ class AssetFinancingAgreementController extends Controller
             ->with('success', 'Perjanjian pembiayaan aset berhasil dibuat.');
     }
 
-    public function show(AssetFinancingAgreement $assetFinancingAgreement)
+    public function show(Request $request, AssetFinancingAgreement $assetFinancingAgreement)
     {
         $filters = Session::get('asset_financing_agreements.index_filters', []);
         $assetFinancingAgreement->load(['creditor', 'assetInvoice.assetInvoiceDetails.asset', 'assetInvoice.partner', 'branch.branchGroup.company', 'createdBy', 'updatedBy']);
+
+        $schedules = $assetFinancingAgreement->schedules()
+            ->orderBy($request->input('sort', 'payment_number'), $request->input('order', 'asc'))
+            ->paginate($request->input('per_page', 10))->withQueryString();
         
         return Inertia::render('AssetFinancingAgreements/Show', [
             'agreement' => $assetFinancingAgreement,
+            'schedules' => $schedules,
             'filters' => $filters,
+            'sort' => $request->input('sort', 'payment_number'),
+            'order' => $request->input('order', 'asc'),
         ]);
     }
 

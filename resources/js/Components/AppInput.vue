@@ -68,7 +68,7 @@ const inputClass = computed(() => [
    !focused.value && props.error && !hasChanged.value ? 'border-red-500' : '',
    props.prefix ? 'rounded-l-none' : '',
    props.suffix ? 'rounded-r-none' : '',
-   props.disabled ? 'bg-gray-50 cursor-not-allowed' : '',
+   props.disabled ? 'bg-gray-100 cursor-not-allowed' : '',
 ]);
 
 const displayValue = ref(props.modelValue);
