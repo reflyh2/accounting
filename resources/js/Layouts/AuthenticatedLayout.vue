@@ -93,7 +93,8 @@ const isAssetActive = computed(() => {
         || route().current('asset-rentals.*')
         || route().current('asset-sales.*')
         || route().current('asset-invoice-payments.*')
-        || route().current('asset-financing-agreements.*');
+        || route().current('asset-financing-agreements.*')
+        || route().current('asset-financing-payments.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -234,7 +235,7 @@ function toggleSidebar() {
                             <ResponsiveNavLink :href="route('asset-invoice-payments.index')" :active="route().current('asset-invoice-payments.*')" class="pl-11">
                                 Pembayaran Aset
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*')" class="pl-11">
+                            <ResponsiveNavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*') || route().current('asset-financing-payments.*')" class="pl-11">
                                 Perjanjian Pembiayaan
                             </ResponsiveNavLink>
                         </DisclosurePanel>
@@ -467,7 +468,7 @@ function toggleSidebar() {
                                         >
                                             Pembayaran Aset
                                         </NavLink>
-                                        <NavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
+                                        <NavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*') || route().current('asset-financing-payments.*')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
                                             Perjanjian Pembiayaan
                                         </NavLink>
                                     </div>
@@ -525,7 +526,7 @@ function toggleSidebar() {
                                         >
                                             Pembayaran Aset
                                         </NavLink>
-                                        <NavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*')" class="flex items-center">
+                                        <NavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*') || route().current('asset-financing-payments.*')" class="flex items-center">
                                             Perjanjian Pembiayaan
                                         </NavLink>
                                     </DisclosurePanel>

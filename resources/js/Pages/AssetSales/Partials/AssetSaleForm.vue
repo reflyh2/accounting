@@ -11,6 +11,7 @@ import AlertNotification from '@/Components/AlertNotification.vue';
 import { ref, watch, onMounted, computed } from 'vue';
 import { PlusCircleIcon, TrashIcon } from '@heroicons/vue/24/solid';
 import { formatNumber } from '@/utils/numberFormat';
+import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
 
 const page = usePage();
 
@@ -50,12 +51,6 @@ const form = useForm({
 const submitted = ref(false);
 const selectedCompany = ref(props.assetSale?.branch?.branch_group.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id));
 const showAssetModal = ref(false);
-const availableAssets = ref([...props.assets].map(asset => ({
-    id: asset.id,
-    code: asset.code,
-    name: asset.name,
-    cost_basis: asset.cost_basis
-})));
 const currentDetailIndex = ref(null);
 const notification = ref({
     show: false,
@@ -63,11 +58,16 @@ const notification = ref({
     message: ''
 });
 
-const statusOptions = [
-    { value: 'open', label: 'Belum Dibayar' },
-    { value: 'partially_paid', label: 'Dibayar Sebagian' },
-    { value: 'paid', label: 'Lunas' },
-];
+const availableAssets = computed(() => props.assets.map(asset => ({
+    id: asset.id,
+    code: asset.code,
+    name: asset.name,
+    cost_basis: asset.cost_basis
+})));
+
+const partnerUrl = computed(() => {
+    return route('api.partners', { company_id: selectedCompany.value, roles: ['asset_customer'] });
+});
 
 // Computed currency options
 const currencyOptions = computed(() => {
@@ -90,6 +90,14 @@ const primaryCurrencyAmount = computed(() => {
     }
     return totalAmount.value * (Number(form.exchange_rate) || 1);
 });
+
+const partnerTableHeaders = [
+    { key: 'code', label: 'Code' },
+    { key: 'name', label: 'Name' },
+    { key: 'actions', label: '' }
+];
+
+const partnerName = ref(props.assetSale?.partner?.name || '');
 
 function updateExchangeRate() {
     if (!form.currency_id || !selectedCompany.value) {
@@ -116,7 +124,11 @@ watch(selectedCompany, (newCompanyId) => {
         form.currency_id = page.props.primaryCurrency?.id || null;
         form.exchange_rate = 1;
     }
-    router.reload({ only: ['branches', 'currencies'], data: { company_id: newCompanyId } });
+    router.reload({ only: ['branches', 'currencies', 'partners'], data: { company_id: newCompanyId } });
+}, { immediate: true });
+
+watch(() => form.branch_id, () => {
+    router.reload({ only: ['assets'], data: { company_id: selectedCompany.value, branch_id: form.branch_id } });
 }, { immediate: true });
 
 watch(
@@ -246,12 +258,18 @@ function submitForm(createAnother = false) {
                         required
                     />
                 </div>
-                <AppSelect
+                <AppPopoverSearch
                     v-model="form.partner_id"
-                    :options="props.partners.map(partner => ({ value: partner.id, label: partner.name }))"
-                    label="Customer:"
-                    placeholder="Pilih Customer"
+                    label="Pelanggan:"
+                    placeholder="Pilih Pelanggan"
+                    :url="partnerUrl"
+                    valueKey="id"
+                    :displayKeys="['name']"
+                    :tableHeaders="partnerTableHeaders"
+                    :initialDisplayValue="partnerName"
                     :error="form.errors.partner_id"
+                    :modalTitle="'Pilih Pelanggan Aset'"
+                    :disabled="!selectedCompany"
                     required
                 />
                 <div class="grid grid-cols-2 gap-4">

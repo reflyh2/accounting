@@ -20,7 +20,9 @@ const currentFilters = ref(props.filters || {});
 
 const accountTypes = [
    { value: 'kas_bank', label: 'Kas & Bank' },
+   { value: 'piutang', label: 'Piutang' },
    { value: 'piutang_usaha', label: 'Piutang Usaha' },
+   { value: 'piutang_lainnya', label: 'Piutang Lainnya' },
    { value: 'persediaan', label: 'Persediaan' },
    { value: 'aset_lancar_lainnya', label: 'Aset Lancar Lainnya' },
    { value: 'aset_tetap', label: 'Aset Tetap' },

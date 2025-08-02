@@ -70,6 +70,11 @@ class AssetInvoice extends Model
         return $this->hasMany(AssetInvoiceDetail::class);
     }
 
+    public function assets()
+    {
+        return $this->hasManyThrough(Asset::class, AssetInvoiceDetail::class, 'asset_invoice_id', 'id', 'id', 'asset_id');
+    }
+
     public function partner()
     {
         return $this->belongsTo(Partner::class);

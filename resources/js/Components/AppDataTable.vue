@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, useSlots } from 'vue';
 import { debounce } from 'lodash';
 import { router, Link } from '@inertiajs/vue3';
 import AppInput from '@/Components/AppInput.vue';
@@ -25,7 +25,7 @@ const props = defineProps({
     },
     tableHeaders: Array,
     createRoute: {
-        type: [Object, Boolean],
+        type: [String,Object, Boolean],
         default: null
     },
     createButtonLabel: {
@@ -36,10 +36,10 @@ const props = defineProps({
         type: Boolean,
         default: false
     },
-    editRoute: [String, Object],
-    deleteRoute: [String, Object],
-    viewRoute: [String, Object],
-    indexRoute: [String, Object],
+    editRoute: [String, Object, Boolean],
+    deleteRoute: [String, Object, Boolean],
+    viewRoute: [String, Object, Boolean],
+    indexRoute: [String, Object, Boolean],
     customFilters: Array,
     downloadOptions: Array,
     perPageOptions: {
@@ -70,10 +70,28 @@ const props = defineProps({
     enableBulkActions: {
         type: Boolean,
         default: true
+    },
+    showFilterButton: {
+        type: Boolean,
+        default: true
+    },
+    useInertia: {
+        type: Boolean,
+        default: true
+    },
+    showFilterLabels: {
+        type: Boolean,
+        default: true
     }
 });
 
-const emit = defineEmits(['delete', 'sort', 'filter', 'bulkDelete', 'create']);
+const slots = useSlots();
+
+const hasActions = computed(() => {
+    return props.viewRoute || props.editRoute || props.deleteRoute || !!slots.custom_actions;
+});
+
+const emit = defineEmits(['delete', 'sort', 'filter', 'bulkDelete', 'create', 'changePage']);
 
 const search = ref(props.filters?.search || '');
 const customFilterValues = ref({});
@@ -268,20 +286,20 @@ function handleCreate() {
 
             <div v-if="enableFilters" class="flex items-center">
                 <a
-                    v-if="hasAppliedFilters"
+                    v-if="showFilterButton && hasAppliedFilters"
                     @click="clearFilters"
                     class="inline-flex items-center px-4 py-2 mr-2 text-sm font-medium text-red-700 hover:underline cursor-pointer"
                 >
                     Hapus Filter
                 </a>
-                <AppUtilityButton @click="showFilters = !showFilters">
+                <AppUtilityButton v-if="showFilterButton" @click="showFilters = !showFilters">
                     <FunnelIcon class="w-5 h-5 mr-1" />
                     Filter
                 </AppUtilityButton>
             </div>
         </div>
 
-        <div v-if="showFilters">
+        <div v-if="(!showFilterButton && enableFilters) || (showFilterButton && showFilters)">
             <div class="bg-slate-50 px-4 py-3 border-y border-gray-200">
                 <div class="mt-4 flex flex-wrap">
                     <div class="w-full md:w-1/2 lg:w-1/4 px-2">
@@ -289,7 +307,7 @@ function handleCreate() {
                             v-model="search"
                             placeholder="Cari..."
                             class="focus:ring-main-500"
-                            label="Cari data"
+                            :label="showFilterLabels ? 'Cari data' : ''"
                             @update:modelValue="handleFilterChange('search', $event)"
                         />
                     </div>
@@ -327,14 +345,14 @@ function handleCreate() {
             :sortable="sortable"
             :defaultSort="defaultSort"
             :currentSort="currentSort"
-            :routeName="indexRoute.name"
+            :routeName="indexRoute?.name || ''"
             :columnFormatters="columnFormatters"
             :columnRenderers="columnRenderers"
             :enableBulkActions="enableBulkActions"
             @sort="handleSort"
             @selectionChange="handleSelectionChange"
         >
-            <template #actions="{ item }">
+            <template v-if="hasActions" #actions="{ item }">
                 <div class="flex items-center">
                     <slot name="custom_actions" :item="item" />
                     <Link v-if="viewRoute" :href="getRoute(viewRoute, { id: item.id })">
@@ -372,7 +390,12 @@ function handleCreate() {
                     </select>
                     <span class="ml-2">rows out of {{ data.total }}</span>
                 </div>
-                <Pagination :links="data.links" class="mb-4 xl:mb-0" />
+                <Pagination 
+                    :links="data.links" 
+                    :useInertia="useInertia" 
+                    @changePage="(url) => $emit('changePage', url)"
+                    class="mb-4 xl:mb-0" 
+                />
             </div>
         </div>
     </div>

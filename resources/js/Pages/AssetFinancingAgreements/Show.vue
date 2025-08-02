@@ -20,6 +20,9 @@ const props = defineProps({
     perPage: [Number, String],
     sort: String,
     order: String,
+    statusOptions: Object,
+    paymentFrequencyOptions: Object,
+    interestCalculationMethodOptions: Object,
 });
 
 const statusLabels = {
@@ -41,6 +44,7 @@ const tableHeaders = [
     { key: 'paid_date', label: 'Tanggal Bayar' },
     { key: 'paid_principal_amount', label: 'Pokok Dibayar' },
     { key: 'paid_interest_amount', label: 'Bunga Dibayar' },
+    { key: 'total_paid_amount', label: 'Total Dibayar' },
 ];
 
 const columnFormatters = {
@@ -51,6 +55,7 @@ const columnFormatters = {
     paid_date: (value) => value ? format(parseISO(value), 'dd MMM yyyy') : '-',
     paid_principal_amount: (value) => formatNumber(value),
     paid_interest_amount: (value) => formatNumber(value),
+    total_paid_amount: (value) => formatNumber(value),
 };
 
 const columnRenderers = {
@@ -169,7 +174,7 @@ const printAgreement = () => {
                         </div>
                         <div>
                             <p class="font-semibold">Metode Perhitungan Bunga:</p>
-                            <p>{{ agreement.interest_calculation_method_label }}</p>
+                            <p>{{ interestCalculationMethodOptions[agreement.interest_calculation_method] }}</p>
                         </div>
                         <div>
                             <p class="font-semibold">Tanggal Mulai:</p>
@@ -181,11 +186,11 @@ const printAgreement = () => {
                         </div>
                         <div>
                             <p class="font-semibold">Frekuensi Pembayaran:</p>
-                            <p>{{ agreement.payment_frequency_label }}</p>
+                            <p>{{ paymentFrequencyOptions[agreement.payment_frequency] }}</p>
                         </div>
                         <div>
                             <p class="font-semibold">Status:</p>
-                            <p>{{ agreement.status_label }}</p>
+                            <p>{{ statusOptions[agreement.status] }}</p>
                         </div>
                         <div class="col-span-2">
                             <p class="font-semibold">Catatan:</p>
@@ -200,7 +205,7 @@ const printAgreement = () => {
                             <div class="grid grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <p class="font-semibold">Nomor Invoice:</p>
-                                    <p>{{ agreement.asset_invoice.invoice_number }}</p>
+                                    <p>{{ agreement.asset_invoice.number }}</p>
                                 </div>
                                 <div>
                                     <p class="font-semibold">Tanggal Invoice:</p>

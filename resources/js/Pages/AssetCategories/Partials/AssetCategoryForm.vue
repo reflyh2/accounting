@@ -28,6 +28,9 @@ const companyAccountsMap = computed(() => {
                 asset_amortization_account_id: company.pivot.asset_amortization_account_id || null,
                 asset_prepaid_amortization_account_id: company.pivot.asset_prepaid_amortization_account_id || null,
                 asset_rental_cost_account_id: company.pivot.asset_rental_cost_account_id || null,
+                asset_acquisition_payable_account_id: company.pivot.asset_acquisition_payable_account_id || null,
+                asset_sale_receivable_account_id: company.pivot.asset_sale_receivable_account_id || null,
+                asset_financing_payable_account_id: company.pivot.asset_financing_payable_account_id || null,
             };
         });
     }
@@ -61,6 +64,9 @@ if (props.assetCategory) {
         asset_amortization_account_id: company.pivot.asset_amortization_account_id || null,
         asset_prepaid_amortization_account_id: company.pivot.asset_prepaid_amortization_account_id || null,
         asset_rental_cost_account_id: company.pivot.asset_rental_cost_account_id || null,
+        asset_acquisition_payable_account_id: company.pivot.asset_acquisition_payable_account_id || null,
+        asset_sale_receivable_account_id: company.pivot.asset_sale_receivable_account_id || null,
+        asset_financing_payable_account_id: company.pivot.asset_financing_payable_account_id || null,
     }));
 }
 
@@ -79,6 +85,9 @@ watch(() => form.selected_companies, (newSelectedCompanies) => {
                 asset_amortization_account_id: companyAccountsMap.value[companyId]?.asset_amortization_account_id || null,
                 asset_prepaid_amortization_account_id: companyAccountsMap.value[companyId]?.asset_prepaid_amortization_account_id || null,
                 asset_rental_cost_account_id: companyAccountsMap.value[companyId]?.asset_rental_cost_account_id || null,
+                asset_acquisition_payable_account_id: companyAccountsMap.value[companyId]?.asset_acquisition_payable_account_id || null,
+                asset_sale_receivable_account_id: companyAccountsMap.value[companyId]?.asset_sale_receivable_account_id || null,
+                asset_financing_payable_account_id: companyAccountsMap.value[companyId]?.asset_financing_payable_account_id || null,
             });
         }
     });
@@ -236,6 +245,34 @@ const getCompanyName = (companyId) => {
                         label="Akun Biaya Sewa Aset:"
                         placeholder="Pilih Akun Biaya Sewa"
                         :error="form.errors[`companies.${form.companies.findIndex(c => c.id === companyId)}.asset_rental_cost_account_id`]"
+                    />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <AppSelect
+                        v-model="form.companies.find(c => c.id === companyId).asset_acquisition_payable_account_id"
+                        :options="getCompanyAccounts(companyId, 'liabilitas_jangka_pendek').map(account => ({ value: account.id, label: account.code + ' - ' + account.name }))"
+                        label="Akun Hutang Pembelian Aset:"
+                        placeholder="Pilih Akun Hutang Pembelian Aset"
+                        :error="form.errors[`companies.${form.companies.findIndex(c => c.id === companyId)}.asset_acquisition_payable_account_id`]"
+                    />
+                    
+                    <AppSelect
+                        v-model="form.companies.find(c => c.id === companyId).asset_sale_receivable_account_id"
+                        :options="getCompanyAccounts(companyId, 'piutang_lainnya').map(account => ({ value: account.id, label: account.code + ' - ' + account.name }))"
+                        label="Akun Piutang Penjualan Aset:"
+                        placeholder="Pilih Akun Piutang Penjualan Aset"
+                        :error="form.errors[`companies.${form.companies.findIndex(c => c.id === companyId)}.asset_sale_receivable_account_id`]"
+                    />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <AppSelect
+                        v-model="form.companies.find(c => c.id === companyId).asset_financing_payable_account_id"
+                        :options="getCompanyAccounts(companyId, 'liabilitas_jangka_panjang').map(account => ({ value: account.id, label: account.code + ' - ' + account.name }))"
+                        label="Akun Hutang Leasing Aset:"
+                        placeholder="Pilih Akun Hutang Leasing Aset"
+                        :error="form.errors[`companies.${form.companies.findIndex(c => c.id === companyId)}.asset_financing_payable_account_id`]"
                     />
                 </div>
             </div>

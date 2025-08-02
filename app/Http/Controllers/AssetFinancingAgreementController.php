@@ -204,15 +204,19 @@ class AssetFinancingAgreementController extends Controller
         $assetFinancingAgreement->load(['creditor', 'assetInvoice.assetInvoiceDetails.asset', 'assetInvoice.partner', 'branch.branchGroup.company', 'createdBy', 'updatedBy']);
 
         $schedules = $assetFinancingAgreement->schedules()
-            ->orderBy($request->input('sort', 'payment_number'), $request->input('order', 'asc'))
+            ->select('asset_financing_schedules.*', DB::raw('asset_financing_schedules.paid_principal_amount + asset_financing_schedules.paid_interest_amount as total_paid_amount'))
+            ->orderBy($request->input('sort', 'payment_date'), $request->input('order', 'asc'))
             ->paginate($request->input('per_page', 10))->withQueryString();
         
         return Inertia::render('AssetFinancingAgreements/Show', [
             'agreement' => $assetFinancingAgreement,
             'schedules' => $schedules,
             'filters' => $filters,
-            'sort' => $request->input('sort', 'payment_number'),
+            'sort' => $request->input('sort', 'payment_date'),
             'order' => $request->input('order', 'asc'),
+            'statusOptions' => AssetFinancingAgreement::statusOptions(),
+            'paymentFrequencyOptions' => AssetFinancingAgreement::paymentFrequencyOptions(),
+            'interestCalculationMethodOptions' => AssetFinancingAgreement::interestCalculationMethodOptions(),
         ]);
     }
 

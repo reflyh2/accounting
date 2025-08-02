@@ -11,6 +11,7 @@ import { ref, watch, computed, onMounted } from 'vue';
 import { PlusCircleIcon, TrashIcon } from '@heroicons/vue/24/solid';
 import { formatNumber } from '@/utils/numberFormat';
 import axios from 'axios';
+import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
 
 const page = usePage();
 
@@ -257,31 +258,23 @@ const invoiceOptions = computed(() => {
     });
 });
 
-// Computed options for partners filtered by type
-const partnerOptions = computed(() => {
-    let filteredPartners = props.partners;
-    
-    if (form.type) {
-        filteredPartners = props.partners.filter(partner => {
-            const hasSupplierRole = partner.roles?.some(role => role.role === 'asset_supplier');
-            const hasCreditorRole = partner.roles?.some(role => role.role === 'creditor');
-            const hasCustomerRole = partner.roles?.some(role => role.role === 'asset_customer');
-            
-            if (['purchase', 'rental', 'lease'].includes(form.type)) {
-                return hasSupplierRole || hasCreditorRole;
-            }
-            if (form.type === 'sales') {
-                return hasCustomerRole;
-            }
-            return true;
-        });
+const partnerUrl = computed(() => {
+    let roles = [];
+    if (form.type === 'sales') {
+        roles = ['asset_customer'];
+    } else {
+        roles = ['asset_supplier'];
     }
-    
-    return filteredPartners.map(partner => ({
-        value: partner.id,
-        label: partner.name
-    }));
+    return route('api.partners', { company_id: selectedCompany.value, roles: roles });
 });
+
+const partnerTableHeaders = [
+    { key: 'code', label: 'Code' },
+    { key: 'name', label: 'Name' },
+    { key: 'actions', label: '' }
+];
+
+const partnerName = ref(props.payment?.partner?.name || '');
 
 // Computed source account options
 const sourceAccountOptions = computed(() => {
@@ -559,12 +552,18 @@ function getInvoiceDetails(invoiceId) {
                 </div>
                 
                 <div class="grid grid-cols-2 gap-4">
-                    <AppSelect
+                    <AppPopoverSearch
                         v-model="form.partner_id"
-                        :options="partnerOptions"
-                        :label="form.type === 'sales' ? 'Customer:' : 'Supplier:'"
-                        :placeholder="form.type === 'sales' ? 'Pilih Customer' : 'Pilih Supplier'"
+                        :label="form.type === 'sales' ? 'Pelanggan:' : 'Supplier:'"
+                        :placeholder="form.type === 'sales' ? 'Pilih Pelanggan' : 'Pilih Supplier'"
+                        :url="partnerUrl"
+                        valueKey="id"
+                        :displayKeys="['name']"
+                        :tableHeaders="partnerTableHeaders"
+                        :initialDisplayValue="partnerName"
                         :error="form.errors.partner_id"
+                        :modalTitle="form.type === 'sales' ? 'Pilih Pelanggan Aset' : 'Pilih Supplier Aset'"
+                        :disabled="!selectedCompany"
                         required
                     />
                     

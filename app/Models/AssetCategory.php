@@ -31,6 +31,9 @@ class AssetCategory extends Model
                 'asset_amortization_account_id',
                 'asset_prepaid_amortization_account_id',
                 'asset_rental_cost_account_id',
+                'asset_acquisition_payable_account_id',
+                'asset_sale_receivable_account_id',
+                'asset_financing_payable_account_id',
             ])
             ->withTimestamps();
     }
@@ -82,4 +85,29 @@ class AssetCategory extends Model
     {
         return Account::find($this->companies()->where('company_id', $company->id)->first()?->pivot?->asset_rental_cost_account_id);
     }
+
+    /**
+     * Get the asset acquisition payable account for a specific company.
+     */
+    public function assetAcquisitionPayableAccount(Company $company)
+    {
+        return Account::find($this->companies()->where('company_id', $company->id)->first()?->pivot?->asset_acquisition_payable_account_id);
+    }
+
+    /**
+     * Get the asset sale receivable account for a specific company.
+     */
+    public function assetSaleReceivableAccount(Company $company)
+    {
+        return Account::find($this->companies()->where('company_id', $company->id)->first()?->pivot?->asset_sale_receivable_account_id);
+    }
+
+    /**
+     * Get the asset financing payable account for a specific company.
+     */
+    public function assetFinancingPayableAccount(Company $company)
+    {
+        return Account::find($this->companies()->where('company_id', $company->id)->first()?->pivot?->asset_financing_payable_account_id);
+    }
+
 } 

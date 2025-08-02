@@ -121,9 +121,10 @@ class AssetPurchaseController extends Controller
         $branches = collect();
         $partners = collect();
         $currencies = collect();
+        $assets = collect();
         
-        if ($request->input('company_id')) {
-            $companyId = $request->input('company_id');
+        if ($request->company_id) {
+            $companyId = $request->company_id;
             
             // Get branches for selected company
             $branches = Branch::whereHas('branchGroup', function ($query) use ($companyId) {
@@ -133,6 +134,8 @@ class AssetPurchaseController extends Controller
             // Get partners with asset supplier role
             $partners = Partner::whereHas('roles', function ($query) {
                 $query->where('role', 'asset_supplier');
+            })->whereHas('companies', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
             })->orderBy('name', 'asc')->get();
             
             // Get currencies available for the company
@@ -141,6 +144,10 @@ class AssetPurchaseController extends Controller
             })->with(['companyRates' => function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             }])->orderBy('code', 'asc')->get();
+
+            if ($request->branch_id) {
+                $assets = $this->getAvailableAssets(null, $companyId, $request->branch_id);
+            }
         }
 
         return Inertia::render('AssetPurchases/Create', [
@@ -150,7 +157,7 @@ class AssetPurchaseController extends Controller
             'partners' => fn() => $partners,
             'currencies' => fn() => $currencies,
             'primaryCurrency' => $primaryCurrency,
-            'assets' => fn() => $this->getAvailableAssets(),
+            'assets' => fn() => $assets,
             'assetCategories' => \App\Models\AssetCategory::orderBy('name', 'asc')->get(),
         ]);
     }
@@ -239,6 +246,14 @@ class AssetPurchaseController extends Controller
         $assetPurchase->load(['branch.branchGroup', 'partner', 'assetInvoiceDetails.asset', 'currency']);
 
         $companyId = $assetPurchase->branch->branchGroup->company_id;
+        if ($request->company_id) {
+            $companyId = $request->company_id;
+        }
+        
+        $branchId = $assetPurchase->branch_id;
+        if ($request->branch_id) {
+            $branchId = $request->branch_id;
+        }
         
         // Get primary currency
         $primaryCurrency = Currency::where('is_primary', true)->first();
@@ -264,10 +279,12 @@ class AssetPurchaseController extends Controller
             })->orderBy('name', 'asc')->get(),
             'partners' => Partner::whereHas('roles', function ($query) {
                 $query->where('role', 'asset_supplier');
+            })->whereHas('companies', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
             })->orderBy('name', 'asc')->get(),
             'currencies' => $currencies,
             'primaryCurrency' => $primaryCurrency,
-            'assets' => $this->getAvailableAssets($assetPurchase->id), // Allow current invoice assets
+            'assets' => $this->getAvailableAssets($assetPurchase->id, $companyId, $branchId), // Allow current invoice assets
             'assetCategories' => \App\Models\AssetCategory::orderBy('name', 'asc')->get(),
         ]);
     }
@@ -507,7 +524,7 @@ class AssetPurchaseController extends Controller
      * Get assets that are not yet used in any purchase or rental invoice.
      * For edit mode, exclude the current invoice from the check.
      */
-    private function getAvailableAssets($excludeInvoiceId = null)
+    private function getAvailableAssets($excludeInvoiceId = null, $companyId = null, $branchId = null)
     {
         $usedAssetIds = AssetInvoiceDetail::query()
             ->when($excludeInvoiceId, function ($query, $excludeInvoiceId) {
@@ -520,6 +537,12 @@ class AssetPurchaseController extends Controller
             ->toArray();
 
         return Asset::whereNotIn('id', $usedAssetIds)
+            ->when($companyId, function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })
+            ->when($branchId, function ($query) use ($branchId) {
+                $query->where('branch_id', $branchId);
+            })
             ->orderBy('name', 'asc')
             ->get();
     }

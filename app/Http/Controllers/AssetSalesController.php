@@ -105,9 +105,10 @@ class AssetSalesController extends Controller
         $branches = collect();
         $partners = collect();
         $currencies = collect();
+        $assets = collect();
         
-        if ($request->input('company_id')) {
-            $companyId = $request->input('company_id');
+        if ($request->company_id) {
+            $companyId = $request->company_id;
             
             // Get branches for selected company
             $branches = Branch::whereHas('branchGroup', function ($query) use ($companyId) {
@@ -117,6 +118,8 @@ class AssetSalesController extends Controller
             // Get partners with asset_customer role
             $partners = Partner::whereHas('roles', function ($query) {
                 $query->where('role', 'asset_customer');
+            })->whereHas('companies', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
             })->orderBy('name', 'asc')->get();
             
             // Get currencies available for the company
@@ -125,6 +128,10 @@ class AssetSalesController extends Controller
             })->with(['companyRates' => function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             }])->orderBy('code', 'asc')->get();
+
+            if ($request->branch_id) {
+                $assets = $this->getAvailableAssets(null, $companyId, $request->branch_id);
+            }
         }
 
         return Inertia::render('AssetSales/Create', [
@@ -134,7 +141,7 @@ class AssetSalesController extends Controller
             'partners' => fn() => $partners,
             'currencies' => fn() => $currencies,
             'primaryCurrency' => $primaryCurrency,
-            'assets' => fn() => $this->getAvailableAssets(),
+            'assets' => fn() => $assets,
             'assetCategories' => \App\Models\AssetCategory::orderBy('name', 'asc')->get(),
         ]);
     }
@@ -221,6 +228,13 @@ class AssetSalesController extends Controller
         $assetSale->load(['branch.branchGroup', 'partner', 'assetInvoiceDetails.asset', 'currency']);
 
         $companyId = $assetSale->branch->branchGroup->company_id;
+        $branchId = $assetSale->branch_id;
+        if ($request->company_id) {
+            $companyId = $request->company_id;
+        }
+        if ($request->branch_id) {
+            $branchId = $request->branch_id;
+        }
         
         // Get primary currency
         $primaryCurrency = Currency::where('is_primary', true)->first();
@@ -241,10 +255,12 @@ class AssetSalesController extends Controller
             })->orderBy('name', 'asc')->get(),
             'partners' => Partner::whereHas('roles', function ($query) {
                 $query->where('role', 'asset_customer');
+            })->whereHas('companies', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
             })->orderBy('name', 'asc')->get(),
             'currencies' => $currencies,
             'primaryCurrency' => $primaryCurrency,
-            'assets' => $this->getAvailableAssets($assetSale->id), // Allow current invoice assets
+            'assets' => $this->getAvailableAssets($assetSale->id, $companyId, $branchId), // Allow current invoice assets
             'assetCategories' => \App\Models\AssetCategory::orderBy('name', 'asc')->get(),
         ]);
     }

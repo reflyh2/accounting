@@ -12,6 +12,7 @@ import { ref, watch, onMounted, computed } from 'vue';
 import { PlusCircleIcon, TrashIcon } from '@heroicons/vue/24/solid';
 import { formatNumber } from '@/utils/numberFormat';
 import axios from 'axios';
+import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
 
 const page = usePage();
 
@@ -60,12 +61,6 @@ const form = useForm({
 const submitted = ref(false);
 const selectedCompany = ref(props.assetRental?.branch?.branch_group.company_id || (props.companies.length > 1 ? null : props.companies[0].id));
 const showAssetModal = ref(false);
-const availableAssets = ref([...props.assets].map(asset => ({
-    id: asset.id,
-    code: asset.code,
-    name: asset.name,
-    cost_basis: asset.cost_basis
-})));
 const currentDetailIndex = ref(null);
 const priceWarnings = ref({});
 const notification = ref({
@@ -74,10 +69,83 @@ const notification = ref({
     message: ''
 });
 
+const partnerUrl = computed(() => {
+    return route('api.partners', { company_id: selectedCompany.value, roles: ['asset_supplier'] });
+});
+
+// Computed currency options
+const currencyOptions = computed(() => {
+    return props.currencies.map(currency => ({
+        value: currency.id,
+        label: `${currency.code} - ${currency.name}`
+    }));
+});
+
+// Computed current currency symbol
+const currentCurrencySymbol = computed(() => {
+    const currency = props.currencies.find(c => c.id == form.currency_id);
+    return currency?.symbol || page.props.primaryCurrency?.symbol || '';
+});
+
+// Computed primary currency amount
+const primaryCurrencyAmount = computed(() => {
+    if (form.currency_id == page.props.primaryCurrency?.id) {
+        return totalAmount.value;
+    }
+    return totalAmount.value * (Number(form.exchange_rate) || 1);
+});
+
+// Computed available assets
+const availableAssets = computed(() => props.assets.map(asset => ({
+    id: asset.id,
+    code: asset.code,
+    name: asset.name,
+    cost_basis: asset.cost_basis
+})));
+
+const partnerTableHeaders = [
+    { key: 'code', label: 'Code' },
+    { key: 'name', label: 'Name' },
+    { key: 'actions', label: '' }
+];
+
+const partnerName = ref(props.assetRental?.partner?.name || '');
+
+function updateExchangeRate() {
+    if (!form.currency_id || !selectedCompany.value) {
+        form.exchange_rate = 1;
+        return;
+    }
+    
+    const currency = props.currencies.find(c => c.id == form.currency_id);
+    if (currency && currency.company_rates) {
+        const companyRate = currency.company_rates.find(rate => rate.company_id == selectedCompany.value);
+        if (companyRate) {
+            form.exchange_rate = companyRate.exchange_rate;
+        }
+    }
+}
+
+// Watch currency selection to update exchange rate
+watch(() => form.currency_id, () => {
+    updateExchangeRate();
+
+    form.details.forEach((_, index) => {
+        onPriceChange(index);
+    });
+});
+
 watch(selectedCompany, (newCompanyId) => {
-   if (!props.assetRental) {
-      router.reload({ only: ['branches'], data: { company_id: newCompanyId } });
-   }
+    console.log('selectedCompany', newCompanyId);
+    if (!props.assetRental) {
+        form.currency_id = page.props.primaryCurrency?.id || null;
+        form.exchange_rate = 1;
+    }
+    router.reload({ only: ['branches', 'currencies', 'partners'], data: { company_id: newCompanyId } });
+}, { immediate: true });
+
+watch(() => form.branch_id, () => {
+    router.reload({ only: ['assets'], data: { company_id: selectedCompany.value, branch_id: form.branch_id } });
 }, { immediate: true });
 
 watch(
@@ -155,8 +223,6 @@ function onAssetChange(index) {
         // Clear any existing warning for this row
         delete priceWarnings.value[index];
     }
-    
-    updateAssetDescription(index);
 }
 
 function onPriceChange(index) {
@@ -201,11 +267,16 @@ async function updateAssetCostBasis(index) {
     }
 }
 
-function updateAssetDescription(index) {
-    const selectedAsset = props.assets.find(a => a.id === form.details[index].asset_id);
-    if (selectedAsset && !form.details[index].description) {
-        form.details[index].description = selectedAsset.name;
-    }
+function showNotification(type, message) {
+    notification.value = {
+        show: true,
+        type,
+        message
+    };
+}
+
+function hideNotification() {
+    notification.value.show = false;
 }
 
 const totalAmount = computed(() => {
@@ -213,70 +284,6 @@ const totalAmount = computed(() => {
         return sum + (Number(detail.quantity) * Number(detail.unit_price));
     }, 0);
 });
-
-const statusOptions = [
-    { value: 'open', label: 'Terbuka' },
-    { value: 'paid', label: 'Lunas' },
-    { value: 'overdue', label: 'Terlambat' },
-    { value: 'cancelled', label: 'Dibatalkan' },
-    { value: 'voided', label: 'Dibatalkan' },
-    { value: 'closed', label: 'Ditutup' },
-    { value: 'partially_paid', label: 'Sebagian Lunas' }
-];
-
-// Computed currency options
-const currencyOptions = computed(() => {
-    return props.currencies.map(currency => ({
-        value: currency.id,
-        label: `${currency.code} - ${currency.name}`
-    }));
-});
-
-// Computed current currency symbol
-const currentCurrencySymbol = computed(() => {
-    const currency = props.currencies.find(c => c.id == form.currency_id);
-    return currency?.symbol || page.props.primaryCurrency?.symbol || '';
-});
-
-// Computed primary currency amount
-const primaryCurrencyAmount = computed(() => {
-    if (form.currency_id == page.props.primaryCurrency?.id) {
-        return totalAmount.value;
-    }
-    return totalAmount.value * (Number(form.exchange_rate) || 1);
-});
-
-function updateExchangeRate() {
-    if (!form.currency_id || !selectedCompany.value) {
-        form.exchange_rate = 1;
-        return;
-    }
-    
-    const currency = props.currencies.find(c => c.id == form.currency_id);
-    if (currency && currency.company_rates) {
-        const companyRate = currency.company_rates.find(rate => rate.company_id == selectedCompany.value);
-        if (companyRate) {
-            form.exchange_rate = companyRate.exchange_rate;
-        }
-    }
-}
-
-// Watch currency selection to update exchange rate
-watch(() => form.currency_id, () => {
-    updateExchangeRate();
-
-    form.details.forEach((_, index) => {
-        onPriceChange(index);
-    });
-});
-
-watch(selectedCompany, (newCompanyId) => {
-   if (!props.assetRental) {
-      form.currency_id = page.props.primaryCurrency?.id || null;
-      form.exchange_rate = 1;
-      router.reload({ only: ['branches', 'currencies'], data: { company_id: newCompanyId } });
-   }
-}, { immediate: true });
 
 function submitForm(createAnother = false) {
     submitted.value = true;
@@ -313,18 +320,6 @@ function submitForm(createAnother = false) {
     }
 }
 
-function showNotification(type, message) {
-    notification.value = {
-        show: true,
-        type,
-        message
-    };
-}
-
-function hideNotification() {
-    notification.value.show = false;
-}
-
 </script>
 
 <template>
@@ -352,12 +347,18 @@ function hideNotification() {
                         required
                     />
                 </div>
-                <AppSelect
+                <AppPopoverSearch
                     v-model="form.partner_id"
-                    :options="props.partners.map(partner => ({ value: partner.id, label: partner.name }))"
                     label="Supplier:"
                     placeholder="Pilih Supplier"
+                    :url="partnerUrl"
+                    valueKey="id"
+                    :displayKeys="['name']"
+                    :tableHeaders="partnerTableHeaders"
+                    :initialDisplayValue="partnerName"
                     :error="form.errors.partner_id"
+                    :modalTitle="'Pilih Supplier Aset'"
+                    :disabled="!selectedCompany"
                     required
                 />
                 <div class="grid grid-cols-2 gap-4">

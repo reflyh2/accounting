@@ -7,6 +7,7 @@ import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
 import { ref, computed, watch, onMounted } from 'vue';
 import { formatNumber } from '@/utils/numberFormat';
+import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
 
 const props = defineProps({
    agreement: Object,
@@ -77,6 +78,18 @@ const paymentFrequencySelectOptions = computed(() =>
 const interestCalculationMethodSelectOptions = computed(() => 
    Object.entries(props.interestCalculationMethodOptions).map(([value, label]) => ({ value, label }))
 );
+
+const partnerUrl = computed(() => {
+    return route('api.partners', { company_id: selectedCompany.value, roles: ['creditor'] });
+});
+
+const partnerTableHeaders = [
+    { key: 'code', label: 'Code' },
+    { key: 'name', label: 'Name' },
+    { key: 'actions', label: '' }
+];
+
+const partnerName = ref(props.agreement?.creditor?.name || '');
 
 watch(selectedCompany, (newCompanyId) => {
    if (!props.agreement) {
@@ -186,14 +199,20 @@ function submitForm() {
                   required
                />
                
-               <AppSelect
-                  v-model="form.creditor_id"
-                  :options="partnerOptions"
-                  label="Kreditor:"
-                  placeholder="Pilih Kreditor"
-                  :error="form.errors.creditor_id"
-                  required
-               />
+               <AppPopoverSearch
+                    v-model="form.creditor_id"
+                    label="Kreditor:"
+                    placeholder="Pilih Kreditor"
+                    :url="partnerUrl"
+                    valueKey="id"
+                    :displayKeys="['name']"
+                    :tableHeaders="partnerTableHeaders"
+                    :initialDisplayValue="partnerName"
+                    :error="form.errors.creditor_id"
+                    :modalTitle="'Pilih Kreditor'"
+                    :disabled="!selectedCompany"
+                    required
+                />
             </div>
             
             <div class="grid grid-cols-1 gap-4">

@@ -119,6 +119,30 @@ const deleteAssetCategory = () => {
                                         </p>
                                         <p v-else class="text-gray-500">Tidak diatur</p>
                                     </div>
+
+                                    <div>
+                                        <p class="font-medium">Akun Hutang Pembelian Aset:</p>
+                                        <p v-if="company.pivot.asset_acquisition_payable_account_id">
+                                            {{ company.asset_acquisition_payable_account?.code }} - {{ company.asset_acquisition_payable_account?.name }}
+                                        </p>
+                                        <p v-else class="text-gray-500">Tidak diatur</p>
+                                    </div>
+
+                                    <div>
+                                        <p class="font-medium">Akun Piutang Penjualan Aset:</p>
+                                        <p v-if="company.pivot.asset_sale_receivable_account_id">
+                                            {{ company.asset_sale_receivable_account?.code }} - {{ company.asset_sale_receivable_account?.name }}
+                                        </p>
+                                        <p v-else class="text-gray-500">Tidak diatur</p>
+                                    </div>
+
+                                    <div>
+                                        <p class="font-medium">Akun Hutang Leasing Aset:</p>
+                                        <p v-if="company.pivot.asset_financing_payable_account_id">
+                                            {{ company.asset_financing_payable_account?.code }} - {{ company.asset_financing_payable_account?.name }}
+                                        </p>
+                                        <p v-else class="text-gray-500">Tidak diatur</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

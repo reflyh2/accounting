@@ -5,8 +5,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import AppDataTable from '@/Components/AppDataTable.vue';
 import { formatNumber } from '@/utils/numberFormat';
-import { PrinterIcon } from '@heroicons/vue/24/solid';
 import AppPrintButton from '@/Components/AppPrintButton.vue';
+import TabLinks from '@/Components/TabLinks.vue';
 
 const props = defineProps({
     agreements: Object,
@@ -19,6 +19,11 @@ const props = defineProps({
     paymentFrequencyOptions: Object,
     interestCalculationMethodOptions: Object,
 });
+
+const tabs = [
+    { label: 'Perjanjian Pembiayaan Aset', route: 'asset-financing-agreements.index', active: true },
+    { label: 'Pembayaran Pembiayaan Aset', route: 'asset-financing-payments.index', active: false },
+];
 
 const currentSort = ref({ key: props.sort || 'agreement_date', order: props.order || 'desc' });
 const currentFilters = ref(props.filters || {});
@@ -179,6 +184,8 @@ function handleFilter(newFilters) {
         </template>
 
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+            <TabLinks :tabs="tabs" />
+
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">
                     <AppDataTable

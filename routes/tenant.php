@@ -44,6 +44,7 @@ use App\Http\Controllers\PartnerBankAccountController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
 use App\Http\Controllers\AssetFinancingScheduleController;
+use App\Http\Controllers\AssetFinancingPaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -90,6 +91,9 @@ Route::middleware([
 
         Route::get('api/branches-by-company/{companyId}', [ApiController::class, 'getBranchesByCompany'])->name('api.branches-by-company');
         Route::get('api/accounts-by-branch/{branchId}', [ApiController::class, 'getAccountsByBranch'])->name('api.accounts-by-branch');       
+        Route::get('api/financing-schedule', [ApiController::class, 'getFinancingSchedule'])->name('api.financing-schedule');
+        Route::get('api/partners', [ApiController::class, 'getPartners'])->name('api.partners');
+        Route::get('api/partners/{partner}', [ApiController::class, 'getPartner'])->name('api.partners.show');
 
         Route::get('/', function () {
             return redirect(route('dashboard'));
@@ -263,6 +267,14 @@ Route::middleware([
         Route::get('asset-financing-agreements/export-pdf', [AssetFinancingAgreementController::class, 'exportPDF'])->name('asset-financing-agreements.export-pdf');
         Route::get('asset-financing-agreements/{assetFinancingAgreement}/print', [AssetFinancingAgreementController::class, 'print'])->name('asset-financing-agreements.print');
         Route::resource('asset-financing-agreements', AssetFinancingAgreementController::class);
+
+        // Asset Financing Payments Routes
+        Route::delete('asset-financing-payments/bulk-delete', [AssetFinancingPaymentController::class, 'bulkDelete'])->name('asset-financing-payments.bulk-delete');
+        Route::get('asset-financing-payments/export-xlsx', [AssetFinancingPaymentController::class, 'exportXLSX'])->name('asset-financing-payments.export-xlsx');
+        Route::get('asset-financing-payments/export-csv', [AssetFinancingPaymentController::class, 'exportCSV'])->name('asset-financing-payments.export-csv');
+        Route::get('asset-financing-payments/export-pdf', [AssetFinancingPaymentController::class, 'exportPDF'])->name('asset-financing-payments.export-pdf');
+        Route::get('asset-financing-payments/{assetFinancingPayment}/print', [AssetFinancingPaymentController::class, 'print'])->name('asset-financing-payments.print');
+        Route::resource('asset-financing-payments', AssetFinancingPaymentController::class);
 
         Route::put('asset-financing-schedules/{schedule}/pay', [AssetFinancingScheduleController::class, 'pay'])->name('asset-financing-schedules.pay');
 

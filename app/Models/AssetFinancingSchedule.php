@@ -11,7 +11,7 @@ class AssetFinancingSchedule extends Model
 
     protected $guarded = [];
 
-    public function agreement()
+    public function assetFinancingAgreement()
     {
         return $this->belongsTo(AssetFinancingAgreement::class, 'asset_financing_agreement_id');
     }

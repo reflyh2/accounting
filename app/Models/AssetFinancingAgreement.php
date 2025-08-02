@@ -147,6 +147,11 @@ class AssetFinancingAgreement extends Model
         return $this->belongsTo(AssetInvoice::class);
     }
 
+    public function getAssetAttribute()
+    {
+        return $this->assetInvoice->assets->first();
+    }
+
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by', 'global_id');

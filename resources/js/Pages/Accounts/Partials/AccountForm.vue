@@ -30,13 +30,15 @@ const submitted = ref(false);
 
 const accountTypes = [
    { value: 'kas_bank', label: 'Kas & Bank' },
+   { value: 'piutang', label: 'Piutang' },
    { value: 'piutang_usaha', label: 'Piutang Usaha' },
+   { value: 'piutang_lainnya', label: 'Piutang Lainnya' },
    { value: 'persediaan', label: 'Persediaan' },
    { value: 'aset_lancar_lainnya', label: 'Aset Lancar Lainnya' },
    { value: 'aset_tetap', label: 'Aset Tetap' },
    { value: 'akumulasi_penyusutan', label: 'Akumulasi Penyusutan' },
    { value: 'aset_lainnya', label: 'Aset Lainnya' },
-   { value: 'utang_usaha', label: 'Utang Usaha' },
+   { value: 'hutang_usaha', label: 'Hutang Usaha' },
    { value: 'liabilitas_jangka_pendek', label: 'Liabilitas Jangka Pendek' },
    { value: 'liabilitas_jangka_panjang', label: 'Liabilitas Jangka Panjang' },
    { value: 'modal', label: 'Modal' },

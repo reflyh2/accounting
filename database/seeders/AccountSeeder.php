@@ -46,10 +46,11 @@ class AccountSeeder extends Seeder
                         ['name' => 'Bank Mandiri', 'type' => 'kas_bank'],
                     ]],
                 ]],
-                ['code' => '102', 'name' => 'Piutang', 'type' => 'piutang_usaha', 'children' => [
+                ['code' => '102', 'name' => 'Piutang', 'type' => 'piutang', 'children' => [
                     ['name' => 'Piutang Usaha', 'type' => 'piutang_usaha'],
                     ['name' => 'Piutang Karyawan', 'type' => 'piutang_usaha'],
                     ['name' => 'Piutang Antar Cabang', 'type' => 'piutang_usaha'],
+                    ['name' => 'Piutang Penjualan Aset', 'type' => 'piutang_lainnya'],
                 ]],
                 ['code' => '103', 'name' => 'Persediaan', 'type' => 'persediaan', 'children' => [
                     ['name' => 'Persediaan Barang Dagang', 'type' => 'persediaan'],
@@ -102,8 +103,12 @@ class AccountSeeder extends Seeder
                     ['name' => 'PPN Keluaran', 'type' => 'liabilitas_jangka_pendek'],
                     ['name' => 'PPh 23 Pembelian', 'type' => 'liabilitas_jangka_pendek'],
                     ['name' => 'Hutang Pembelian Belum Difakturkan', 'type' => 'liabilitas_jangka_pendek'],
+                    ['name' => 'Hutang Pembelian Aset', 'type' => 'liabilitas_jangka_pendek'],
                 ]],
-                ['code' => '204', 'name' => 'Hutang Jangka Panjang', 'type' => 'liabilitas_jangka_panjang'],
+                ['code' => '204', 'name' => 'Hutang Jangka Panjang', 'type' => 'liabilitas_jangka_panjang', 'children' => [
+                    ['name' => 'Hutang Jangka Panjang dari Pinjaman', 'type' => 'liabilitas_jangka_panjang'],
+                    ['name' => 'Hutang Leasing', 'type' => 'liabilitas_jangka_panjang'],
+                ]],
             ]],
             ['code' => '3', 'name' => 'Modal', 'type' => 'modal', 'children' => [
                 ['code' => '301', 'name' => 'Opening Balance', 'type' => 'modal'],

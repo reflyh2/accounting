@@ -44,10 +44,14 @@ const props = defineProps({
          bottom: 4,
          left: 0
       })
+   },
+   placeholder: {
+      type: String,
+      default: ''
    }
 });
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'click']);
 
 const attrs = useAttrs();
 
@@ -184,6 +188,8 @@ function onKeyDown(event) {
             @focus="onFocus"
             @blur="onBlur"
             :disabled="disabled"
+            :placeholder="placeholder"
+            @click="$emit('click', $event)"
          >
          <div v-if="suffix" class="flex items-center px-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r text-sm">
             <span v-if="typeof suffix === 'string'" v-html="suffix"></span>
