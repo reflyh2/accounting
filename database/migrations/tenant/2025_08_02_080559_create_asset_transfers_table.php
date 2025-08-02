@@ -24,6 +24,7 @@ return new class extends Migration
             $table->foreignId('from_journal_id')->nullable()->constrained('journals')->onUpdate('cascade')->onDelete('restrict');
             $table->foreignId('to_journal_id')->nullable()->constrained('journals')->onUpdate('cascade')->onDelete('restrict');
             $table->string('created_by')->nullable();
+            $table->string('updated_by')->nullable();
             $table->string('approved_by')->nullable();
             $table->string('rejected_by')->nullable();
             $table->string('cancelled_by')->nullable();
@@ -34,6 +35,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->foreign('created_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
+            $table->foreign('updated_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
             $table->foreign('approved_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
             $table->foreign('rejected_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
             $table->foreign('cancelled_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');

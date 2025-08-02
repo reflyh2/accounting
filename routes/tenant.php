@@ -45,6 +45,7 @@ use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
 use App\Http\Controllers\AssetFinancingScheduleController;
 use App\Http\Controllers\AssetFinancingPaymentController;
+use App\Http\Controllers\AssetTransferController;
 
 /*
 |--------------------------------------------------------------------------
@@ -277,6 +278,17 @@ Route::middleware([
         Route::resource('asset-financing-payments', AssetFinancingPaymentController::class);
 
         Route::put('asset-financing-schedules/{schedule}/pay', [AssetFinancingScheduleController::class, 'pay'])->name('asset-financing-schedules.pay');
+
+        // Asset Transfers Routes
+        Route::delete('asset-transfers/bulk-delete', [AssetTransferController::class, 'bulkDelete'])->name('asset-transfers.bulk-delete');
+        Route::get('asset-transfers/export-xlsx', [AssetTransferController::class, 'exportXLSX'])->name('asset-transfers.export-xlsx');
+        Route::get('asset-transfers/export-csv', [AssetTransferController::class, 'exportCSV'])->name('asset-transfers.export-csv');
+        Route::get('asset-transfers/export-pdf', [AssetTransferController::class, 'exportPDF'])->name('asset-transfers.export-pdf');
+        Route::put('asset-transfers/{assetTransfer}/approve', [AssetTransferController::class, 'approve'])->name('asset-transfers.approve');
+        Route::put('asset-transfers/{assetTransfer}/reject', [AssetTransferController::class, 'reject'])->name('asset-transfers.reject');
+        Route::put('asset-transfers/{assetTransfer}/cancel', [AssetTransferController::class, 'cancel'])->name('asset-transfers.cancel');
+        Route::get('asset-transfers/{assetTransfer}/print', [AssetTransferController::class, 'print'])->name('asset-transfers.print');
+        Route::resource('asset-transfers', AssetTransferController::class);
 
         // Partner Bank Account Routes
         Route::post('partner-bank-accounts', [PartnerBankAccountController::class, 'store'])->name('partner-bank-accounts.store');

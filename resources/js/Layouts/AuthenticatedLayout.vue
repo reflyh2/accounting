@@ -94,7 +94,8 @@ const isAssetActive = computed(() => {
         || route().current('asset-sales.*')
         || route().current('asset-invoice-payments.*')
         || route().current('asset-financing-agreements.*')
-        || route().current('asset-financing-payments.*');
+        || route().current('asset-financing-payments.*')
+        || route().current('asset-transfers.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -237,6 +238,9 @@ function toggleSidebar() {
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*') || route().current('asset-financing-payments.*')" class="pl-11">
                                 Perjanjian Pembiayaan
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('asset-transfers.index')" :active="route().current('asset-transfers.*')" class="pl-11">
+                                Transfer Aset
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -471,6 +475,9 @@ function toggleSidebar() {
                                         <NavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*') || route().current('asset-financing-payments.*')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
                                             Perjanjian Pembiayaan
                                         </NavLink>
+                                        <NavLink :href="route('asset-transfers.index')" :active="route().current('asset-transfers.*')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
+                                            Transfer Aset
+                                        </NavLink>
                                     </div>
                                 </div>
                                 
@@ -528,6 +535,9 @@ function toggleSidebar() {
                                         </NavLink>
                                         <NavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*') || route().current('asset-financing-payments.*')" class="flex items-center">
                                             Perjanjian Pembiayaan
+                                        </NavLink>
+                                        <NavLink :href="route('asset-transfers.index')" :active="route().current('asset-transfers.*')" class="flex items-center">
+                                            Transfer Aset
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
