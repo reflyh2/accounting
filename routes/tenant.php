@@ -46,6 +46,7 @@ use App\Http\Controllers\AssetFinancingAgreementController;
 use App\Http\Controllers\AssetFinancingScheduleController;
 use App\Http\Controllers\AssetFinancingPaymentController;
 use App\Http\Controllers\AssetTransferController;
+use App\Http\Controllers\AssetDisposalController;
 
 /*
 |--------------------------------------------------------------------------
@@ -289,6 +290,14 @@ Route::middleware([
         Route::put('asset-transfers/{assetTransfer}/cancel', [AssetTransferController::class, 'cancel'])->name('asset-transfers.cancel');
         Route::get('asset-transfers/{assetTransfer}/print', [AssetTransferController::class, 'print'])->name('asset-transfers.print');
         Route::resource('asset-transfers', AssetTransferController::class);
+
+        // Asset Disposals Routes
+        Route::delete('asset-disposals/bulk-delete', [AssetDisposalController::class, 'bulkDelete'])->name('asset-disposals.bulk-delete');
+        Route::get('asset-disposals/export-xlsx', [AssetDisposalController::class, 'exportXLSX'])->name('asset-disposals.export-xlsx');
+        Route::get('asset-disposals/export-csv', [AssetDisposalController::class, 'exportCSV'])->name('asset-disposals.export-csv');
+        Route::get('asset-disposals/export-pdf', [AssetDisposalController::class, 'exportPDF'])->name('asset-disposals.export-pdf');
+        Route::get('asset-disposals/{assetDisposal}/print', [AssetDisposalController::class, 'print'])->name('asset-disposals.print');
+        Route::resource('asset-disposals', AssetDisposalController::class);
 
         // Partner Bank Account Routes
         Route::post('partner-bank-accounts', [PartnerBankAccountController::class, 'store'])->name('partner-bank-accounts.store');
