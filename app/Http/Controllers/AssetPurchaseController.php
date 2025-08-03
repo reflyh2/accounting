@@ -10,6 +10,9 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Partner;
 use App\Models\Currency;
+use App\Events\Asset\AssetPurchaseCreated;
+use App\Events\Asset\AssetPurchaseUpdated;
+use App\Events\Asset\AssetPurchaseDeleted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
@@ -209,6 +212,8 @@ class AssetPurchaseController extends Controller
                 ]);
             }
 
+            AssetPurchaseCreated::dispatch($invoice);
+
             // TODO: Create Journal Entry for Asset Purchase
             // Example:
             // Debit: Asset Account (from Asset or Asset Category)
@@ -360,6 +365,8 @@ class AssetPurchaseController extends Controller
                 $assetPurchase->assetInvoiceDetails()->whereIn('id', $detailsToDelete)->delete();
             }
 
+            AssetPurchaseUpdated::dispatch($assetPurchase);
+
             // TODO: Update or Reverse/Recreate Journal Entry for Asset Purchase
         });
 
@@ -371,6 +378,7 @@ class AssetPurchaseController extends Controller
     {
         $this->ensureIsPurchase($assetPurchase);
         DB::transaction(function () use ($assetPurchase) {
+            AssetPurchaseDeleted::dispatch($assetPurchase);
             // TODO: Reverse/Delete Journal Entry associated with this invoice
             // $this->deletePurchaseJournal($assetPurchase);
 
@@ -400,6 +408,7 @@ class AssetPurchaseController extends Controller
         DB::transaction(function () use ($validated) {
             $invoices = AssetInvoice::whereIn('id', $validated['ids'])->where('type', 'purchase')->get();
             foreach ($invoices as $invoice) {
+                AssetPurchaseDeleted::dispatch($invoice);
                 // TODO: Reverse/Delete Journal Entry
                 // $this->deletePurchaseJournal($invoice);
                 $invoice->assetInvoiceDetails()->delete();

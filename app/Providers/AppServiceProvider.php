@@ -13,6 +13,8 @@ use App\Observers\AssetRentalPaymentObserver;
 use App\Observers\AssetFinancingPaymentObserver;
 use App\Observers\AssetDepreciationObserver;
 use App\Observers\AssetMaintenanceRecordObserver;
+use Illuminate\Support\Facades\Event;
+use App\Listeners\Asset\AssetJournalSubscriber;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -29,5 +31,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        //
     }
 }
