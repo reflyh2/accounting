@@ -10,6 +10,9 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Partner;
 use App\Models\Currency;
+use App\Events\Asset\AssetRentalCreated;
+use App\Events\Asset\AssetRentalUpdated;
+use App\Events\Asset\AssetRentalDeleted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
@@ -212,6 +215,8 @@ class AssetRentalController extends Controller
                 ]);
             }
 
+            AssetRentalCreated::dispatch($invoice);
+
             // TODO: Create Journal Entry for Asset Rental
             // Example:
             // Debit: Rental Expense Account
@@ -357,6 +362,8 @@ class AssetRentalController extends Controller
                 $assetRental->assetInvoiceDetails()->whereIn('id', $detailsToDelete)->delete();
             }
 
+            AssetRentalUpdated::dispatch($assetRental);
+
             // TODO: Update or Reverse/Recreate Journal Entry for Asset Rental
         });
 
@@ -368,6 +375,7 @@ class AssetRentalController extends Controller
     {
         $this->ensureIsRental($assetRental);
         DB::transaction(function () use ($assetRental) {
+            AssetRentalDeleted::dispatch($assetRental);
             $assetRental->assetInvoiceDetails()->delete();
             $assetRental->delete();
         });
@@ -394,6 +402,7 @@ class AssetRentalController extends Controller
         DB::transaction(function () use ($validated) {
             $invoices = AssetInvoice::whereIn('id', $validated['ids'])->where('type', 'rental')->get();
             foreach ($invoices as $invoice) {
+                AssetRentalDeleted::dispatch($invoice);
                 $invoice->assetInvoiceDetails()->delete();
                 $invoice->delete();
             }
