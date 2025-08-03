@@ -1,5 +1,5 @@
 <script setup>
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
@@ -9,11 +9,14 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { formatNumber } from '@/utils/numberFormat';
 import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
 
+const page = usePage();
+
 const props = defineProps({
    agreement: Object,
    companies: Array,
    branches: Array,
    partners: Array,
+   currencies: Array,
    assetInvoices: Array,
    filters: Object,
    statusOptions: Object,
@@ -26,6 +29,8 @@ const form = useForm({
    branch_id: props.agreement?.branch_id || null,
    agreement_date: props.agreement?.agreement_date || new Date().toISOString().split('T')[0],
    creditor_id: props.agreement?.creditor_id || null,
+   currency_id: props.agreement?.currency_id || null,
+   exchange_rate: props.agreement?.exchange_rate || 1,
    asset_invoice_id: props.agreement?.asset_invoice_id || null,
    total_amount: props.agreement?.total_amount || 0,
    interest_rate: props.agreement?.interest_rate || 0,
@@ -51,6 +56,20 @@ const branchOptions = computed(() =>
 const partnerOptions = computed(() => 
    props.partners.map(partner => ({ value: partner.id, label: partner.name }))
 );
+
+// Computed currency options
+const currencyOptions = computed(() => {
+    return props.currencies.map(currency => ({
+        value: currency.id,
+        label: `${currency.code} - ${currency.name}`
+    }));
+});
+
+// Computed current currency symbol
+const currentCurrencySymbol = computed(() => {
+    const currency = props.currencies.find(c => c.id == form.currency_id);
+    return currency?.symbol || page.props.primaryCurrency?.symbol || '';
+});
 
 const assetInvoiceOptions = computed(() => 
    props.assetInvoices.map(invoice => {
@@ -98,7 +117,7 @@ watch(selectedCompany, (newCompanyId) => {
       form.asset_invoice_id = null;
       form.total_amount = 0;
    }
-   router.reload({ only: ['branches', 'partners'], data: { company_id: newCompanyId } });
+   router.reload({ only: ['branches', 'partners', 'currencies'], data: { company_id: newCompanyId } });
 }, { immediate: true });
 
 watch(() => form.branch_id, (newBranchId) => {
@@ -107,7 +126,18 @@ watch(() => form.branch_id, (newBranchId) => {
       form.total_amount = 0;
       router.reload({ only: ['assetInvoices'], data: { 
          company_id: selectedCompany.value,
-         branch_id: newBranchId 
+         branch_id: newBranchId,
+         currency_id: form.currency_id
+      } });
+   }
+});
+
+watch(() => form.currency_id, (newCurrencyId) => {
+   if (!props.agreement && newCurrencyId) {
+      router.reload({ only: ['assetInvoices'], data: { 
+         company_id: selectedCompany.value,
+         branch_id: form.branch_id,
+         currency_id: newCurrencyId
       } });
    }
 });
@@ -131,6 +161,26 @@ watch(
    },
    { immediate: true, deep: true }
 );
+
+function updateExchangeRate() {
+    if (!form.currency_id || !selectedCompany.value) {
+        form.exchange_rate = 1;
+        return;
+    }
+    
+    const currency = props.currencies.find(c => c.id == form.currency_id);
+    if (currency && currency.company_rates) {
+        const companyRate = currency.company_rates.find(rate => rate.company_id == selectedCompany.value);
+        if (companyRate) {
+            form.exchange_rate = companyRate.exchange_rate;
+        }
+    }
+}
+
+// Watch currency selection to update exchange rate
+watch(() => form.currency_id, () => {
+    updateExchangeRate();
+});
 
 onMounted(() => {
    selectedCompany.value = props.agreement?.branch?.branch_group?.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id);
@@ -214,6 +264,25 @@ function submitForm() {
                     required
                 />
             </div>
+
+            <div class="grid grid-cols-2 gap-4">
+               <AppSelect
+                  v-model="form.currency_id"
+                  :options="currencyOptions"
+                  label="Mata Uang:"
+                  placeholder="Pilih Mata Uang"
+                  :error="form.errors.currency_id"
+                  required
+               />
+               
+               <AppInput
+                  v-model="form.exchange_rate"
+                  :numberFormat="true"
+                  label="Nilai Tukar:"
+                  :error="form.errors.exchange_rate"
+                  required
+               />
+            </div>
             
             <div class="grid grid-cols-1 gap-4">
                <AppSelect
@@ -230,6 +299,7 @@ function submitForm() {
                <AppInput
                   v-model="form.total_amount"
                   :numberFormat="true"
+                  :prefix="currentCurrencySymbol"
                   label="Total Jumlah:"
                   :error="form.errors.total_amount"
                   required

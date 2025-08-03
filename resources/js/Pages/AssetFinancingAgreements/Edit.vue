@@ -10,6 +10,7 @@ defineProps({
    companies: Array,
    branches: Array,
    partners: Array,
+   currencies: Array,
    assetInvoices: Array,
    statusOptions: Object,
    paymentFrequencyOptions: Object,

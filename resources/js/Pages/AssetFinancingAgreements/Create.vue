@@ -9,6 +9,7 @@ defineProps({
    companies: Array,
    branches: Array,
    partners: Array,
+   currencies: Array,
    assetInvoices: Array,
    statusOptions: Object,
    paymentFrequencyOptions: Object,
@@ -35,6 +36,7 @@ defineProps({
                      :companies="companies"
                      :branches="branches"
                      :partners="partners" 
+                     :currencies="currencies"
                      :assetInvoices="assetInvoices" 
                      :filters="filters" 
                      :statusOptions="statusOptions"

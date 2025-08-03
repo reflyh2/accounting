@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Redirect;
 use App\Models\AssetFinancingAgreement;
 use App\Exports\AssetFinancingAgreementsExport;
+use App\Models\Currency;
 
 class AssetFinancingAgreementController extends Controller
 {
@@ -109,6 +110,7 @@ class AssetFinancingAgreementController extends Controller
         $branches = collect();
         $partners = collect();
         $assetInvoices = collect();
+        $currencies = collect();
         
         if ($request->input('company_id')) {
             $companyId = $request->input('company_id');
@@ -124,6 +126,13 @@ class AssetFinancingAgreementController extends Controller
             })->whereHas('companies', function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })->orderBy('name', 'asc')->get();
+
+            // Get currencies available for the company
+            $currencies = Currency::whereHas('companyRates', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })->with(['companyRates' => function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            }])->orderBy('code', 'asc')->get();
             
             // Get asset invoices with type purchase for the selected company (if branch is also selected)
             if ($request->input('branch_id')) {
@@ -136,6 +145,7 @@ class AssetFinancingAgreementController extends Controller
                               ->whereNotNull('asset_invoice_id')
                               ->whereNull('deleted_at');
                     })
+                    ->where('currency_id', $request->input('currency_id'))
                     ->whereNotIn('status', ['financed', 'paid'])
                     ->with(['assetInvoiceDetails.asset', 'partner'])
                     ->orderBy('invoice_date', 'desc')
@@ -156,6 +166,7 @@ class AssetFinancingAgreementController extends Controller
             'companies' => $companies,
             'branches' => fn() => $branches,
             'partners' => fn() => $partners,
+            'currencies' => fn() => $currencies,
             'assetInvoices' => fn() => $assetInvoices,
             'statusOptions' => AssetFinancingAgreement::statusOptions(),
             'paymentFrequencyOptions' => AssetFinancingAgreement::paymentFrequencyOptions(),
@@ -178,6 +189,8 @@ class AssetFinancingAgreementController extends Controller
             'payment_frequency' => 'required|in:monthly,quarterly,annually',
             'status' => 'required|in:pending,active,closed,defaulted,cancelled',
             'notes' => 'nullable|string',
+            'currency_id' => 'required|exists:currencies,id',
+            'exchange_rate' => 'required|numeric|min:0',
         ]);
 
         // Check if asset invoice is already financed
@@ -232,6 +245,13 @@ class AssetFinancingAgreementController extends Controller
             $companyId = $request->input('company_id');
         }
 
+        // Get currencies available for the company
+        $currencies = Currency::whereHas('companyRates', function ($query) use ($companyId) {
+            $query->where('company_id', $companyId);
+        })->with(['companyRates' => function ($query) use ($companyId) {
+            $query->where('company_id', $companyId);
+        }])->orderBy('code', 'asc')->get();
+
         return Inertia::render('AssetFinancingAgreements/Edit', [
             'agreement' => $assetFinancingAgreement,
             'filters' => $filters,
@@ -244,6 +264,7 @@ class AssetFinancingAgreementController extends Controller
             })->whereHas('companies', function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })->orderBy('name', 'asc')->get(),
+            'currencies' => $currencies,
             'assetInvoices' => function() use ($assetFinancingAgreement) {
                 $invoices = AssetInvoice::where('type', 'purchase')
                     ->where('branch_id', $assetFinancingAgreement->branch_id)
@@ -257,6 +278,7 @@ class AssetFinancingAgreementController extends Controller
                         })
                         ->orWhere('id', $assetFinancingAgreement->asset_invoice_id);
                     })
+                    ->where('currency_id', $assetFinancingAgreement->currency_id)
                     ->where(function($q) use ($assetFinancingAgreement) {
                         $q->whereNotIn('status', ['financed', 'paid'])
                           ->orWhere('id', $assetFinancingAgreement->asset_invoice_id);
@@ -294,6 +316,8 @@ class AssetFinancingAgreementController extends Controller
             'payment_frequency' => 'required|in:monthly,quarterly,annually',
             'status' => 'required|in:pending,active,closed,defaulted,cancelled',
             'notes' => 'nullable|string',
+            'currency_id' => 'required|exists:currencies,id',
+            'exchange_rate' => 'required|numeric|min:0',
         ]);
 
         // Prevent changing branch once agreement is created
