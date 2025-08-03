@@ -13,6 +13,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use App\Services\AssetFinancing\ScheduleRecalculationService;
+use App\Models\Currency;
 
 class AssetFinancingPaymentController extends Controller
 {
@@ -21,7 +22,7 @@ class AssetFinancingPaymentController extends Controller
         $filters = $request->all() ?: Session::get('asset_financing_payments.index_filters', []);
         Session::put('asset_financing_payments.index_filters', $filters);
 
-        $query = AssetFinancingPayment::with(['creditor', 'branch']);
+        $query = AssetFinancingPayment::with(['creditor', 'branch', 'currency']);
 
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
@@ -99,6 +100,11 @@ class AssetFinancingPaymentController extends Controller
             'branches' => fn() => Branch::whereHas('branchGroup', function ($query) use ($request) {
                 $query->where('company_id', $request->input('company_id'));
             })->orderBy('name')->get(),
+            'currencies' => fn() => Currency::whereHas('companyRates', function ($query) use ($request) {
+                $query->where('company_id', $request->input('company_id'));
+            })->with(['companyRates' => function ($query) use ($request) {
+                $query->where('company_id', $request->input('company_id'));
+            }])->orderBy('code', 'asc')->get(),
             'creditors' => Partner::whereHas('roles', function ($query) {
                 $query->where('role', 'creditor');
             })->orderBy('name')->get(),
@@ -106,6 +112,7 @@ class AssetFinancingPaymentController extends Controller
                 ->where('status', 'active')
                 ->where('creditor_id', $request->input('creditor_id'))
                 ->where('branch_id', $request->input('branch_id'))
+                ->where('currency_id', $request->input('currency_id'))
                 ->get(),
         ]);
     }
@@ -122,6 +129,8 @@ class AssetFinancingPaymentController extends Controller
             'interest_amount' => 'required|numeric|min:0',
             'payment_method' => 'required|string',
             'notes' => 'nullable|string',
+            'currency_id' => 'required|exists:currencies,id',
+            'exchange_rate' => 'required|numeric|min:0',
             'allocations' => 'required|array|min:1',
             'allocations.*.asset_financing_agreement_id' => 'required|exists:asset_financing_agreements,id',
             'allocations.*.allocated_amount' => 'required|numeric|min:0',
@@ -141,6 +150,8 @@ class AssetFinancingPaymentController extends Controller
                 'interest_amount' => $validated['interest_amount'],
                 'payment_method' => $validated['payment_method'],
                 'notes' => $validated['notes'],
+                'currency_id' => $validated['currency_id'],
+                'exchange_rate' => $validated['exchange_rate'],
                 'created_by' => $request->user()->global_id,
             ]);
 
@@ -192,7 +203,7 @@ class AssetFinancingPaymentController extends Controller
 
     public function show(AssetFinancingPayment $assetFinancingPayment)
     {
-        $assetFinancingPayment->load(['creditor', 'branch', 'allocations.assetFinancingAgreement.assetInvoice.assets']);
+        $assetFinancingPayment->load(['creditor', 'branch', 'currency', 'allocations.assetFinancingAgreement.assetInvoice.assets']);
         return Inertia::render('AssetFinancingPayments/Show', [
             'payment' => $assetFinancingPayment,
         ]);
@@ -214,6 +225,11 @@ class AssetFinancingPaymentController extends Controller
             'branches' => Branch::whereHas('branchGroup', function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })->orderBy('name')->get(),
+            'currencies' => Currency::whereHas('companyRates', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })->with(['companyRates' => function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            }])->orderBy('code', 'asc')->get(),
             'creditors' => Partner::whereHas('roles', function ($query) {
                 $query->where('role', 'creditor');
             })->orderBy('name')->get(),
@@ -221,6 +237,7 @@ class AssetFinancingPaymentController extends Controller
                 ->where('status', 'active')
                 ->where('creditor_id', $assetFinancingPayment->creditor_id)
                 ->where('branch_id', $assetFinancingPayment->branch_id)
+                ->where('currency_id', $assetFinancingPayment->currency_id)
                 ->get(),
         ]);
     }
@@ -237,6 +254,8 @@ class AssetFinancingPaymentController extends Controller
             'interest_amount' => 'required|numeric|min:0',
             'payment_method' => 'required|string',
             'notes' => 'nullable|string',
+            'currency_id' => 'required|exists:currencies,id',
+            'exchange_rate' => 'required|numeric|min:0',
             'allocations' => 'required|array|min:1',
             'allocations.*.id' => 'nullable|exists:asset_financing_payment_allocations,id',
             'allocations.*.asset_financing_agreement_id' => 'required|exists:asset_financing_agreements,id',
@@ -286,6 +305,8 @@ class AssetFinancingPaymentController extends Controller
                 'interest_amount' => $validated['interest_amount'],
                 'payment_method' => $validated['payment_method'],
                 'notes' => $validated['notes'],
+                'currency_id' => $validated['currency_id'],
+                'exchange_rate' => $validated['exchange_rate'],
                 'updated_by' => $request->user()->global_id,
             ]);
 

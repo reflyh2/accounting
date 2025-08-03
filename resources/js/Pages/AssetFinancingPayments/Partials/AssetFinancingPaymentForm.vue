@@ -15,6 +15,7 @@ const props = defineProps({
     payment: Object,
     companies: Array,
     branches: Array,
+    currencies: Array,
     creditors: Array,
     agreements: Array,
 });
@@ -25,6 +26,8 @@ const form = useForm({
     payment_date: props.payment?.payment_date || new Date().toISOString().split('T')[0],
     creditor_id: props.payment?.creditor_id || null,
     reference: props.payment?.reference || '',
+    currency_id: props.payment?.currency_id || null,
+    exchange_rate: props.payment?.exchange_rate || 1,
     total_paid_amount: props.payment?.total_paid_amount || 0,
     principal_amount: props.payment?.principal_amount || 0,
     interest_amount: props.payment?.interest_amount || 0,
@@ -43,15 +46,34 @@ const form = useForm({
 
 const selectedCompany = ref(props.payment?.branch?.branch_group.company_id || (props.companies.length > 1 ? null : props.companies[0].id));
 
+// Computed currency options
+const currencyOptions = computed(() => {
+    return props.currencies.map(currency => ({
+        value: currency.id,
+        label: `${currency.code} - ${currency.name}`
+    }));
+});
+
+// Computed current currency symbol
+const currentCurrencySymbol = computed(() => {
+    const currency = props.currencies.find(c => c.id == form.currency_id);
+    return currency?.symbol || page.props.primaryCurrency?.symbol || '';
+});
+
 watch(selectedCompany, (newCompanyId) => {
     if (!props.payment) {
-        router.reload({ only: ['branches'], data: { company_id: newCompanyId } });
+        router.reload({ only: ['branches', 'currencies'], data: { company_id: newCompanyId } });
     }
 });
 
-watch([() => form.creditor_id, () => form.branch_id], ([newCreditorId, newBranchId]) => {
+// Watch currency selection to update exchange rate
+watch(() => form.currency_id, () => {
+    updateExchangeRate();
+});
+
+watch([() => form.creditor_id, () => form.branch_id, () => form.currency_id], ([newCreditorId, newBranchId, newCurrencyId]) => {
     if (!props.payment) {
-        router.reload({ only: ['agreements'], data: { creditor_id: newCreditorId, branch_id: newBranchId } });
+        router.reload({ only: ['agreements'], data: { creditor_id: newCreditorId, branch_id: newBranchId, currency_id: newCurrencyId } });
     }
 });
 
@@ -140,6 +162,21 @@ function removeAllocation(index) {
     form.allocations.splice(index, 1);
 }
 
+function updateExchangeRate() {
+    if (!form.currency_id || !selectedCompany.value) {
+        form.exchange_rate = 1;
+        return;
+    }
+    
+    const currency = props.currencies.find(c => c.id == form.currency_id);
+    if (currency && currency.company_rates) {
+        const companyRate = currency.company_rates.find(rate => rate.company_id == selectedCompany.value);
+        if (companyRate) {
+            form.exchange_rate = companyRate.exchange_rate;
+        }
+    }
+}
+
 function submitForm() {
     if (props.payment) {
         form.put(route('asset-financing-payments.update', props.payment.id));
@@ -191,6 +228,24 @@ function submitForm() {
                         :error="form.errors.creditor_id"
                         :modalTitle="'Pilih Kreditor'"
                         :disabled="!selectedCompany"
+                        required
+                    />
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <AppSelect
+                        v-model="form.currency_id"
+                        :options="currencyOptions"
+                        label="Mata Uang:"
+                        placeholder="Pilih Mata Uang"
+                        :error="form.errors.currency_id"
+                        required
+                    />
+                    
+                    <AppInput
+                        v-model="form.exchange_rate"
+                        :numberFormat="true"
+                        label="Nilai Tukar:"
+                        :error="form.errors.exchange_rate"
                         required
                     />
                 </div>

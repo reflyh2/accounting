@@ -37,6 +37,7 @@ const tableHeaders = [
     { key: 'partner.name', label: 'Supplier' },
     { key: 'branch.name', label: 'Cabang' },
     { key: 'asset_invoice_details', label: 'Aset' },
+    { key: 'currency.code', label: 'Mata Uang' },
     { key: 'total_amount', label: 'Total' },
     { key: 'due_date', label: 'Jatuh Tempo' },
     { key: 'status', label: 'Status' },

@@ -142,6 +142,11 @@ class AssetFinancingAgreement extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    public function currency()
+    {
+        return $this->belongsTo(Currency::class);
+    }
+
     public function assetInvoice()
     {
         return $this->belongsTo(AssetInvoice::class);

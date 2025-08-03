@@ -1,5 +1,5 @@
 <script setup>
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
@@ -9,6 +9,8 @@ import AppTextarea from '@/Components/AppTextarea.vue';
 import { ref, watch, onMounted, computed } from 'vue';
 import { PlusCircleIcon, TrashIcon } from '@heroicons/vue/24/solid';
 import { formatNumber } from '@/utils/numberFormat';
+
+const page = usePage();
 
 const props = defineProps({
     assetDisposal: Object,
@@ -47,6 +49,10 @@ const availableAssets = computed(() => props.assets ? props.assets.map(asset => 
     name: asset.name,
     carrying_amount: asset.net_book_value,
 })) : []);
+
+const primaryCurrencySymbol = computed(() => {
+   return page.props.primaryCurrency?.symbol || '';
+});
 
 watch(selectedCompany, (newCompanyId) => {
     router.reload({ only: ['branches'], data: { company_id: newCompanyId } });
@@ -182,7 +188,7 @@ function submitForm(createAnother = false) {
                 </ul>
                 <div class="mt-4 p-2 bg-white border rounded">
                     <p class="font-semibold">Total Hasil:</p>
-                    <p class="text-xl font-bold">{{ formatNumber(form.proceeds_amount) }}</p>
+                    <p class="text-xl font-bold">{{ primaryCurrencySymbol + ' ' + formatNumber(form.proceeds_amount) }}</p>
                 </div>
             </div>
         </div>
@@ -219,6 +225,7 @@ function submitForm(createAnother = false) {
                                 :numberFormat="true"
                                 :error="form.errors[`details.${index}.carrying_amount`]"
                                 required
+                                :prefix="primaryCurrencySymbol"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                                 :disabled="true"
                             />
@@ -229,6 +236,7 @@ function submitForm(createAnother = false) {
                                 :numberFormat="true"
                                 :error="form.errors[`details.${index}.proceeds_amount`]"
                                 required
+                                :prefix="primaryCurrencySymbol"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
@@ -251,7 +259,7 @@ function submitForm(createAnother = false) {
                     <tr>
                         <td colspan="2" class="border border-gray-300 px-1.5 py-1.5 text-right font-semibold">Total Hasil</td>
                         <td class="border border-gray-300 px-1.5 py-1.5 font-bold">
-                           {{ formatNumber(totalProceeds) }}
+                           {{ primaryCurrencySymbol + ' ' + formatNumber(totalProceeds) }}
                         </td>
                         <td colspan="2"></td>
                     </tr>

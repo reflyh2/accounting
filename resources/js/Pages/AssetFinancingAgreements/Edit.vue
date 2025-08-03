@@ -38,6 +38,7 @@ defineProps({
                      :companies="companies"
                      :branches="branches"
                      :partners="partners" 
+                     :currencies="currencies"
                      :assetInvoices="assetInvoices" 
                      :filters="filters" 
                      :statusOptions="statusOptions"

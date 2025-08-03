@@ -25,7 +25,7 @@ class AssetInvoicePaymentController extends Controller
         $filters = $request->all() ?: Session::get('asset_invoice_payments.index_filters', []);
         Session::put('asset_invoice_payments.index_filters', $filters);
 
-        $query = AssetInvoicePayment::with(['partner', 'allocations.assetInvoice', 'creator', 'branch.branchGroup.company']);
+        $query = AssetInvoicePayment::with(['partner', 'currency', 'allocations.assetInvoice', 'creator', 'branch.branchGroup.company']);
 
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {

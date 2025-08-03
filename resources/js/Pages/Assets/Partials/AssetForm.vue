@@ -1,5 +1,5 @@
 <script setup>
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
@@ -8,6 +8,8 @@ import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import { ref, watch, onMounted, computed } from 'vue';
 import { formatNumber } from '@/utils/numberFormat';
+
+const page = usePage();
 
 const props = defineProps({
    asset: Object,
@@ -52,6 +54,10 @@ const netBookValue = computed(() => {
    const cost = parseFloat(form.cost_basis) || 0;
    const accumulatedDepreciation = parseFloat(form.accumulated_depreciation) || 0;
    return cost - accumulatedDepreciation;
+});
+
+const primaryCurrencySymbol = computed(() => {
+   return page.props.primaryCurrency?.symbol || '';
 });
 
 watch(() => [form.cost_basis, form.accumulated_depreciation], () => {
@@ -187,6 +193,7 @@ function submitForm(createAnother = false) {
                   v-model="form.cost_basis"
                   :numberFormat="true"
                   label="Nilai Perolehan:"
+                  :prefix="primaryCurrencySymbol"
                   :error="form.errors.cost_basis"
                />
             </div>
@@ -196,6 +203,7 @@ function submitForm(createAnother = false) {
                   v-model="form.salvage_value"
                   :numberFormat="true"
                   label="Nilai Residu:"
+                  :prefix="primaryCurrencySymbol"
                   :error="form.errors.salvage_value"
                />
                
@@ -265,6 +273,7 @@ function submitForm(createAnother = false) {
                   v-model="form.accumulated_depreciation"
                   :numberFormat="true"
                   label="Akumulasi Penyusutan:"
+                  :prefix="primaryCurrencySymbol"
                   :error="form.errors.accumulated_depreciation"
                />
             </div>
@@ -274,6 +283,7 @@ function submitForm(createAnother = false) {
                   v-model="form.net_book_value"
                   :numberFormat="true"
                   label="Nilai Buku:"
+                  :prefix="primaryCurrencySymbol"
                   :error="form.errors.net_book_value"
                   disabled
                />

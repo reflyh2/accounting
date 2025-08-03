@@ -21,7 +21,7 @@ class AssetFinancingAgreementController extends Controller
         $filters = $request->all() ?: Session::get('asset_financing_agreements.index_filters', []);
         Session::put('asset_financing_agreements.index_filters', $filters);
 
-        $query = AssetFinancingAgreement::with(['creditor', 'assetInvoice', 'branch', 'createdBy']);
+        $query = AssetFinancingAgreement::with(['creditor', 'currency', 'assetInvoice', 'branch', 'createdBy']);
 
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {

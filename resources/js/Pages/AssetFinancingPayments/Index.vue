@@ -32,6 +32,7 @@ const tableHeaders = [
     { key: 'branch.name', label: 'Cabang' },
     { key: 'creditor.name', label: 'Kreditor' },
     { key: 'reference', label: 'Referensi' },
+    { key: 'currency.code', label: 'Mata Uang' },
     { key: 'total_paid_amount', label: 'Total Dibayar' },
     { key: 'payment_method', label: 'Metode Pembayaran' },
     { key: 'actions', label: '' }

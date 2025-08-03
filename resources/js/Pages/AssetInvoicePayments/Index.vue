@@ -28,6 +28,7 @@ const tableHeaders = [
     { key: 'type', label: 'Tipe' },
     { key: 'partner.name', label: 'Partner' },
     { key: 'reference', label: 'Referensi' },
+    { key: 'currency.code', label:'Mata Uang' },
     { key: 'amount', label: 'Jumlah' },
     { key: 'payment_method', label: 'Metode Bayar' },
     { key: 'actions', label: '' }
