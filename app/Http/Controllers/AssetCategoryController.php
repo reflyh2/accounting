@@ -101,6 +101,8 @@ class AssetCategoryController extends Controller
             'companies.*.asset_acquisition_payable_account_id' => 'nullable|exists:accounts,id',
             'companies.*.asset_sale_receivable_account_id' => 'nullable|exists:accounts,id',
             'companies.*.asset_financing_payable_account_id' => 'nullable|exists:accounts,id',
+            'companies.*.asset_sale_profit_account_id' => 'nullable|exists:accounts,id',
+            'companies.*.asset_sale_loss_account_id' => 'nullable|exists:accounts,id',
         ]);
 
         $assetCategory = DB::transaction(function () use ($validated) {
@@ -121,6 +123,8 @@ class AssetCategoryController extends Controller
                     'asset_acquisition_payable_account_id' => $company['asset_acquisition_payable_account_id'] ?? null,
                     'asset_sale_receivable_account_id' => $company['asset_sale_receivable_account_id'] ?? null,
                     'asset_financing_payable_account_id' => $company['asset_financing_payable_account_id'] ?? null,
+                    'asset_sale_profit_account_id' => $company['asset_sale_profit_account_id'] ?? null,
+                    'asset_sale_loss_account_id' => $company['asset_sale_loss_account_id'] ?? null,
                 ]);
             }
 
@@ -162,6 +166,8 @@ class AssetCategoryController extends Controller
             $company->asset_acquisition_payable_account = $company->accounts->firstWhere('id', $company->pivot->asset_acquisition_payable_account_id);
             $company->asset_sale_receivable_account = $company->accounts->firstWhere('id', $company->pivot->asset_sale_receivable_account_id);
             $company->asset_financing_payable_account = $company->accounts->firstWhere('id', $company->pivot->asset_financing_payable_account_id);
+            $company->asset_sale_profit_account = $company->accounts->firstWhere('id', $company->pivot->asset_sale_profit_account_id);
+            $company->asset_sale_loss_account = $company->accounts->firstWhere('id', $company->pivot->asset_sale_loss_account_id);
             return $company;
         });
 
@@ -216,6 +222,8 @@ class AssetCategoryController extends Controller
             'companies.*.asset_acquisition_payable_account_id' => 'nullable|exists:accounts,id',
             'companies.*.asset_sale_receivable_account_id' => 'nullable|exists:accounts,id',
             'companies.*.asset_financing_payable_account_id' => 'nullable|exists:accounts,id',
+            'companies.*.asset_sale_profit_account_id' => 'nullable|exists:accounts,id',
+            'companies.*.asset_sale_loss_account_id' => 'nullable|exists:accounts,id',
         ]);
 
         DB::transaction(function () use ($validated, $assetCategory) {
@@ -240,6 +248,8 @@ class AssetCategoryController extends Controller
                     'asset_acquisition_payable_account_id' => $company['asset_acquisition_payable_account_id'] ?? null,
                     'asset_sale_receivable_account_id' => $company['asset_sale_receivable_account_id'] ?? null,
                     'asset_financing_payable_account_id' => $company['asset_financing_payable_account_id'] ?? null,
+                    'asset_sale_profit_account_id' => $company['asset_sale_profit_account_id'] ?? null,
+                    'asset_sale_loss_account_id' => $company['asset_sale_loss_account_id'] ?? null,
                 ]);
             }
         });

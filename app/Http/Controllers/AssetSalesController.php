@@ -10,6 +10,9 @@ use App\Models\Company;
 use App\Models\Partner;
 use App\Models\Branch;
 use App\Models\Currency;
+use App\Events\Asset\AssetSaleCreated;
+use App\Events\Asset\AssetSaleUpdated;
+use App\Events\Asset\AssetSaleDeleted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
@@ -192,6 +195,8 @@ class AssetSalesController extends Controller
                 ]);
             }
 
+            AssetSaleCreated::dispatch($sale);
+
             // TODO: Create sale journal entry
             // Example:
             // Debit: Accounts Receivable
@@ -317,6 +322,8 @@ class AssetSalesController extends Controller
                 ]);
             }
 
+            AssetSaleUpdated::dispatch($assetSale);
+
             // TODO: Update sale journal entry
         });
 
@@ -329,6 +336,7 @@ class AssetSalesController extends Controller
         $this->ensureIsSales($assetSale);
 
         DB::transaction(function () use ($assetSale) {
+            AssetSaleDeleted::dispatch($assetSale);
             // Delete all details first
             $assetSale->assetInvoiceDetails()->delete();
             
@@ -356,6 +364,7 @@ class AssetSalesController extends Controller
             foreach ($request->ids as $id) {
                 $sale = AssetInvoice::where('type', 'sales')->find($id);
                 if ($sale) {
+                    AssetSaleDeleted::dispatch($sale);
                     $sale->assetInvoiceDetails()->delete();
                     $sale->delete();
                 }

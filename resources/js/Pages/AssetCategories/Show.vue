@@ -137,6 +137,22 @@ const deleteAssetCategory = () => {
                                     </div>
 
                                     <div>
+                                        <p class="font-medium">Akun Laba Penjualan Aset:</p>
+                                        <p v-if="company.pivot.asset_sale_profit_account_id">
+                                            {{ company.asset_sale_profit_account?.code }} - {{ company.asset_sale_profit_account?.name }}
+                                        </p>
+                                        <p v-else class="text-gray-500">Tidak diatur</p>
+                                    </div>
+
+                                    <div>
+                                        <p class="font-medium">Akun Rugi Penjualan Aset:</p>
+                                        <p v-if="company.pivot.asset_sale_loss_account_id">
+                                            {{ company.asset_sale_loss_account?.code }} - {{ company.asset_sale_loss_account?.name }}
+                                        </p>
+                                        <p v-else class="text-gray-500">Tidak diatur</p>
+                                    </div>
+
+                                    <div>
                                         <p class="font-medium">Akun Hutang Leasing Aset:</p>
                                         <p v-if="company.pivot.asset_financing_payable_account_id">
                                             {{ company.asset_financing_payable_account?.code }} - {{ company.asset_financing_payable_account?.name }}

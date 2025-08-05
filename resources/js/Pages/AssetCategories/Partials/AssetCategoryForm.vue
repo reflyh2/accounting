@@ -67,6 +67,8 @@ if (props.assetCategory) {
         asset_acquisition_payable_account_id: company.pivot.asset_acquisition_payable_account_id || null,
         asset_sale_receivable_account_id: company.pivot.asset_sale_receivable_account_id || null,
         asset_financing_payable_account_id: company.pivot.asset_financing_payable_account_id || null,
+        asset_sale_profit_account_id: company.pivot.asset_sale_profit_account_id || null,
+        asset_sale_loss_account_id: company.pivot.asset_sale_loss_account_id || null,
     }));
 }
 
@@ -88,6 +90,8 @@ watch(() => form.selected_companies, (newSelectedCompanies) => {
                 asset_acquisition_payable_account_id: companyAccountsMap.value[companyId]?.asset_acquisition_payable_account_id || null,
                 asset_sale_receivable_account_id: companyAccountsMap.value[companyId]?.asset_sale_receivable_account_id || null,
                 asset_financing_payable_account_id: companyAccountsMap.value[companyId]?.asset_financing_payable_account_id || null,
+                asset_sale_profit_account_id: companyAccountsMap.value[companyId]?.asset_sale_profit_account_id || null,
+                asset_sale_loss_account_id: companyAccountsMap.value[companyId]?.asset_sale_loss_account_id || null,
             });
         }
     });
@@ -256,23 +260,41 @@ const getCompanyName = (companyId) => {
                         placeholder="Pilih Akun Hutang Pembelian Aset"
                         :error="form.errors[`companies.${form.companies.findIndex(c => c.id === companyId)}.asset_acquisition_payable_account_id`]"
                     />
-                    
-                    <AppSelect
-                        v-model="form.companies.find(c => c.id === companyId).asset_sale_receivable_account_id"
-                        :options="getCompanyAccounts(companyId, 'piutang_lainnya').map(account => ({ value: account.id, label: account.code + ' - ' + account.name }))"
-                        label="Akun Piutang Penjualan Aset:"
-                        placeholder="Pilih Akun Piutang Penjualan Aset"
-                        :error="form.errors[`companies.${form.companies.findIndex(c => c.id === companyId)}.asset_sale_receivable_account_id`]"
-                    />
-                </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <AppSelect
                         v-model="form.companies.find(c => c.id === companyId).asset_financing_payable_account_id"
                         :options="getCompanyAccounts(companyId, 'liabilitas_jangka_panjang').map(account => ({ value: account.id, label: account.code + ' - ' + account.name }))"
                         label="Akun Hutang Leasing Aset:"
                         placeholder="Pilih Akun Hutang Leasing Aset"
                         :error="form.errors[`companies.${form.companies.findIndex(c => c.id === companyId)}.asset_financing_payable_account_id`]"
+                    />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <AppSelect
+                        v-model="form.companies.find(c => c.id === companyId).asset_sale_profit_account_id"
+                        :options="getCompanyAccounts(companyId, 'pendapatan_lainnya').map(account => ({ value: account.id, label: account.code + ' - ' + account.name }))"
+                        label="Akun Laba Penjualan Aset:"
+                        placeholder="Pilih Akun Laba Penjualan Aset"
+                        :error="form.errors[`companies.${form.companies.findIndex(c => c.id === companyId)}.asset_sale_profit_account_id`]"
+                    />
+
+                    <AppSelect
+                        v-model="form.companies.find(c => c.id === companyId).asset_sale_loss_account_id"
+                        :options="getCompanyAccounts(companyId, 'beban_lainnya').map(account => ({ value: account.id, label: account.code + ' - ' + account.name }))"
+                        label="Akun Rugi Penjualan Aset:"
+                        placeholder="Pilih Akun Rugi Penjualan Aset"
+                        :error="form.errors[`companies.${form.companies.findIndex(c => c.id === companyId)}.asset_sale_loss_account_id`]"
+                    />
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <AppSelect
+                        v-model="form.companies.find(c => c.id === companyId).asset_sale_receivable_account_id"
+                        :options="getCompanyAccounts(companyId, 'piutang_lainnya').map(account => ({ value: account.id, label: account.code + ' - ' + account.name }))"
+                        label="Akun Piutang Penjualan Aset:"
+                        placeholder="Pilih Akun Piutang Penjualan Aset"
+                        :error="form.errors[`companies.${form.companies.findIndex(c => c.id === companyId)}.asset_sale_receivable_account_id`]"
                     />
                 </div>
             </div>

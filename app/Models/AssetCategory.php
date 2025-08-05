@@ -34,6 +34,8 @@ class AssetCategory extends Model
                 'asset_acquisition_payable_account_id',
                 'asset_sale_receivable_account_id',
                 'asset_financing_payable_account_id',
+                'asset_sale_profit_account_id',
+                'asset_sale_loss_account_id',
             ])
             ->withTimestamps();
     }
@@ -108,6 +110,22 @@ class AssetCategory extends Model
     public function assetFinancingPayableAccount(Company $company)
     {
         return Account::find($this->companies()->where('company_id', $company->id)->first()?->pivot?->asset_financing_payable_account_id);
+    }
+
+    /**
+     * Get the asset sale profit account for a specific company.
+     */
+    public function assetSaleProfitAccount(Company $company)
+    {
+        return Account::find($this->companies()->where('company_id', $company->id)->first()?->pivot?->asset_sale_profit_account_id);
+    }
+
+    /**
+     * Get the asset sale loss account for a specific company.
+     */
+    public function assetSaleLossAccount(Company $company)
+    {
+        return Account::find($this->companies()->where('company_id', $company->id)->first()?->pivot?->asset_sale_loss_account_id);
     }
 
 } 

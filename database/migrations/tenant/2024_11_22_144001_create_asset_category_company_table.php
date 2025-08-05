@@ -12,11 +12,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('asset_category_id')->constrained()->onDelete('cascade');
             $table->foreignId('company_id')->constrained()->onDelete('cascade');
-            $table->foreignId('asset_account_id')->nullable()->constrained('accounts')->onDelete('cascade');
-            $table->foreignId('asset_depreciation_account_id')->nullable()->constrained('accounts')->onDelete('cascade');
-            $table->foreignId('asset_accumulated_depreciation_account_id')->nullable()->constrained('accounts')->onDelete('cascade');
-            $table->foreignId('asset_amortization_account_id')->nullable()->constrained('accounts')->onDelete('cascade');
-            $table->foreignId('asset_prepaid_amortization_account_id')->nullable()->constrained('accounts')->onDelete('cascade');
+            $table->foreignId('asset_account_id')->nullable()->constrained('accounts')->onUpdate('cascade')->onDelete('set null');
+            $table->foreignId('asset_depreciation_account_id')->nullable()->constrained('accounts')->onUpdate('cascade')->onDelete('set null');
+            $table->foreignId('asset_accumulated_depreciation_account_id')->nullable()->constrained('accounts')->onUpdate('cascade')->onDelete('set null');
+            $table->foreignId('asset_amortization_account_id')->nullable()->constrained('accounts')->onUpdate('cascade')->onDelete('set null');
+            $table->foreignId('asset_prepaid_amortization_account_id')->nullable()->constrained('accounts')->onUpdate('cascade')->onDelete('set null');
             $table->foreignId('asset_rental_cost_account_id')->nullable()->constrained('accounts')->onDelete('cascade');
             $table->timestamps();
 

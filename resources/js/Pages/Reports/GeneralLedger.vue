@@ -87,7 +87,11 @@ function getJournalViewRoute(journal) {
         'asset_amortization': 'journals.show',
     };
 
-    const routeName = routes[journal.journal_type];
+    let routeName = 'journals.show';
+    if (routes[journal.journal_type]) {
+        routeName = routes[journal.journal_type];
+    }
+    
     return route(routeName, journal.id);
 }
 </script>
