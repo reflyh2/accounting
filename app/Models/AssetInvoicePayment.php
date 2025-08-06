@@ -104,6 +104,11 @@ class AssetInvoicePayment extends Model
         return $this->belongsTo(PartnerBankAccount::class, 'destination_bank_account_id');
     }
 
+    public function journal()
+    {
+        return $this->belongsTo(Journal::class);
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by', 'global_id');

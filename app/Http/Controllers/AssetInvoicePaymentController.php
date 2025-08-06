@@ -11,6 +11,9 @@ use App\Models\Partner;
 use App\Models\Account;
 use App\Models\Branch;
 use App\Models\Currency;
+use App\Events\Asset\AssetInvoicePaymentCreated;
+use App\Events\Asset\AssetInvoicePaymentUpdated;
+use App\Events\Asset\AssetInvoicePaymentDeleted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
@@ -211,6 +214,8 @@ class AssetInvoicePaymentController extends Controller
                 $this->updateInvoiceStatus($allocation['asset_invoice_id']);
             }
 
+            AssetInvoicePaymentCreated::dispatch($payment);
+
             // TODO: Create journal entry for payment
             // Example:
             // Debit: Accounts Payable
@@ -367,6 +372,8 @@ class AssetInvoicePaymentController extends Controller
                 $this->updateInvoiceStatus($invoiceId);
             }
 
+            AssetInvoicePaymentUpdated::dispatch($assetInvoicePayment);
+
             // TODO: Update journal entry for payment
         });
 
@@ -379,6 +386,7 @@ class AssetInvoicePaymentController extends Controller
         DB::transaction(function () use ($assetInvoicePayment) {
             $invoiceIds = $assetInvoicePayment->allocations->pluck('asset_invoice_id')->toArray();
             
+            AssetInvoicePaymentDeleted::dispatch($assetInvoicePayment);
             // Delete allocations
             $assetInvoicePayment->allocations()->delete();
             
@@ -413,6 +421,7 @@ class AssetInvoicePaymentController extends Controller
             foreach ($request->ids as $id) {
                 $payment = AssetInvoicePayment::find($id);
                 if ($payment) {
+                    AssetInvoicePaymentDeleted::dispatch($payment);
                     $invoiceIds = $payment->allocations->pluck('asset_invoice_id')->toArray();
                     $allInvoiceIds = array_merge($allInvoiceIds, $invoiceIds);
                     

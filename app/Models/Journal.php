@@ -76,7 +76,7 @@ class Journal extends Model
             'asset_disposal' => 'Jurnal Pelepasan Aset',
             'asset_financing_agreement' => 'Jurnal Perjanjian Pembiayaan Aset',
             'asset_financing_payment' => 'Jurnal Pembayaran Pembelian Aset',
-            'asset_rental_payment' => 'Jurnal Pembayaran Sewa Aset',
+            'asset_invoice_payment' => 'Jurnal Pembayaran Invoice Aset',
             'asset_depreciation' => 'Jurnal Penyusutan Aset',
             'asset_amortization' => 'Jurnal Amortisasi Aset',
         ];
@@ -96,11 +96,11 @@ class Journal extends Model
             'asset_sale' => 'AS',
             'asset_transfer' => 'AT',
             'asset_disposal' => 'AD',
-            'asset_financing_agreement' => 'FA',
-            'asset_financing_payment' => 'FP',
-            'asset_rental_payment' => 'RP',
-            'asset_depreciation' => 'DP',
-            'asset_amortization' => 'AM',
+            'asset_financing_agreement' => 'AFA',
+            'asset_financing_payment' => 'AFP',
+            'asset_invoice_payment' => 'AIP',
+            'asset_depreciation' => 'ADP',
+            'asset_amortization' => 'AAM',
         ];
     }
 }
