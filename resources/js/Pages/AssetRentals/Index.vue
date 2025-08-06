@@ -31,7 +31,8 @@ const currentFilters = ref(props.filters || {});
 const tableHeaders = [
     { key: 'invoice_date', label: 'Tanggal' },
     { key: 'number', label: 'Nomor Faktur' },
-    { key: 'partner.name', label: 'Partner' },
+    { key: 'partner.name', label: 'Supplier' },
+    { key: 'asset_invoice_details', label: 'Aset' },
     { key: 'due_date', label: 'Jatuh Tempo' },
     { key: 'status', label: 'Status' },
     { key: 'branch.name', label: 'Cabang' },
@@ -111,6 +112,12 @@ const columnFormatters = {
     }
 };
 
+const columnRenderers = {
+    asset_invoice_details: (value) => value.map(detail => 
+        `<a href="/assets/${detail.asset.id}" class="text-main-600 hover:text-main-800 hover:underline">${detail.asset.name}</a>`
+    ).join(', '),
+};
+
 const sortableColumns = ['invoice_date', 'number', 'partner.name', 'due_date', 'status', 'branch.name', 'total_amount'];
 const defaultSort = { key: 'invoice_date', order: 'desc' };
 
@@ -188,6 +195,7 @@ function handleFilter(newFilters) {
                         :data="assetRentals"
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
+                        :columnRenderers="columnRenderers"
                         :columnFormatters="columnFormatters"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'asset-rentals.create' }"

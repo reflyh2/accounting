@@ -27,6 +27,7 @@ const tableHeaders = [
     { key: 'number', label: 'Nomor Faktur' },
     { key: 'partner.name', label: 'Customer' },
     { key: 'branch.name', label: 'Cabang' },
+    { key: 'asset_invoice_details', label: 'Aset' },
     { key: 'due_date', label: 'Jatuh Tempo' },
     { key: 'currency.code', label: 'Mata Uang' },
     { key: 'total_amount', label: 'Total' },
@@ -94,6 +95,12 @@ const columnFormatters = {
         };
         return statusLabels[value] || value;
     }
+};
+
+const columnRenderers = {
+    asset_invoice_details: (value) => value.map(detail => 
+        `<a href="/assets/${detail.asset.id}" class="text-main-600 hover:text-main-800 hover:underline">${detail.asset.name}</a>`
+    ).join(', '),
 };
 
 // Define sortable columns
@@ -179,6 +186,7 @@ function handleFilter(newFilters) {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'asset-sales.create' }"
                         :editRoute="{ name: 'asset-sales.edit' }"

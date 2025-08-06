@@ -17,6 +17,7 @@ const props = defineProps({
     companies: Array,
     branches: Array,
     assets: Array,
+    proceedAccounts: Array,
     statusOptions: Object,
     disposalTypeOptions: Object,
     filters: Object,
@@ -28,6 +29,7 @@ const form = useForm({
     disposal_date: props.assetDisposal?.disposal_date || new Date().toISOString().split('T')[0],
     disposal_type: props.assetDisposal?.disposal_type || 'scrap',
     proceeds_amount: props.assetDisposal?.proceeds_amount || 0,
+    proceed_account_id: props.assetDisposal?.proceed_account_id || null,
     notes: props.assetDisposal?.notes || '',
     details: props.assetDisposal?.asset_disposal_details?.map(detail => ({
         id: detail.id,
@@ -55,7 +57,7 @@ const primaryCurrencySymbol = computed(() => {
 });
 
 watch(selectedCompany, (newCompanyId) => {
-    router.reload({ only: ['branches'], data: { company_id: newCompanyId } });
+    router.reload({ only: ['branches', 'proceedAccounts'], data: { company_id: newCompanyId } });
 }, { immediate: true });
 
 watch(() => form.branch_id, (newBranchId) => {
@@ -72,10 +74,32 @@ watch(
     { immediate: true, deep: true }
 );
 
+// Watch proceed accounts to auto-select if only one account
+watch(
+    () => props.proceedAccounts,
+    (newAccounts) => {
+        if (!props.assetDisposal && newAccounts.length === 1) {
+            form.proceed_account_id = newAccounts[0].id;
+        }
+    },
+    { immediate: true }
+);
+
 onMounted(() => {
     if (!props.assetDisposal && props.branches && props.branches.length === 1) {
         form.branch_id = props.branches[0].id;
     }
+    if (!props.assetDisposal && props.proceedAccounts.length === 1) {
+        form.proceed_account_id = props.proceedAccounts[0].id;
+    }
+});
+
+// Computed source account options
+const proceedAccountOptions = computed(() => {
+    return props.proceedAccounts.map(account => ({
+        value: account.id,
+        label: `${account.code} - ${account.name}`
+    }));
 });
 
 function addDetail() {
@@ -164,6 +188,15 @@ function submitForm(createAnother = false) {
                         required
                     />
                     <AppSelect
+                        v-model="form.proceed_account_id"
+                        :options="proceedAccountOptions"
+                        label="Akun Penerimaan Hasil:"
+                        :error="form.errors.proceed_account_id"
+                        required
+                    />
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    <AppSelect
                         v-model="form.disposal_type"
                         :options="Object.entries(props.disposalTypeOptions).map(([value, label]) => ({ value, label }))"
                         label="Jenis Pelepasan:"
@@ -183,6 +216,7 @@ function submitForm(createAnother = false) {
                 <ul class="list-disc list-inside">
                     <li>Pilih Perusahaan dan Cabang terkait.</li>
                     <li>Pilih jenis pelepasan dan tanggalnya.</li>
+                    <li>Pilih akun penerimaan hasil pelepasan.</li>
                     <li>Isi detail aset yang dilepaskan pada tabel di bawah.</li>
                     <li>Total hasil akan dihitung otomatis dari detail.</li>
                 </ul>

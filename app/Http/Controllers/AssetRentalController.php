@@ -27,7 +27,7 @@ class AssetRentalController extends Controller
         $filters = $request->all() ?: Session::get('asset_rentals.index_filters', []);
         Session::put('asset_rentals.index_filters', $filters);
 
-        $query = AssetInvoice::with(['branch', 'partner', 'assetInvoiceDetails', 'currency'])
+        $query = AssetInvoice::with(['branch', 'partner', 'assetInvoiceDetails.asset', 'currency'])
             ->where('type', 'rental');
 
         if (!empty($filters['search'])) {

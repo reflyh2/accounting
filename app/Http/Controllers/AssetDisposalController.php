@@ -7,6 +7,10 @@ use App\Models\AssetDisposal;
 use App\Models\AssetDisposalDetail;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\Account;
+use App\Events\Asset\AssetDisposalCreated;
+use App\Events\Asset\AssetDisposalUpdated;
+use App\Events\Asset\AssetDisposalDeleted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
@@ -96,12 +100,22 @@ class AssetDisposalController extends Controller
         
         $branches = collect();
         $assets = collect();
+        $proceedAccounts = collect();
 
         if ($request->company_id) {
             $companyId = $request->company_id;
             $branches = Branch::whereHas('branchGroup', function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })->orderBy('name', 'asc')->get();
+
+            // Get proceed accounts associated with selected company
+            $proceedAccounts = Account::whereIn('type', ['kas_bank'])
+                ->where('is_parent', false)
+                ->whereHas('companies', function ($query) use ($companyId) {
+                    $query->where('company_id', $companyId);
+                })
+                ->orderBy('name', 'asc')
+                ->get();
             
             if ($request->branch_id) {
                 $assets = $this->getAvailableAssets($companyId, $request->branch_id);
@@ -111,6 +125,7 @@ class AssetDisposalController extends Controller
         return Inertia::render('AssetDisposals/Create', [
             'filters' => $filters,
             'companies' => $companies,
+            'proceedAccounts' => fn() => $proceedAccounts,
             'branches' => fn() => $branches,
             'assets' => fn() => $assets,
             'statusOptions' => AssetDisposal::statusOptions(),
@@ -125,6 +140,7 @@ class AssetDisposalController extends Controller
             'disposal_date' => 'required|date',
             'disposal_type' => 'required|string|in:' . implode(',', array_keys(AssetDisposal::disposalTypeOptions())),
             'proceeds_amount' => 'nullable|numeric|min:0',
+            'proceed_account_id' => 'nullable|exists:accounts,id',
             'notes' => 'nullable|string',
             'details' => 'required|array|min:1',
             'details.*.asset_id' => 'required|exists:assets,id',
@@ -139,6 +155,7 @@ class AssetDisposalController extends Controller
                 'disposal_date' => $validated['disposal_date'],
                 'disposal_type' => $validated['disposal_type'],
                 'proceeds_amount' => $validated['proceeds_amount'] ?? 0,
+                'proceed_account_id' => $validated['proceed_account_id'],
                 'notes' => $validated['notes'],
                 'status' => 'draft',
             ]);
@@ -147,6 +164,7 @@ class AssetDisposalController extends Controller
                 $disposal->assetDisposalDetails()->create($detail);
             }
             
+            AssetDisposalCreated::dispatch($disposal);
             // On posting, set asset status = “disposed”
             if ($disposal->status === 'approved') {
                 foreach ($disposal->assetDisposalDetails as $detail) {
@@ -205,6 +223,13 @@ class AssetDisposalController extends Controller
             'branches' => Branch::whereHas('branchGroup', function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })->orderBy('name', 'asc')->get(),
+            'proceedAccounts' => Account::whereIn('type', ['kas_bank'])
+                ->where('is_parent', false)
+                ->whereHas('companies', function ($query) use ($companyId) {
+                    $query->where('company_id', $companyId);
+                })
+                ->orderBy('name', 'asc')
+                ->get(),
             'assets' => $this->getAvailableAssets($companyId, $branchId, $assetDisposal->id),
             'statusOptions' => AssetDisposal::statusOptions(),
             'disposalTypeOptions' => AssetDisposal::disposalTypeOptions(),
@@ -218,6 +243,7 @@ class AssetDisposalController extends Controller
             'disposal_date' => 'required|date',
             'disposal_type' => 'required|string|in:' . implode(',', array_keys(AssetDisposal::disposalTypeOptions())),
             'proceeds_amount' => 'nullable|numeric|min:0',
+            'proceed_account_id' => 'nullable|exists:accounts,id',
             'notes' => 'nullable|string',
             'details' => 'required|array|min:1',
             'details.*.id' => 'nullable|exists:asset_disposal_details,id',
@@ -236,6 +262,7 @@ class AssetDisposalController extends Controller
                 'disposal_date' => $validated['disposal_date'],
                 'disposal_type' => $validated['disposal_type'],
                 'proceeds_amount' => $validated['proceeds_amount'] ?? 0,
+                'proceed_account_id' => $validated['proceed_account_id'],
                 'notes' => $validated['notes'],
             ]);
 
@@ -263,6 +290,8 @@ class AssetDisposalController extends Controller
             if (!empty($detailsToDelete)) {
                 $assetDisposal->assetDisposalDetails()->whereIn('id', $detailsToDelete)->delete();
             }
+
+            AssetDisposalUpdated::dispatch($assetDisposal);
         });
 
         return redirect()->route('asset-disposals.show', $assetDisposal->id)
@@ -272,6 +301,7 @@ class AssetDisposalController extends Controller
     public function destroy(Request $request, AssetDisposal $assetDisposal)
     {
         DB::transaction(function () use ($assetDisposal) {
+            AssetDisposalDeleted::dispatch($assetDisposal);
             $assetDisposal->assetDisposalDetails()->delete();
             $assetDisposal->delete();
         });
@@ -298,6 +328,7 @@ class AssetDisposalController extends Controller
         DB::transaction(function () use ($validated) {
             $disposals = AssetDisposal::whereIn('id', $validated['ids'])->get();
             foreach ($disposals as $disposal) {
+                AssetDisposalDeleted::dispatch($disposal);
                 $disposal->assetDisposalDetails()->delete();
                 $disposal->delete();
             }

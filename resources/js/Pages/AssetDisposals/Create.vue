@@ -8,6 +8,7 @@ defineProps({
     filters: Object,
     companies: Array,
     branches: Array,
+    proceedAccounts: Array,
     assets: Array,
     statusOptions: Object,
     disposalTypeOptions: Object,
@@ -32,6 +33,7 @@ defineProps({
                         <AssetDisposalForm 
                             :companies="companies" 
                             :branches="branches" 
+                            :proceed-accounts="proceedAccounts"
                             :assets="assets"
                             :status-options="statusOptions"
                             :disposal-type-options="disposalTypeOptions"

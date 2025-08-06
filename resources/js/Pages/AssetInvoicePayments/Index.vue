@@ -27,6 +27,7 @@ const tableHeaders = [
     { key: 'number', label: 'Nomor Pembayaran' },
     { key: 'type', label: 'Tipe' },
     { key: 'partner.name', label: 'Partner' },
+    { key: 'allocations', label: 'Aset' },
     { key: 'reference', label: 'Referensi' },
     { key: 'currency.code', label:'Mata Uang' },
     { key: 'amount', label: 'Jumlah' },
@@ -84,6 +85,14 @@ const columnFormatters = {
     amount: (value) => formatNumber(value),
     type: (value) => props.paymentTypes[value] || value,
     payment_method: (value) => props.paymentMethods[value] || value,
+};
+
+const columnRenderers = {
+    allocations: (value) => value.map(allocation => 
+        allocation.asset_invoice.asset_invoice_details.map(detail =>
+            `<a href="/assets/${detail.asset.id}" class="text-main-600 hover:text-main-800 hover:underline">${detail.asset.name}</a>`
+        ).join(', ')
+    ).join(', '),
 };
 
 const sortableColumns = ['payment_date', 'number', 'type', 'partner.name', 'reference', 'amount', 'payment_method'];
@@ -164,6 +173,7 @@ function handleFilter(newFilters) {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'asset-invoice-payments.create' }"
                         :editRoute="{ name: 'asset-invoice-payments.edit' }"

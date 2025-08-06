@@ -31,7 +31,6 @@ const tableHeaders = [
     { key: 'disposal_type', label: 'Jenis' },
     { key: 'asset_disposal_details', label: 'Aset' },
     { key: 'proceeds_amount', label: 'Hasil' },
-    { key: 'status', label: 'Status' },
     { key: 'actions', label: '' }
 ];
 
@@ -67,14 +66,6 @@ const customFilters = computed(() => [
         multiple: true,
         placeholder: 'Pilih Cabang',
         label: 'Cabang'
-    },
-    {
-        name: 'status',
-        type: 'select',
-        options: Object.entries(props.statusOptions).map(([value, label]) => ({ value, label })),
-        multiple: true,
-        placeholder: 'Pilih Status',
-        label: 'Status'
     },
     {
         name: 'disposal_type',

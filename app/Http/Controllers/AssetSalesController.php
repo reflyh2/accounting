@@ -28,7 +28,7 @@ class AssetSalesController extends Controller
         Session::put('asset_sales.index_filters', $filters);
 
         $query = AssetInvoice::where('type', 'sales')
-            ->with(['partner', 'branch.branchGroup.company', 'currency', 'creator']);
+            ->with(['partner', 'branch.branchGroup.company', 'assetInvoiceDetails.asset', 'currency', 'creator']);
 
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
