@@ -10,6 +10,8 @@ defineProps({
    currencies: Array,
    creditors: Array,
    agreements: Array,
+   sourceAccounts: Array,
+   paymentMethods: Array,
 });
 </script>
 
@@ -28,7 +30,7 @@ defineProps({
                   <div class="mb-6">
                      <AppBackLink :href="route('asset-financing-payments.index')" text="Kembali ke Daftar Pembayaran" />
                   </div>
-                  <AssetFinancingPaymentForm :companies="companies" :branches="branches" :currencies="currencies" :creditors="creditors" :agreements="agreements" />
+                  <AssetFinancingPaymentForm :companies="companies" :branches="branches" :currencies="currencies" :creditors="creditors" :agreements="agreements" :source-accounts="sourceAccounts" :payment-methods="paymentMethods" />
                </div>
             </div>
          </div>

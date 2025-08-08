@@ -236,6 +236,7 @@ class AccountSeeder extends Seeder
                 ['name' => 'Pajak Jasa Giro', 'type' => 'beban_lainnya'],
                 ['name' => 'Rugi Penjualan Aset Tetap', 'type' => 'beban_lainnya'],
                 ['name' => 'Rugi Selisih Kurs', 'type' => 'beban_lainnya'],
+                ['name' => 'Beban Bunga Leasing', 'type' => 'beban_lainnya'],
                 ['name' => 'Beban Lainnya', 'type' => 'beban_lainnya'],
             ]],
         ];

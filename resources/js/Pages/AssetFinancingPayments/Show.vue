@@ -10,6 +10,7 @@ import { formatNumber } from '@/utils/numberFormat';
 
 const props = defineProps({
     payment: Object,
+    paymentMethods: Object,
 });
 
 const form = useForm({});
@@ -66,8 +67,16 @@ const deletePayment = () => {
                                 <p>{{ payment.reference }}</p>
                             </div>
                             <div>
+                                <p class="font-semibold">Akun Sumber:</p>
+                                <p>{{ payment.source_account.name }}</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold">Rekening Bank Tujuan:</p>
+                                <p>{{ payment.destination_bank_account?.display_name }}</p>
+                            </div>
+                            <div>
                                 <p class="font-semibold">Metode Pembayaran:</p>
-                                <p>{{ payment.payment_method }}</p>
+                                <p>{{ paymentMethods[payment.payment_method] }}</p>
                             </div>
                             <div>
                                 <p class="font-semibold">Catatan:</p>

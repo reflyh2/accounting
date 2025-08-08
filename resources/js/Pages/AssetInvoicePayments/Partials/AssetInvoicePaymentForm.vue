@@ -551,7 +551,7 @@ function getInvoiceDetails(invoiceId) {
                     />
                 </div>
                 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 gap-4">
                     <AppPopoverSearch
                         v-model="form.partner_id"
                         :label="form.type === 'sales' ? 'Pelanggan:' : 'Supplier:'"
@@ -566,7 +566,28 @@ function getInvoiceDetails(invoiceId) {
                         :disabled="!selectedCompany"
                         required
                     />
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <AppSelect
+                        v-model="form.currency_id"
+                        :options="currencyOptions"
+                        label="Mata Uang:"
+                        placeholder="Pilih Mata Uang"
+                        :error="form.errors.currency_id"
+                        required
+                    />
                     
+                    <AppInput
+                        v-model="form.exchange_rate"
+                        :numberFormat="true"
+                        label="Nilai Tukar:"
+                        :error="form.errors.exchange_rate"
+                        required
+                    />
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">                    
                     <AppSelect
                         v-model="form.source_account_id"
                         :options="sourceAccountOptions"
@@ -575,9 +596,7 @@ function getInvoiceDetails(invoiceId) {
                         :error="form.errors.source_account_id"
                         required
                     />
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
+
                     <AppSelect
                         v-model="form.payment_method"
                         :options="paymentMethodOptions"
@@ -586,7 +605,9 @@ function getInvoiceDetails(invoiceId) {
                         :error="form.errors.payment_method"
                         required
                     />
-                    
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
                     <div v-if="requiresBankAccount">
                         <div class="flex items-end gap-2">
                             <div class="flex-1">
@@ -613,32 +634,6 @@ function getInvoiceDetails(invoiceId) {
                             </div>
                         </div>
                     </div>
-                    <div v-else>
-                        <AppInput
-                            v-model="form.reference"
-                            label="Referensi:"
-                            :error="form.errors.reference"
-                        />
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <AppSelect
-                        v-model="form.currency_id"
-                        :options="currencyOptions"
-                        label="Mata Uang:"
-                        placeholder="Pilih Mata Uang"
-                        :error="form.errors.currency_id"
-                        required
-                    />
-                    
-                    <AppInput
-                        v-model="form.exchange_rate"
-                        :numberFormat="true"
-                        label="Nilai Tukar:"
-                        :error="form.errors.exchange_rate"
-                        required
-                    />
                 </div>
                 
                 <div class="grid grid-cols-2 gap-4">
@@ -655,15 +650,20 @@ function getInvoiceDetails(invoiceId) {
                             = {{ page.props.primaryCurrency?.symbol }} {{ formatNumber(primaryCurrencyAmount) }}
                         </div>
                     </div>
-                    
+
                     <AppInput
-                        v-if="requiresBankAccount"
                         v-model="form.reference"
                         label="Referensi:"
                         :error="form.errors.reference"
                     />
-                    <div v-else></div>
                 </div>
+
+                <AppInput
+                    v-if="requiresBankAccount"
+                    v-model="form.reference"
+                    label="Referensi:"
+                    :error="form.errors.reference"
+                />
                 
                 <AppTextarea
                     v-model="form.notes"

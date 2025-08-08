@@ -18,6 +18,8 @@ const props = defineProps({
     currencies: Array,
     creditors: Array,
     agreements: Array,
+    sourceAccounts: Array,
+    paymentMethods: Array,
 });
 
 const form = useForm({
@@ -25,6 +27,8 @@ const form = useForm({
     branch_id: props.payment?.branch_id || null,
     payment_date: props.payment?.payment_date || new Date().toISOString().split('T')[0],
     creditor_id: props.payment?.creditor_id || null,
+    source_account_id: props.payment?.source_account_id || null,
+    destination_bank_account_id: props.payment?.destination_bank_account_id || null,
     reference: props.payment?.reference || '',
     currency_id: props.payment?.currency_id || null,
     exchange_rate: props.payment?.exchange_rate || 1,
@@ -60,9 +64,16 @@ const currentCurrencySymbol = computed(() => {
     return currency?.symbol || page.props.primaryCurrency?.symbol || '';
 });
 
+const paymentMethodOptions = computed(() => {
+    return Object.entries(props.paymentMethods).map(([value, label]) => ({
+        value,
+        label
+    }));
+});
+
 watch(selectedCompany, (newCompanyId) => {
     if (!props.payment) {
-        router.reload({ only: ['branches', 'currencies'], data: { company_id: newCompanyId } });
+        router.reload({ only: ['branches', 'currencies', 'sourceAccounts'], data: { company_id: newCompanyId } });
     }
 });
 
@@ -116,14 +127,6 @@ async function updateSchedule(index) {
         allocation.asset_financing_schedule_id = null;
     }
 }
-
-const paymentMethodOptions = [
-    { value: 'cash', label: 'Tunai' },
-    { value: 'check', label: 'Cek' },
-    { value: 'credit_card', label: 'Kartu Kredit' },
-    { value: 'bank_transfer', label: 'Transfer Bank' },
-    { value: 'other', label: 'Lainnya' },
-];
 
 const partnerUrl = computed(() => {
     return route('api.partners', { company_id: selectedCompany.value, roles: ['creditor'] });
@@ -216,6 +219,15 @@ function submitForm() {
                         :error="form.errors.payment_date"
                         required
                     />
+                    <AppSelect
+                        v-model="form.payment_method"
+                        :options="paymentMethodOptions"
+                        label="Metode Pembayaran:"
+                        :error="form.errors.payment_method"
+                        required
+                    />
+                </div>                
+                <div class="grid grid-cols-1 gap-4">
                     <AppPopoverSearch
                         v-model="form.creditor_id"
                         label="Kreditor:"
@@ -229,6 +241,15 @@ function submitForm() {
                         :modalTitle="'Pilih Kreditor'"
                         :disabled="!selectedCompany"
                         required
+                    />
+                </div>
+                <div class="grid grid-cols-1 gap-4" v-if="form.payment_method === 'bank_transfer'">
+                    <AppSelect
+                        v-model="form.destination_bank_account_id"
+                        :options="creditors.find(c => c.id === form.creditor_id)?.active_bank_accounts.map(account => ({ value: account.id, label: account.display_name }))"
+                        label="Rekening Bank Tujuan:"
+                        :error="form.errors.destination_bank_account_id"
+                        :disabled="!form.creditor_id"
                     />
                 </div>
                 <div class="grid grid-cols-2 gap-4">
@@ -250,17 +271,17 @@ function submitForm() {
                     />
                 </div>
                 <div class="grid grid-cols-2 gap-4">
+                    <AppSelect
+                        v-model="form.source_account_id"
+                        :options="sourceAccounts.map(account => ({ value: account.id, label: account.code + ' - ' + account.name }))"
+                        label="Akun Sumber:"
+                        :error="form.errors.source_account_id"
+                        required
+                    />
                     <AppInput
                         v-model="form.reference"
                         label="Referensi:"
                         :error="form.errors.reference"
-                    />
-                    <AppSelect
-                        v-model="form.payment_method"
-                        :options="paymentMethodOptions"
-                        label="Metode Pembayaran:"
-                        :error="form.errors.payment_method"
-                        required
                     />
                 </div>
                 <AppTextarea

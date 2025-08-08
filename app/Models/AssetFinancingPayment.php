@@ -59,4 +59,25 @@ class AssetFinancingPayment extends Model
     {
         return $this->belongsTo(User::class, 'updated_by', 'global_id');
     }
+
+    public static function getPaymentMethods()
+    {
+        return [
+            'cash' => 'Tunai',
+            'check' => 'Cek',
+            'credit_card' => 'Kartu Kredit',
+            'bank_transfer' => 'Transfer Bank',
+            'other' => 'Lainnya',
+        ];
+    }
+
+    public function sourceAccount()
+    {
+        return $this->belongsTo(Account::class, 'source_account_id');
+    }
+
+    public function destinationBankAccount()
+    {
+        return $this->belongsTo(PartnerBankAccount::class, 'destination_bank_account_id');
+    }
 } 

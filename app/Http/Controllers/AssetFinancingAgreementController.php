@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Redirect;
 use App\Models\AssetFinancingAgreement;
 use App\Exports\AssetFinancingAgreementsExport;
 use App\Models\Currency;
+use App\Events\Asset\AssetFinancingAgreementCreated;
+use App\Events\Asset\AssetFinancingAgreementUpdated;
+use App\Events\Asset\AssetFinancingAgreementDeleted;
 
 class AssetFinancingAgreementController extends Controller
 {
@@ -207,6 +210,8 @@ class AssetFinancingAgreementController extends Controller
 
         $agreement = AssetFinancingAgreement::create($validated);
 
+        AssetFinancingAgreementCreated::dispatch($agreement);
+
         return redirect()->route('asset-financing-agreements.show', $agreement->id)
             ->with('success', 'Perjanjian pembiayaan aset berhasil dibuat.');
     }
@@ -344,12 +349,15 @@ class AssetFinancingAgreementController extends Controller
 
         $assetFinancingAgreement->update($validated);
 
+        AssetFinancingAgreementUpdated::dispatch($assetFinancingAgreement);
+
         return redirect()->route('asset-financing-agreements.edit', $assetFinancingAgreement->id)
             ->with('success', 'Perjanjian pembiayaan aset berhasil diubah.');
     }
 
     public function destroy(Request $request, AssetFinancingAgreement $assetFinancingAgreement)
     {
+        AssetFinancingAgreementDeleted::dispatch($assetFinancingAgreement);
         $assetFinancingAgreement->delete();
 
         if ($request->has('preserveState')) {
@@ -366,6 +374,10 @@ class AssetFinancingAgreementController extends Controller
 
     public function bulkDelete(Request $request)
     {
+        $agreements = AssetFinancingAgreement::whereIn('id', $request->ids)->get();
+        foreach ($agreements as $agreement) {
+            AssetFinancingAgreementDeleted::dispatch($agreement);
+        }
         AssetFinancingAgreement::whereIn('id', $request->ids)->delete();
 
         if ($request->has('preserveState')) {

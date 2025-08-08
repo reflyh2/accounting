@@ -14,6 +14,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use App\Services\AssetFinancing\ScheduleRecalculationService;
 use App\Models\Currency;
+use App\Events\Asset\AssetFinancingPaymentCreated;
+use App\Events\Asset\AssetFinancingPaymentUpdated;
+use App\Events\Asset\AssetFinancingPaymentDeleted;
+use App\Models\Account;
 
 class AssetFinancingPaymentController extends Controller
 {
@@ -90,6 +94,7 @@ class AssetFinancingPaymentController extends Controller
             'perPage' => $perPage,
             'sort' => $sortColumn,
             'order' => $sortOrder,
+            'paymentMethods' => AssetFinancingPayment::getPaymentMethods(),
         ]);
     }
 
@@ -107,13 +112,21 @@ class AssetFinancingPaymentController extends Controller
             }])->orderBy('code', 'asc')->get(),
             'creditors' => Partner::whereHas('roles', function ($query) {
                 $query->where('role', 'creditor');
-            })->orderBy('name')->get(),
+            })->with('activeBankAccounts')->orderBy('name')->get(),
+            'sourceAccounts' => fn() => Account::whereIn('type', ['kas_bank'])
+                ->where('is_parent', false)
+                ->whereHas('companies', function ($query) use ($request) {
+                    $query->where('company_id', $request->input('company_id'));
+                })
+                ->orderBy('name', 'asc')
+                ->get(),
             'agreements' => fn() => AssetFinancingAgreement::with('assetInvoice.assets')
                 ->where('status', 'active')
                 ->where('creditor_id', $request->input('creditor_id'))
                 ->where('branch_id', $request->input('branch_id'))
                 ->where('currency_id', $request->input('currency_id'))
                 ->get(),
+            'paymentMethods' => AssetFinancingPayment::getPaymentMethods(),
         ]);
     }
 
@@ -123,11 +136,13 @@ class AssetFinancingPaymentController extends Controller
             'branch_id' => 'required|exists:branches,id',
             'payment_date' => 'required|date',
             'creditor_id' => 'required|exists:partners,id',
+            'source_account_id' => 'required|exists:accounts,id',
+            'destination_bank_account_id' => 'nullable|exists:partner_bank_accounts,id',
             'reference' => 'nullable|string|max:255',
             'total_paid_amount' => 'required|numeric|min:0',
             'principal_amount' => 'required|numeric|min:0',
             'interest_amount' => 'required|numeric|min:0',
-            'payment_method' => 'required|string',
+            'payment_method' => 'required|string|in:' . implode(',', array_keys(AssetFinancingPayment::getPaymentMethods())),
             'notes' => 'nullable|string',
             'currency_id' => 'required|exists:currencies,id',
             'exchange_rate' => 'required|numeric|min:0',
@@ -139,11 +154,17 @@ class AssetFinancingPaymentController extends Controller
             'allocations.*.asset_financing_schedule_id' => 'nullable|exists:asset_financing_schedules,id',
         ]);
 
+        if ($validated['payment_method'] === 'bank_transfer' && empty($validated['destination_bank_account_id'])) {
+            return back()->withErrors(['destination_bank_account_id' => 'Rekening tujuan diperlukan untuk transfer bank.']);
+        }
+
         DB::transaction(function () use ($validated, $request) {
             $payment = AssetFinancingPayment::create([
                 'branch_id' => $validated['branch_id'],
                 'payment_date' => $validated['payment_date'],
                 'creditor_id' => $validated['creditor_id'],
+                'source_account_id' => $validated['source_account_id'],
+                'destination_bank_account_id' => $validated['destination_bank_account_id'],
                 'reference' => $validated['reference'],
                 'total_paid_amount' => $validated['total_paid_amount'],
                 'principal_amount' => $validated['principal_amount'],
@@ -196,6 +217,8 @@ class AssetFinancingPaymentController extends Controller
                     (new \App\Services\AssetFinancing\ScheduleService())->generate($agreement);
                 }
             }
+
+            AssetFinancingPaymentCreated::dispatch($payment);
         });
 
         return redirect()->route('asset-financing-payments.index')->with('success', 'Pembayaran pembiayaan aset berhasil dibuat.');
@@ -203,9 +226,10 @@ class AssetFinancingPaymentController extends Controller
 
     public function show(AssetFinancingPayment $assetFinancingPayment)
     {
-        $assetFinancingPayment->load(['creditor', 'branch', 'currency', 'allocations.assetFinancingAgreement.assetInvoice.assets']);
+        $assetFinancingPayment->load(['creditor', 'branch', 'currency', 'sourceAccount', 'destinationBankAccount', 'allocations.assetFinancingAgreement.assetInvoice.assets']);
         return Inertia::render('AssetFinancingPayments/Show', [
             'payment' => $assetFinancingPayment,
+            'paymentMethods' => AssetFinancingPayment::getPaymentMethods(),
         ]);
     }
 
@@ -225,6 +249,13 @@ class AssetFinancingPaymentController extends Controller
             'branches' => Branch::whereHas('branchGroup', function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })->orderBy('name')->get(),
+            'sourceAccounts' => Account::whereIn('type', ['kas_bank'])
+                ->where('is_parent', false)
+                ->whereHas('companies', function ($query) use ($companyId) {
+                    $query->where('company_id', $companyId);
+                })
+                ->orderBy('name', 'asc')
+                ->get(),
             'currencies' => Currency::whereHas('companyRates', function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })->with(['companyRates' => function ($query) use ($companyId) {
@@ -232,13 +263,14 @@ class AssetFinancingPaymentController extends Controller
             }])->orderBy('code', 'asc')->get(),
             'creditors' => Partner::whereHas('roles', function ($query) {
                 $query->where('role', 'creditor');
-            })->orderBy('name')->get(),
+            })->with('activeBankAccounts')->orderBy('name')->get(),
             'agreements' => AssetFinancingAgreement::with('assetInvoice.assets')
                 ->where('status', 'active')
                 ->where('creditor_id', $assetFinancingPayment->creditor_id)
                 ->where('branch_id', $assetFinancingPayment->branch_id)
                 ->where('currency_id', $assetFinancingPayment->currency_id)
                 ->get(),
+            'paymentMethods' => AssetFinancingPayment::getPaymentMethods(),
         ]);
     }
 
@@ -248,11 +280,13 @@ class AssetFinancingPaymentController extends Controller
             'branch_id' => 'required|exists:branches,id',
             'payment_date' => 'required|date',
             'creditor_id' => 'required|exists:partners,id',
+            'source_account_id' => 'required|exists:accounts,id',
+            'destination_bank_account_id' => 'nullable|exists:partner_bank_accounts,id',
             'reference' => 'nullable|string|max:255',
             'total_paid_amount' => 'required|numeric|min:0',
             'principal_amount' => 'required|numeric|min:0',
             'interest_amount' => 'required|numeric|min:0',
-            'payment_method' => 'required|string',
+            'payment_method' => 'required|string|in:' . implode(',', array_keys(AssetFinancingPayment::getPaymentMethods())),
             'notes' => 'nullable|string',
             'currency_id' => 'required|exists:currencies,id',
             'exchange_rate' => 'required|numeric|min:0',
@@ -264,6 +298,10 @@ class AssetFinancingPaymentController extends Controller
             'allocations.*.interest_amount' => 'required|numeric|min:0',
             'allocations.*.asset_financing_schedule_id' => 'nullable|exists:asset_financing_schedules,id',
         ]);
+
+        if ($validated['payment_method'] === 'bank_transfer' && empty($validated['destination_bank_account_id'])) {
+            return back()->withErrors(['destination_bank_account_id' => 'Rekening tujuan diperlukan untuk transfer bank.']);
+        }
 
         DB::transaction(function () use ($validated, $assetFinancingPayment, $request) {
             $affectedAgreements = [];
@@ -299,6 +337,8 @@ class AssetFinancingPaymentController extends Controller
                 'branch_id' => $validated['branch_id'],
                 'payment_date' => $validated['payment_date'],
                 'creditor_id' => $validated['creditor_id'],
+                'source_account_id' => $validated['source_account_id'],
+                'destination_bank_account_id' => $validated['destination_bank_account_id'],
                 'reference' => $validated['reference'],
                 'total_paid_amount' => $validated['total_paid_amount'],
                 'principal_amount' => $validated['principal_amount'],
@@ -351,6 +391,7 @@ class AssetFinancingPaymentController extends Controller
                     (new \App\Services\AssetFinancing\ScheduleService())->generate($agreement);
                 }
             }
+            AssetFinancingPaymentUpdated::dispatch($assetFinancingPayment);
         });
 
         return redirect()->route('asset-financing-payments.edit', $assetFinancingPayment->id)->with('success', 'Pembayaran pembiayaan aset berhasil diubah.');
@@ -361,6 +402,7 @@ class AssetFinancingPaymentController extends Controller
         DB::transaction(function () use ($assetFinancingPayment) {
             $affectedAgreements = [];
 
+            AssetFinancingPaymentDeleted::dispatch($assetFinancingPayment);
             // Revert old allocations and collect affected agreements
             foreach ($assetFinancingPayment->allocations as $oldAllocation) {
                 if ($oldAllocation->asset_financing_schedule_id) {

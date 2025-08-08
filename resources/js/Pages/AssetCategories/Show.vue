@@ -159,6 +159,14 @@ const deleteAssetCategory = () => {
                                         </p>
                                         <p v-else class="text-gray-500">Tidak diatur</p>
                                     </div>
+
+                                    <div>
+                                        <p class="font-medium">Akun Bunga Leasing Aset:</p>
+                                        <p v-if="company.pivot.leasing_interest_cost_account_id">
+                                            {{ company.leasing_interest_cost_account?.code }} - {{ company.leasing_interest_cost_account?.name }}
+                                        </p>
+                                        <p v-else class="text-gray-500">Tidak diatur</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -36,6 +36,7 @@ class AssetCategory extends Model
                 'asset_financing_payable_account_id',
                 'asset_sale_profit_account_id',
                 'asset_sale_loss_account_id',
+                'leasing_interest_cost_account_id',
             ])
             ->withTimestamps();
     }
@@ -126,6 +127,14 @@ class AssetCategory extends Model
     public function assetSaleLossAccount(Company $company)
     {
         return Account::find($this->companies()->where('company_id', $company->id)->first()?->pivot?->asset_sale_loss_account_id);
+    }
+
+    /**
+     * Get the leasing interest cost account for a specific company.
+     */
+    public function leasingInterestCostAccount(Company $company)
+    {
+        return Account::find($this->companies()->where('company_id', $company->id)->first()?->pivot?->leasing_interest_cost_account_id);
     }
 
 } 
