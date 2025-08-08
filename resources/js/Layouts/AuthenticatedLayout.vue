@@ -96,6 +96,7 @@ const isAssetActive = computed(() => {
         || route().current('asset-invoice-payments.*')
         || route().current('asset-financing-agreements.*')
         || route().current('asset-financing-payments.*')
+        || route().current('asset-depreciations.*')
         || route().current('asset-transfers.*');
 });
 
@@ -236,6 +237,9 @@ function toggleSidebar() {
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('asset-disposals.index')" :active="route().current('asset-disposals.*')" class="pl-11">
                                 Pelepasan Aset
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('asset-depreciations.index')" :active="route().current('asset-depreciations.*')" class="pl-11">
+                                Penyusutan/Amortisasi
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('asset-invoice-payments.index')" :active="route().current('asset-invoice-payments.*')" class="pl-11">
                                 Pembayaran Aset
@@ -476,6 +480,14 @@ function toggleSidebar() {
                                         >
                                             Pelepasan Aset
                                         </NavLink>
+                                        <NavLink :href="route('asset-depreciations.index')"
+                                            :active="
+                                                route().current('asset-depreciations.*')
+                                            " 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Penyusutan/Amortisasi
+                                        </NavLink>
                                         <NavLink :href="route('asset-invoice-payments.index')"
                                             :active="
                                                 route().current('asset-invoice-payments.*')
@@ -544,6 +556,14 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Pelepasan Aset
+                                        </NavLink>
+                                        <NavLink :href="route('asset-depreciations.index')"
+                                            :active="
+                                                route().current('asset-depreciations.*')
+                                            " 
+                                            class="flex items-center"
+                                        >
+                                            Penyusutan/Amortisasi
                                         </NavLink>
                                         <NavLink :href="route('asset-invoice-payments.index')"
                                             :active="

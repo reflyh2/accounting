@@ -253,6 +253,10 @@ Route::middleware([
         Route::get('asset-sales/export-pdf', [AssetSalesController::class, 'exportPDF'])->name('asset-sales.export-pdf');
         Route::get('asset-sales/{assetSale}/print', [AssetSalesController::class, 'print'])->name('asset-sales.print');
         Route::resource('asset-sales', AssetSalesController::class);
+        // Asset Depreciations
+        Route::get('asset-depreciations', [\App\Http\Controllers\AssetDepreciationController::class, 'index'])->name('asset-depreciations.index');
+        Route::post('asset-depreciations/process-all', [\App\Http\Controllers\AssetDepreciationController::class, 'processAll'])->name('asset-depreciations.process-all');
+        Route::post('asset-depreciations/process-selected', [\App\Http\Controllers\AssetDepreciationController::class, 'processSelected'])->name('asset-depreciations.process-selected');
 
         // Asset Invoice Payments Routes
         Route::delete('asset-invoice-payments/bulk-delete', [AssetInvoicePaymentController::class, 'bulkDelete'])->name('asset-invoice-payments.bulk-delete');

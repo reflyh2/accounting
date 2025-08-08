@@ -63,7 +63,8 @@ class GeneralLedgerController extends Controller
                 );
 
                 // Get mutations
-                $mutations = JournalEntry::whereIn('account_id', $accountIds)
+                $mutations = JournalEntry::join('journals', 'journal_entries.journal_id', '=', 'journals.id')
+                    ->whereIn('account_id', $accountIds)
                     ->whereHas('journal', function ($query) use ($filters) {
                         $query->whereBetween('date', [$filters['start_date'], $filters['end_date']])
                             ->when(!empty($filters['company_id']), function ($q) use ($filters) {
@@ -76,7 +77,7 @@ class GeneralLedgerController extends Controller
                             });
                     })
                     ->with(['journal', 'currency'])
-                    ->orderBy('created_at')
+                    ->orderBy('journals.date')
                     ->get();
 
                 $ledgerData[] = [
@@ -138,7 +139,8 @@ class GeneralLedgerController extends Controller
                 );
 
                 // Get mutations
-                $mutations = JournalEntry::whereIn('account_id', $accountIds)
+                $mutations = JournalEntry::join('journals', 'journal_entries.journal_id', '=', 'journals.id')
+                    ->whereIn('account_id', $accountIds)
                     ->whereHas('journal', function ($query) use ($filters) {
                         $query->whereBetween('date', [$filters['start_date'], $filters['end_date']])
                             ->when(!empty($filters['company_id']), function ($q) use ($filters) {
@@ -151,7 +153,7 @@ class GeneralLedgerController extends Controller
                             });
                     })
                     ->with(['journal', 'currency'])
-                    ->orderBy('created_at')
+                    ->orderBy('journals.date')
                     ->get();
 
                 $ledgerData[] = [

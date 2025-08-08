@@ -10,6 +10,7 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Partner;
 use App\Models\Currency;
+use App\Models\AssetDepreciationSchedule;
 use App\Events\Asset\AssetPurchaseCreated;
 use App\Events\Asset\AssetPurchaseUpdated;
 use App\Events\Asset\AssetPurchaseDeleted;
@@ -377,12 +378,17 @@ class AssetPurchaseController extends Controller
     public function destroy(Request $request, AssetInvoice $assetPurchase)
     {
         $this->ensureIsPurchase($assetPurchase);
-        DB::transaction(function () use ($assetPurchase) {
-            AssetPurchaseDeleted::dispatch($assetPurchase);
-            // TODO: Reverse/Delete Journal Entry associated with this invoice
-            // $this->deletePurchaseJournal($assetPurchase);
 
-            $assetPurchase->assetInvoiceDetails()->delete(); // Delete details first
+        DB::transaction(function () use ($assetPurchase) {
+            AssetPurchaseDeleted::dispatch($assetPurchase->loadMissing('assetInvoiceDetails.asset'));
+
+            foreach ($assetPurchase->assetInvoiceDetails as $detail) {
+                if ($detail->asset && AssetDepreciationSchedule::where('asset_id', $detail->asset->id)->where('is_processed', true)->exists()) {
+                    throw new \Exception('Tidak dapat menghapus faktur karena sudah ada penyusutan/amortisasi yang diproses untuk aset: ' . $detail->asset->name);
+                }
+
+                $detail->delete();
+            }
             $assetPurchase->delete(); // Soft delete the invoice
         });
 
@@ -409,9 +415,14 @@ class AssetPurchaseController extends Controller
             $invoices = AssetInvoice::whereIn('id', $validated['ids'])->where('type', 'purchase')->get();
             foreach ($invoices as $invoice) {
                 AssetPurchaseDeleted::dispatch($invoice);
-                // TODO: Reverse/Delete Journal Entry
-                // $this->deletePurchaseJournal($invoice);
-                $invoice->assetInvoiceDetails()->delete();
+
+                foreach ($invoice->assetInvoiceDetails as $detail) {
+                    if ($detail->asset && AssetDepreciationSchedule::where('asset_id', $detail->asset->id)->where('is_processed', true)->exists()) {
+                        throw new \Exception('Tidak dapat menghapus faktur karena sudah ada penyusutan/amortisasi yang diproses untuk aset: ' . $detail->asset->name);
+                    }
+
+                    $detail->delete();
+                }
                 $invoice->delete();
             }
         });
