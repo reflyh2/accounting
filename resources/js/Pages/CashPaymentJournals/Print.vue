@@ -1,9 +1,16 @@
 <script setup>
-import { onMounted } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+import { onMounted, computed } from 'vue';
 import { formatNumber, terbilang } from '@/utils/numberFormat';
+
+const page = usePage();
 
 const props = defineProps({
     cashPaymentJournal: Object,
+});
+
+const hasOtherCurrency = computed(() => {
+    return props.cashPaymentJournal?.journal_entries?.some(entry => entry.currency_id != page.props.primaryCurrency.id);
 });
 
 const kasBankEntry = props.cashPaymentJournal.journal_entries.find(entry => entry.credit != 0);
@@ -46,37 +53,29 @@ onMounted(() => {
                 <tr>
                   <th class="text-left">No. Akun</th>
                   <th class="text-left">Akun</th>
+                  <th class="text-left" v-if="hasOtherCurrency">Mata Uang</th>
                   <th class="text-right">Jumlah</th>
-                  <th class="text-left">Mata Uang</th>
-                  <th class="text-right">Kurs</th>
-                  <th class="text-right">Jumlah Mata Uang Utama</th>
+                  <th class="text-right" v-if="hasOtherCurrency">Kurs</th>
+                  <th class="text-right" v-if="hasOtherCurrency">Jumlah ({{ page.props.primaryCurrency.code }})</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-for="entry in otherEntries" :key="entry.id">
                     <td>{{ entry.account.code }}</td>
                     <td>{{ entry.account.name }}</td>
+                    <td v-if="hasOtherCurrency">{{ entry.currency.code }}</td>
                     <td class="text-right">{{ formatNumber(entry.debit) }}</td>
-                    <td>{{ entry.currency.code }}</td>
-                    <td class="text-right">{{ formatNumber(entry.exchange_rate) }}</td>
-                    <td class="text-right">{{ formatNumber(entry.primary_currency_debit) }}</td>
+                    <td class="text-right" v-if="hasOtherCurrency">{{ formatNumber(entry.exchange_rate) }}</td>
+                    <td class="text-right" v-if="hasOtherCurrency">{{ formatNumber(entry.primary_currency_debit) }}</td>
                 </tr>
             </tbody>
             <tfoot>
                 <tr>
-                    <th colspan="2" class="text-left">Total</th>
-                    <th></th>
-                    <th></th>
-                    <th></th>
-                    <th class="text-right">{{ formatNumber(cashPaymentJournal.journal_entries.reduce((sum, entry) => sum + (Number(entry.debit) * Number(entry.exchange_rate)), 0)) }}</th>
-                </tr>
-
-                <tr>
                     <th colspan="2" class="text-left">Total Pengeluaran dari {{ kasBankEntry.account.name }}</th>
+                    <th class="text-left" v-if="hasOtherCurrency">{{ kasBankEntry.currency.code }}</th>
                     <th class="text-right">{{ formatNumber(kasBankEntry.credit) }}</th>
-                    <th class="text-left">{{ kasBankEntry.currency.code }}</th>
-                    <th></th>
-                    <th></th>
+                    <th class="text-right" v-if="hasOtherCurrency">{{ formatNumber(kasBankEntry.exchange_rate) }}</th>
+                    <th class="text-right" v-if="hasOtherCurrency">{{ formatNumber(kasBankEntry.primary_currency_credit) }}</th>
                 </tr>
             </tfoot>
         </table>

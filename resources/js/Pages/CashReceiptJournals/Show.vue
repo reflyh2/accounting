@@ -1,13 +1,19 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm, Link } from '@inertiajs/vue3';
+import { Head, useForm, Link, usePage } from '@inertiajs/vue3';
 import AppPrintButton from '@/Components/AppPrintButton.vue';
 import AppEditButton from '@/Components/AppEditButton.vue';
 import AppDeleteButton from '@/Components/AppDeleteButton.vue';
 import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { formatNumber } from '@/utils/numberFormat';
+
+const page = usePage();
+
+const hasOtherCurrency = computed(() => {
+    return props.cashReceiptJournal?.journal_entries?.some(entry => entry.currency_id != page.props.primaryCurrency.id);
+});
 
 const props = defineProps({
     cashReceiptJournal: Object,
@@ -78,34 +84,31 @@ const deleteCashReceiptJournal = () => {
                             <table class="w-full border-collapse border border-gray-300 text-sm">
                                 <thead>
                                     <tr>
-                                        <th class="border border-gray-300 px-4 py-2">No. Akun</th>
-                                        <th class="border border-gray-300 px-4 py-2">Nama Akun</th>
-                                        <th class="border border-gray-300 px-4 py-2">Jumlah</th>
-                                        <th class="border border-gray-300 px-4 py-2">Mata Uang</th>
-                                        <th class="border border-gray-300 px-4 py-2">Kurs</th>
-                                        <th class="border border-gray-300 px-4 py-2">Jumlah Mata Uang Utama</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">No. Akun</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">Nama Akun</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2" v-if="hasOtherCurrency">Mata Uang</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">Jumlah</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2" v-if="hasOtherCurrency">Kurs</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2" v-if="hasOtherCurrency">Jumlah ({{ page.props.primaryCurrency.code }})</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-for="entry in otherEntries" :key="entry.id">
                                         <td class="border border-gray-300 px-4 py-2">{{ entry.account.code }}</td>
                                         <td class="border border-gray-300 px-4 py-2">{{ entry.account.name }}</td>
+                                        <td class="border border-gray-300 px-4 py-2" v-if="hasOtherCurrency">{{ entry.currency.code }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(entry.credit) }}</td>
-                                        <td class="border border-gray-300 px-4 py-2">{{ entry.currency.code }}</td>
-                                        <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(entry.exchange_rate) }}</td>
-                                        <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(entry.primary_currency_credit) }}</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">{{ formatNumber(entry.exchange_rate) }}</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">{{ formatNumber(entry.primary_currency_credit) }}</td>
                                     </tr>
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <th colspan="5" class="border border-gray-300 px-4 py-2 text-left">Total</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(cashReceiptJournal.journal_entries.reduce((sum, entry) => sum + Number(entry.primary_currency_credit), 0)) }}</th>
-                                    </tr>
-                                    <tr>
                                         <th colspan="2" class="border border-gray-300 px-4 py-2 text-left">Total Penerimaan ke {{ kasBankEntry.account.name }}</th>
+                                        <th class="border border-gray-300 px-4 py-2 text-left" v-if="hasOtherCurrency">{{ kasBankEntry.currency.code }}</th>
                                         <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(kasBankEntry.debit) }}</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-left">{{ kasBankEntry.currency.code }}</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(kasBankEntry.exchange_rate) }}</th>
+                                        <th class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">{{ formatNumber(kasBankEntry.exchange_rate) }}</th>
+                                        <th class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">{{ formatNumber(kasBankEntry.primary_currency_debit) }}</th>
                                     </tr>
                                 </tfoot>
                             </table>

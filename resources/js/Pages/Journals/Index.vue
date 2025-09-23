@@ -32,6 +32,7 @@ const tableHeaders = [
     { key: 'date', label: 'Tanggal' },
     { key: 'journal_number', label: 'Nomor Jurnal' },
     { key: 'reference_number', label: 'Nomor Referensi' },
+    { key: 'branch.branch_group.company.name', label: 'Perusahaan' },
     { key: 'branch.name', label: 'Cabang' },
     { key: 'description', label: 'Catatan' },
     { key: 'journal_entries_sum_primary_currency_debit', label: 'Total' },

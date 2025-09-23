@@ -22,7 +22,7 @@ class JournalController extends Controller
         $filters = $request->all() ?: Session::get('journals.index_filters', []);
         Session::put('journals.index_filters', $filters);
 
-        $query = Journal::with(['branch', 'journalEntries.account'])
+        $query = Journal::with(['branch.branchGroup.company', 'journalEntries.account'])
             ->withSum('journalEntries', 'primary_currency_debit')
             ->where('journal_type', 'general');
 

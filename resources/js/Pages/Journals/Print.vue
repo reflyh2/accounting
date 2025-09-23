@@ -1,9 +1,15 @@
 <script setup>
-import { Head } from '@inertiajs/vue3';
-import { onMounted } from 'vue';
+import { Head, usePage } from '@inertiajs/vue3';
+import { onMounted, computed } from 'vue';
 import { formatNumber, terbilang } from '@/utils/numberFormat';
 
-defineProps({
+const page = usePage();
+
+const hasOtherCurrency = computed(() => {
+    return props.journal?.journal_entries?.some(entry => entry.currency_id != page.props.primaryCurrency.id);
+});
+
+const props = defineProps({
     journal: Object,
     primaryCurrency: Object,
 });
@@ -43,29 +49,35 @@ onMounted(() => {
                 <tr>
                     <th class="text-left">No. Akun</th>
                     <th class="text-left">Akun</th>
+                    <th class="text-left" v-if="hasOtherCurrency">Mata Uang</th>
                     <th class="text-right">Debet</th>
                     <th class="text-right">Kredit</th>
-                    <th class="text-left">Mata Uang</th>
-                    <th class="text-right">Kurs</th>
+                    <th class="text-right" v-if="hasOtherCurrency">Kurs</th>
+                    <th class="text-right" v-if="hasOtherCurrency">Debit ({{ page.props.primaryCurrency.code }})</th>
+                    <th class="text-right" v-if="hasOtherCurrency">Kredit ({{ page.props.primaryCurrency.code }})</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-for="entry in journal.journal_entries" :key="entry.id">
                     <td>{{ entry.account.code }}</td>
                     <td>{{ entry.account.name }}</td>
+                    <td class="text-right" v-if="hasOtherCurrency">{{ entry.currency.code }}</td>
                     <td class="text-right">{{ formatNumber(entry.debit) }}</td>
                     <td class="text-right">{{ formatNumber(entry.credit) }}</td>
-                    <td>{{ entry.currency.code }}</td>
-                    <td class="text-right">{{ formatNumber(entry.exchange_rate) }}</td>
+                    <td class="text-right" v-if="hasOtherCurrency">{{ formatNumber(entry.exchange_rate) }}</td>
+                    <td class="text-right" v-if="hasOtherCurrency">{{ formatNumber(entry.primary_currency_debit) }}</td>
+                    <td class="text-right" v-if="hasOtherCurrency">{{ formatNumber(entry.primary_currency_credit) }}</td>
                 </tr>
             </tbody>
             <tfoot>
                 <tr>
                     <th colspan="2" class="text-left">Total</th>
+                    <th v-if="hasOtherCurrency"></th>
+                    <th v-if="hasOtherCurrency"></th>
+                    <th v-if="hasOtherCurrency"></th>
+                    <th v-if="hasOtherCurrency"></th>
                     <th class="text-right">{{ formatNumber(journal.journal_entries.reduce((sum, entry) => sum + Number(entry.primary_currency_debit), 0)) }}</th>
                     <th class="text-right">{{ formatNumber(journal.journal_entries.reduce((sum, entry) => sum + Number(entry.primary_currency_credit), 0)) }}</th>
-                    <th class="text-left">{{ primaryCurrency.code }}</th>
-                    <th></th>
                 </tr>
             </tfoot>
         </table>

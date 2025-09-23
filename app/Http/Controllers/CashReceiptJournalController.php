@@ -22,7 +22,7 @@ class CashReceiptJournalController extends Controller
         $filters = $request->all() ?: Session::get('cash_receipt_journals.index_filters', []);
         Session::put('cash_receipt_journals.index_filters', $filters);
 
-        $query = Journal::with(['branch', 'journalEntries.account'])
+        $query = Journal::with(['branch.branchGroup.company', 'journalEntries.account'])
             ->withSum('journalEntries', 'primary_currency_debit')
             ->where('journal_type', 'cash_receipt');
 
