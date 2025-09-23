@@ -18,6 +18,10 @@ const form = useForm({
     default_revenue_account_id: props.company.default_revenue_account_id,
     default_cogs_account_id: props.company.default_cogs_account_id,
     default_retained_earnings_account_id: props.company.default_retained_earnings_account_id,
+    default_interbranch_receivable_account_id: props.company.default_interbranch_receivable_account_id,
+    default_interbranch_payable_account_id: props.company.default_interbranch_payable_account_id,
+    default_intercompany_receivable_account_id: props.company.default_intercompany_receivable_account_id,
+    default_intercompany_payable_account_id: props.company.default_intercompany_payable_account_id,
 });
 
 const submitted = ref(false);
@@ -111,6 +115,38 @@ const retainedEarningsAccounts = computed(() => {
                                 label="Akun Laba Ditahan Standar:"
                                 placeholder="Pilih akun laba ditahan standar"
                                 :error="form.errors.default_retained_earnings_account_id"
+                            />
+
+                            <AppSelect
+                                v-model="form.default_interbranch_receivable_account_id"
+                                :options="receivableAccounts.map(account => ({ value: account.id, label: `${account.code} - ${account.name}` }))"
+                                label="Akun Piutang Antar Cabang Standar:"
+                                placeholder="Pilih akun piutang antar cabang standar"
+                                :error="form.errors.default_interbranch_receivable_account_id"
+                            />
+
+                            <AppSelect
+                                v-model="form.default_interbranch_payable_account_id"
+                                :options="payableAccounts.map(account => ({ value: account.id, label: `${account.code} - ${account.name}` }))"
+                                label="Akun Hutang Antar Cabang Standar:"
+                                placeholder="Pilih akun hutang antar cabang standar"
+                                :error="form.errors.default_interbranch_payable_account_id"
+                            />
+
+                            <AppSelect
+                                v-model="form.default_intercompany_receivable_account_id"
+                                :options="receivableAccounts.map(account => ({ value: account.id, label: `${account.code} - ${account.name}` }))"
+                                label="Akun Piutang Antar Perusahaan Standar:"
+                                placeholder="Pilih akun piutang antar perusahaan standar"
+                                :error="form.errors.default_intercompany_receivable_account_id"
+                            />
+
+                            <AppSelect
+                                v-model="form.default_intercompany_payable_account_id"
+                                :options="payableAccounts.map(account => ({ value: account.id, label: `${account.code} - ${account.name}` }))"
+                                label="Akun Hutang Antar Perusahaan Standar:"
+                                placeholder="Pilih akun hutang antar perusahaan standar"
+                                :error="form.errors.default_intercompany_payable_account_id"
                             />
 
                             <div class="mt-4">

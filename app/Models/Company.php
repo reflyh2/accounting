@@ -33,6 +33,10 @@ class Company extends Model
         'default_revenue_account_id',
         'default_cogs_account_id',
         'default_retained_earnings_account_id',
+        'default_interbranch_receivable_account_id',
+        'default_interbranch_payable_account_id',
+        'default_intercompany_receivable_account_id',
+        'default_intercompany_payable_account_id',
     ];
 
     protected $casts = [
@@ -119,5 +123,25 @@ class Company extends Model
     public function defaultRetainedEarningsAccount()
     {
         return $this->belongsTo(Account::class, 'default_retained_earnings_account_id');
+    }
+
+    public function defaultInterbranchReceivableAccount()
+    {
+        return $this->belongsTo(Account::class, 'default_interbranch_receivable_account_id');
+    }
+
+    public function defaultInterbranchPayableAccount()
+    {
+        return $this->belongsTo(Account::class, 'default_interbranch_payable_account_id');
+    }
+
+    public function defaultIntercompanyReceivableAccount()
+    {
+        return $this->belongsTo(Account::class, 'default_intercompany_receivable_account_id');
+    }
+
+    public function defaultIntercompanyPayableAccount()
+    {
+        return $this->belongsTo(Account::class, 'default_intercompany_payable_account_id');
     }
 }

@@ -6,6 +6,7 @@ import { Head } from '@inertiajs/vue3';
 import AppDataTable from '@/Components/AppDataTable.vue';
 import { formatNumber } from '@/utils/numberFormat';
 import AppPrintButton from '@/Components/AppPrintButton.vue';
+import TabLinks from '@/Components/TabLinks.vue';
 
 const page = usePage();
 
@@ -18,6 +19,13 @@ const props = defineProps({
     sort: String,
     order: String,
 });
+
+const tabs = [
+    { label: 'Pembelian Aset', route: 'asset-purchases.index', active: false },
+    { label: 'Penyewaan Aset', route: 'asset-rentals.index', active: false },
+    { label: 'Penjualan Aset', route: 'asset-sales.index', active: true },
+    { label: 'Pembayaran Aset', route: 'asset-invoice-payments.index', active: false },
+];
 
 const currentSort = ref({ key: props.sort || 'invoice_date', order: props.order || 'desc' });
 const currentFilters = ref(props.filters || {});
@@ -179,6 +187,8 @@ function handleFilter(newFilters) {
         </template>
 
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+            <TabLinks :tabs="tabs" />
+
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">
                     <AppDataTable

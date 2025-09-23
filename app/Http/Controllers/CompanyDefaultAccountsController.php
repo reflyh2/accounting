@@ -20,7 +20,11 @@ class CompanyDefaultAccountsController extends Controller
                 'defaultPayableAccount',
                 'defaultRevenueAccount',
                 'defaultCogsAccount',
-                'defaultRetainedEarningsAccount'
+                'defaultRetainedEarningsAccount',
+                'defaultInterbranchReceivableAccount',
+                'defaultInterbranchPayableAccount',
+                'defaultIntercompanyReceivableAccount',
+                'defaultIntercompanyPayableAccount'
             ]),
             'accounts' => Account::where(function($query) use ($company) {
                 $query->whereHas('companies', function($q) use ($company) {
@@ -39,6 +43,10 @@ class CompanyDefaultAccountsController extends Controller
             'default_revenue_account_id' => 'nullable|exists:accounts,id',
             'default_cogs_account_id' => 'nullable|exists:accounts,id',
             'default_retained_earnings_account_id' => 'nullable|exists:accounts,id',
+            'default_interbranch_receivable_account_id' => 'nullable|exists:accounts,id',
+            'default_interbranch_payable_account_id' => 'nullable|exists:accounts,id',
+            'default_intercompany_receivable_account_id' => 'nullable|exists:accounts,id',
+            'default_intercompany_payable_account_id' => 'nullable|exists:accounts,id',
         ]);
 
         $company->update($validated);

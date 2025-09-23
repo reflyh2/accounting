@@ -63,7 +63,7 @@ class HandleInertiaRequests extends Middleware
                 'warning' => $request->session()->get('warning'),
                 'hash' => hash('sha256', now()),
             ],
-            'primaryCurrency' => Currency::where('is_primary', true)->first(),
+            'primaryCurrency' => ($tenantUser) ? Currency::where('is_primary', true)->first() : null,
         ];
     }
 }

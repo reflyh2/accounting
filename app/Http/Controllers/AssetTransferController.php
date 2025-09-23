@@ -6,6 +6,9 @@ use App\Models\Asset;
 use App\Models\AssetTransfer;
 use App\Models\AssetTransferDetail;
 use App\Models\Branch;
+use App\Events\Asset\AssetTransferCreated;
+use App\Events\Asset\AssetTransferUpdated;
+use App\Events\Asset\AssetTransferDeleted;
 use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -167,6 +170,7 @@ class AssetTransferController extends Controller
                     'notes' => $detail['notes'],
                 ]);
             }
+            // event(new AssetTransferCreated($transfer));
             return $transfer;
         });
 
@@ -281,6 +285,7 @@ class AssetTransferController extends Controller
             if (!empty($detailsToDelete)) {
                 $assetTransfer->assetTransferDetails()->whereIn('id', $detailsToDelete)->delete();
             }
+            event(new AssetTransferUpdated($assetTransfer));
         });
 
         return redirect()->route('asset-transfers.show', $assetTransfer->id)
@@ -294,6 +299,7 @@ class AssetTransferController extends Controller
         }
 
         DB::transaction(function () use ($assetTransfer) {
+            event(new AssetTransferDeleted($assetTransfer));
             $assetTransfer->assetTransferDetails()->delete();
             $assetTransfer->delete();
         });
@@ -312,6 +318,7 @@ class AssetTransferController extends Controller
         DB::transaction(function () use ($validated) {
             $transfers = AssetTransfer::whereIn('id', $validated['ids'])->where('status', 'draft')->get();
             foreach ($transfers as $transfer) {
+                event(new AssetTransferDeleted($transfer));
                 $transfer->assetTransferDetails()->delete();
                 $transfer->delete();
             }
@@ -341,8 +348,7 @@ class AssetTransferController extends Controller
                     'branch_id' => $assetTransfer->to_branch_id,
                 ]);
             }
-            
-            // TODO: Generate Journal Entry if inter-company
+            event(new AssetTransferCreated($assetTransfer));
         });
 
         return redirect()->route('asset-transfers.show', $assetTransfer->id)->with('success', 'Transfer Aset berhasil disetujui.');

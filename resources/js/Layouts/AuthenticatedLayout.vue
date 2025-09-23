@@ -228,21 +228,17 @@ function toggleSidebar() {
                                 :active="
                                     route().current('asset-purchases.*')
                                     || route().current('asset-rentals.*')
+                                    || route().current('asset-sales.*')
+                                    || route().current('asset-invoice-payments.*')
                                 " 
                                 class="pl-11">
-                                Akuisisi Aset
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('asset-sales.index')" :active="route().current('asset-sales.*')" class="pl-11">
-                                Penjualan Aset
+                                Invoice Aset
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('asset-disposals.index')" :active="route().current('asset-disposals.*')" class="pl-11">
                                 Pelepasan Aset
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('asset-depreciations.index')" :active="route().current('asset-depreciations.*')" class="pl-11">
                                 Penyusutan/Amortisasi
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('asset-invoice-payments.index')" :active="route().current('asset-invoice-payments.*')" class="pl-11">
-                                Pembayaran Aset
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*') || route().current('asset-financing-payments.*')" class="pl-11">
                                 Perjanjian Pembiayaan
@@ -309,7 +305,7 @@ function toggleSidebar() {
 
         <div class="flex flex-1 overflow-hidden">
             <!-- Side Navigation -->
-            <div :class="[sidebarWidth, 'hidden md:shadow-sm md:block bg-white border-t border-r border-gray-200 flex-shrink-0 overflow-visible thin-scrollbar fixed top-16 bottom-0 left-0 no-print transition-all duration-300 z-10']">
+            <div :class="[sidebarWidth, sidebarCollapsed ? 'overflow-none' : 'overflow-auto', 'hidden md:shadow-sm md:block bg-white border-t border-r border-gray-200 flex-shrink-0 thin-scrollbar fixed top-16 bottom-0 left-0 no-print transition-all duration-300 z-10']">
                 <div :class="sidebarCollapsed ? 'py-2 px-1' : 'py-6 pl-2 pr-6'">
                     <nav class="space-y-1">
                         <!-- Dashboard Link -->
@@ -459,18 +455,12 @@ function toggleSidebar() {
                                             :active="
                                                 route().current('asset-purchases.*')
                                                 || route().current('asset-rentals.*')
+                                                || route().current('asset-sales.*')
+                                                || route().current('asset-invoice-payments.*')
                                             " 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
-                                            Akuisisi Aset
-                                        </NavLink>
-                                        <NavLink :href="route('asset-sales.index')"
-                                            :active="
-                                                route().current('asset-sales.*')
-                                            " 
-                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
-                                        >
-                                            Penjualan Aset
+                                            Invoice Aset
                                         </NavLink>
                                         <NavLink :href="route('asset-disposals.index')"
                                             :active="
@@ -487,14 +477,6 @@ function toggleSidebar() {
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Penyusutan/Amortisasi
-                                        </NavLink>
-                                        <NavLink :href="route('asset-invoice-payments.index')"
-                                            :active="
-                                                route().current('asset-invoice-payments.*')
-                                            " 
-                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
-                                        >
-                                            Pembayaran Aset
                                         </NavLink>
                                         <NavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*') || route().current('asset-financing-payments.*')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
                                             Perjanjian Pembiayaan
@@ -536,18 +518,12 @@ function toggleSidebar() {
                                             :active="
                                                 route().current('asset-purchases.*')
                                                 || route().current('asset-rentals.*')
+                                                || route().current('asset-sales.*')
+                                                || route().current('asset-invoice-payments.*')
                                             " 
                                             class="flex items-center"
                                         >
-                                            Akuisisi Aset
-                                        </NavLink>
-                                        <NavLink :href="route('asset-sales.index')"
-                                            :active="
-                                                route().current('asset-sales.*')
-                                            " 
-                                            class="flex items-center"
-                                        >
-                                            Penjualan Aset
+                                            Invoice Aset
                                         </NavLink>
                                         <NavLink :href="route('asset-disposals.index')"
                                             :active="
@@ -564,14 +540,6 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Penyusutan/Amortisasi
-                                        </NavLink>
-                                        <NavLink :href="route('asset-invoice-payments.index')"
-                                            :active="
-                                                route().current('asset-invoice-payments.*')
-                                            " 
-                                            class="flex items-center"
-                                        >
-                                            Pembayaran Aset
                                         </NavLink>
                                         <NavLink :href="route('asset-financing-agreements.index')" :active="route().current('asset-financing-agreements.*') || route().current('asset-financing-payments.*')" class="flex items-center">
                                             Perjanjian Pembiayaan

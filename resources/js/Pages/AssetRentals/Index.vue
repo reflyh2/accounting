@@ -23,6 +23,8 @@ const props = defineProps({
 const tabs = [
     { label: 'Pembelian Aset', route: 'asset-purchases.index', active: false },
     { label: 'Penyewaan Aset', route: 'asset-rentals.index', active: true },
+    { label: 'Penjualan Aset', route: 'asset-sales.index', active: false },
+    { label: 'Pembayaran Aset', route: 'asset-invoice-payments.index', active: false },
 ];
 
 const currentSort = ref({ key: props.sort || 'invoice_date', order: props.order || 'desc' });
