@@ -232,7 +232,7 @@ function toggleSidebar() {
                                     || route().current('asset-invoice-payments.*')
                                 " 
                                 class="pl-11">
-                                Invoice Aset
+                                Invoice & Pembayaran Aset
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('asset-disposals.index')" :active="route().current('asset-disposals.*')" class="pl-11">
                                 Pelepasan Aset
@@ -460,7 +460,7 @@ function toggleSidebar() {
                                             " 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
-                                            Invoice Aset
+                                            Invoice & Pembayaran Aset
                                         </NavLink>
                                         <NavLink :href="route('asset-disposals.index')"
                                             :active="
@@ -523,7 +523,7 @@ function toggleSidebar() {
                                             " 
                                             class="flex items-center"
                                         >
-                                            Invoice Aset
+                                            Invoice & Pembayaran Aset
                                         </NavLink>
                                         <NavLink :href="route('asset-disposals.index')"
                                             :active="
