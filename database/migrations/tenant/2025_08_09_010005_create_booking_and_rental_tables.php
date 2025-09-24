@@ -78,7 +78,7 @@ return new class extends Migration
             $table->foreign('created_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
             $table->foreign('updated_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
         });
-        DB::statement("ALTER TABLE occurrence ADD CONSTRAINT chk_occ_time CHECK (end_datetime > start_datetime)");
+        DB::statement("ALTER TABLE occurrences ADD CONSTRAINT chk_occ_time CHECK (end_datetime > start_datetime)");
 
         Schema::create('bookings', function (Blueprint $table) {
             $table->id();
