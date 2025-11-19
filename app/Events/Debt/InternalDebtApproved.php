@@ -1,0 +1,21 @@
+<?php
+
+namespace App\Events\Debt;
+
+use App\Models\InternalDebt;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
+
+class InternalDebtApproved implements ShouldDispatchAfterCommit
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public function __construct(public InternalDebt $debt)
+    {
+        //
+    }
+}
+
+

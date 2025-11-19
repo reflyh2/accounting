@@ -47,6 +47,13 @@ use App\Http\Controllers\AssetFinancingScheduleController;
 use App\Http\Controllers\AssetFinancingPaymentController;
 use App\Http\Controllers\AssetTransferController;
 use App\Http\Controllers\AssetDisposalController;
+use App\Http\Controllers\ExternalPayableController;
+use App\Http\Controllers\ExternalReceivableController;
+use App\Http\Controllers\InternalPayableController;
+use App\Http\Controllers\InternalReceivableController;
+use App\Http\Controllers\InternalDebtController;
+use App\Http\Controllers\ExternalPayablePaymentController;
+use App\Http\Controllers\ExternalReceivablePaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -308,6 +315,35 @@ Route::middleware([
         Route::put('partner-bank-accounts/{partnerBankAccount}', [PartnerBankAccountController::class, 'update'])->name('partner-bank-accounts.update');
         Route::delete('partner-bank-accounts/{partnerBankAccount}', [PartnerBankAccountController::class, 'destroy'])->name('partner-bank-accounts.destroy');
         Route::get('partners/{partner}/bank-accounts', [PartnerBankAccountController::class, 'getByPartner'])->name('partners.bank-accounts');
+
+        // Debts (Hutang/Piutang)
+        Route::resource('external-payables', ExternalPayableController::class)->parameters([
+            'external-payables' => 'debt',
+        ]);
+        Route::resource('external-receivables', ExternalReceivableController::class)->parameters([
+            'external-receivables' => 'debt',
+        ]);
+        // External Debt Payments (separate modules; unified table)
+        Route::delete('external-payable-payments/bulk-delete', [ExternalPayablePaymentController::class, 'bulkDelete'])->name('external-payable-payments.bulk-delete');
+        Route::get('external-payable-payments/export-xlsx', [ExternalPayablePaymentController::class, 'exportXLSX'])->name('external-payable-payments.export-xlsx');
+        Route::get('external-payable-payments/export-csv', [ExternalPayablePaymentController::class, 'exportCSV'])->name('external-payable-payments.export-csv');
+        Route::get('external-payable-payments/export-pdf', [ExternalPayablePaymentController::class, 'exportPDF'])->name('external-payable-payments.export-pdf');
+        Route::get('external-payable-payments/{externalPayablePayment}/print', [ExternalPayablePaymentController::class, 'print'])->name('external-payable-payments.print');
+        Route::resource('external-payable-payments', ExternalPayablePaymentController::class);
+
+        Route::delete('external-receivable-payments/bulk-delete', [ExternalReceivablePaymentController::class, 'bulkDelete'])->name('external-receivable-payments.bulk-delete');
+        Route::get('external-receivable-payments/export-xlsx', [ExternalReceivablePaymentController::class, 'exportXLSX'])->name('external-receivable-payments.export-xlsx');
+        Route::get('external-receivable-payments/export-csv', [ExternalReceivablePaymentController::class, 'exportCSV'])->name('external-receivable-payments.export-csv');
+        Route::get('external-receivable-payments/export-pdf', [ExternalReceivablePaymentController::class, 'exportPDF'])->name('external-receivable-payments.export-pdf');
+        Route::get('external-receivable-payments/{externalReceivablePayment}/print', [ExternalReceivablePaymentController::class, 'print'])->name('external-receivable-payments.print');
+        Route::resource('external-receivable-payments', ExternalReceivablePaymentController::class);
+        // Combined Internal Debts
+        Route::delete('internal-debts/bulk-delete', [InternalDebtController::class, 'bulkDelete'])->name('internal-debts.bulk-delete');
+        Route::get('internal-debts/export-xlsx', [InternalDebtController::class, 'exportXLSX'])->name('internal-debts.export-xlsx');
+        Route::get('internal-debts/export-csv', [InternalDebtController::class, 'exportCSV'])->name('internal-debts.export-csv');
+        Route::put('internal-debts/{internalDebt}/approve', [InternalDebtController::class, 'approve'])->name('internal-debts.approve');
+        Route::put('internal-debts/{internalDebt}/reject', [InternalDebtController::class, 'reject'])->name('internal-debts.reject');
+        Route::resource('internal-debts', InternalDebtController::class);
     });
 
     Route::middleware('guest')->group(function () {

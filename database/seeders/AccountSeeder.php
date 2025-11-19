@@ -93,6 +93,7 @@ class AccountSeeder extends Seeder
             ['code' => '2', 'name' => 'Kewajiban', 'type' => 'liabilitas_jangka_panjang', 'children' => [
                 ['code' => '201', 'name' => 'Hutang Usaha', 'type' => 'hutang_usaha', 'children' => [
                     ['name' => 'Hutang Usaha dari Pembelian', 'type' => 'hutang_usaha'],
+                    ['name' => 'Hutang Antar Cabang', 'type' => 'hutang_usaha'],
                     ['name' => 'Uang Muka Penjualan', 'type' => 'hutang_usaha'],
                 ]],
                 ['code' => '202', 'name' => 'Hutang Bank', 'type' => 'hutang_usaha_lainnya', 'children' => [

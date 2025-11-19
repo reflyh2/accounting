@@ -6,10 +6,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Journal extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $guarded = [];
 
@@ -23,6 +24,7 @@ class Journal extends Model
             $lastJournal = self::where('journal_type', $model->journal_type)
                                 ->whereYear('date', date('Y', strtotime($model->date)))
                                 ->where('branch_id', $model->branch_id)
+                                ->withTrashed()
                                 ->orderBy('journal_number', 'desc')
                                 ->first();
             $lastNumber = $lastJournal ? intval(substr($lastJournal->journal_number, -5)) : 0;
@@ -79,6 +81,10 @@ class Journal extends Model
             'asset_invoice_payment' => 'Jurnal Pembayaran Invoice Aset',
             'asset_depreciation' => 'Jurnal Penyusutan Aset',
             'asset_amortization' => 'Jurnal Amortisasi Aset',
+            'account_payable' => 'Jurnal Hutang',
+            'account_receivable' => 'Jurnal Piutang',
+            'internal_payable' => 'Jurnal Hutang Internal',
+            'internal_receivable' => 'Jurnal Piutang Internal',
         ];
     }
 
@@ -101,6 +107,10 @@ class Journal extends Model
             'asset_invoice_payment' => 'AIP',
             'asset_depreciation' => 'ADP',
             'asset_amortization' => 'AAM',
+            'account_payable' => 'ACP',
+            'account_receivable' => 'ACR',
+            'internal_payable' => 'IP',
+            'internal_receivable' => 'IR',
         ];
     }
 }

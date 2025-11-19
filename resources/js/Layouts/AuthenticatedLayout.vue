@@ -78,6 +78,9 @@ const isAccountingActive = computed(() => {
     return route().current('accounts.*')
         || route().current('currencies.*')
         || route().current('journals.*')
+        || route().current('external-payables.*')
+        || route().current('external-receivables.*')
+        || route().current('internal-debts.*')
         || route().current('cash-receipt-journals.*')
         || route().current('cash-payment-journals.*')
         || route().current('general-ledger.*')
@@ -192,6 +195,18 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Jurnal
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('external-payables.index')" 
+                                :active="route().current('external-payables.*') || route().current('external-receivables.*')" 
+                                class="pl-11"
+                            >
+                                Hutang / Piutang
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('internal-debts.index')" 
+                                :active="route().current('internal-debts.*')" 
+                                class="pl-11"
+                            >
+                                Hutang Internal
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('general-ledger.index')" 
                                 :active="
@@ -359,6 +374,17 @@ function toggleSidebar() {
                                         >
                                             Jurnal
                                         </NavLink>
+                                        <NavLink :href="route('external-payables.index')" 
+                                            :active="route().current('external-payables.*') || route().current('external-receivables.*')" 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
+                                            Hutang / Piutang
+                                        </NavLink>
+                                        <NavLink :href="route('internal-debts.index')"
+                                            :active="route().current('internal-debts.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Hutang Internal
+                                        </NavLink>
                                         <NavLink 
                                             :href="route('general-ledger.index')" 
                                             :active="
@@ -410,6 +436,17 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Jurnal
+                                        </NavLink>
+                                        <NavLink :href="route('external-payables.index')" 
+                                            :active="route().current('external-payables.*') || route().current('external-receivables.*')" 
+                                            class="flex items-center">
+                                            Hutang / Piutang
+                                        </NavLink>
+                                        <NavLink :href="route('internal-debts.index')"
+                                            :active="route().current('internal-debts.*')"
+                                            class="flex items-center"
+                                        >
+                                            Hutang Internal
                                         </NavLink>
                                         <NavLink 
                                             :href="route('general-ledger.index')" 

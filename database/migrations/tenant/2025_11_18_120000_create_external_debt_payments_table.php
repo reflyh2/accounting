@@ -11,13 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('debts', function (Blueprint $table) {
+        Schema::create('external_debt_payments', function (Blueprint $table) {
             $table->id();
-            // Basic identification
-            $table->string('type'); // payable | receivable
+
+            // Identification
             $table->string('number')->unique();
 
-            // Organizational context
+            // Link to the debt (determines payable vs receivable via external_debts.type)
+            $table->foreignId('external_debt_id')->constrained('external_debts')->onDelete('cascade');
+
+            // Organizational context (duplicated for efficient filtering)
             $table->foreignId('branch_id')->constrained()->onDelete('cascade');
 
             // Currency context
@@ -25,19 +28,18 @@ return new class extends Migration
             $table->decimal('exchange_rate', 15, 6)->default(1);
 
             // Dates
-            $table->date('issue_date');
-            $table->date('due_date')->nullable();
+            $table->date('payment_date');
 
             // Amounts
-            $table->decimal('amount', 15, 2); // amount in transaction currency
+            $table->decimal('amount', 15, 2); // payment amount in transaction currency
             $table->decimal('primary_currency_amount', 15, 2)->default(0); // amount in primary currency
 
-            // Status and references
-            $table->string('status')->default('open'); // open, partially_paid, paid, overdue, cancelled, closed, defaulted
+            // Optional references
+            $table->string('payment_method')->nullable();
             $table->string('reference_number')->nullable();
             $table->text('notes')->nullable();
 
-            // Optional link to auto-generated journal
+            // Optional linkage to a generated journal
             $table->foreignId('journal_id')->nullable()->constrained('journals')->onUpdate('cascade')->onDelete('cascade');
 
             // Audit
@@ -46,6 +48,7 @@ return new class extends Migration
             $table->string('updated_by')->nullable();
             $table->softDeletes();
 
+            // Foreign keys for audit fields
             $table->foreign('created_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
             $table->foreign('updated_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
         });
@@ -56,7 +59,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('debts');
+        Schema::dropIfExists('external_debt_payments');
     }
 };
 

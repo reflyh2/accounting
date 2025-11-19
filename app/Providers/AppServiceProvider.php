@@ -14,7 +14,7 @@ use App\Observers\AssetFinancingPaymentObserver;
 use App\Observers\AssetDepreciationObserver;
 use App\Observers\AssetMaintenanceRecordObserver;
 use Illuminate\Support\Facades\Event;
-use App\Listeners\Asset\AssetJournalSubscriber;
+use App\Listeners\Debt\InternalDebtEventSubscriber;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,6 +31,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Register event subscribers that use the subscribe() method
     }
 }

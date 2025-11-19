@@ -1,0 +1,136 @@
+<script setup>
+import { ref, computed } from 'vue';
+import { router, usePage } from '@inertiajs/vue3';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { Head } from '@inertiajs/vue3';
+import AppDataTable from '@/Components/AppDataTable.vue';
+import TabLinks from '@/Components/TabLinks.vue';
+import { formatNumber } from '@/utils/numberFormat';
+
+const page = usePage();
+
+const props = defineProps({
+    items: Object,
+    filters: Object,
+    companies: Array,
+    branches: Array,
+    partners: Array,
+    perPage: [String, Number],
+    sort: String,
+    order: String,
+});
+
+const tabs = [
+    { label: 'Hutang Eksternal', route: 'external-payables.index', active: false },
+    { label: 'Piutang Eksternal', route: 'external-receivables.index', active: false },
+    { label: 'Pembayaran Hutang', route: 'external-payable-payments.index', active: false },
+    { label: 'Penerimaan Piutang', route: 'external-receivable-payments.index', active: true },
+];
+
+const currentSort = ref({ key: props.sort || 'payment_date', order: props.order || 'desc' });
+const currentFilters = ref(props.filters || {});
+
+const tableHeaders = [
+    { key: 'payment_date', label: 'Tanggal' },
+    { key: 'number', label: 'Nomor' },
+    { key: 'partner.name', label: 'Partner' },
+    { key: 'branch.name', label: 'Cabang' },
+    { key: 'currency.code', label: 'Mata Uang' },
+    { key: 'amount', label: 'Jumlah' },
+    { key: 'payment_method', label: 'Metode' },
+    { key: 'reference_number', label: 'Referensi' },
+    { key: 'actions', label: '' },
+];
+
+const branchOptions = computed(() => props.branches.map(b => ({ value: b.id, label: b.name })));
+const partnerOptions = computed(() => props.partners.map(p => ({ value: p.id, label: p.name })));
+
+const customFilters = computed(() => [
+    { name: 'from_date', type: 'date', placeholder: 'Dari Tanggal', label: 'Dari' },
+    { name: 'to_date', type: 'date', placeholder: 'Sampai Tanggal', label: 'Sampai' },
+    { name: 'company_id', type: 'select', options: props.companies.map(c => ({ value: c.id, label: c.name })), multiple: true, placeholder: 'Pilih Perusahaan', label: 'Perusahaan' },
+    { name: 'branch_id', type: 'select', options: branchOptions.value, multiple: true, placeholder: 'Pilih Cabang', label: 'Cabang' },
+    { name: 'partner_id', type: 'select', options: partnerOptions.value, multiple: true, placeholder: 'Pilih Partner', label: 'Partner' },
+]);
+
+const downloadOptions = [
+    { format: 'xlsx', label: 'Download Excel' },
+    { format: 'csv', label: 'Download CSV' }
+];
+
+const columnFormatters = {
+    payment_date: (v) => new Date(v).toLocaleDateString('id-ID'),
+    amount: (v) => `${formatNumber(v)}`,
+};
+
+const sortableColumns = ['payment_date', 'number', 'partner.name', 'branch.name', 'amount'];
+const defaultSort = { key: 'payment_date', order: 'desc' };
+
+function deleteItem(id) {
+    router.delete(route('external-receivable-payments.destroy', id), { preserveScroll: true, preserveState: true });
+}
+
+function handleBulkDelete(ids) {
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+    router.delete(route('external-receivable-payments.bulk-delete'), {
+        preserveScroll: true,
+        preserveState: true,
+        data: { preserveState: true, currentQuery, ids },
+    });
+}
+
+function handleSort(newSort) {
+    currentSort.value = newSort;
+    router.get(route('external-receivable-payments.index'), { ...route().params, ...currentFilters.value, sort: newSort.key, order: newSort.order, per_page: props.perPage }, { preserveState: true, preserveScroll: true, replace: true });
+}
+
+function handleFilter(newFilters) {
+    currentFilters.value = newFilters;
+    if (newFilters.page) delete newFilters.page;
+    router.get(route('external-receivable-payments.index'), { ...currentFilters.value, sort: currentSort.value.key, order: currentSort.value.order, per_page: newFilters.per_page || props.perPage, page: 1 }, { preserveState: true, preserveScroll: true, replace: true });
+}
+</script>
+
+<template>
+    <Head title="Penerimaan Piutang Eksternal" />
+    <AuthenticatedLayout>
+        <template #header>
+            <h2>Penerimaan Piutang</h2>
+        </template>
+
+        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+            <TabLinks :tabs="tabs" />
+
+            <div class="bg-white shadow-sm sm:rounded border border-gray-200">
+                <div class="text-gray-900">
+                    <AppDataTable
+                        :data="items"
+                        :filters="currentFilters"
+                        :tableHeaders="tableHeaders"
+                        :columnFormatters="columnFormatters"
+                        :customFilters="customFilters"
+                        :createRoute="{ name: 'external-receivable-payments.create' }"
+                        :editRoute="{ name: 'external-receivable-payments.edit' }"
+                        :deleteRoute="{ name: 'external-receivable-payments.destroy' }"
+                        :viewRoute="{ name: 'external-receivable-payments.show' }"
+                        :indexRoute="{ name: 'external-receivable-payments.index' }"
+                        :downloadOptions="downloadOptions"
+                        :sortable="sortableColumns"
+                        :defaultSort="defaultSort"
+                        :currentSort="currentSort"
+                        :perPage="perPage"
+                        routeName="external-receivable-payments.index"
+                        itemKey="id"
+                        searchPlaceholder="Cari nomor, partner, cabang..."
+                        @delete="deleteItem"
+                        @bulkDelete="handleBulkDelete"
+                        @sort="handleSort"
+                        @filter="handleFilter"
+                    />
+                </div>
+            </div>
+        </div>
+    </AuthenticatedLayout>
+    </template>
+
+

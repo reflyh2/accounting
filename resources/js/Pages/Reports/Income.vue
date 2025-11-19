@@ -6,7 +6,7 @@ import { Head } from '@inertiajs/vue3';
 import { router } from '@inertiajs/vue3';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppInput from '@/Components/AppInput.vue';
-import TabLinks from '@/Components/TabLinks.vue';
+import AccountingReportTabs from '@/Tabs/AccountingReportTabs.vue';
 import AppDropdown from '@/Components/AppDropdown.vue';
 import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
@@ -29,13 +29,6 @@ const form = ref({
     start_date: props.filters.start_date || '',
     end_date: props.filters.end_date || '',
 });
-
-const tabs = [
-   { label: 'Buku Besar', route: 'general-ledger.index', active: false },
-   { label: 'Buku Kas & Bank', route: 'cash-bank-book.index', active: false },
-   { label: 'Laba/Rugi', route: 'income.index', active: true },
-   { label: 'Neraca', route: 'balance-sheet.index', active: false },
-];
 
 const selectedCompanies = computed(() => {
     if (!form.value.company_id?.length) return [];
@@ -83,7 +76,7 @@ function downloadReport(format) {
       </template>
 
       <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
-         <TabLinks :tabs="tabs" />
+         <AccountingReportTabs activeTab="income.index" />
 
          <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                <div class="p-6 text-gray-900">
