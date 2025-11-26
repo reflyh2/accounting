@@ -22,13 +22,13 @@ const props = defineProps({
             <Link
                 v-if="!tab.active"
                 :href="route(tab.route)"
-                class="px-4 py-3 text-sm rounded-t hover:text-main-700"
+                class="min-w-max px-4 py-3 text-sm rounded-t hover:text-main-700"
             >
                 {{ tab.label }}
             </Link>
             <div
                 v-else
-                class="px-4 py-3 rounded-t text-sm font-bold bg-white text-main-700 border-x border-t border-gray-200 -mb-px"
+                class="min-w-max px-4 py-3 rounded-t text-sm font-bold bg-white text-main-700 border-x border-t border-gray-200 -mb-px"
             >
                 {{ tab.label }}
             </div>

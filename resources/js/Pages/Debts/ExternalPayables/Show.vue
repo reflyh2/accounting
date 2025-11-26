@@ -29,10 +29,10 @@ const formattedStatus = computed(() => {
 </script>
 
 <template>
-    <Head title="Detail Hutang Eksternal" />
+    <Head title="Detail Hutang" />
     <AuthenticatedLayout>
         <template #header>
-            <h2>Detail Hutang Eksternal</h2>
+            <h2>Detail Hutang</h2>
         </template>
 
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
@@ -59,7 +59,7 @@ const formattedStatus = computed(() => {
                         </div>
                         <div>
                             <p class="font-semibold">Partner:</p>
-                            <p>{{ item.external_debt?.partner?.name }}</p>
+                            <p>{{ item.partner?.name }}</p>
                         </div>
                         <div>
                             <p class="font-semibold">Cabang:</p>

@@ -71,6 +71,10 @@ const deleteItem = () => {
                                 <p>{{ new Date(item.payment_date).toLocaleDateString('id-ID') }}</p>
                             </div>
                             <div>
+                                <p class="font-semibold">Akun:</p>
+                                <p>{{ item.account?.code }} {{ item.account?.name }}</p>
+                            </div>
+                            <div>
                                 <p class="font-semibold">Mata Uang:</p>
                                 <p>{{ item.currency?.code }}</p>
                             </div>
@@ -85,6 +89,18 @@ const deleteItem = () => {
                             <div>
                                 <p class="font-semibold">Referensi:</p>
                                 <p>{{ item.reference_number || '-' }}</p>
+                            </div>
+                            <div v-if="item.payment_method === 'transfer'">
+                                <p class="font-semibold">Rekening Partner:</p>
+                                <p>{{ item.partner_bank_account?.display_name || '-' }}</p>
+                            </div>
+                            <div v-if="item.payment_method === 'cek' || item.payment_method === 'giro'">
+                                <p class="font-semibold">Tanggal Cek/Giro:</p>
+                                <p>{{ item.instrument_date ? new Date(item.instrument_date).toLocaleDateString('id-ID') : '-' }}</p>
+                            </div>
+                            <div v-if="item.payment_method === 'cek' || item.payment_method === 'giro'">
+                                <p class="font-semibold">Tanggal Pencairan:</p>
+                                <p>{{ item.withdrawal_date ? new Date(item.withdrawal_date).toLocaleDateString('id-ID') : '-' }}</p>
                             </div>
                             <div class="col-span-2">
                                 <p class="font-semibold">Catatan:</p>

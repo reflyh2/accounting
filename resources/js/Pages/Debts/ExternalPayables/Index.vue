@@ -4,8 +4,8 @@ import { router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import AppDataTable from '@/Components/AppDataTable.vue';
-import TabLinks from '@/Components/TabLinks.vue';
 import { formatNumber } from '@/utils/numberFormat';
+import DebtTabs from '@/Tabs/DebtTabs.vue';
 
 const page = usePage();
 
@@ -22,20 +22,13 @@ const props = defineProps({
     statusStyles: Object,
 });
 
-const tabs = [
-    { label: 'Hutang Eksternal', route: 'external-payables.index', active: true },
-    { label: 'Piutang Eksternal', route: 'external-receivables.index', active: false },
-    { label: 'Pembayaran Hutang', route: 'external-payable-payments.index', active: false },
-    { label: 'Penerimaan Piutang', route: 'external-receivable-payments.index', active: false },
-];
-
 const currentSort = ref({ key: props.sort || 'issue_date', order: props.order || 'desc' });
 const currentFilters = ref(props.filters || {});
 
 const tableHeaders = [
     { key: 'issue_date', label: 'Tanggal' },
     { key: 'number', label: 'Nomor' },
-    { key: 'external_debt.partner.name', label: 'Partner' },
+    { key: 'partner.name', label: 'Partner' },
     { key: 'branch.branch_group.company.name', label: 'Perusahaan' },
     { key: 'branch.name', label: 'Cabang' },
     { key: 'currency.code', label: 'Mata Uang' },
@@ -99,14 +92,14 @@ function handleFilter(newFilters) {
 </script>
 
 <template>
-    <Head title="Hutang Eksternal" />
+    <Head title="Hutang" />
     <AuthenticatedLayout>
         <template #header>
-            <h2>Hutang/Piutang</h2>
+            <h2>Hutang</h2>
         </template>
 
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
-            <TabLinks :tabs="tabs" />
+            <DebtTabs activeTab="external-payables.index" />
 
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">

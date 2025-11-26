@@ -31,7 +31,7 @@ const props = defineProps({
 const form = useForm({
     company_id: props.item?.branch?.branch_group?.company_id || null,
     branch_id: props.item?.branch_id || null,
-    partner_id: props.item?.external_debt?.partner_id || null,
+    partner_id: props.item?.partner_id || null,
     counterparty_branch_id: props.item?.internal_debt?.counterparty_branch_id || null,
     counterparty_company_id: props.item?.internal_debt?.counterparty_company_id || null,
     currency_id: props.item?.currency_id || page.props.primaryCurrency?.id || null,
@@ -48,7 +48,7 @@ const form = useForm({
 
 const selectedCompany = ref(props.item?.branch?.branch_group.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id));
 
-const partnerName = ref(props.item?.external_debt?.partner?.name || '');
+const partnerName = ref(props.item?.partner?.name || '');
 const partnerTableHeaders = [
     { key: 'code', label: 'Code' },
     { key: 'name', label: 'Name' },
@@ -202,14 +202,6 @@ function submitForm(createAnother = false) {
                     />
 
                     <AppInput
-                        v-model="form.exchange_rate"
-                        :numberFormat="true"
-                        label="Nilai Tukar:"
-                        :error="form.errors.exchange_rate"
-                        required
-                    />
-
-                    <AppInput
                         v-model="form.issue_date"
                         type="date"
                         label="Tanggal:"
@@ -223,16 +215,22 @@ function submitForm(createAnother = false) {
                         :error="form.errors.due_date"
                     />
 
-                    <div class="col-span-2">
-                        <AppInput
-                            v-model="form.amount"
-                            :numberFormat="true"
-                            :prefix="currentCurrencySymbol"
-                            label="Jumlah:"
-                            :error="form.errors.amount"
-                            required
-                        />
-                    </div>  
+                    <AppInput
+                        v-model="form.exchange_rate"
+                        :numberFormat="true"
+                        label="Nilai Tukar:"
+                        :error="form.errors.exchange_rate"
+                        required
+                    />
+
+                    <AppInput
+                        v-model="form.amount"
+                        :numberFormat="true"
+                        :prefix="currentCurrencySymbol"
+                        label="Jumlah:"
+                        :error="form.errors.amount"
+                        required
+                    />
 
                     <AppSelect
                         v-model="form.debt_account_id"
@@ -247,7 +245,7 @@ function submitForm(createAnother = false) {
                         v-model="form.offset_account_id"
                         :options="(accounts || []).map(a => ({ value: a.id, label: `${a.code} - ${a.name}` }))"
                         :label="props.debtType === 'payable' ? 'Masuk ke Akun' : 'Keluar dari Akun'"
-                        placeholder="Pilih akun lawan"
+                        :placeholder="props.debtType === 'payable' ? 'Masuk ke Akun' : 'Keluar dari Akun'"
                         :error="form.errors.offset_account_id"
                     />
 

@@ -4,8 +4,8 @@ import { router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import AppDataTable from '@/Components/AppDataTable.vue';
-import TabLinks from '@/Components/TabLinks.vue';
 import { formatNumber } from '@/utils/numberFormat';
+import DebtTabs from '@/Tabs/DebtTabs.vue';
 
 const page = usePage();
 
@@ -20,18 +20,12 @@ const props = defineProps({
     order: String,
 });
 
-const tabs = [
-    { label: 'Hutang Eksternal', route: 'external-payables.index', active: false },
-    { label: 'Piutang Eksternal', route: 'external-receivables.index', active: false },
-    { label: 'Pembayaran Hutang', route: 'external-payable-payments.index', active: true },
-    { label: 'Penerimaan Piutang', route: 'external-receivable-payments.index', active: false },
-];
-
 const currentSort = ref({ key: props.sort || 'payment_date', order: props.order || 'desc' });
 const currentFilters = ref(props.filters || {});
 
 const tableHeaders = [
     { key: 'payment_date', label: 'Tanggal' },
+    { key: 'withdrawal_date', label: 'Tanggal Pencairan' },
     { key: 'number', label: 'Nomor' },
     { key: 'partner.name', label: 'Partner' },
     { key: 'branch.name', label: 'Cabang' },
@@ -60,6 +54,7 @@ const downloadOptions = [
 
 const columnFormatters = {
     payment_date: (v) => new Date(v).toLocaleDateString('id-ID'),
+    withdrawal_date: (v) => v ? new Date(v).toLocaleDateString('id-ID') : '-',
     amount: (v) => `${formatNumber(v)}`,
 };
 
@@ -92,14 +87,14 @@ function handleFilter(newFilters) {
 </script>
 
 <template>
-    <Head title="Pembayaran Hutang Eksternal" />
+    <Head title="Pembayaran Hutang" />
     <AuthenticatedLayout>
         <template #header>
             <h2>Pembayaran Hutang</h2>
         </template>
 
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
-            <TabLinks :tabs="tabs" />
+            <DebtTabs activeTab="external-payable-payments.index" />
 
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">

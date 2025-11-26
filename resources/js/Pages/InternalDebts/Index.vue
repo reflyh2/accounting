@@ -129,11 +129,11 @@ function handleFilter(newFilters) {
 </script>
 
 <template>
-    <Head title="Hutang Internal" />
+    <Head title="Hutang / Piutang Internal" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Daftar Hutang Internal</h2>
+            <h2>Daftar Hutang / Piutang Internal</h2>
         </template>
 
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">

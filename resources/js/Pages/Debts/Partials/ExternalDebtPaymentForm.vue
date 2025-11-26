@@ -16,6 +16,7 @@ const props = defineProps({
     partners: Array,
     currencies: Array,
     debts: Array,
+    accounts: Array,
     filters: Object,
     moduleType: String, // 'payable' | 'receivable'
 });
@@ -29,7 +30,10 @@ const form = useForm({
     exchange_rate: props.item?.exchange_rate || 1,
     payment_date: props.item?.payment_date || new Date().toISOString().split('T')[0],
     amount: props.item?.amount || 0,
-    payment_method: props.item?.payment_method || '',
+    payment_method: props.item?.payment_method || 'cash',
+    partner_bank_account_id: props.item?.partner_bank_account_id || null,
+    instrument_date: props.item?.instrument_date || null,
+    withdrawal_date: props.item?.withdrawal_date || null,
     reference_number: props.item?.reference_number || '',
     notes: props.item?.notes || '',
     details: props.item?.details?.map(d => ({ external_debt_id: d.external_debt_id, amount: Number(d.amount) })) || [],
@@ -41,8 +45,15 @@ const selectedCompany = ref(form.company_id || (props.companies.length > 1 ? nul
 const currencyOptions = computed(() => props.currencies.map(c => ({ value: c.id, label: `${c.code} - ${c.name}` })));
 const branchOptions = computed(() => props.branches?.map(b => ({ value: b.id, label: b.name })) || []);
 const partnerOptions = computed(() => props.partners?.map(p => ({ value: p.id, label: p.name })) || []);
-const accounts = ref([]);
-const accountOptions = computed(() => accounts.value.map(a => ({ value: a.id, label: `${a.code} - ${a.name}` })));
+const accountOptions = computed(() => props.accounts?.filter(a => a.type === 'kas_bank').map(a => ({ value: a.id, label: `${a.code} - ${a.name}` })) || []);
+const paymentMethodOptions = ref([
+    { value: 'cash', label: 'Tunai' },
+    { value: 'transfer', label: 'Transfer' },
+    { value: 'cek', label: 'Cek' },
+    { value: 'giro', label: 'Giro' },
+]);
+const partnerBankAccounts = ref([]);
+const partnerBankAccountOptions = computed(() => partnerBankAccounts.value.map(b => ({ value: b.id, label: `${b.bank_name} - ${b.account_number} (${b.account_holder_name})` })));
 
 const debtInputs = ref({});
 const debtsList = computed(() => props.debts || []);
@@ -128,15 +139,15 @@ watch(selectedCompany, (newCompanyId) => {
         form.currency_id = page.props.primaryCurrency?.id || null;
         form.exchange_rate = 1;
     }
-    router.reload({ only: ['branches', 'currencies', 'partners', 'debts'], data: { company_id: newCompanyId, branch_id: form.branch_id, partner_id: form.partner_id, currency_id: form.currency_id } });
+    router.reload({ only: ['branches', 'currencies', 'partners', 'debts', 'accounts'], data: { company_id: newCompanyId, branch_id: form.branch_id, partner_id: form.partner_id, currency_id: form.currency_id } });
 }, { immediate: true });
 
 watch(() => form.branch_id, () => {
-    loadAccounts();
     router.reload({ only: ['debts'], data: { company_id: selectedCompany.value, branch_id: form.branch_id, partner_id: form.partner_id, currency_id: form.currency_id } });
 });
 watch(() => form.partner_id, () => {
     router.reload({ only: ['debts'], data: { company_id: selectedCompany.value, branch_id: form.branch_id, partner_id: form.partner_id, currency_id: form.currency_id } });
+    loadPartnerBankAccounts();
 });
 
 onMounted(() => {
@@ -151,23 +162,22 @@ onMounted(() => {
         });
         form.amount = totalAmount.value;
     }
-    loadAccounts();
+    loadPartnerBankAccounts();
 });
 
-async function loadAccounts() {
-    if (!form.branch_id) {
-        accounts.value = [];
-        form.account_id = null;
-        return;
-    }
+async function loadPartnerBankAccounts() {
+    partnerBankAccounts.value = [];
+    form.partner_bank_account_id = null;
+    if (!form.partner_id) return;
     try {
-        const { data } = await axios.get(route('api.accounts-by-branch', form.branch_id));
-        accounts.value = data || [];
-        if (accounts.value.length === 1 && !form.account_id) {
-            form.account_id = accounts.value[0].id;
+        const { data } = await axios.get(route('partners.bank-accounts', form.partner_id));
+        partnerBankAccounts.value = data?.data || [];
+        const primary = partnerBankAccounts.value.find(b => b.is_primary);
+        if (primary) {
+            form.partner_bank_account_id = primary.id;
         }
     } catch (e) {
-        accounts.value = [];
+        partnerBankAccounts.value = [];
     }
 }
 
@@ -266,15 +276,44 @@ function submitForm() {
                     />
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <AppInput
+                    <AppSelect
                         v-model="form.payment_method"
+                        :options="paymentMethodOptions"
                         label="Metode Pembayaran:"
                         :error="form.errors.payment_method"
+                        required
                     />
                     <AppInput
                         v-model="form.reference_number"
                         label="No. Referensi:"
                         :error="form.errors.reference_number"
+                    />
+                </div>
+                <div v-if="form.payment_method === 'transfer'" class="colspan-2">
+                    <AppSelect
+                        v-model="form.partner_bank_account_id"
+                        :options="partnerBankAccountOptions"
+                        label="Rekening Bank Partner:"
+                        placeholder="Pilih Rekening"
+                        :error="form.errors.partner_bank_account_id"
+                        :disabled="!form.partner_id"
+                        required
+                    />
+                </div>
+                <div v-if="form.payment_method === 'cek' || form.payment_method === 'giro'" class="grid grid-cols-2 gap-4">
+                    <AppInput
+                        v-model="form.instrument_date"
+                        type="date"
+                        label="Tanggal Cek/Giro:"
+                        :error="form.errors.instrument_date"
+                        required
+                    />
+                    <AppInput
+                        v-model="form.withdrawal_date"
+                        type="date"
+                        label="Tanggal Pencairan:"
+                        :error="form.errors.withdrawal_date"
+                        required
                     />
                 </div>
                 <AppInput

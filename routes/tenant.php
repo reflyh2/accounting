@@ -19,6 +19,12 @@ use App\Http\Controllers\BranchGroupController;
 use App\Http\Controllers\BalanceSheetController;
 use App\Http\Controllers\CashBankBookController;
 use App\Http\Controllers\IncomeReportController;
+use App\Http\Controllers\ExternalPayableAgingController;
+use App\Http\Controllers\ExternalPayableMutationController;
+use App\Http\Controllers\ExternalPayableCardController;
+use App\Http\Controllers\ExternalReceivableAgingController;
+use App\Http\Controllers\ExternalReceivableMutationController;
+use App\Http\Controllers\ExternalReceivableCardController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\GeneralLedgerController;
 use App\Http\Controllers\Auth\NewPasswordController;
@@ -220,6 +226,24 @@ Route::middleware([
 
         Route::get('balance-sheet', [BalanceSheetController::class, 'index'])->name('balance-sheet.index');
         Route::get('balance-sheet/download', [BalanceSheetController::class, 'download'])->name('balance-sheet.download');
+
+        Route::get('external-payable-aging', [ExternalPayableAgingController::class, 'index'])->name('external-payable-aging.index');
+        Route::get('external-payable-aging/download', [ExternalPayableAgingController::class, 'download'])->name('external-payable-aging.download');
+
+        Route::get('external-payable-mutation', [ExternalPayableMutationController::class, 'index'])->name('external-payable-mutation.index');
+        Route::get('external-payable-mutation/download', [ExternalPayableMutationController::class, 'download'])->name('external-payable-mutation.download');
+
+        Route::get('external-payable-card', [ExternalPayableCardController::class, 'index'])->name('external-payable-card.index');
+        Route::get('external-payable-card/download', [ExternalPayableCardController::class, 'download'])->name('external-payable-card.download');
+
+        Route::get('external-receivable-aging', [ExternalReceivableAgingController::class, 'index'])->name('external-receivable-aging.index');
+        Route::get('external-receivable-aging/download', [ExternalReceivableAgingController::class, 'download'])->name('external-receivable-aging.download');
+
+        Route::get('external-receivable-mutation', [ExternalReceivableMutationController::class, 'index'])->name('external-receivable-mutation.index');
+        Route::get('external-receivable-mutation/download', [ExternalReceivableMutationController::class, 'download'])->name('external-receivable-mutation.download');
+
+        Route::get('external-receivable-card', [ExternalReceivableCardController::class, 'index'])->name('external-receivable-card.index');
+        Route::get('external-receivable-card/download', [ExternalReceivableCardController::class, 'download'])->name('external-receivable-card.download');
 
         Route::delete('/asset-categories/bulk-delete', [AssetCategoryController::class, 'bulkDelete'])->name('asset-categories.bulk-delete');
         Route::get('asset-categories/export-xlsx', [AssetCategoryController::class, 'exportXLSX'])->name('asset-categories.export-xlsx');

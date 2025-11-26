@@ -95,12 +95,28 @@ watch(() => props.submitted, (newValue) => {
    }
 });
 
-function onBlur() {
+function onBlur(event) {
    focused.value = false;
+
+   emit('blur', event);
 }
 
-function onFocus() {
+function onFocus(event) {
    focused.value = true;
+
+   emit('focus', event);
+}
+
+function onClick(event) {
+   if (inputType.value === 'date' && focused.value) {
+      event.target.showPicker();
+   }
+
+   if (inputType.value !== 'date' && focused.value) {
+      event.target.setSelectionRange(0, event.target.value.length);
+   }
+   
+   emit('click', event);
 }
 
 function onInput(event) {
@@ -185,11 +201,11 @@ function onKeyDown(event) {
             :class="inputClass"
             :type="inputType"
             v-bind="inputAttrs"
-            @focus="onFocus"
-            @blur="onBlur"
+            @focus="onFocus($event)"
+            @blur="onBlur($event)"
             :disabled="disabled"
             :placeholder="placeholder"
-            @click="$emit('click', $event)"
+            @click="onClick($event)"
          >
          <div v-if="suffix" class="flex items-center px-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r text-sm">
             <span v-if="typeof suffix === 'string'" v-html="suffix"></span>

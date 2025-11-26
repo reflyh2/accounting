@@ -8,7 +8,12 @@ use App\Models\Company;
 use App\Models\Currency;
 use App\Models\ExternalDebt;
 use App\Models\ExternalDebtPayment;
+use App\Models\PartnerBankAccount;
 use App\Models\Partner;
+use App\Events\Debt\ExternalDebtPaymentCreated;
+use App\Events\Debt\ExternalDebtPaymentUpdated;
+use App\Events\Debt\ExternalDebtPaymentDeleted;
+use App\Models\Account;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
@@ -16,9 +21,14 @@ use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 
-class ExternalReceivablePaymentController extends ExternalPayablePaymentController
+class ExternalReceivablePaymentController extends ExternalDebtPaymentController
 {
     protected string $type = 'receivable';
+
+    public function __construct()
+    {
+        parent::__construct($this->type);
+    }
 
     public function index(Request $request)
     {
@@ -123,6 +133,7 @@ class ExternalReceivablePaymentController extends ExternalPayablePaymentControll
         $partners = collect();
         $currencies = collect();
         $debts = collect();
+        $accounts = collect();
 
         if ($companyId) {
             $branches = Branch::whereHas('branchGroup', fn($q) => $q->where('company_id', $companyId))
@@ -136,6 +147,10 @@ class ExternalReceivablePaymentController extends ExternalPayablePaymentControll
                 ->orderBy('code', 'asc')->get();
 
             $debts = $this->getUnpaidDebts($companyId, $branchId, $partnerId, $currencyId);
+
+            $accounts = Account::whereHas('companies', fn($q) => $q->where('company_id', $companyId))
+                ->where('is_parent', false)
+                ->orderBy('code', 'asc')->get();
         }
 
         return Inertia::render('Debts/ExternalReceivablePayments/Create', [
@@ -146,13 +161,23 @@ class ExternalReceivablePaymentController extends ExternalPayablePaymentControll
             'currencies' => fn() => $currencies,
             'primaryCurrency' => $primaryCurrency,
             'debts' => fn() => $debts,
+            'accounts' => fn() => $accounts,
         ]);
     }
 
     public function show(Request $request, ExternalDebtPayment $externalReceivablePayment)
     {
         $filters = Session::get('external_receivable_payments.index_filters', []);
-        $externalReceivablePayment->load(['partner', 'branch.branchGroup.company', 'currency', 'details.externalDebt', 'creator', 'updater']);
+        $externalReceivablePayment->load([
+            'partner', 
+            'branch.branchGroup.company', 
+            'currency', 
+            'details.externalDebt', 
+            'partnerBankAccount', 
+            'account',
+            'creator', 
+            'updater'
+        ]);
 
         return Inertia::render('Debts/ExternalReceivablePayments/Show', [
             'item' => $externalReceivablePayment,
@@ -190,16 +215,93 @@ class ExternalReceivablePaymentController extends ExternalPayablePaymentControll
             'currencies' => $currencies,
             'primaryCurrency' => $primaryCurrency,
             'debts' => $this->getUnpaidDebts($companyId, $branchId, $partnerId, $currencyId, $externalReceivablePayment->id),
+            'accounts' => Account::whereHas('companies', fn($q) => $q->where('company_id', $companyId))->where('is_parent', false)->orderBy('code', 'asc')->get(),
         ]);
     }
 
     public function update(Request $request, ExternalDebtPayment $externalReceivablePayment)
     {
-        return parent::update($request, $externalReceivablePayment);
+        // duplicate parent validations because type-specific differences are minimal, but we enforce method fields here as well
+        $validated = $request->validate([
+            'partner_id' => 'required|exists:partners,id',
+            'branch_id' => 'required|exists:branches,id',
+            'currency_id' => 'required|exists:currencies,id',
+            'exchange_rate' => 'required|numeric|min:0.000001',
+            'payment_date' => 'required|date',
+            'account_id' => 'required|exists:accounts,id',
+            'payment_method' => 'required|in:tunai,transfer,cek,giro',
+            'partner_bank_account_id' => 'nullable|required_if:payment_method,transfer|exists:partner_bank_accounts,id',
+            'instrument_date' => 'nullable|required_if:payment_method,cek,\\,giro|date',
+            'withdrawal_date' => 'nullable|required_if:payment_method,cek,\\,giro|date|after_or_equal:instrument_date',
+            'details' => 'required|array|min:1',
+            'details.*.external_debt_id' => 'required|exists:external_debts,id',
+            'details.*.amount' => 'required|numeric|min:0.01',
+            'reference_number' => 'nullable|string',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($validated['payment_method'] === 'transfer' && !empty($validated['partner_bank_account_id'])) {
+            $pba = PartnerBankAccount::findOrFail($validated['partner_bank_account_id']);
+            if ($pba->partner_id != $validated['partner_id']) {
+                return Redirect::back()->with('error', 'Rekening bank tidak sesuai dengan partner yang dipilih.');
+            }
+        }
+
+        $debtIds = collect($validated['details'])->pluck('external_debt_id')->unique()->values();
+        $debts = ExternalDebt::whereIn('id', $debtIds)->get();
+        if ($debts->isEmpty() || $debts->contains(fn($d) => $d->type !== $this->type)) {
+            return Redirect::back()->with('error', 'Jenis hutang/piutang tidak sesuai.');
+        }
+        if ($debts->contains(fn($d) => $d->partner_id != $validated['partner_id'])) {
+            return Redirect::back()->with('error', 'Semua dokumen harus untuk partner yang sama.');
+        }
+        $overpaid = $this->detectOverpay($validated['details'], $externalReceivablePayment->id);
+        if ($overpaid) {
+            return Redirect::back()->with('error', 'Jumlah pembayaran melebihi sisa piutang untuk salah satu dokumen.');
+        }
+
+        $sumAmount = collect($validated['details'])->sum('amount');
+
+        DB::transaction(function () use ($validated, $externalReceivablePayment, $sumAmount) {
+            $primaryCurrencyAmount = $sumAmount * $validated['exchange_rate'];
+            $externalReceivablePayment->update([
+                'type' => $this->type,
+                'partner_id' => $validated['partner_id'],
+                'branch_id' => $validated['branch_id'],
+                'account_id' => $validated['account_id'],
+                'currency_id' => $validated['currency_id'],
+                'exchange_rate' => $validated['exchange_rate'],
+                'payment_date' => $validated['payment_date'],
+                'amount' => $sumAmount,
+                'primary_currency_amount' => $primaryCurrencyAmount,
+                'payment_method' => $validated['payment_method'] ?? null,
+                'partner_bank_account_id' => $validated['partner_bank_account_id'] ?? null,
+                'instrument_date' => $validated['instrument_date'] ?? null,
+                'withdrawal_date' => $validated['withdrawal_date'] ?? null,
+                'reference_number' => $validated['reference_number'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+            ]);
+
+            // Sync details
+            \App\Models\ExternalDebtPaymentDetail::where('external_debt_payment_id', $externalReceivablePayment->id)->delete();
+            foreach ($validated['details'] as $detail) {
+                \App\Models\ExternalDebtPaymentDetail::create([
+                    'external_debt_payment_id' => $externalReceivablePayment->id,
+                    'external_debt_id' => $detail['external_debt_id'],
+                    'amount' => $detail['amount'],
+                    'primary_currency_amount' => $detail['amount'] * $validated['exchange_rate'],
+                ]);
+            }
+        });
+
+        ExternalDebtPaymentUpdated::dispatch($externalReceivablePayment);
+        return redirect()->route('external-receivable-payments.show', $externalReceivablePayment->id)
+            ->with('success', 'Penerimaan piutang berhasil diubah.');
     }
 
     public function destroy(Request $request, ExternalDebtPayment $externalReceivablePayment)
     {
+        ExternalDebtPaymentDeleted::dispatch($externalReceivablePayment->loadMissing('details'));
         DB::transaction(function () use ($externalReceivablePayment) {
             $externalReceivablePayment->delete();
         });

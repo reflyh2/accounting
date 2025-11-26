@@ -50,11 +50,11 @@ function formatNumber(n) {
 </script>
 
 <template>
-    <Head title="Detail Hutang Internal" />
+    <Head title="Detail Hutang / Piutang Internal" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Detail Hutang Internal</h2>
+            <h2>Detail Hutang / Piutang Internal</h2>
         </template>
 
         <div>

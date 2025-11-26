@@ -80,13 +80,21 @@ const isAccountingActive = computed(() => {
         || route().current('journals.*')
         || route().current('external-payables.*')
         || route().current('external-receivables.*')
+        || route().current('external-payable-payments.*')
+        || route().current('external-receivable-payments.*')
         || route().current('internal-debts.*')
         || route().current('cash-receipt-journals.*')
         || route().current('cash-payment-journals.*')
         || route().current('general-ledger.*')
         || route().current('cash-bank-book.*')
         || route().current('income.*')
-        || route().current('balance-sheet.*');
+        || route().current('balance-sheet.*')
+        || route().current('external-payable-aging.*')
+        || route().current('external-payable-mutation.*')
+        || route().current('external-payable-card.*')
+        || route().current('external-receivable-aging.*')
+        || route().current('external-receivable-mutation.*')
+        || route().current('external-receivable-card.*');
 });
 
 const isAssetActive = computed(() => {
@@ -197,7 +205,10 @@ function toggleSidebar() {
                                 Jurnal
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('external-payables.index')" 
-                                :active="route().current('external-payables.*') || route().current('external-receivables.*')" 
+                                :active="route().current('external-payables.*') 
+                                    || route().current('external-receivables.*')
+                                    || route().current('external-payable-payments.*')
+                                    || route().current('external-receivable-payments.*')" 
                                 class="pl-11"
                             >
                                 Hutang / Piutang
@@ -206,7 +217,7 @@ function toggleSidebar() {
                                 :active="route().current('internal-debts.*')" 
                                 class="pl-11"
                             >
-                                Hutang Internal
+                                Hutang / Piutang Internal
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('general-ledger.index')" 
                                 :active="
@@ -214,6 +225,12 @@ function toggleSidebar() {
                                     || route().current('cash-bank-book.*') 
                                     || route().current('income.*') 
                                     || route().current('balance-sheet.*')
+                                    || route().current('external-payable-aging.*')
+                                    || route().current('external-payable-mutation.*')
+                                    || route().current('external-payable-card.*')
+                                    || route().current('external-receivable-aging.*')
+                                    || route().current('external-receivable-mutation.*')
+                                    || route().current('external-receivable-card.*')
                                 " 
                                 class="pl-11"
                             >
@@ -375,7 +392,10 @@ function toggleSidebar() {
                                             Jurnal
                                         </NavLink>
                                         <NavLink :href="route('external-payables.index')" 
-                                            :active="route().current('external-payables.*') || route().current('external-receivables.*')" 
+                                            :active="route().current('external-payables.*') 
+                                                || route().current('external-receivables.*')
+                                                || route().current('external-payable-payments.*')
+                                                || route().current('external-receivable-payments.*')" 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
                                             Hutang / Piutang
                                         </NavLink>
@@ -383,7 +403,7 @@ function toggleSidebar() {
                                             :active="route().current('internal-debts.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
-                                            Hutang Internal
+                                            Hutang / Piutang Internal
                                         </NavLink>
                                         <NavLink 
                                             :href="route('general-ledger.index')" 
@@ -392,6 +412,12 @@ function toggleSidebar() {
                                                 || route().current('cash-bank-book.*') 
                                                 || route().current('income.*')
                                                 || route().current('balance-sheet.*')
+                                                || route().current('external-payable-aging.*')
+                                                || route().current('external-payable-mutation.*')
+                                                || route().current('external-payable-card.*')
+                                                || route().current('external-receivable-aging.*')
+                                                || route().current('external-receivable-mutation.*')
+                                                || route().current('external-receivable-card.*')
                                             " 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
@@ -438,7 +464,10 @@ function toggleSidebar() {
                                             Jurnal
                                         </NavLink>
                                         <NavLink :href="route('external-payables.index')" 
-                                            :active="route().current('external-payables.*') || route().current('external-receivables.*')" 
+                                            :active="route().current('external-payables.*') 
+                                                || route().current('external-receivables.*')
+                                                || route().current('external-payable-payments.*')
+                                                || route().current('external-receivable-payments.*')" 
                                             class="flex items-center">
                                             Hutang / Piutang
                                         </NavLink>
@@ -446,7 +475,7 @@ function toggleSidebar() {
                                             :active="route().current('internal-debts.*')"
                                             class="flex items-center"
                                         >
-                                            Hutang Internal
+                                            Hutang / Piutang Internal
                                         </NavLink>
                                         <NavLink 
                                             :href="route('general-ledger.index')" 
@@ -455,6 +484,12 @@ function toggleSidebar() {
                                                 || route().current('cash-bank-book.*') 
                                                 || route().current('income.*')
                                                 || route().current('balance-sheet.*')
+                                                || route().current('external-payable-aging.*')
+                                                || route().current('external-payable-mutation.*')
+                                                || route().current('external-payable-card.*')
+                                                || route().current('external-receivable-aging.*')
+                                                || route().current('external-receivable-mutation.*')
+                                                || route().current('external-receivable-card.*')
                                             " 
                                             class="flex items-center"
                                         >

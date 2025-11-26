@@ -97,6 +97,11 @@ class ExternalDebtPayment extends Model
         return $this->belongsTo(Account::class);
     }
 
+    public function partnerBankAccount()
+    {
+        return $this->belongsTo(PartnerBankAccount::class, 'partner_bank_account_id');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by', 'global_id');

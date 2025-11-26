@@ -83,6 +83,8 @@ class Journal extends Model
             'asset_amortization' => 'Jurnal Amortisasi Aset',
             'account_payable' => 'Jurnal Hutang',
             'account_receivable' => 'Jurnal Piutang',
+            'account_payable_payment' => 'Jurnal Pembayaran Hutang',
+            'account_receivable_collection' => 'Jurnal Penerimaan Piutang',
             'internal_payable' => 'Jurnal Hutang Internal',
             'internal_receivable' => 'Jurnal Piutang Internal',
         ];
@@ -109,6 +111,8 @@ class Journal extends Model
             'asset_amortization' => 'AAM',
             'account_payable' => 'ACP',
             'account_receivable' => 'ACR',
+            'account_payable_payment' => 'APP',
+            'account_receivable_collection' => 'ARC',
             'internal_payable' => 'IP',
             'internal_receivable' => 'IR',
         ];

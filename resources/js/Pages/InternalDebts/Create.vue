@@ -16,11 +16,11 @@ defineProps({
 </script>
 
 <template>
-    <Head title="Buat Hutang Internal" />
+    <Head title="Buat Hutang / Piutang Internal" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Buat Hutang Internal Baru</h2>
+            <h2>Buat Hutang / Piutang Internal Baru</h2>
         </template>
 
         <div>

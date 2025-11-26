@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import AppBackLink from '@/Components/AppBackLink.vue';
-import PaymentForm from '../ExternalPayablePayments/Partials/ExternalDebtPaymentForm.vue';
+import PaymentForm from '../Partials/ExternalDebtPaymentForm.vue';
 
 defineProps({
     item: Object,
@@ -12,6 +12,7 @@ defineProps({
     partners: Array,
     currencies: Array,
     debts: Array,
+    accounts: Array,
 });
 </script>
 
@@ -36,6 +37,7 @@ defineProps({
                             :partners="partners"
                             :currencies="currencies"
                             :debts="debts"
+                            :accounts="accounts"
                             :filters="filters"
                             moduleType="receivable"
                         />

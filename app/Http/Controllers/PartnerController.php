@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Inertia\Inertia;
 use App\Models\Partner;
+use App\Models\PartnerBankAccount;
 use App\Models\Company;
 use Illuminate\Http\Request;
 use App\Exports\PartnersExport;
@@ -108,6 +109,17 @@ class PartnerController extends Controller
             'contacts.*.phone' => 'nullable|string|max:255',
             'contacts.*.position' => 'nullable|string|max:255',
             'contacts.*.notes' => 'nullable|string',
+            'bank_accounts' => 'nullable|array',
+            'bank_accounts.*.bank_name' => 'required_with:bank_accounts|string|max:255',
+            'bank_accounts.*.account_number' => 'required_with:bank_accounts|string|max:255',
+            'bank_accounts.*.account_holder_name' => 'required_with:bank_accounts|string|max:255',
+            'bank_accounts.*.branch_name' => 'nullable|string|max:255',
+            'bank_accounts.*.swift_code' => 'nullable|string|max:255',
+            'bank_accounts.*.iban' => 'nullable|string|max:255',
+            'bank_accounts.*.currency' => 'nullable|string|max:3',
+            'bank_accounts.*.is_primary' => 'boolean',
+            'bank_accounts.*.is_active' => 'boolean',
+            'bank_accounts.*.notes' => 'nullable|string',
         ]);
 
         $partner = DB::transaction(function () use ($validated, $request) {
@@ -155,6 +167,24 @@ class PartnerController extends Controller
                 }
             }
 
+            // Create bank accounts if provided
+            if (!empty($validated['bank_accounts'])) {
+                foreach ($validated['bank_accounts'] as $acc) {
+                    $partner->bankAccounts()->create([
+                        'bank_name' => $acc['bank_name'],
+                        'account_number' => $acc['account_number'],
+                        'account_holder_name' => $acc['account_holder_name'],
+                        'branch_name' => $acc['branch_name'] ?? null,
+                        'swift_code' => $acc['swift_code'] ?? null,
+                        'iban' => $acc['iban'] ?? null,
+                        'currency' => $acc['currency'] ?? null,
+                        'is_primary' => (bool)($acc['is_primary'] ?? false),
+                        'is_active' => array_key_exists('is_active', $acc) ? (bool)$acc['is_active'] : true,
+                        'notes' => $acc['notes'] ?? null,
+                    ]);
+                }
+            }
+
             return $partner;
         });
 
@@ -170,7 +200,7 @@ class PartnerController extends Controller
     public function show(Partner $partner)
     {
         $filters = Session::get('partners.index_filters', []);
-        $partner->load(['roles', 'contacts', 'companies', 'createdBy', 'updatedBy']);
+        $partner->load(['roles', 'contacts', 'companies', 'bankAccounts', 'createdBy', 'updatedBy']);
         
         return Inertia::render('Partners/Show', [
             'partner' => $partner,
@@ -182,8 +212,8 @@ class PartnerController extends Controller
     public function edit(Partner $partner)
     {
         $filters = Session::get('partners.index_filters', []);
-        $partner->load(['roles', 'contacts', 'companies']);
-        
+        $partner->load(['roles', 'contacts', 'companies', 'bankAccounts']);
+
         return Inertia::render('Partners/Edit', [
             'partner' => $partner,
             'filters' => $filters,
@@ -223,6 +253,18 @@ class PartnerController extends Controller
             'contacts.*.phone' => 'nullable|string|max:255',
             'contacts.*.position' => 'nullable|string|max:255',
             'contacts.*.notes' => 'nullable|string',
+            'bank_accounts' => 'nullable|array',
+            'bank_accounts.*.id' => 'nullable|exists:partner_bank_accounts,id',
+            'bank_accounts.*.bank_name' => 'required_with:bank_accounts|string|max:255',
+            'bank_accounts.*.account_number' => 'required_with:bank_accounts|string|max:255',
+            'bank_accounts.*.account_holder_name' => 'required_with:bank_accounts|string|max:255',
+            'bank_accounts.*.branch_name' => 'nullable|string|max:255',
+            'bank_accounts.*.swift_code' => 'nullable|string|max:255',
+            'bank_accounts.*.iban' => 'nullable|string|max:255',
+            'bank_accounts.*.currency' => 'nullable|string|max:3',
+            'bank_accounts.*.is_primary' => 'boolean',
+            'bank_accounts.*.is_active' => 'boolean',
+            'bank_accounts.*.notes' => 'nullable|string',
         ]);
 
         DB::transaction(function () use ($validated, $partner) {
@@ -269,6 +311,84 @@ class PartnerController extends Controller
                         'position' => $contact['position'] ?? null,
                         'notes' => $contact['notes'] ?? null,
                     ]);
+                }
+            }
+
+            // Handle bank accounts - delete all and recreate from payload (simpler sync)
+            if (array_key_exists('bank_accounts', $validated)) {
+                $payloadAccounts = $validated['bank_accounts'] ?? [];
+                $existingAccounts = $partner->bankAccounts()->get()->keyBy('id');
+
+                $updatedOrCreatedIds = [];
+                $requestedPrimaryId = null;
+
+                foreach ($payloadAccounts as $acc) {
+                    $attributes = [
+                        'bank_name' => $acc['bank_name'],
+                        'account_number' => $acc['account_number'],
+                        'account_holder_name' => $acc['account_holder_name'],
+                        'branch_name' => $acc['branch_name'] ?? null,
+                        'swift_code' => $acc['swift_code'] ?? null,
+                        'iban' => $acc['iban'] ?? null,
+                        'currency' => $acc['currency'] ?? null,
+                        'is_active' => array_key_exists('is_active', $acc) ? (bool)$acc['is_active'] : true,
+                        'notes' => $acc['notes'] ?? null,
+                    ];
+
+                    $isPrimary = (bool)($acc['is_primary'] ?? false);
+
+                    if (!empty($acc['id']) && $existingAccounts->has($acc['id'])) {
+                        $model = $existingAccounts->get($acc['id']);
+                        $model->fill($attributes);
+                        // Temporarily set primary flag; we will enforce single-primary after loop
+                        $model->is_primary = $isPrimary;
+                        $model->save();
+                        $updatedOrCreatedIds[] = $model->id;
+                        if ($isPrimary) {
+                            $requestedPrimaryId = $model->id;
+                        }
+                    } else {
+                        $model = $partner->bankAccounts()->create(array_merge($attributes, [
+                            // Defer primary resolution to a single pass below
+                            'is_primary' => false,
+                        ]));
+                        $updatedOrCreatedIds[] = $model->id;
+                        if ($isPrimary) {
+                            $requestedPrimaryId = $model->id;
+                        }
+                    }
+                }
+
+                // Deactivate accounts that were omitted from payload instead of deleting (to avoid FK issues)
+                $missingIds = $existingAccounts->keys()->diff(collect($updatedOrCreatedIds));
+                if ($missingIds->isNotEmpty()) {
+                    $partner->bankAccounts()
+                        ->whereIn('id', $missingIds->all())
+                        ->update(['is_active' => false, 'is_primary' => false]);
+                }
+
+                // Enforce exactly one primary among active accounts
+                if ($requestedPrimaryId) {
+                    // Clear primary on all, then set requested one
+                    $partner->bankAccounts()->update(['is_primary' => false]);
+                    $partner->bankAccounts()->where('id', $requestedPrimaryId)->update(['is_primary' => true]);
+                } else {
+                    // If none requested as primary, keep current primary if still active; otherwise pick first active
+                    $currentPrimary = $partner->bankAccounts()->where('is_primary', true)->first();
+                    $hasActive = $partner->bankAccounts()->where('is_active', true)->exists();
+                    if (!$currentPrimary && $hasActive) {
+                        $firstActive = $partner->bankAccounts()->where('is_active', true)->orderBy('id')->first();
+                        if ($firstActive) {
+                            $partner->bankAccounts()->update(['is_primary' => false]);
+                            $firstActive->is_primary = true;
+                            $firstActive->save();
+                        }
+                    } else {
+                        // Ensure no multiple primaries remain
+                        if ($currentPrimary) {
+                            $partner->bankAccounts()->where('id', '<>', $currentPrimary->id)->update(['is_primary' => false]);
+                        }
+                    }
                 }
             }
         });

@@ -15,6 +15,7 @@ use App\Observers\AssetDepreciationObserver;
 use App\Observers\AssetMaintenanceRecordObserver;
 use Illuminate\Support\Facades\Event;
 use App\Listeners\Debt\InternalDebtEventSubscriber;
+use App\Listeners\Debt\ExternalDebtPaymentEventSubscriber;
 
 class AppServiceProvider extends ServiceProvider
 {

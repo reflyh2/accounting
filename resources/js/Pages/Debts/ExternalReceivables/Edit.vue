@@ -18,10 +18,10 @@ defineProps({
 </script>
 
 <template>
-    <Head title="Ubah Piutang Eksternal" />
+    <Head title="Ubah Piutang" />
     <AuthenticatedLayout>
         <template #header>
-            <h2>Ubah Piutang Eksternal</h2>
+            <h2>Ubah Piutang</h2>
         </template>
 
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">

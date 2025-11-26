@@ -8,6 +8,7 @@ import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import { ref, watch, onMounted } from 'vue';
 import { PlusCircleIcon, TrashIcon } from '@heroicons/vue/24/solid';
+import PartnerBankAccountsSection from './PartnerBankAccountsSection.vue';
 
 const props = defineProps({
     partner: Object,
@@ -57,6 +58,19 @@ const form = useForm({
         phone: contact.phone,
         position: contact.position,
         notes: contact.notes
+    })) || [],
+    bank_accounts: props.partner?.bank_accounts?.map(b => ({
+        id: b.id,
+        bank_name: b.bank_name || '',
+        account_number: b.account_number || '',
+        account_holder_name: b.account_holder_name || '',
+        branch_name: b.branch_name || '',
+        swift_code: b.swift_code || '',
+        iban: b.iban || '',
+        currency: b.currency || '',
+        is_primary: !!b.is_primary,
+        is_active: b.is_active ?? true,
+        notes: b.notes || ''
     })) || [],
     create_another: false,
 });
@@ -133,53 +147,37 @@ function submitForm(createAnother = false) {
     }
 
     const filteredContacts = form.contacts.filter(contact => contact.name.trim() !== '');
+    const bankAccountsPayload = form.bank_accounts.filter(b => (b.bank_name || b.account_number || b.account_holder_name || b.branch_name || b.swift_code || b.iban || b.currency)).map(b => ({
+        id: b.id,
+        bank_name: b.bank_name,
+        account_number: b.account_number,
+        account_holder_name: b.account_holder_name,
+        branch_name: b.branch_name || null,
+        swift_code: b.swift_code || null,
+        iban: b.iban || null,
+        currency: b.currency || null,
+        is_primary: !!b.is_primary,
+        is_active: b.is_active !== false,
+        notes: b.notes || null,
+    }));
 
-    const formData = {...form};
-    formData.roles = roles;
-    formData.contacts = filteredContacts;
-    delete formData.selectedRoles;
-    delete formData.supplier_settings;
-    delete formData.customer_settings;
-
-    if (props.partner) {
-        form.transform((data) => ({
-            ...data,
-            roles,
-            contacts: filteredContacts,
-            selectedRoles: undefined,
-            supplier_settings: undefined,
-            customer_settings: undefined,
-        })).put(route('partners.update', props.partner.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                submitted.value = false;
-            },
-            onError: () => {
-                submitted.value = false;
-            }
-        });
-    } else {
-        form.transform((data) => ({
-            ...data,
-            roles,
-            contacts: filteredContacts,
-            selectedRoles: undefined,
-            supplier_settings: undefined,
-            customer_settings: undefined,
-        })).post(route('partners.store'), {
-            preserveScroll: true,
-            onSuccess: () => {
-                submitted.value = false;
-                if (createAnother) {
-                    form.reset();
-                    form.clearErrors();
-                }
-            },
-            onError: () => {
-                submitted.value = false;
-            }
-        });
-    }
+    form.transform((data) => ({
+        ...data,
+        roles,
+        contacts: filteredContacts,
+        selectedRoles: undefined,
+        supplier_settings: undefined,
+        customer_settings: undefined,
+        bank_accounts: bankAccountsPayload,
+    })).put(route('partners.update', props.partner.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            submitted.value = false;
+        },
+        onError: () => {
+            submitted.value = false;
+        }
+    });
 }
 </script>
 
@@ -218,6 +216,17 @@ function submitForm(createAnother = false) {
                         @click.prevent="activeTab = 'contacts'"
                     >
                         Kontak
+                    </button>
+                </li>
+                <li class="mr-2" role="presentation">
+                    <button 
+                        :class="[
+                            'inline-block p-4 rounded-t-lg border-b-2', 
+                            activeTab === 'bank' ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-gray-600 hover:border-gray-300'
+                        ]"
+                        @click.prevent="activeTab = 'bank'"
+                    >
+                        Rekening Bank
                     </button>
                 </li>
             </ul>
@@ -463,75 +472,92 @@ function submitForm(createAnother = false) {
 
             <!-- Contacts Tab -->
             <div v-show="activeTab === 'contacts'">
-                <div v-if="form.contacts.length === 0" class="text-center py-10 border border-gray-200 rounded-lg mb-6">
-                    <p class="text-gray-600 mb-4">Belum ada kontak yang ditambahkan.</p>
-                    <button 
-                        type="button" 
-                        @click="addContact" 
-                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center mx-auto"
-                    >
-                        <PlusCircleIcon class="w-5 h-5 mr-2" /> Tambah Kontak
-                    </button>
-                </div>
-
-                <div v-for="(contact, index) in form.contacts" :key="index" class="mb-6 p-4 rounded-lg border border-gray-200">
-                    <div class="flex justify-between mb-2">
-                        <h3 class="text-lg font-medium">Kontak #{{ index + 1 }}</h3>
-                        <button type="button" @click="removeContact(index)" class="text-red-500 hover:text-red-700">
-                            <TrashIcon class="w-5 h-5" />
+                <div class="rounded-lg border border-gray-200 p-4">
+                    <h3 class="text-lg font-medium mb-4">Kontak</h3>
+                    <div class="overflow-x-auto mb-4">
+                        <table class="min-w-full bg-white border border-gray-300 text-sm">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="border border-gray-300 px-2 py-2 text-left">Nama</th>
+                                    <th class="border border-gray-300 px-2 py-2 text-left">Jabatan</th>
+                                    <th class="border border-gray-300 px-2 py-2 text-left">Email</th>
+                                    <th class="border border-gray-300 px-2 py-2 text-left">Telepon</th>
+                                    <th class="border border-gray-300 px-2 py-2 text-left">Catatan</th>
+                                    <th class="border border-gray-300 px-2 py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(contact, index) in form.contacts" :key="contact.id ?? index">
+                                    <td class="border border-gray-300 px-1.5 py-1.5">
+                                        <AppInput
+                                            v-model="contact.name"
+                                            :error="form.errors[`contacts.${index}.name`]"
+                                            placeholder="Nama"
+                                            :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                        />
+                                    </td>
+                                    <td class="border border-gray-300 px-1.5 py-1.5">
+                                        <AppInput
+                                            v-model="contact.position"
+                                            :error="form.errors[`contacts.${index}.position`]"
+                                            placeholder="Jabatan"
+                                            :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                        />
+                                    </td>
+                                    <td class="border border-gray-300 px-1.5 py-1.5">
+                                        <AppInput
+                                            v-model="contact.email"
+                                            type="email"
+                                            :error="form.errors[`contacts.${index}.email`]"
+                                            placeholder="Email"
+                                            :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                        />
+                                    </td>
+                                    <td class="border border-gray-300 px-1.5 py-1.5">
+                                        <AppInput
+                                            v-model="contact.phone"
+                                            :error="form.errors[`contacts.${index}.phone`]"
+                                            placeholder="Telepon"
+                                            :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                        />
+                                    </td>
+                                    <td class="border border-gray-300 px-1.5 py-1.5">
+                                        <AppInput
+                                            v-model="contact.notes"
+                                            :error="form.errors[`contacts.${index}.notes`]"
+                                            placeholder="Catatan"
+                                            :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                        />
+                                    </td>
+                                    <td class="border border-gray-300 px-1.5 py-1.5">
+                                        <button type="button" class="text-red-600 flex items-left" @click="removeContact(index)">
+                                            <TrashIcon class="w-4 h-4 mr-1" /> Hapus
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="form.contacts.length === 0">
+                                    <td colspan="6" class="border border-gray-300 px-2 py-2 text-center text-gray-500">
+                                        Belum ada kontak. Tambahkan baris baru.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex mt-2">
+                        <button
+                            type="button"
+                            @click="addContact"
+                            class="flex items-center text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
+                        >
+                            <PlusCircleIcon class="w-4 h-4 mr-2" /> Tambah Kontak
                         </button>
                     </div>
-
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <div>
-                            <AppInput
-                                v-model="contact.name"
-                                label="Nama:"
-                                :error="form.errors[`contacts.${index}.name`]"
-                                required
-                            />
-                        </div>
-                        <div>                            
-                            <AppInput
-                                v-model="contact.position"
-                                label="Jabatan:"
-                                :error="form.errors[`contacts.${index}.position`]"
-                            />
-                        </div>
-                    </div>
-
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <div>
-                            <AppInput
-                                v-model="contact.email"
-                                label="Email:"
-                                type="email"
-                                :error="form.errors[`contacts.${index}.email`]"
-                            />
-                        </div>
-                        <div>
-                            <AppInput
-                                v-model="contact.phone"
-                                label="Telepon:"
-                                :error="form.errors[`contacts.${index}.phone`]"
-                            />
-                        </div>
-                    </div>
-
-                    <div class="mb-4">
-                        <AppTextarea
-                            v-model="contact.notes"
-                            label="Catatan:"
-                            :error="form.errors[`contacts.${index}.notes`]"
-                        />
-                    </div>
                 </div>
+            </div>
 
-                <div v-if="form.contacts.length > 0" class="flex mt-2 mb-4">
-                    <button type="button" @click="addContact" class="flex items-center text-blue-600 hover:text-blue-800">
-                        <PlusCircleIcon class="w-6 h-6 mr-2" /> Tambah Kontak
-                    </button>
-                </div>
+            <!-- Bank Accounts Tab -->
+            <div v-show="activeTab === 'bank'">
+                <PartnerBankAccountsSection v-model:bank-accounts="form.bank_accounts" :errors="form.errors" />
             </div>
 
             <div class="mt-6 flex items-center">
