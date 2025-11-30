@@ -4,6 +4,7 @@ import { formatNumber } from '@/utils/numberFormat';
 
 defineProps({
     item: Object,
+    paymentMethodOptions: Object,
 });
 </script>
 
@@ -26,14 +27,13 @@ defineProps({
                 <p><span class="font-semibold">Tanggal:</span> {{ new Date(item.payment_date).toLocaleDateString('id-ID') }}</p>
                 <p><span class="font-semibold">Partner:</span> {{ item.partner?.name }}</p>
                 <p><span class="font-semibold">Mata Uang:</span> {{ item.currency?.code }}</p>
-                <p><span class="font-semibold">Metode:</span> {{ item.payment_method || '-' }}</p>
                 <p v-if="item.payment_method === 'transfer'"><span class="font-semibold">Rekening Partner:</span> {{ item.partner_bank_account?.display_name || '-' }}</p>
                 <p v-if="item.payment_method === 'cek' || item.payment_method === 'giro'"><span class="font-semibold">Tanggal Cek/Giro:</span> {{ item.instrument_date ? new Date(item.instrument_date).toLocaleDateString('id-ID') : '-' }}</p>
                 <p v-if="item.payment_method === 'cek' || item.payment_method === 'giro'"><span class="font-semibold">Tanggal Pencairan:</span> {{ item.withdrawal_date ? new Date(item.withdrawal_date).toLocaleDateString('id-ID') : '-' }}</p>
             </div>
             <div>
                 <p><span class="font-semibold">Jumlah:</span> {{ item.currency?.symbol }} {{ formatNumber(item.amount) }}</p>
-                <p><span class="font-semibold">Metode:</span> {{ item.payment_method || '-' }}</p>
+                <p><span class="font-semibold">Metode:</span> {{ paymentMethodOptions[item.payment_method] || '-' }}</p>
                 <p><span class="font-semibold">Referensi:</span> {{ item.reference_number || '-' }}</p>
             </div>
         </div>

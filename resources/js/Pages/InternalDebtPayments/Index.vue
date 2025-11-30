@@ -1,37 +1,36 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { router, usePage } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import AppDataTable from '@/Components/AppDataTable.vue';
 import InternalDebtTabs from '@/Tabs/InternalDebtTabs.vue';
 
-const page = usePage();
-
 const props = defineProps({
-    debts: Object,
+    items: Object,
     filters: Object,
     companies: Array,
     branches: Array,
     counterpartyBranches: Array,
     perPage: [String, Number],
     sort: String,
-    order: String,
-    statusOptions: Object,
-    statusStyles: Object,
+    order: String,  
+    paymentStatusOptions: Object,
+    paymentStatusStyles: Object,
+    paymentMethodOptions: Object,
 });
 
-const currentSort = ref({ key: props.sort || 'issue_date', order: props.order || 'desc' });
+const currentSort = ref({ key: props.sort || 'payment_date', order: props.order || 'desc' });
 const currentFilters = ref(props.filters || {});
 
 const tableHeaders = [
-    { key: 'issue_date', label: 'Tgl Terbit' },
+    { key: 'payment_date', label: 'Tanggal' },
     { key: 'number', label: 'Nomor' },
-    { key: 'branch', label: 'Peminjam' },
-    { key: 'counterparty_branch', label: 'Pemberi Pinjaman' },
+    { key: 'branch.name', label: 'Cabang' },
     { key: 'currency.code', label: 'Mata Uang' },
     { key: 'amount', label: 'Jumlah' },
-    { key: 'due_date', label: 'Jatuh Tempo' },
+    { key: 'payment_method', label: 'Metode' },
+    { key: 'reference_number', label: 'Referensi' },
     { key: 'status', label: 'Status' },
     { key: 'actions', label: '' },
 ];
@@ -50,38 +49,35 @@ const customFilters = computed(() => [
     { name: 'from_date', type: 'date', placeholder: 'Dari Tanggal', label: 'Dari Tanggal' },
     { name: 'to_date', type: 'date', placeholder: 'Sampai Tanggal', label: 'Sampai Tanggal' },
     { name: 'company_id', type: 'select', options: companyOptions.value, multiple: true, placeholder: 'Pilih Perusahaan', label: 'Perusahaan' },
-    { name: 'branch_id', type: 'select', options: branchOptions.value, multiple: true, placeholder: 'Pilih Cabang (Peminjam)', label: 'Cabang (Peminjam)' },
+    { name: 'branch_id', type: 'select', options: branchOptions.value, multiple: true, placeholder: 'Pilih Cabang', label: 'Cabang' },
     { name: 'counterparty_company_id', type: 'select', options: companyOptions.value, multiple: true, placeholder: 'Pilih Perusahaan (Pemberi)', label: 'Perusahaan (Pemberi)' },
     { name: 'counterparty_branch_id', type: 'select', options: counterpartyBranchOptions.value, multiple: true, placeholder: 'Pilih Cabang (Pemberi)', label: 'Cabang (Pemberi)' },
 ]);
 
 const downloadOptions = [
-    { format: 'pdf', label: 'Download PDF' },
     { format: 'xlsx', label: 'Download Excel' },
-    { format: 'csv', label: 'Download CSV' },
+    { format: 'csv', label: 'Download CSV' }
 ];
 
 const columnFormatters = {
-    branch: (value) => `${value.branch_group.company.name} | ${value.name}`,
-    counterparty_branch: (value) => `${value.branch_group.company.name} | ${value.name}`,
-    issue_date: (value) => new Date(value).toLocaleDateString('id-ID'),
-    due_date: (value) => value ? new Date(value).toLocaleDateString('id-ID') : '-',
+    payment_date: (value) => new Date(value).toLocaleDateString('id-ID'),
+    payment_method: (value) => props.paymentMethodOptions[value] || value,
     amount: (value) => Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0)),
 };
 
 const columnRenderers = {
     status: (value) => {
-        const color = {label: props.statusStyles[value]?.label || value, class: props.statusStyles[value]?.class || 'bg-gray-100 text-gray-800'};
-        return `<span class="px-2 py-1 text-xs font-medium rounded-full ${color.class}">${props.statusOptions[value] || value}</span>`;
-    },
+        const style = props.paymentStatusStyles?.[value] || { label: value, class: 'bg-gray-100 text-gray-800' };
+        return `<span class="px-2 py-1 text-xs font-medium rounded-full ${style.class}">${props.paymentStatusOptions[value] || value}</span>`;
+    }
 };
 
-const sortableColumns = ['issue_date', 'number', 'branch.name', 'counterparty_branch.name', 'due_date', 'amount', 'status'];
-const defaultSort = { key: 'issue_date', order: 'desc' };
+const sortableColumns = ['payment_date', 'number', 'branch.name', 'amount', 'payment_method', 'status'];
+const defaultSort = { key: 'payment_date', order: 'desc' };
 
 function deleteItem(id) {
-    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
-    router.delete(route('internal-debts.destroy', id), {
+    const currentQuery = window.location.search ? window.location.search.substring(1) : '';
+    router.delete(route('internal-debt-payments.destroy', id), {
         preserveScroll: true,
         preserveState: true,
         data: { preserveState: true, currentQuery },
@@ -89,8 +85,8 @@ function deleteItem(id) {
 }
 
 function handleBulkDelete(ids) {
-    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
-    router.delete(route('internal-debts.bulk-delete'), {
+    const currentQuery = window.location.search ? window.location.search.substring(1) : '';
+    router.delete(route('internal-debt-payments.bulk-delete'), {
         preserveScroll: true,
         preserveState: true,
         data: { preserveState: true, currentQuery, ids },
@@ -99,7 +95,7 @@ function handleBulkDelete(ids) {
 
 function handleSort(newSort) {
     currentSort.value = newSort;
-    router.get(route('internal-debts.index'), {
+    router.get(route('internal-debt-payments.index'), {
         ...route().params,
         ...currentFilters.value,
         sort: newSort.key,
@@ -115,7 +111,7 @@ function handleSort(newSort) {
 function handleFilter(newFilters) {
     currentFilters.value = newFilters;
     if (newFilters.page) delete newFilters.page;
-    router.get(route('internal-debts.index'), {
+    router.get(route('internal-debt-payments.index'), {
         ...currentFilters.value,
         sort: currentSort.value.key,
         order: currentSort.value.order,
@@ -130,38 +126,37 @@ function handleFilter(newFilters) {
 </script>
 
 <template>
-    <Head title="Hutang / Piutang Internal" />
+    <Head title="Pembayaran Hutang/Piutang Internal" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Daftar Hutang / Piutang Internal</h2>
+            <h2>Pembayaran Hutang/Piutang Internal</h2>
         </template>
 
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
-            <InternalDebtTabs activeTab="internal-debts.index" />
+            <InternalDebtTabs activeTab="internal-debt-payments.index" />
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">
                     <AppDataTable
-                        :data="debts"
+                        :data="items"
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
                         :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
-                        :createRoute="{ name: 'internal-debts.create' }"
-                        :editRoute="{ name: 'internal-debts.edit' }"
-                        :deleteRoute="{ name: 'internal-debts.destroy' }"
-                        :viewRoute="{ name: 'internal-debts.show' }"
-                        :indexRoute="{ name: 'internal-debts.index' }"
+                        :createRoute="{ name: 'internal-debt-payments.create' }"
+                        :editRoute="{ name: 'internal-debt-payments.edit' }"
+                        :deleteRoute="{ name: 'internal-debt-payments.destroy' }"
+                        :viewRoute="{ name: 'internal-debt-payments.show' }"
+                        :indexRoute="{ name: 'internal-debt-payments.index' }"
                         :downloadOptions="downloadOptions"
-                        downloadBaseRoute="internal-debts"
                         :sortable="sortableColumns"
                         :defaultSort="defaultSort"
                         :currentSort="currentSort"
                         :perPage="perPage"
-                        routeName="internal-debts.index"
+                        routeName="internal-debt-payments.index"
                         itemKey="id"
-                        searchPlaceholder="Cari nomor, catatan..."
+                        searchPlaceholder="Cari nomor, referensi, catatan..."
                         @delete="deleteItem"
                         @bulkDelete="handleBulkDelete"
                         @sort="handleSort"
@@ -171,6 +166,6 @@ function handleFilter(newFilters) {
             </div>
         </div>
     </AuthenticatedLayout>
-    </template>
+</template>
 
 

@@ -87,6 +87,8 @@ class Journal extends Model
             'account_receivable_collection' => 'Jurnal Penerimaan Piutang',
             'internal_payable' => 'Jurnal Hutang Internal',
             'internal_receivable' => 'Jurnal Piutang Internal',
+            'internal_payable_payment' => 'Jurnal Pembayaran Hutang / Piutang Internal',
+            'internal_receivable_collection' => 'Jurnal Penerimaan Hutang / Piutang Internal',
         ];
     }
 
@@ -115,6 +117,8 @@ class Journal extends Model
             'account_receivable_collection' => 'ARC',
             'internal_payable' => 'IP',
             'internal_receivable' => 'IR',
+            'internal_payable_payment' => 'IPP',
+            'internal_receivable_collection' => 'IRC',
         ];
     }
 }

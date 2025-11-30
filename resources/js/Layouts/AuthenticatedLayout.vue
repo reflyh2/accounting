@@ -83,6 +83,8 @@ const isAccountingActive = computed(() => {
         || route().current('external-payable-payments.*')
         || route().current('external-receivable-payments.*')
         || route().current('internal-debts.*')
+        || route().current('internal-debt-payments.*')
+        || route().current('internal-debt-aging.*')
         || route().current('cash-receipt-journals.*')
         || route().current('cash-payment-journals.*')
         || route().current('general-ledger.*')
@@ -214,7 +216,11 @@ function toggleSidebar() {
                                 Hutang / Piutang
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('internal-debts.index')" 
-                                :active="route().current('internal-debts.*')" 
+                                :active="
+                                    route().current('internal-debts.*')
+                                    || route().current('internal-debt-payments.*')
+                                    || route().current('internal-debt-aging.*')
+                                "
                                 class="pl-11"
                             >
                                 Hutang / Piutang Internal
@@ -400,7 +406,11 @@ function toggleSidebar() {
                                             Hutang / Piutang
                                         </NavLink>
                                         <NavLink :href="route('internal-debts.index')"
-                                            :active="route().current('internal-debts.*')"
+                                            :active="
+                                                route().current('internal-debts.*')
+                                                || route().current('internal-debt-payments.*')
+                                                || route().current('internal-debt-aging.*')
+                                            "
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Hutang / Piutang Internal
@@ -472,7 +482,11 @@ function toggleSidebar() {
                                             Hutang / Piutang
                                         </NavLink>
                                         <NavLink :href="route('internal-debts.index')"
-                                            :active="route().current('internal-debts.*')"
+                                            :active="
+                                                route().current('internal-debts.*')
+                                                || route().current('internal-debt-payments.*')
+                                                || route().current('internal-debt-aging.*')
+                                            "
                                             class="flex items-center"
                                         >
                                             Hutang / Piutang Internal

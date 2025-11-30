@@ -12,6 +12,7 @@ import { formatNumber } from '@/utils/numberFormat';
 const props = defineProps({
     item: Object,
     filters: Object,
+    paymentMethodOptions: Object,
 });
 
 const form = useForm({});
@@ -84,7 +85,7 @@ const deleteItem = () => {
                             </div>
                             <div>
                                 <p class="font-semibold">Metode:</p>
-                                <p>{{ item.payment_method || '-' }}</p>
+                                <p>{{ paymentMethodOptions[item.payment_method] || '-' }}</p>
                             </div>
                             <div>
                                 <p class="font-semibold">Referensi:</p>

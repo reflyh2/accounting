@@ -115,6 +115,7 @@ class ExternalReceivablePaymentController extends ExternalDebtPaymentController
             'perPage' => $perPage,
             'sort' => $sortColumn,
             'order' => $sortOrder,
+            'paymentMethodOptions' => ExternalDebtPayment::paymentMethodOptions(),
         ]);
     }
 
@@ -162,6 +163,7 @@ class ExternalReceivablePaymentController extends ExternalDebtPaymentController
             'primaryCurrency' => $primaryCurrency,
             'debts' => fn() => $debts,
             'accounts' => fn() => $accounts,
+            'paymentMethodOptions' => ExternalDebtPayment::paymentMethodOptions(),
         ]);
     }
 
@@ -182,6 +184,7 @@ class ExternalReceivablePaymentController extends ExternalDebtPaymentController
         return Inertia::render('Debts/ExternalReceivablePayments/Show', [
             'item' => $externalReceivablePayment,
             'filters' => $filters,
+            'paymentMethodOptions' => ExternalDebtPayment::paymentMethodOptions(),
         ]);
     }
 
@@ -216,6 +219,7 @@ class ExternalReceivablePaymentController extends ExternalDebtPaymentController
             'primaryCurrency' => $primaryCurrency,
             'debts' => $this->getUnpaidDebts($companyId, $branchId, $partnerId, $currencyId, $externalReceivablePayment->id),
             'accounts' => Account::whereHas('companies', fn($q) => $q->where('company_id', $companyId))->where('is_parent', false)->orderBy('code', 'asc')->get(),
+            'paymentMethodOptions' => ExternalDebtPayment::paymentMethodOptions(),
         ]);
     }
 
@@ -327,6 +331,7 @@ class ExternalReceivablePaymentController extends ExternalDebtPaymentController
                 ->whereHas('externalDebt', fn($q) => $q->where('type', $this->type))
                 ->get();
             foreach ($items as $item) {
+                ExternalDebtPaymentDeleted::dispatch($item->loadMissing('details.externalDebt'));
                 $item->delete();
             }
         });
@@ -407,6 +412,7 @@ class ExternalReceivablePaymentController extends ExternalDebtPaymentController
         $externalReceivablePayment->load(['partner', 'branch.branchGroup.company', 'currency', 'details.externalDebt', 'creator', 'updater']);
         return Inertia::render('Debts/ExternalReceivablePayments/Print', [
             'item' => $externalReceivablePayment,
+            'paymentMethodOptions' => ExternalDebtPayment::paymentMethodOptions(),
         ]);
     }
 }

@@ -6,15 +6,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Auth;
+use App\Enums\PaymentStatus;
 use App\Enums\PaymentMethod;
 
-class ExternalDebtPayment extends Model
+class InternalDebtPayment extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $guarded = [];
 
     protected $casts = [
+        'amount' => 'float',
+        'primary_currency_amount' => 'float',
+        'payment_date' => 'date',
+        'status' => PaymentStatus::class,
         'payment_method' => PaymentMethod::class,
     ];
 
@@ -23,21 +28,15 @@ class ExternalDebtPayment extends Model
         parent::boot();
 
         static::creating(function ($model) {
-            // type must be provided by controller: 'payable' | 'receivable'
-
-            // Generate payment number:
-            // Prefix based on external debt type (payable/receivable)
-            // Format: XPP|XRP.YY.BBB.NNNNN
-            //  - XPP: External Payable Payment
-            //  - XRP: External Receivable Payment
-            //  - YY: year (2 digits) from payment_date
-            //  - BBB: branch_id padded to 3 digits
-            //  - NNNNN: sequence per branch-year-type
+            // type must be provided: 'payable' | 'receivable'
+            // Generate payment number with prefix based on type:
+            // IPP = Internal Payable Payment, IRP = Internal Receivable Payment
+            // Format: IPP|IRP.YY.BBB.NNNNN
             $type = $model->type ?? null;
-            $prefix = match ("$type") {
-                'payable' => 'XPP',
-                'receivable' => 'XRP',
-                default => 'XDP', // generic fallback
+            $prefix = match ((string) $type) {
+                'payable' => 'IPP',
+                'receivable' => 'IRP',
+                default => 'IDP', // generic fallback
             };
 
             $yearTwoDigits = date('y', strtotime($model->payment_date ?: now()));
@@ -45,8 +44,7 @@ class ExternalDebtPayment extends Model
 
             $last = self::query()
                 ->when($type, function ($q) use ($type) {
-                    // Match by prefix to maintain independent sequences per type
-                    $q->where('number', 'like', ($type === 'payable' ? 'XPP' : 'XRP') . '.%');
+                    $q->where('number', 'like', ($type === 'payable' ? 'IPP' : 'IRP') . '.%');
                 })
                 ->whereYear('payment_date', date('Y', strtotime($model->payment_date ?: now())))
                 ->where('branch_id', $model->branch_id)
@@ -71,6 +69,16 @@ class ExternalDebtPayment extends Model
         });
     }
 
+    public static function statusStyles(): array
+    {
+        return PaymentStatus::styles();
+    }
+
+    public static function statusOptions(): array
+    {
+        return PaymentStatus::options();
+    }
+
     public static function paymentMethodStyles(): array
     {
         return PaymentMethod::styles();
@@ -83,7 +91,7 @@ class ExternalDebtPayment extends Model
 
     public function details()
     {
-        return $this->hasMany(ExternalDebtPaymentDetail::class);
+        return $this->hasMany(InternalDebtPaymentDetail::class);
     }
 
     public function branch()
@@ -96,24 +104,14 @@ class ExternalDebtPayment extends Model
         return $this->belongsTo(Currency::class);
     }
 
-    public function journal()
-    {
-        return $this->belongsTo(Journal::class);
-    }
-
-    public function partner()
-    {
-        return $this->belongsTo(Partner::class);
-    }
-
     public function account()
     {
         return $this->belongsTo(Account::class);
     }
 
-    public function partnerBankAccount()
+    public function journal()
     {
-        return $this->belongsTo(PartnerBankAccount::class, 'partner_bank_account_id');
+        return $this->belongsTo(Journal::class);
     }
 
     public function creator()

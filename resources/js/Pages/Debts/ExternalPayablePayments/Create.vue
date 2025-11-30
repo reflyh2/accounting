@@ -12,6 +12,7 @@ defineProps({
     currencies: Array,
     debts: Array,
     accounts: Array,
+    paymentMethodOptions: Object,
 });
 </script>
 
@@ -37,6 +38,7 @@ defineProps({
                             :debts="debts"
                             :accounts="accounts"
                             :filters="filters"
+                            :paymentMethodOptions="paymentMethodOptions"
                             moduleType="payable"
                         />
                     </div>

@@ -18,6 +18,7 @@ const props = defineProps({
     perPage: [String, Number],
     sort: String,
     order: String,
+    paymentMethodOptions: Object,
 });
 
 const currentSort = ref({ key: props.sort || 'payment_date', order: props.order || 'desc' });
@@ -54,6 +55,7 @@ const downloadOptions = [
 
 const columnFormatters = {
     payment_date: (v) => new Date(v).toLocaleDateString('id-ID'),
+    payment_method: (v) => props.paymentMethodOptions[v] || v,
     withdrawal_date: (v) => v ? new Date(v).toLocaleDateString('id-ID') : '-',
     amount: (v) => `${formatNumber(v)}`,
 };

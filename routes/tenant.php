@@ -25,6 +25,7 @@ use App\Http\Controllers\ExternalPayableCardController;
 use App\Http\Controllers\ExternalReceivableAgingController;
 use App\Http\Controllers\ExternalReceivableMutationController;
 use App\Http\Controllers\ExternalReceivableCardController;
+use App\Http\Controllers\InternalDebtAgingController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\GeneralLedgerController;
 use App\Http\Controllers\Auth\NewPasswordController;
@@ -60,6 +61,7 @@ use App\Http\Controllers\InternalReceivableController;
 use App\Http\Controllers\InternalDebtController;
 use App\Http\Controllers\ExternalPayablePaymentController;
 use App\Http\Controllers\ExternalReceivablePaymentController;
+use App\Http\Controllers\InternalDebtPaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -245,6 +247,10 @@ Route::middleware([
         Route::get('external-receivable-card', [ExternalReceivableCardController::class, 'index'])->name('external-receivable-card.index');
         Route::get('external-receivable-card/download', [ExternalReceivableCardController::class, 'download'])->name('external-receivable-card.download');
 
+        // Internal Debt Aging
+        Route::get('internal-debt-aging', [InternalDebtAgingController::class, 'index'])->name('internal-debt-aging.index');
+        Route::get('internal-debt-aging/download', [InternalDebtAgingController::class, 'download'])->name('internal-debt-aging.download');
+
         Route::delete('/asset-categories/bulk-delete', [AssetCategoryController::class, 'bulkDelete'])->name('asset-categories.bulk-delete');
         Route::get('asset-categories/export-xlsx', [AssetCategoryController::class, 'exportXLSX'])->name('asset-categories.export-xlsx');
         Route::get('asset-categories/export-csv', [AssetCategoryController::class, 'exportCSV'])->name('asset-categories.export-csv');
@@ -368,6 +374,15 @@ Route::middleware([
         Route::put('internal-debts/{internalDebt}/approve', [InternalDebtController::class, 'approve'])->name('internal-debts.approve');
         Route::put('internal-debts/{internalDebt}/reject', [InternalDebtController::class, 'reject'])->name('internal-debts.reject');
         Route::resource('internal-debts', InternalDebtController::class);
+        
+        // Internal Debt Payments (unified)
+        Route::delete('internal-debt-payments/bulk-delete', [InternalDebtPaymentController::class, 'bulkDelete'])->name('internal-debt-payments.bulk-delete');
+        Route::get('internal-debt-payments/export-xlsx', [InternalDebtPaymentController::class, 'exportXLSX'])->name('internal-debt-payments.export-xlsx');
+        Route::get('internal-debt-payments/export-csv', [InternalDebtPaymentController::class, 'exportCSV'])->name('internal-debt-payments.export-csv');
+        Route::get('internal-debt-payments/export-pdf', [InternalDebtPaymentController::class, 'exportPDF'])->name('internal-debt-payments.export-pdf');
+        Route::put('internal-debt-payments/{internalDebtPayment}/approve', [InternalDebtPaymentController::class, 'approve'])->name('internal-debt-payments.approve');
+        Route::put('internal-debt-payments/{internalDebtPayment}/reject', [InternalDebtPaymentController::class, 'reject'])->name('internal-debt-payments.reject');
+        Route::resource('internal-debt-payments', InternalDebtPaymentController::class);
     });
 
     Route::middleware('guest')->group(function () {

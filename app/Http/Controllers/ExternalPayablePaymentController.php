@@ -118,6 +118,7 @@ class ExternalPayablePaymentController extends ExternalDebtPaymentController
             'perPage' => $perPage,
             'sort' => $sortColumn,
             'order' => $sortOrder,
+            'paymentMethodOptions' => ExternalDebtPayment::paymentMethodOptions(),
         ]);
     }
 
@@ -165,6 +166,7 @@ class ExternalPayablePaymentController extends ExternalDebtPaymentController
             'primaryCurrency' => $primaryCurrency,
             'debts' => fn() => $debts,
             'accounts' => fn() => $accounts,
+            'paymentMethodOptions' => ExternalDebtPayment::paymentMethodOptions(),
         ]);
     }
 
@@ -185,6 +187,7 @@ class ExternalPayablePaymentController extends ExternalDebtPaymentController
         return Inertia::render('Debts/ExternalPayablePayments/Show', [
             'item' => $externalPayablePayment,
             'filters' => $filters,
+            'paymentMethodOptions' => ExternalDebtPayment::paymentMethodOptions(),
         ]);
     }
 
@@ -221,6 +224,7 @@ class ExternalPayablePaymentController extends ExternalDebtPaymentController
             'primaryCurrency' => $primaryCurrency,
             'debts' => $this->getUnpaidDebts($companyId, $branchId, $partnerId, $currencyId, $externalPayablePayment->id),
             'accounts' => Account::whereHas('companies', fn($q) => $q->where('company_id', $companyId))->where('is_parent', false)->with('currencies.companyRates')->orderBy('code', 'asc')->get(),
+            'paymentMethodOptions' => ExternalDebtPayment::paymentMethodOptions(),
         ]);
     }
 
@@ -332,6 +336,7 @@ class ExternalPayablePaymentController extends ExternalDebtPaymentController
                 ->whereHas('externalDebt', fn($q) => $q->where('type', $this->type))
                 ->get();
             foreach ($items as $item) {
+                ExternalDebtPaymentDeleted::dispatch($item->loadMissing('details.externalDebt'));
                 $item->delete();
             }
         });
@@ -412,6 +417,7 @@ class ExternalPayablePaymentController extends ExternalDebtPaymentController
         $externalPayablePayment->load(['partner', 'branch.branchGroup.company', 'currency', 'details.externalDebt', 'creator', 'updater']);
         return Inertia::render('Debts/ExternalPayablePayments/Print', [
             'item' => $externalPayablePayment,
+            'paymentMethodOptions' => ExternalDebtPayment::paymentMethodOptions(),
         ]);
     }
 }

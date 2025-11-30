@@ -57,6 +57,10 @@ const props = defineProps({
          bottom: 4,
          left: 0
       })
+   },
+   inModal: {
+      type: Boolean,
+      default: false
    }
 });
 
@@ -208,6 +212,10 @@ const dropdownStyle = computed(() => {
   return style;
 });
 
+const dropdownZIndexClass = computed(() => {
+  return props.inModal ? 'z-[300]' : 'z-50';
+});
+
 onMounted(() => {
    document.addEventListener('click', closeDropdown);
    window.addEventListener('scroll', positionDropdown);
@@ -284,7 +292,8 @@ onUnmounted(() => {
         v-if="isOpen" 
         ref="dropdownRef"
         :class="[
-          'fixed z-50 bg-white shadow-lg rounded-md text-base ring-1 ring-black ring-opacity-5 overflow-hidden focus:outline-none text-sm',
+          'fixed bg-white shadow-lg rounded-md text-base ring-1 ring-black ring-opacity-5 overflow-hidden focus:outline-none text-sm',
+          dropdownZIndexClass,
           isOpenUpwards ? 'bottom-0' : 'top-0'
         ]"
         :style="dropdownStyle"

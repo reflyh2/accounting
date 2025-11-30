@@ -18,6 +18,7 @@ const props = defineProps({
     debts: Array,
     accounts: Array,
     filters: Object,
+    paymentMethodOptions: Object,
     moduleType: String, // 'payable' | 'receivable'
 });
 
@@ -46,12 +47,7 @@ const currencyOptions = computed(() => props.currencies.map(c => ({ value: c.id,
 const branchOptions = computed(() => props.branches?.map(b => ({ value: b.id, label: b.name })) || []);
 const partnerOptions = computed(() => props.partners?.map(p => ({ value: p.id, label: p.name })) || []);
 const accountOptions = computed(() => props.accounts?.filter(a => a.type === 'kas_bank').map(a => ({ value: a.id, label: `${a.code} - ${a.name}` })) || []);
-const paymentMethodOptions = ref([
-    { value: 'cash', label: 'Tunai' },
-    { value: 'transfer', label: 'Transfer' },
-    { value: 'cek', label: 'Cek' },
-    { value: 'giro', label: 'Giro' },
-]);
+const paymentMethodOptions = computed(() => Object.entries(props.paymentMethodOptions).map(([value, label]) => ({ value, label })));
 const partnerBankAccounts = ref([]);
 const partnerBankAccountOptions = computed(() => partnerBankAccounts.value.map(b => ({ value: b.id, label: `${b.bank_name} - ${b.account_number} (${b.account_holder_name})` })));
 
@@ -59,6 +55,10 @@ const debtInputs = ref({});
 const debtsList = computed(() => props.debts || []);
 const totalAmount = computed(() => {
     return Object.values(debtInputs.value).reduce((sum, val) => sum + (Number(val) || 0), 0);
+});
+
+const maxAmount = computed(() => {
+    return debtsList.value.reduce((sum, d) => sum + (Number(d.remaining_amount) || 0), 0);
 });
 
 const currentCurrencySymbol = computed(() => {
@@ -85,6 +85,9 @@ function clampAmount(val, max) {
 
 function allocateFromTotal() {
     const total = Number(form.amount) || 0;
+    if (total > maxAmount.value) {
+        form.amount = maxAmount.value;
+    }
     let remaining = total;
     isAllocating.value = true;
     // reset all first

@@ -373,6 +373,13 @@ class InternalDebtController extends Controller
         DB::transaction(function () use ($validated) {
             $debts = InternalDebt::whereIn('id', $validated['ids'])->get();
             foreach ($debts as $debt) {
+                if ($debt->status === DebtStatus::APPROVED) {
+                    return Redirect::back()->with('error', 'Tidak dapat menghapus hutang yang sudah disetujui.');
+                }
+            }
+
+            foreach ($debts as $debt) {
+                InternalDebtDeleted::dispatch($debt);
                 $debt->delete();
             }
         });

@@ -1,0 +1,245 @@
+# Product Inventory Module – Implementation Plan (.mdc)
+**Stack:** Laravel 11 · InertiaJS · Vue 3 · Tailwind
+
+> Note: Migrations are **already created**. This plan focuses on application services, controllers, routes, Inertia pages, Vue components, validations, and tests to implement **type‑specific product CRUD** with inventory/bookable/rental abstractions.
+
+---
+
+## 0) Architectural Principles
+- **Single product engine, multiple UX surfaces:** One product schema; expose **type‑specific CRUD** (Goods, Service, Accommodation, Rental, Package). Users only see fields they need.
+- **Capabilities drive behavior:** `product_capability` controls inventory/bookable/rental/package features.
+- **Data‑driven forms:** Attribute sets/defs generate dynamic forms. Same schema powers server (FormRequest) and client (VeeValidate/Zod).
+- **Service layer over fat controllers:** Business logic in services (Product, Attribute, Inventory, Availability, Booking, Pricing).
+
+---
+
+## 1) Scope by Sprints (without migrations)
+
+### Sprint A — Catalog Foundations (types, attributes, pricing)
+**Goal:** CRUD per type with type-aware forms.
+
+Deliver:
+- Seeders: `ProductTypeTemplatesSeeder`, minimal attribute sets & defs, starter UOMs/UOM rules, base price lists.
+- Routes (type-specific):  
+  - `/catalog/goods/*`  
+  - `/catalog/services/*`  
+  - `/catalog/accommodation/*`  
+  - `/catalog/rental/*`  
+  - `/catalog/packages/*`
+- Controllers: thin; call `ProductAppService`.
+- Services: `ProductAppService`, `AttributeService`, `PricingService`.
+- Inertia pages: type-specific `Index.vue` and `Form.vue` using a shared `DynamicAttributesForm.vue`.
+- Validation: FormRequests per type + client schema.
+- Tests: create product per type; ensure capabilities & attribute_set applied.
+
+### Sprint B — Inventory (Goods)
+**Goal:** Receive/issue/adjust/transfer + costing.
+
+Deliver:
+- Services: `InventoryService` (receipt/issue/adjust/transfer; FIFO/Avg).
+- Inertia pages: minimal Receive/Ship screens (will be reused by PO/SO deliveries).
+- Tests: layers created/consumed, concurrency-safe updates, valuation correct.
+
+### Sprint C — Bookable & Rental
+**Goal:** Availability search, booking lifecycle, instance assignment, deposits, invoice hooks.
+
+Deliver:
+- Services: `AvailabilityService`, `BookingService`.
+- Constraints: `btree_gist` + EXCLUDE overlap on `booking_line (instance_id, tstzrange)`.  
+- Inertia pages: Accommodation calendar + booking form; Rental date-time picker + instance picker.
+- Tests: no double booking; deposit handling; pricing by stay/duration.
+
+### Sprint D — Price Targeting & Partner Groups (Optional)
+**Goal:** Price list targeting (partner, partner group, company) with precedence.
+
+Deliver:
+- `price_list_target` endpoints + resolver; integrate with Partner Groups.
+
+---
+
+## 2) Product Type Templates (User Abstraction)
+
+`app/Domain/Catalog/ProductTypeTemplates.php` (array/JSON registry)
+
+- **goods**  
+  - Capabilities: `['variantable','inventory_tracked']`  
+  - Attribute set: `retail_apparel` (example)  
+  - Form sections: base (code, name, category, default_uom, tax), attributes (brand, material, color, size, gender), pricing (price list & price), inventory toggle.  
+  - Variant axes: `['color','size']`
+
+- **service**  
+  - Capabilities: `['service']`  
+  - Attribute set: `service_basic`  
+  - Form: base (code, name, tax), attributes (duration_minutes, service_level).
+
+- **accommodation**  
+  - Capabilities: `['bookable']`  
+  - Attribute set: `hotel_room`  
+  - Form: base (code, name, tax), attributes (bed_type, view, smoking, max_occupancy), pool (branch, default_capacity), calendar seed.
+
+- **rental**  
+  - Capabilities: `['rental','serialized','bookable']`  
+  - Attribute set: `vehicle_class`  
+  - Form: base (code, name, tax), attributes (transmission, fuel, seats, luggage), policy (granularity, min/max duration, fuel_policy, mileage).
+
+- **package**  
+  - Capabilities: `['package']`  
+  - Attribute set: `travel_package`  
+  - Form: base (code, name, tax), attributes (duration_nights, meals, private_transfer).
+
+**Wizard Flow:**  
+Step 1 pick type → Step 2 base fields → Step 3 attributes (auto from defs) → Step 4 type specifics (variants/pricing or pool/policy).
+
+---
+
+## 3) Backend Contracts
+
+### Controllers (thin, per type)
+- `GoodsProductController`, `ServiceProductController`, `AccommodationProductController`, `RentalProductController`, `PackageProductController`  
+  - `index/create/store/edit/update/destroy`
+  - All delegate to `ProductAppService` and `AttributeService`.
+
+### Services
+**ProductAppService**
+```php
+createProduct(array $input, string $type): Product
+updateProduct(Product $product, array $input, string $type): Product
+deleteProduct(Product $product): void
+```
+- Applies template capabilities, attribute_set, saves `attrs_json`, performs type-specific post-create (variants/pool/policy).
+
+**AttributeService**
+```php
+getDefsForSet(string $setCode): Collection
+validateAndNormalize(array $data, Collection $defs): array // -> attrs_json
+```
+
+**PricingService**
+```php
+quote(int $productId, ?int $variantId, int $uomId, float $qty, array $ctx): Money
+```
+- Context includes `date, company_id, partner_id, partner_group_id`.
+
+**InventoryService** (goods only)
+```php
+receipt(ReceiptDTO $dto): InventoryTxnResult
+issue(IssueDTO $dto): InventoryTxnResult
+adjust(AdjustDTO $dto): InventoryTxnResult
+transfer(TransferDTO $dto): InventoryTxnResult
+```
+
+**AvailabilityService**
+```php
+searchPoolAvailability(int $poolId, Carbon $start, Carbon $end, int $qty): AvailabilityResult
+findFreeInstances(int $poolId, Carbon $start, Carbon $end, int $qty): Collection
+```
+
+**BookingService**
+```php
+hold(array $dto): Booking
+confirm(int $bookingId): Booking
+assignInstance(int $bookingLineId, int $instanceId): void
+checkIn(int $bookingId): void
+checkOut(int $bookingId): void
+cancel(int $bookingId, string $reason): void
+```
+
+---
+
+## 4) Routes (tenant.php – examples)
+```php
+Route::prefix('catalog')->group(function() {
+  Route::resource('goods', GoodsProductController::class);
+  Route::resource('services', ServiceProductController::class);
+  Route::resource('accommodation', AccommodationProductController::class);
+  Route::resource('rental', RentalProductController::class);
+  Route::resource('packages', PackageProductController::class);
+});
+```
+
+---
+
+## 5) Inertia Pages & Vue Components
+
+### Pages per type
+- `Pages/Catalog/Goods/Index.vue` — list, filters (category, code, name, active)
+- `Pages/Catalog/Goods/Form.vue` — **BaseFields**, **DynamicAttributesForm**, **VariantGrid**, **PricingCard**, **InventorySwitch**
+- `Pages/Catalog/Service/Form.vue` — minimal
+- `Pages/Catalog/Accommodation/Form.vue` — **BaseFields**, **DynamicAttributesForm**, **PoolCard**, **InstanceList**, **CalendarSeedForm**
+- `Pages/Catalog/Rental/Form.vue` — **BaseFields**, **DynamicAttributesForm**, **PolicyCard**, **InstanceList**
+- `Pages/Catalog/Package/Form.vue` — **BaseFields**, **DynamicAttributesForm** (bundle editor later)
+
+### Shared components
+- `Components/Catalog/BaseFields.vue`
+- `Components/Catalog/DynamicAttributesForm.vue` (builds inputs from attribute_def)
+- `Components/Catalog/VariantGrid.vue`
+- `Components/Pricing/PricingCard.vue`
+- `Components/Pool/PoolCard.vue`, `Components/Pool/InstanceList.vue`
+- `Components/Calendar/CalendarSeedForm.vue`
+- `Components/Booking/QuickCreate.vue`
+
+**UX Rules**
+- Lazy-load `attribute_def` → build form schema.
+- Submit payload shape: `{ base, attributes, typeSpecific }`.
+
+---
+
+## 6) Availability & Booking (Accommodation/Rental)
+
+- **AvailabilityService** checks `availability_rule` and either `occurrence` (accommodation) or overlapping `booking_line` (rental).  
+- **EXCLUDE constraint** on `booking_line(instance_id, tstzrange(start,end))` prevents double-assign.
+- Booking lifecycle: `hold (held_until)` → `confirm` → `assignInstance` → `checkIn`/`checkOut` → `completed` or `cancel/no_show`.
+- **Invoices**: `invoice_detail.booking_line_id` references booked service; deposits reclassed at fulfilment.
+
+---
+
+## 7) Price Targeting (Optional Now)
+- `price_list_target` supports `partner_id`, `partner_group_id`, `company_id` with precedence.  
+- Resolution order suggestion: Partner+Company → Partner → Group+Company → Group → Company → Default.
+
+---
+
+## 8) Developer Notes
+
+- **FormRequests** mirror `DynamicAttributesForm` rules to avoid drift.
+- **DTOs** for service boundaries; keep controllers thin.
+- **Events**: `product.created`, `inventory.receipt_posted`, `booking.confirmed` → GL or notifications.
+- **Authorization**: Policies check tenant/company on Product/Pool/Instance/Booking.
+- **Observability**: add audit logs on type changes, capability toggles, and booking state transitions.
+
+---
+
+## 9) Onboarding Defaults (Seeders)
+
+- Attribute sets/defs: `retail_apparel`, `service_basic`, `hotel_room`, `vehicle_class`, `travel_package`.
+- UOMs: `pcs`, `dozen`, `kg`, `g`, `hour`, `day` with default conversions.
+- Example price list “DEFAULT” (active).  
+- Two demo pools/instances to showcase accommodation & rental flows.
+
+---
+
+## 10) API Contracts (Internal)
+
+- **Pricing**: `GET /api/pricing/quote?product_id&variant_id&uom_id&qty&date&company_id&partner_id` → `{ price, tax, currency, rule_id }`
+- **Availability**:  
+  - Accommodation: `GET /api/availability/pool/:poolId?start&end&qty`  
+  - Rental: `GET /api/availability/pool/:poolId/free-instances?start&end&qty`
+- **Inventory**: `POST /api/inventory/transactions` (unified endpoint; module-specific wrappers call this).
+
+---
+
+### Appendix – Example Template JSON (goods)
+```json
+{
+  "type": "goods",
+  "capabilities": ["variantable","inventory_tracked"],
+  "attribute_set": "retail_apparel",
+  "form": {
+    "base": ["code","name","category_id","default_uom_id","tax_category_id"],
+    "attributes": ["brand","material","color","size","gender"],
+    "pricing": ["price_list_id","price"],
+    "inventory": {"track_inventory": true}
+  },
+  "variant_axes": ["color","size"]
+}
+```
