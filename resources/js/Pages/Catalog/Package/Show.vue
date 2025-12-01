@@ -1,12 +1,11 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
-import AppPrintButton from '@/Components/AppPrintButton.vue';
 import AppEditButton from '@/Components/AppEditButton.vue';
 import AppDeleteButton from '@/Components/AppDeleteButton.vue';
 import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 
 const props = defineProps({
     product: Object,
@@ -16,7 +15,7 @@ const form = useForm({});
 const showDeleteConfirmation = ref(false);
 
 const deleteProduct = () => {
-    form.delete(route('catalog.goods.destroy', props.product.id), {
+    form.delete(route('catalog.packages.destroy', props.product.id), {
         onSuccess: () => {
             showDeleteConfirmation.value = false;
         },
@@ -28,11 +27,11 @@ const deleteProduct = () => {
 </script>
 
 <template>
-    <Head title="Detail Barang" />
+    <Head title="Detail Paket" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Detail Barang</h2>
+            <h2>Detail Paket</h2>
         </template>
 
         <div>
@@ -40,12 +39,12 @@ const deleteProduct = () => {
                 <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
                     <div class="p-6 text-gray-900">
                         <div class="mb-6">
-                            <AppBackLink :href="route('catalog.goods.index')" text="Back to Goods List" />
+                            <AppBackLink :href="route('catalog.packages.index')" text="Back to Package List" />
                         </div>
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-bold">{{ product.code }} - {{ product.name }}</h3>
                             <div class="flex items-center">
-                                <Link :href="route('catalog.goods.edit', product.id)" class="mr-1">
+                                <Link :href="route('catalog.packages.edit', product.id)" class="mr-1">
                                     <AppEditButton title="Edit" />
                                 </Link>
                                 <AppDeleteButton @click="showDeleteConfirmation = true" title="Delete" />
@@ -56,10 +55,6 @@ const deleteProduct = () => {
                             <div>
                                 <p class="font-semibold">Category:</p>
                                 <p>{{ product.category?.name ?? '-' }}</p>
-                            </div>
-                            <div>
-                                <p class="font-semibold">Default UOM:</p>
-                                <p>{{ product.default_uom?.code ?? '-' }}</p>
                             </div>
                             <div>
                                 <p class="font-semibold">Tax Category:</p>
@@ -136,5 +131,4 @@ const deleteProduct = () => {
         />
     </AuthenticatedLayout>
 </template>
-
 

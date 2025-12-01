@@ -15,6 +15,7 @@ const props = defineProps({
     taxCategories: Array,
     attributeSets: Array,
     typeTemplate: Object,
+    companies: Array,
 });
 
 const form = useForm({
@@ -26,6 +27,7 @@ const form = useForm({
     is_active: props.product?.is_active ?? true,
     attributes: props.product?.attrs_json ?? {},
     capabilities: ['bookable'],
+    company_ids: props.product?.companies?.map(company => company.id) ?? [],
 });
 
 if (!form.attribute_set_id) {
@@ -93,6 +95,14 @@ const currentDefs = computed(() => {
                         placeholder="Select Tax Category"
                     />
                 </div>
+                <AppSelect
+                    v-model="form.company_ids"
+                    :options="companies.map(company => ({ value: company.id, label: company.name }))"
+                    label="Companies"
+                    :error="form.errors.company_ids"
+                    placeholder="Select Companies"
+                    multiple
+                />
                 <div class="flex items-center mt-2">
                     <input id="is_active_acc" v-model="form.is_active" type="checkbox" class="mr-2">
                     <label for="is_active_acc">Active</label>

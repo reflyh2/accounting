@@ -16,10 +16,10 @@ defineProps({
 </script>
 
 <template>
-    <Head title="Edit Goods" />
+    <Head title="Edit Barang" />
     <AuthenticatedLayout>
         <template #header>
-            <h2>Edit Goods</h2>
+            <h2>Edit Barang</h2>
         </template>
         <div>
             <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">

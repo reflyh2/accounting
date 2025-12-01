@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import AppDataTable from '@/Components/AppDataTable.vue';
+import ProductCatalogTabs from '@/Tabs/ProductCatalogTabs.vue';
 
 const props = defineProps({
     items: Object,
@@ -97,13 +98,15 @@ const customFilters = [
 </script>
 
 <template>
-    <Head title="Catalog - Goods" />
+    <Head title="Katalog - Barang" />
     <AuthenticatedLayout>
         <template #header>
-            <h2>Catalog: Goods</h2>
+            <h2>Katalog: Barang</h2>
         </template>
 
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+            <ProductCatalogTabs activeTab="catalog.goods.index" />
+
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">
                     <AppDataTable

@@ -206,20 +206,17 @@ function toggleSidebar() {
                             <ResponsiveNavLink :href="route('catalog.product-categories.index')" :active="route().current('catalog.product-categories.*')" class="pl-11">
                                 Kategori Produk
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('catalog.goods.index')" :active="route().current('catalog.goods.*')" class="pl-11">
-                                Barang
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('catalog.services.index')" :active="route().current('catalog.services.*')" class="pl-11">
-                                Jasa
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('catalog.accommodation.index')" :active="route().current('catalog.accommodation.*')" class="pl-11">
-                                Akomodasi
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('catalog.rental.index')" :active="route().current('catalog.rental.*')" class="pl-11">
-                                Sewa
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('catalog.packages.index')" :active="route().current('catalog.packages.*')" class="pl-11">
-                                Paket
+                            <ResponsiveNavLink 
+                                :href="route('catalog.goods.index')" 
+                                :active="
+                                    route().current('catalog.goods.*')
+                                    || route().current('catalog.services.*')
+                                    || route().current('catalog.accommodation.*')
+                                    || route().current('catalog.rental.*')
+                                    || route().current('catalog.packages.*')
+                                " 
+                                class="pl-11">
+                                Katalog Produk
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -416,46 +413,25 @@ function toggleSidebar() {
                                 <div class="absolute left-full top-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-10" style="margin-left: 8px;">
                                     <div class="p-2">
                                         <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Produk</div>
-                                    <NavLink 
-                                        :href="route('catalog.product-categories.index')" 
-                                        :active="route().current('catalog.product-categories.*')" 
-                                        class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
-                                    >
-                                        Kategori Produk
-                                    </NavLink>
+                                        <NavLink 
+                                            :href="route('catalog.product-categories.index')" 
+                                            :active="route().current('catalog.product-categories.*')" 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Kategori Produk
+                                        </NavLink>
                                         <NavLink 
                                             :href="route('catalog.goods.index')" 
-                                            :active="route().current('catalog.goods.*')" 
+                                            :active="
+                                                route().current('catalog.goods.*')
+                                                || route().current('catalog.services.*')
+                                                || route().current('catalog.accommodation.*')
+                                                || route().current('catalog.rental.*')
+                                                || route().current('catalog.packages.*')
+                                            " 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
-                                            Barang
-                                        </NavLink>
-                                        <NavLink 
-                                            :href="route('catalog.services.index')" 
-                                            :active="route().current('catalog.services.*')" 
-                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
-                                        >
-                                            Jasa
-                                        </NavLink>
-                                        <NavLink :href="route('catalog.accommodation.index')"
-                                            :active="route().current('catalog.accommodation.*')" 
-                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
-                                        >
-                                            Akomodasi
-                                        </NavLink>
-                                        <NavLink 
-                                            :href="route('catalog.rental.index')" 
-                                            :active="route().current('catalog.rental.*')" 
-                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
-                                        >
-                                            Sewa
-                                        </NavLink>
-                                        <NavLink 
-                                            :href="route('catalog.packages.index')" 
-                                            :active="route().current('catalog.packages.*')" 
-                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
-                                        >
-                                            Paket
+                                            Katalog Produk
                                         </NavLink>
                                     </div>
                                 </div>
@@ -478,35 +454,16 @@ function toggleSidebar() {
                                         <NavLink :href="route('catalog.product-categories.index')" :active="route().current('catalog.product-categories.*')" class="flex items-center">
                                             Kategori Produk
                                         </NavLink>
-                                        <NavLink :href="route('catalog.goods.index')" :active="route().current('catalog.goods.*')" class="flex items-center">
-                                            Barang
-                                        </NavLink>
                                         <NavLink 
-                                            :href="route('catalog.services.index')" 
-                                            :active="route().current('catalog.services.*')" 
-                                            class="flex items-center"
-                                        >
-                                            Jasa
-                                        </NavLink>
-                                        <NavLink :href="route('catalog.accommodation.index')"
-                                            :active="route().current('catalog.accommodation.*')" 
-                                            class="flex items-center"
-                                        >
-                                            Akomodasi
-                                        </NavLink>
-                                        <NavLink 
-                                            :href="route('catalog.rental.index')" 
-                                            :active="route().current('catalog.rental.*')" 
-                                            class="flex items-center"
-                                        >
-                                            Sewa
-                                        </NavLink>
-                                        <NavLink 
-                                            :href="route('catalog.packages.index')" 
-                                            :active="route().current('catalog.packages.*')" 
-                                            class="flex items-center"
-                                        >
-                                            Paket
+                                            :href="route('catalog.goods.index')" 
+                                            :active="route().current('catalog.goods.*')
+                                                || route().current('catalog.services.*')
+                                                || route().current('catalog.accommodation.*')
+                                                || route().current('catalog.rental.*')
+                                                || route().current('catalog.packages.*')
+                                            " 
+                                            class="flex items-center">
+                                            Katalog Produk
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
