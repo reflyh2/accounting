@@ -4,7 +4,10 @@ namespace App\Services\Catalog;
 
 use App\Models\Product;
 use App\Models\ProductCapability;
+use App\Models\AttributeDef;
+use App\Models\Uom;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ProductAppService
 {
@@ -26,16 +29,11 @@ class ProductAppService
                 'is_active' => $input['is_active'] ?? true,
             ]);
 
-            if (!empty($input['capabilities']) && is_array($input['capabilities'])) {
-                foreach ($input['capabilities'] as $capability) {
-                    ProductCapability::create([
-                        'product_id' => $product->id,
-                        'capability' => $capability,
-                    ]);
-                }
-            }
+            $capabilities = $this->replaceCapabilities($product, $input['capabilities'] ?? []);
+            $this->syncCompanies($product, $input['company_ids'] ?? null);
+            $this->syncVariants($product, $input['attributes'] ?? [], $capabilities);
 
-            return $product->load(['capabilities']);
+            return $product->load(['capabilities', 'companies', 'variants']);
         });
     }
 
@@ -57,17 +55,11 @@ class ProductAppService
                 'is_active' => $input['is_active'] ?? $product->is_active,
             ]);
 
-            if (array_key_exists('capabilities', $input) && is_array($input['capabilities'])) {
-                $product->capabilities()->delete();
-                foreach ($input['capabilities'] as $capability) {
-                    ProductCapability::create([
-                        'product_id' => $product->id,
-                        'capability' => $capability,
-                    ]);
-                }
-            }
+            $capabilities = $this->replaceCapabilities($product, $input['capabilities'] ?? null);
+            $this->syncCompanies($product, $input['company_ids'] ?? null);
+            $this->syncVariants($product, $input['attributes'] ?? [], $capabilities ?? $product->capabilities->pluck('capability')->toArray());
 
-            return $product->load(['capabilities']);
+            return $product->load(['capabilities', 'companies', 'variants']);
         });
     }
 
@@ -76,8 +68,154 @@ class ProductAppService
         DB::transaction(function () use ($product) {
             $product->capabilities()->delete();
             $product->variants()->delete();
+             $product->companies()->detach();
             $product->delete();
         });
+    }
+
+    private function replaceCapabilities(Product $product, ?array $capabilities): array
+    {
+        if (!is_array($capabilities)) {
+            $product->loadMissing('capabilities');
+            return $product->capabilities->pluck('capability')->toArray();
+        }
+
+        $product->capabilities()->delete();
+        $normalized = [];
+        $capabilities = array_values(array_unique(array_filter($capabilities)));
+        foreach ($capabilities as $capability) {
+            ProductCapability::create([
+                'product_id' => $product->id,
+                'capability' => $capability,
+            ]);
+            $normalized[] = $capability;
+        }
+
+        return $normalized;
+    }
+
+    private function syncCompanies(Product $product, $companyIds): void
+    {
+        if ($companyIds === null) {
+            return;
+        }
+        $product->companies()->sync($companyIds);
+    }
+
+    private function syncVariants(Product $product, array $attributes, array $capabilities): void
+    {
+        if (!$product->attribute_set_id) {
+            $product->variants()->delete();
+            return;
+        }
+
+        $variantDefs = AttributeDef::query()
+            ->where('attribute_set_id', $product->attribute_set_id)
+            ->where('is_variant_axis', true)
+            ->orderBy('id')
+            ->get();
+
+        if ($variantDefs->isEmpty()) {
+            $product->variants()->delete();
+            return;
+        }
+
+        $axes = [];
+        foreach ($variantDefs as $def) {
+            $values = $attributes[$def->code] ?? null;
+            if ($values === null || $values === '' || $values === []) {
+                continue;
+            }
+            $values = is_array($values) ? $values : [$values];
+            $values = array_values(array_filter($values, fn ($v) => $v !== null && $v !== ''));
+            if (!empty($values)) {
+                $axes[$def->code] = $values;
+            }
+        }
+
+        if (empty($axes)) {
+            $product->variants()->delete();
+            return;
+        }
+
+        $combinations = $this->buildCombinations($axes);
+        $existing = $product->variants()->get()->keyBy(function ($variant) {
+            return $this->variantKey($variant->attrs_json ?? []);
+        });
+        $usedSkus = $existing->pluck('sku')->filter()->values()->all();
+        $keptIds = [];
+        $trackInventory = in_array('inventory_tracked', $capabilities ?? [], true);
+        $uomId = $product->default_uom_id ?? $product->variants()->value('uom_id') ?? Uom::query()->value('id');
+        if (!$uomId) {
+            $product->variants()->delete();
+            return;
+        }
+
+        foreach ($combinations as $combo) {
+            $key = $this->variantKey($combo);
+            $payload = [
+                'attrs_json' => $combo,
+                'track_inventory' => $trackInventory,
+                'uom_id' => $uomId,
+                'is_active' => $product->is_active,
+            ];
+
+            if ($existing->has($key)) {
+                $variant = $existing[$key];
+                $variant->update($payload);
+                $keptIds[] = $variant->id;
+            } else {
+                $payload['sku'] = $this->generateSku($product, $combo, $usedSkus);
+                $variant = $product->variants()->create($payload);
+                $keptIds[] = $variant->id;
+            }
+        }
+
+        if (!empty($keptIds)) {
+            $product->variants()->whereNotIn('id', $keptIds)->delete();
+        } else {
+            $product->variants()->delete();
+        }
+    }
+
+    private function buildCombinations(array $axes): array
+    {
+        $result = [[]];
+        foreach ($axes as $code => $values) {
+            $next = [];
+            foreach ($result as $combo) {
+                foreach ($values as $value) {
+                    $newCombo = $combo;
+                    $newCombo[$code] = $value;
+                    $next[] = $newCombo;
+                }
+            }
+            $result = $next;
+        }
+        return $result;
+    }
+
+    private function variantKey(array $attrs): string
+    {
+        ksort($attrs);
+        return json_encode($attrs);
+    }
+
+    private function generateSku(Product $product, array $combo, array &$usedSkus): string
+    {
+        $parts = [];
+        foreach ($combo as $code => $value) {
+            $valueSlug = Str::upper(Str::of($value)->slug(''));
+            $parts[] = Str::upper($code) . $valueSlug;
+        }
+        $base = $product->code . '-' . implode('-', $parts);
+        $sku = $base;
+        $counter = 1;
+        while (in_array($sku, $usedSkus, true)) {
+            $sku = $base . '-' . $counter++;
+        }
+        $usedSkus[] = $sku;
+        return $sku;
     }
 }
 

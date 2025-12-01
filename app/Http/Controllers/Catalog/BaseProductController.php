@@ -8,6 +8,9 @@ use App\Models\ProductCategory;
 use App\Models\Uom;
 use App\Models\TaxCategory;
 use App\Services\Catalog\ProductAppService;
+use App\Domain\Catalog\ProductTypeTemplates;
+use App\Models\AttributeSet;
+use App\Models\Company;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -21,7 +24,7 @@ abstract class BaseProductController extends Controller
 
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'defaultUom', 'taxCategory'])
+        $query = Product::with(['category', 'defaultUom', 'taxCategory', 'companies'])
             ->where('kind', $this->type);
 
         if ($search = $request->get('search')) {
@@ -35,27 +38,50 @@ abstract class BaseProductController extends Controller
             $query->where('product_category_id', $categoryId);
         }
 
-        if ($isActive = $request->get('is_active')) {
-            $query->where('is_active', filter_var($isActive, FILTER_VALIDATE_BOOLEAN));
+        if ($request->has('is_active') && $request->get('is_active') !== '') {
+            $query->where('is_active', filter_var($request->get('is_active'), FILTER_VALIDATE_BOOLEAN));
         }
 
-        $products = $query->orderBy('name')->paginate($request->integer('per_page', 10))->withQueryString();
+        $perPage = (int) $request->get('per_page', 10);
+        $sort = $request->get('sort', 'name');
+        $order = $request->get('order', 'asc');
+        $allowedSorts = ['name','code','is_active','created_at'];
+        if (!in_array($sort, $allowedSorts, true)) {
+            $sort = 'name';
+        }
+        if (!in_array(strtolower($order), ['asc','desc'], true)) {
+            $order = 'asc';
+        }
+        $products = $query->orderBy($sort, $order)->paginate($perPage)->withQueryString();
 
         return Inertia::render($this->viewBase().'/Index', [
             'items' => $products,
             'filters' => $request->all(),
             'categories' => ProductCategory::orderBy('name')->get(),
+            'perPage' => $perPage,
+            'sort' => $sort,
+            'order' => $order,
         ]);
     }
 
     public function create()
     {
+        $template = ProductTypeTemplates::all()[$this->type] ?? [];
+        $allowedSetCodes = $template['attribute_sets'] ?? [];
+        $attributeSets = AttributeSet::with('attributes')->whereIn('code', $allowedSetCodes)->orderBy('name')->get();
+        $categories = ProductCategory::query()
+            ->whereIn('attribute_set_id', $attributeSets->pluck('id'))
+            ->orderBy('name')->get();
+
         return Inertia::render($this->viewBase().'/Form', [
             'mode' => 'create',
             'product' => null,
-            'categories' => ProductCategory::orderBy('name')->get(),
+            'categories' => $categories,
             'uoms' => Uom::orderBy('name')->get(),
             'taxCategories' => TaxCategory::orderBy('name')->get(),
+            'attributeSets' => $attributeSets,
+            'typeTemplate' => $template,
+            'companies' => Company::orderBy('name')->get(),
         ]);
     }
 
@@ -67,21 +93,42 @@ abstract class BaseProductController extends Controller
             ->with('success', 'Produk berhasil dibuat.');
     }
 
-    public function edit(Product $product)
+    public function edit($id)
     {
+        $product = Product::findOrFail($id);
         abort_unless($product->kind === $this->type, 404);
-        $product->load(['category', 'defaultUom', 'taxCategory']);
+        $product->load(['category', 'defaultUom', 'taxCategory', 'companies']);
+        $template = ProductTypeTemplates::all()[$this->type] ?? [];
+        $allowedSetCodes = $template['attribute_sets'] ?? [];
+        $attributeSets = AttributeSet::with('attributes')->whereIn('code', $allowedSetCodes)->orderBy('name')->get();
+        $categories = ProductCategory::query()
+            ->whereIn('attribute_set_id', $attributeSets->pluck('id'))
+            ->orderBy('name')->get();
         return Inertia::render($this->viewBase().'/Form', [
             'mode' => 'edit',
             'product' => $product,
-            'categories' => ProductCategory::orderBy('name')->get(),
+            'categories' => $categories,
             'uoms' => Uom::orderBy('name')->get(),
             'taxCategories' => TaxCategory::orderBy('name')->get(),
+            'attributeSets' => $attributeSets,
+            'typeTemplate' => $template,
+            'companies' => Company::orderBy('name')->get(),
         ]);
     }
 
-    public function update(Request $request, Product $product)
+    public function show($id)
     {
+        $product = Product::findOrFail($id);
+        abort_unless($product->kind === $this->type, 404);
+        $product->load(['category', 'defaultUom', 'taxCategory', 'companies', 'variants']);
+        return Inertia::render($this->viewBase().'/Show', [
+            'product' => $product,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $product = Product::findOrFail($id);
         abort_unless($product->kind === $this->type, 404);
         $data = $this->validateBase($request, $product->id);
         $this->productService->updateProduct($product, $data, $this->type);
@@ -89,8 +136,9 @@ abstract class BaseProductController extends Controller
             ->with('success', 'Produk berhasil diubah.');
     }
 
-    public function destroy(Product $product)
+    public function destroy($id)
     {
+        $product = Product::findOrFail($id);
         abort_unless($product->kind === $this->type, 404);
         $this->productService->deleteProduct($product);
         return redirect()->route($this->routeBase().'.index')
@@ -116,6 +164,8 @@ abstract class BaseProductController extends Controller
             'inventory_account_id' => ['nullable', 'exists:accounts,id'],
             'is_active' => ['boolean'],
             'capabilities' => ['array'],
+            'company_ids' => ['sometimes', 'array'],
+            'company_ids.*' => ['exists:companies,id'],
         ]);
     }
 

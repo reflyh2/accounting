@@ -1,28 +1,37 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
+import DynamicAttributesForm from '@/Components/Catalog/DynamicAttributesForm.vue';
 
 const props = defineProps({
     mode: String,
     product: Object,
     categories: Array,
-    uoms: Array,
     taxCategories: Array,
+    attributeSets: Array,
+    typeTemplate: Object,
 });
 
 const form = useForm({
     code: props.product?.code ?? '',
     name: props.product?.name ?? '',
     product_category_id: props.product?.product_category_id ?? null,
+    attribute_set_id: props.product?.attribute_set_id ?? null,
     tax_category_id: props.product?.tax_category_id ?? null,
     is_active: props.product?.is_active ?? true,
     attributes: props.product?.attrs_json ?? {},
     capabilities: ['bookable'],
 });
+
+if (!form.attribute_set_id) {
+    const cat = props.categories.find(c => c.id === form.product_category_id);
+    form.attribute_set_id = cat?.attribute_set_id ?? props.attributeSets?.[0]?.id ?? null;
+}
 
 function submit() {
     if (props.mode === 'edit') {
@@ -31,6 +40,18 @@ function submit() {
         form.post(route('catalog.accommodation.store'));
     }
 }
+
+function onCategoryChange() {
+    const selected = props.categories.find(c => c.id === form.product_category_id);
+    if (selected?.attribute_set_id) {
+        form.attribute_set_id = selected.attribute_set_id;
+    }
+}
+
+const currentDefs = computed(() => {
+    const set = props.attributeSets.find(s => s.id === form.attribute_set_id);
+    return set?.attributes ?? [];
+});
 </script>
 
 <template>
@@ -53,6 +74,16 @@ function submit() {
                         label="Category"
                         :error="form.errors.product_category_id"
                         placeholder="Select category"
+                        @update:modelValue="onCategoryChange"
+                    />
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <AppSelect
+                        v-model="form.attribute_set_id"
+                        :options="attributeSets.map(s => ({ value: s.id, label: s.name }))"
+                        label="Attribute Set"
+                        :error="form.errors.attribute_set_id"
+                        placeholder="Select Attribute Set"
                     />
                     <AppSelect
                         v-model="form.tax_category_id"
@@ -65,6 +96,15 @@ function submit() {
                 <div class="flex items-center mt-2">
                     <input id="is_active_acc" v-model="form.is_active" type="checkbox" class="mr-2">
                     <label for="is_active_acc">Active</label>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold mb-2">Attributes</h3>
+                    <DynamicAttributesForm
+                        v-model="form.attributes"
+                        :defs="currentDefs"
+                        :errors="form.errors"
+                    />
                 </div>
 
                 <div class="flex items-center">
