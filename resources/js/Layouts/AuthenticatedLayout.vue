@@ -7,7 +7,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link } from '@inertiajs/vue3';
-import { BanknotesIcon, HomeIcon, BuildingOffice2Icon } from '@heroicons/vue/24/solid';
+import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon } from '@heroicons/vue/24/solid';
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue';
 import { Cog8ToothIcon, ChevronRightIcon, Bars3Icon } from '@heroicons/vue/24/solid';
 import AlertNotification from '@/Components/AlertNotification.vue';
@@ -113,6 +113,15 @@ const isAssetActive = computed(() => {
         || route().current('asset-transfers.*');
 });
 
+const isProductsActive = computed(() => {   
+    return route().current('catalog.product-categories.*')
+        || route().current('catalog.goods.*')
+        || route().current('catalog.services.*')
+        || route().current('catalog.accommodation.*')
+        || route().current('catalog.rental.*')
+        || route().current('catalog.packages.*');
+});
+
 const sidebarWidth = computed(() => {
     return sidebarCollapsed.value ? 'w-16' : 'w-72';
 });
@@ -182,6 +191,38 @@ function toggleSidebar() {
                         <HomeIcon class="h-5 w-5 mr-2" />
                         Dashboard
                     </ResponsiveNavLink>
+
+                    <!-- Products Section -->
+                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProductsActive">
+                        <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                            <ArchiveBoxIcon class="h-5 w-5 mr-2" />
+                            <span>Produk</span>
+                            <ChevronRightIcon
+                                :class="open ? 'transform rotate-90' : ''"
+                                class="ml-auto h-4 w-4 text-gray-400"
+                            />
+                        </DisclosureButton>
+                        <DisclosurePanel class="mt-1 space-y-1 text-sm">
+                            <ResponsiveNavLink :href="route('catalog.product-categories.index')" :active="route().current('catalog.product-categories.*')" class="pl-11">
+                                Kategori Produk
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('catalog.goods.index')" :active="route().current('catalog.goods.*')" class="pl-11">
+                                Barang
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('catalog.services.index')" :active="route().current('catalog.services.*')" class="pl-11">
+                                Jasa
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('catalog.accommodation.index')" :active="route().current('catalog.accommodation.*')" class="pl-11">
+                                Akomodasi
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('catalog.rental.index')" :active="route().current('catalog.rental.*')" class="pl-11">
+                                Sewa
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('catalog.packages.index')" :active="route().current('catalog.packages.*')" class="pl-11">
+                                Paket
+                            </ResponsiveNavLink>
+                        </DisclosurePanel>
+                    </Disclosure>
 
                     <!-- Accounting Section -->
                     <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isAccountingActive">
@@ -362,6 +403,114 @@ function toggleSidebar() {
                             <div v-if="sidebarCollapsed" class="absolute left-full top-0 ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
                                 Dashboard
                             </div>
+                        </div>
+
+                        <!-- Products Section -->
+                        <div class="relative group">
+                            <template v-if="sidebarCollapsed">
+                                <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
+                                    <ArchiveBoxIcon class="h-6 w-6" />
+                                </div>
+                                
+                                <!-- Side dropdown for collapsed state -->
+                                <div class="absolute left-full top-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-10" style="margin-left: 8px;">
+                                    <div class="p-2">
+                                        <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Produk</div>
+                                    <NavLink 
+                                        :href="route('catalog.product-categories.index')" 
+                                        :active="route().current('catalog.product-categories.*')" 
+                                        class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                    >
+                                        Kategori Produk
+                                    </NavLink>
+                                        <NavLink 
+                                            :href="route('catalog.goods.index')" 
+                                            :active="route().current('catalog.goods.*')" 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Barang
+                                        </NavLink>
+                                        <NavLink 
+                                            :href="route('catalog.services.index')" 
+                                            :active="route().current('catalog.services.*')" 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Jasa
+                                        </NavLink>
+                                        <NavLink :href="route('catalog.accommodation.index')"
+                                            :active="route().current('catalog.accommodation.*')" 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Akomodasi
+                                        </NavLink>
+                                        <NavLink 
+                                            :href="route('catalog.rental.index')" 
+                                            :active="route().current('catalog.rental.*')" 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Sewa
+                                        </NavLink>
+                                        <NavLink 
+                                            :href="route('catalog.packages.index')" 
+                                            :active="route().current('catalog.packages.*')" 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Paket
+                                        </NavLink>
+                                    </div>
+                                </div>
+                                
+                                <!-- Invisible bridge to maintain hover -->
+                                <div class="absolute left-full top-0 w-2 h-full opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto z-10"></div>
+                            </template>
+                            
+                            <template v-else>
+                                <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProductsActive">
+                                    <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
+                                        <ArchiveBoxIcon class="h-6 w-6 mr-2" />
+                                        <span>Produk</span>
+                                        <ChevronRightIcon
+                                            :class="open ? 'transform rotate-90' : ''"
+                                            class="ml-auto h-4 w-4 text-gray-400"
+                                        />
+                                    </DisclosureButton>
+                                    <DisclosurePanel class="mt-2 space-y-2 pl-8">
+                                        <NavLink :href="route('catalog.product-categories.index')" :active="route().current('catalog.product-categories.*')" class="flex items-center">
+                                            Kategori Produk
+                                        </NavLink>
+                                        <NavLink :href="route('catalog.goods.index')" :active="route().current('catalog.goods.*')" class="flex items-center">
+                                            Barang
+                                        </NavLink>
+                                        <NavLink 
+                                            :href="route('catalog.services.index')" 
+                                            :active="route().current('catalog.services.*')" 
+                                            class="flex items-center"
+                                        >
+                                            Jasa
+                                        </NavLink>
+                                        <NavLink :href="route('catalog.accommodation.index')"
+                                            :active="route().current('catalog.accommodation.*')" 
+                                            class="flex items-center"
+                                        >
+                                            Akomodasi
+                                        </NavLink>
+                                        <NavLink 
+                                            :href="route('catalog.rental.index')" 
+                                            :active="route().current('catalog.rental.*')" 
+                                            class="flex items-center"
+                                        >
+                                            Sewa
+                                        </NavLink>
+                                        <NavLink 
+                                            :href="route('catalog.packages.index')" 
+                                            :active="route().current('catalog.packages.*')" 
+                                            class="flex items-center"
+                                        >
+                                            Paket
+                                        </NavLink>
+                                    </DisclosurePanel>
+                                </Disclosure>
+                            </template>
                         </div>
 
                         <!-- Accounting Section -->

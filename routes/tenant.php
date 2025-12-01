@@ -54,6 +54,7 @@ use App\Http\Controllers\AssetFinancingScheduleController;
 use App\Http\Controllers\AssetFinancingPaymentController;
 use App\Http\Controllers\AssetTransferController;
 use App\Http\Controllers\AssetDisposalController;
+use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ExternalPayableController;
 use App\Http\Controllers\ExternalReceivableController;
 use App\Http\Controllers\InternalPayableController;
@@ -383,6 +384,20 @@ Route::middleware([
         Route::put('internal-debt-payments/{internalDebtPayment}/approve', [InternalDebtPaymentController::class, 'approve'])->name('internal-debt-payments.approve');
         Route::put('internal-debt-payments/{internalDebtPayment}/reject', [InternalDebtPaymentController::class, 'reject'])->name('internal-debt-payments.reject');
         Route::resource('internal-debt-payments', InternalDebtPaymentController::class);
+
+        // Catalog Routes
+        Route::prefix('catalog')->name('catalog.')->group(function () {
+            Route::delete('product-categories/bulk-delete', [ProductCategoryController::class, 'bulkDelete'])->name('product-categories.bulk-delete');
+            Route::get('product-categories/export-xlsx', [ProductCategoryController::class, 'exportXLSX'])->name('product-categories.export-xlsx');
+            Route::get('product-categories/export-csv', [ProductCategoryController::class, 'exportCSV'])->name('product-categories.export-csv');
+            Route::get('product-categories/export-pdf', [ProductCategoryController::class, 'exportPDF'])->name('product-categories.export-pdf');
+            Route::resource('product-categories', ProductCategoryController::class);
+            Route::resource('goods', \App\Http\Controllers\Catalog\GoodsProductController::class);
+            Route::resource('services', \App\Http\Controllers\Catalog\ServiceProductController::class);
+            Route::resource('accommodation', \App\Http\Controllers\Catalog\AccommodationProductController::class);
+            Route::resource('rental', \App\Http\Controllers\Catalog\RentalProductController::class);
+            Route::resource('packages', \App\Http\Controllers\Catalog\PackageProductController::class);
+        });
     });
 
     Route::middleware('guest')->group(function () {

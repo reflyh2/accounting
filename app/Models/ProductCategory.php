@@ -3,13 +3,27 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ProductCategory extends Model
 {
-    protected $guarded = [];
+    use HasFactory;
+
+    protected $fillable = [
+        'company_id',
+        'attribute_set_id',
+        'parent_id',
+        'code',
+        'name',
+        'path',
+        'sort_order',
+        'created_by',
+        'updated_by',
+    ];
 
     protected $casts = [
         'path' => 'string',
+        'sort_order' => 'integer',
     ];
 
     public function company()
@@ -25,6 +39,11 @@ class ProductCategory extends Model
     public function children()
     {
         return $this->hasMany(ProductCategory::class, 'parent_id');
+    }
+
+    public function attributeSet()
+    {
+        return $this->belongsTo(AttributeSet::class);
     }
 
     public function products()

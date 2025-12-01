@@ -112,7 +112,7 @@ function onClick(event) {
       event.target.showPicker();
    }
 
-   if (inputType.value !== 'date' && focused.value) {
+   if (inputType.value !== 'date' && inputType.value !== 'number' && focused.value) {
       event.target.setSelectionRange(0, event.target.value.length);
    }
    
