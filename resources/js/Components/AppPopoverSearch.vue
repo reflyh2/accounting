@@ -10,6 +10,7 @@ import AppSecondaryButton from './AppSecondaryButton.vue';
 const props = defineProps({
     modelValue: [String, Number, null],
     label: String,
+    hint: String,
     placeholder: String,
     url: {
         type: String,
@@ -183,6 +184,7 @@ const handlePageChange = async (url) => {
             <AppInput
                 :modelValue="displayValue"
                 :label="props.label"
+                :hint="props.hint"
                 :placeholder="displayedPlaceholder"
                 :required="props.required"
                 :error="props.error"

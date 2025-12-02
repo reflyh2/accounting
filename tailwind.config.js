@@ -31,6 +31,10 @@ export default {
             variants: ['hover', 'focus'],
         },
         {
+            pattern: /bg-slate-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
             pattern: /text-purple-(50|100|200|300|400|500|600|700|800|900)/,
             variants: ['hover', 'focus'],
         },

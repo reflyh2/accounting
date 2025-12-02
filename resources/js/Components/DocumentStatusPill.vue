@@ -34,14 +34,16 @@ const sizeClasses = computed(() => (props.size === 'sm' ? 'text-xs px-2 py-0.5' 
 </script>
 
 <template>
-  <span
-    class="inline-flex items-center gap-2 rounded-full font-semibold tracking-tight"
-    :class="[meta.classes, sizeClasses]"
-  >
-    <span v-if="showDot" class="h-2 w-2 rounded-full" :class="meta.dotClass" />
-    <span class="whitespace-nowrap">
-      {{ label }}
+  <div class="flex items-center gap-2 shrink">
+    <span
+      class="inline-flex items-center gap-2 rounded-full font-semibold tracking-tight"
+      :class="[meta.classes, sizeClasses]"
+    >
+      <span v-if="showDot" class="h-2 w-2 rounded-full" :class="meta.dotClass" />
+      <span class="whitespace-nowrap">
+        {{ label }}
+      </span>
     </span>
-  </span>
+  </div>
 </template>
 

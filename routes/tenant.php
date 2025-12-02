@@ -50,6 +50,7 @@ use App\Http\Controllers\AssetPurchaseController;
 use App\Http\Controllers\AssetRentalController;
 use App\Http\Controllers\AssetInvoicePaymentController;
 use App\Http\Controllers\PartnerBankAccountController;
+use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
 use App\Http\Controllers\AssetFinancingScheduleController;
@@ -422,6 +423,14 @@ Route::middleware([
             Route::resource('adjustments', AdjustmentController::class);
             Route::resource('transfers', TransferController::class);
         });
+
+        Route::post('purchase-orders/{purchase_order}/approve', [PurchaseOrderController::class, 'approve'])
+            ->name('purchase-orders.approve');
+        Route::post('purchase-orders/{purchase_order}/send', [PurchaseOrderController::class, 'send'])
+            ->name('purchase-orders.send');
+        Route::post('purchase-orders/{purchase_order}/cancel', [PurchaseOrderController::class, 'cancel'])
+            ->name('purchase-orders.cancel');
+        Route::resource('purchase-orders', PurchaseOrderController::class);
     });
 
     Route::middleware('guest')->group(function () {

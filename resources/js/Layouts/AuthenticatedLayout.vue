@@ -7,7 +7,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link } from '@inertiajs/vue3';
-import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon, CubeIcon } from '@heroicons/vue/24/solid';
+import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon, CubeIcon, ShoppingCartIcon } from '@heroicons/vue/24/solid';
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue';
 import { Cog8ToothIcon, ChevronRightIcon, Bars3Icon } from '@heroicons/vue/24/solid';
 import AlertNotification from '@/Components/AlertNotification.vue';
@@ -129,6 +129,10 @@ const isInventoryActive = computed(() => {
         || route().current('inventory.transfers.*');
 });
 
+const isPurchasingActive = computed(() => {
+    return route().current('purchase-orders.*');
+});
+
 const sidebarWidth = computed(() => {
     return sidebarCollapsed.value ? 'w-16' : 'w-72';
 });
@@ -198,6 +202,27 @@ function toggleSidebar() {
                         <HomeIcon class="h-5 w-5 mr-2" />
                         Dashboard
                     </ResponsiveNavLink>
+
+                    <!-- Purchasing Section -->
+                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isPurchasingActive">
+                        <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                            <ShoppingCartIcon class="h-5 w-5 mr-2" />
+                            <span>Pembelian</span>
+                            <ChevronRightIcon
+                                :class="open ? 'transform rotate-90' : ''"
+                                class="ml-auto h-4 w-4 text-gray-400"
+                            />
+                        </DisclosureButton>
+                        <DisclosurePanel class="mt-1 space-y-1 text-sm">
+                            <ResponsiveNavLink
+                                :href="route('purchase-orders.index')"
+                                :active="route().current('purchase-orders.*')"
+                                class="pl-11"
+                            >
+                                Purchase Orders
+                            </ResponsiveNavLink>
+                        </DisclosurePanel>
+                    </Disclosure>
 
                     <!-- Products Section -->
                     <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProductsActive">
@@ -449,6 +474,52 @@ function toggleSidebar() {
                             <div v-if="sidebarCollapsed" class="absolute left-full top-0 ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
                                 Dashboard
                             </div>
+                        </div>
+
+                        <!-- Purchasing Section -->
+                        <div class="relative group">
+                            <template v-if="sidebarCollapsed">
+                                <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
+                                    <ShoppingCartIcon class="h-6 w-6" />
+                                </div>
+
+                                <div class="absolute left-full top-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-10" style="margin-left: 8px;">
+                                    <div class="p-2">
+                                        <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Purchase Flow</div>
+                                        <NavLink
+                                            :href="route('purchase-orders.index')"
+                                            :active="route().current('purchase-orders.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Purchase Orders
+                                        </NavLink>
+                                    </div>
+                                </div>
+
+                                <div class="absolute left-full top-0 w-2 h-full opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto z-10"></div>
+                            </template>
+
+                            <template v-else>
+                                <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isPurchasingActive">
+                                    <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
+                                        <ShoppingCartIcon class="h-6 w-6 mr-2" />
+                                        <span>Pembelian</span>
+                                        <ChevronRightIcon
+                                            :class="open ? 'transform rotate-90' : ''"
+                                            class="ml-auto h-4 w-4 text-gray-400"
+                                        />
+                                    </DisclosureButton>
+                                    <DisclosurePanel class="mt-2 space-y-2 pl-8">
+                                        <NavLink
+                                            :href="route('purchase-orders.index')"
+                                            :active="route().current('purchase-orders.*')"
+                                            class="flex items-center"
+                                        >
+                                            Purchase Orders
+                                        </NavLink>
+                                    </DisclosurePanel>
+                                </Disclosure>
+                            </template>
                         </div>
 
                         <!-- Products Section -->
@@ -1000,7 +1071,7 @@ function toggleSidebar() {
             <div :class="[mainContentLeft, 'flex-1 overflow-y-auto thin-scrollbar border-t border-gray-200 fixed top-16 bottom-0 right-0 left-0 main-content print:p-0 print:m-0 print:bg-white print:left-0 print:w-full print:h-full z-0 transition-all duration-300']">
                 <!-- Page Heading -->
                 <header class="bg-gray-100 no-print">
-                    <div class="min-w-max sm:min-w-min md:max-w-full mx-auto pt-8 pb-6 pl-10">
+                    <div class="min-w-max sm:min-w-min md:max-w-full mx-auto pt-8 pb-6 pl-10 lg:pr-10">
                         <h2 class="font-semibold text-2xl text-gray-800 leading-tight">
                             <slot name="header"></slot>
                         </h2>

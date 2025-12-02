@@ -11,12 +11,8 @@ use App\Traits\DocumentStateMachine;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
-use Tests\TestCase;
-
-uses(TestCase::class, RefreshDatabase::class);
 
 beforeEach(function () {
     Schema::create('document_state_machine_tests', function (Blueprint $table) {
@@ -83,7 +79,28 @@ it('enforces maker-checker guard and allowed options', function () {
     expect($document->fresh()->status)->toBe(PurchaseOrderStatus::APPROVED->value);
 });
 
-final class TestPurchaseOrderDocument extends Model
+it('enforces global maker-checker guard when enabled', function () {
+    config()->set('purchasing.maker_checker.enforce', true);
+
+    $maker = User::factory()->create();
+    $checker = User::factory()->create();
+
+    $document = TestPurchaseOrderDocument::create([
+        'status' => PurchaseOrderStatus::DRAFT->value,
+        'created_by' => $maker->id,
+    ]);
+
+    expect(fn () => $document->transitionTo(PurchaseOrderStatus::APPROVED, $maker))
+        ->toThrow(DocumentStateException::class);
+
+    $document->transitionTo(PurchaseOrderStatus::APPROVED, $checker);
+
+    expect($document->fresh()->status)->toBe(PurchaseOrderStatus::APPROVED->value);
+
+    config()->set('purchasing.maker_checker.enforce', false);
+});
+
+class TestPurchaseOrderDocument extends Model
 {
     use DocumentStateMachine;
 

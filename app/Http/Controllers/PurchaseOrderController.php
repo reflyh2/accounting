@@ -1,0 +1,312 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Enums\Documents\PurchaseOrderStatus;
+use App\Exceptions\PurchaseOrderException;
+use App\Http\Requests\PurchaseOrderRequest;
+use App\Models\Branch;
+use App\Models\Company;
+use App\Models\Currency;
+use App\Models\Partner;
+use App\Models\Product;
+use App\Models\PurchaseOrder;
+use App\Models\Uom;
+use App\Services\Purchasing\PurchaseService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Session;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class PurchaseOrderController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        $filters = $request->all() ?: Session::get('purchase_orders.index_filters', []);
+        Session::put('purchase_orders.index_filters', $filters);
+
+        $filterKeys = [
+            'search',
+            'company_id',
+            'branch_id',
+            'partner_id',
+            'status',
+            'from_date',
+            'to_date',
+            'per_page',
+            'sort',
+            'order',
+        ];
+
+        $filters = Arr::only($filters, $filterKeys);
+
+        $query = PurchaseOrder::query()
+            ->with([
+                'partner:id,name,code',
+                'branch:id,name,branch_group_id',
+                'branch.branchGroup:id,company_id',
+                'currency:id,code',
+            ]);
+
+        if ($filters['search'] ?? null) {
+            $search = strtolower($filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('lower(order_number) like ?', ["%{$search}%"])
+                    ->orWhereRaw('lower(notes) like ?', ["%{$search}%"])
+                    ->orWhereHas('partner', function ($partnerQuery) use ($search) {
+                        $partnerQuery->whereRaw('lower(name) like ?', ["%{$search}%"])
+                            ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
+                    });
+            });
+        }
+
+        if ($companyIds = Arr::wrap($filters['company_id'] ?? [])) {
+            $query->whereIn('company_id', array_filter($companyIds));
+        }
+
+        if ($branchIds = Arr::wrap($filters['branch_id'] ?? [])) {
+            $query->whereIn('branch_id', array_filter($branchIds));
+        }
+
+        if ($partnerIds = Arr::wrap($filters['partner_id'] ?? [])) {
+            $query->whereIn('partner_id', array_filter($partnerIds));
+        }
+
+        if ($statuses = Arr::wrap($filters['status'] ?? [])) {
+            $query->whereIn('status', array_filter($statuses));
+        }
+
+        if ($filters['from_date'] ?? null) {
+            $query->whereDate('order_date', '>=', $filters['from_date']);
+        }
+
+        if ($filters['to_date'] ?? null) {
+            $query->whereDate('order_date', '<=', $filters['to_date']);
+        }
+
+        $sort = $filters['sort'] ?? 'order_date';
+        $order = $filters['order'] ?? 'desc';
+
+        $allowedSorts = ['order_date', 'order_number', 'status', 'total_amount', 'expected_date'];
+        if (!in_array($sort, $allowedSorts, true)) {
+            $sort = 'order_date';
+        }
+
+        $perPage = (int) ($filters['per_page'] ?? 10);
+
+        $purchaseOrders = $query->orderBy($sort, $order)
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return Inertia::render('PurchaseOrders/Index', [
+            'purchaseOrders' => $purchaseOrders,
+            'filters' => $filters,
+            'perPage' => $perPage,
+            'sort' => $sort,
+            'order' => $order,
+            'companies' => $this->companyOptions(),
+            'branches' => $this->branchOptions(),
+            'suppliers' => $this->supplierOptions(),
+            'statusOptions' => $this->statusOptions(),
+        ]);
+    }
+
+    public function create(): Response
+    {
+        return Inertia::render('PurchaseOrders/Create', [
+            'filters' => Session::get('purchase_orders.index_filters', []),
+            'formOptions' => $this->formOptions(),
+        ]);
+    }
+
+    public function store(PurchaseOrderRequest $request, PurchaseService $service): RedirectResponse
+    {
+        try {
+            $purchaseOrder = $service->create($request->validated());
+        } catch (PurchaseOrderException $exception) {
+            return Redirect::back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        return Redirect::route('purchase-orders.show', $purchaseOrder->id)
+            ->with('success', 'Purchase Order berhasil dibuat.');
+    }
+
+    public function show(PurchaseOrder $purchaseOrder, PurchaseService $service): Response
+    {
+        $purchaseOrder->load([
+            'partner',
+            'branch.branchGroup.company',
+            'currency',
+            'lines.variant.product',
+            'lines.uom',
+            'lines.baseUom',
+        ]);
+
+        return Inertia::render('PurchaseOrders/Show', [
+            'purchaseOrder' => $purchaseOrder,
+            'filters' => Session::get('purchase_orders.index_filters', []),
+            'allowedTransitions' => $service->allowedStatuses($purchaseOrder),
+            'makerCheckerEnforced' => $service->shouldEnforceMakerChecker($purchaseOrder->company_id),
+        ]);
+    }
+
+    public function edit(PurchaseOrder $purchaseOrder): Response
+    {
+        $purchaseOrder->load([
+            'lines.variant',
+            'lines.uom',
+            'lines.baseUom',
+        ]);
+
+        return Inertia::render('PurchaseOrders/Edit', [
+            'purchaseOrder' => $purchaseOrder,
+            'filters' => Session::get('purchase_orders.index_filters', []),
+            'formOptions' => $this->formOptions(),
+        ]);
+    }
+
+    public function update(
+        PurchaseOrderRequest $request,
+        PurchaseOrder $purchaseOrder,
+        PurchaseService $service
+    ): RedirectResponse {
+        try {
+            $service->update($purchaseOrder, $request->validated());
+        } catch (PurchaseOrderException $exception) {
+            return Redirect::back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        return Redirect::route('purchase-orders.show', $purchaseOrder->id)
+            ->with('success', 'Purchase Order berhasil diperbarui.');
+    }
+
+    public function destroy(PurchaseOrder $purchaseOrder, PurchaseService $service): RedirectResponse
+    {
+        try {
+            $service->delete($purchaseOrder);
+        } catch (PurchaseOrderException $exception) {
+            return Redirect::back()->with('error', $exception->getMessage());
+        }
+
+        return Redirect::route('purchase-orders.index')
+            ->with('success', 'Purchase Order berhasil dihapus.');
+    }
+
+    public function approve(PurchaseOrder $purchaseOrder, PurchaseService $service): RedirectResponse
+    {
+        try {
+            $service->approve($purchaseOrder);
+        } catch (PurchaseOrderException $exception) {
+            return Redirect::back()->with('error', $exception->getMessage());
+        }
+
+        return Redirect::back()->with('success', 'Purchase Order disetujui.');
+    }
+
+    public function send(PurchaseOrder $purchaseOrder, PurchaseService $service): RedirectResponse
+    {
+        try {
+            $service->send($purchaseOrder);
+        } catch (PurchaseOrderException $exception) {
+            return Redirect::back()->with('error', $exception->getMessage());
+        }
+
+        return Redirect::back()->with('success', 'Purchase Order ditandai sudah dikirim.');
+    }
+
+    public function cancel(Request $request, PurchaseOrder $purchaseOrder, PurchaseService $service): RedirectResponse
+    {
+        $data = $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $service->cancel($purchaseOrder, reason: $data['reason'] ?? null);
+        } catch (PurchaseOrderException $exception) {
+            return Redirect::back()->with('error', $exception->getMessage());
+        }
+
+        return Redirect::back()->with('success', 'Purchase Order dibatalkan.');
+    }
+
+    private function companyOptions()
+    {
+        return Company::orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    private function branchOptions()
+    {
+        return Branch::with('branchGroup:id,company_id')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Branch $branch) => [
+                'id' => $branch->id,
+                'name' => $branch->name,
+                'company_id' => $branch->branchGroup?->company_id,
+            ]);
+    }
+
+    private function supplierOptions()
+    {
+        return Partner::query()
+            ->with('companies:id')
+            ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
+            ->orderBy('name')
+            ->get()
+            ->map(function (Partner $partner) {
+                return [
+                    'id' => $partner->id,
+                    'name' => $partner->name,
+                    'code' => $partner->code,
+                    'company_ids' => $partner->companies->pluck('id')->all(),
+                ];
+            });
+    }
+
+    private function formOptions(): array
+    {
+        return [
+            'companies' => $this->companyOptions(),
+            'branches' => $this->branchOptions(),
+            'suppliers' => $this->supplierOptions(),
+            'currencies' => Currency::orderBy('code')->get(['id', 'code', 'name']),
+            'products' => Product::with(['variants.uom:id,code,name,company_id', 'companies:id'])
+                ->orderBy('name')
+                ->get()
+                ->map(function (Product $product) {
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'company_ids' => $product->companies->pluck('id')->all(),
+                        'variants' => $product->variants->map(fn ($variant) => [
+                            'id' => $variant->id,
+                            'sku' => $variant->sku,
+                            'uom_id' => $variant->uom_id,
+                            'uom' => [
+                                'id' => $variant->uom?->id,
+                                'code' => $variant->uom?->code,
+                                'name' => $variant->uom?->name,
+                                'kind' => $variant->uom?->kind,
+                            ],
+                        ]),
+                    ];
+                }),
+            'uoms' => Uom::orderBy('code')->get(['id', 'code', 'name', 'company_id', 'kind']),
+        ];
+    }
+
+    private function statusOptions(): array
+    {
+        return collect(PurchaseOrderStatus::cases())
+            ->mapWithKeys(fn (PurchaseOrderStatus $status) => [
+                $status->value => $status->label(),
+            ])
+            ->toArray();
+    }
+}
+
+
