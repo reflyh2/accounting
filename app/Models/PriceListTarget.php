@@ -4,39 +4,35 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class PriceList extends Model
+class PriceListTarget extends Model
 {
     protected $guarded = [];
 
     protected $casts = [
+        'priority' => 'integer',
+        'is_active' => 'boolean',
         'valid_from' => 'date',
         'valid_to' => 'date',
-        'is_active' => 'boolean',
     ];
+
+    public function priceList()
+    {
+        return $this->belongsTo(PriceList::class);
+    }
 
     public function company()
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function currency()
+    public function partner()
     {
-        return $this->belongsTo(Currency::class);
+        return $this->belongsTo(Partner::class);
     }
 
     public function partnerGroup()
     {
         return $this->belongsTo(PartnerGroup::class);
-    }
-
-    public function items()
-    {
-        return $this->hasMany(PriceListItem::class);
-    }
-
-    public function targets()
-    {
-        return $this->hasMany(PriceListTarget::class);
     }
 
     public function creator()
@@ -49,5 +45,4 @@ class PriceList extends Model
         return $this->belongsTo(User::class, 'updated_by', 'global_id');
     }
 }
-
 

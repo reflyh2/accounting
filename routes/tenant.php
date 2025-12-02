@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AvailabilityController;
+use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\ApiController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
@@ -116,6 +118,16 @@ Route::middleware([
         Route::get('api/financing-schedule', [ApiController::class, 'getFinancingSchedule'])->name('api.financing-schedule');
         Route::get('api/partners', [ApiController::class, 'getPartners'])->name('api.partners');
         Route::get('api/partners/{partner}', [ApiController::class, 'getPartner'])->name('api.partners.show');
+        Route::prefix('api')->name('api.')->group(function () {
+            Route::get('availability/pool/{pool}', [AvailabilityController::class, 'pool'])->name('availability.pool');
+            Route::get('availability/pool/{pool}/free-instances', [AvailabilityController::class, 'freeInstances'])->name('availability.pool.free-instances');
+            Route::post('bookings', [BookingController::class, 'store'])->name('bookings.store');
+            Route::post('bookings/{booking}/confirm', [BookingController::class, 'confirm'])->name('bookings.confirm');
+            Route::post('bookings/{booking}/check-in', [BookingController::class, 'checkIn'])->name('bookings.check-in');
+            Route::post('bookings/{booking}/check-out', [BookingController::class, 'checkOut'])->name('bookings.check-out');
+            Route::post('bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+            Route::post('booking-lines/{bookingLine}/assign-instance', [BookingController::class, 'assignInstance'])->name('bookings.assign-instance');
+        });
 
         Route::get('/', function () {
             return redirect(route('dashboard'));
@@ -401,6 +413,7 @@ Route::middleware([
             Route::resource('accommodation', \App\Http\Controllers\Catalog\AccommodationProductController::class);
             Route::resource('rental', \App\Http\Controllers\Catalog\RentalProductController::class);
             Route::resource('packages', \App\Http\Controllers\Catalog\PackageProductController::class);
+            Route::resource('price-list-targets', \App\Http\Controllers\Catalog\PriceListTargetController::class);
         });
 
         Route::prefix('inventory')->name('inventory.')->group(function () {

@@ -68,6 +68,16 @@ class Product extends Model
         return $this->hasMany(ProductSupplier::class);
     }
 
+    public function resourcePools()
+    {
+        return $this->hasMany(ResourcePool::class);
+    }
+
+    public function rentalPolicy()
+    {
+        return $this->hasOne(RentalPolicy::class);
+    }
+
     public function priceListItems()
     {
         return $this->hasMany(PriceListItem::class);

@@ -4,17 +4,29 @@ namespace App\Services\Catalog;
 
 use App\Models\PriceListItem;
 use App\Models\PriceList;
-use Money\Money;
 
 class PricingService
 {
-    /**
-     * Minimal placeholder: finds first matching price list item and returns numeric price.
-     */
+    public function __construct(
+        private readonly PriceListResolver $priceListResolver,
+    ) {
+    }
+
     public function quote(int $productId, ?int $variantId, int $uomId, float $qty, array $ctx): array
     {
-        $priceListId = $ctx['price_list_id'] ?? null;
-        $query = PriceListItem::query()->where('uom_id', $uomId);
+        $priceList = $this->resolvePriceList($ctx);
+        if (!$priceList) {
+            return [
+                'price' => 0.0,
+                'tax' => 0.0,
+                'currency' => null,
+                'rule_id' => null,
+            ];
+        }
+
+        $query = PriceListItem::query()
+            ->where('price_list_id', $priceList->id)
+            ->where('uom_id', $uomId);
 
         if ($variantId) {
             $query->where('product_variant_id', $variantId);
@@ -22,14 +34,8 @@ class PricingService
             $query->where('product_id', $productId);
         }
 
-        if ($priceListId) {
-            $query->where('price_list_id', $priceListId);
-        } else {
-            // pick any active price list if none provided
-            $activeList = PriceList::query()->where('is_active', true)->first();
-            if ($activeList) {
-                $query->where('price_list_id', $activeList->id);
-            }
+        if ($qty > 0) {
+            $query->where('min_qty', '<=', $qty);
         }
 
         $item = $query->orderBy('min_qty', 'desc')->first();
@@ -38,9 +44,18 @@ class PricingService
         return [
             'price' => $price,
             'tax' => 0.0,
-            'currency' => $item?->priceList?->currency?->code,
+            'currency' => $priceList->currency?->code,
             'rule_id' => $item?->id,
         ];
+    }
+
+    private function resolvePriceList(array $ctx): ?PriceList
+    {
+        if (!empty($ctx['price_list_id'])) {
+            return PriceList::find($ctx['price_list_id']);
+        }
+
+        return $this->priceListResolver->resolve($ctx);
     }
 }
 
