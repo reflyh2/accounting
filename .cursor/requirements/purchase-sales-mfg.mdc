@@ -1,0 +1,308 @@
+# Product Requirements Document (PRD)
+
+**Module(s):** Purchasing, Sales, Manufacturing (with Inventory & Accounting touchpoints)
+**Stack:** Laravel 11 (API + Services) • InertiaJS • Vue 3 • Tailwind
+**Tenancy:** Multi‑company, multi‑branch
+**Status:** Draft v1 (based on prior architecture decisions)
+
+---
+
+## 1. Problem & Goals
+
+**Problem:** Users across industries need reliable procure→stock→sell and manufacture→stock flows, with correct inventory, costing, and financials, without fighting configuration complexity.
+**Goals:**
+
+* Simple, type‑specific UX; advanced logic hidden behind service layer.
+* Strong data integrity: immutable inventory events, deterministic costing.
+* Seamless hand‑offs: PO→GRN→AP, SO→Delivery→AR, WO→Issue/Receipt.
+* Works for multi‑company/branch; safe permissions.
+* Extensible: pricing, partner groups, tax, lot/serial, BOM levels.
+
+**Non‑Goals:** MRP planning, advanced shop‑floor, multi‑plant finite scheduling (future).
+
+---
+
+## 2. Users & Roles
+
+* **Purchasing Staff:** creates POs, receives goods, 3‑way match.
+* **Sales Staff:** creates SOs/quotations, ships, invoices.
+* **Warehouse Ops:** perform receipts, picks/pack/ship, transfers, stocktakes.
+* **Production Lead:** creates WOs, issues components, receives FG, records scrap.
+* **Finance/Accountant:** posts journals, closes periods, reviews COGS/variance.
+* **Admin:** configures companies, branches, catalogs, partner groups.
+
+---
+
+## 3. Scope (v1)
+
+* **Purchasing:** Purchase Planning (list only), Purchase Order (PO), Goods Receipt (GRN), AP Invoice, AP Payment (stub). Returns supported.
+* **Sales:** Quotation/SO, Reservation (optional), Delivery/Shipment, AR Invoice, AR Payment (stub). Returns supported.
+* **Manufacturing:** BOM (single‑level v1), Work Order (WO), Component Issue, Finished Goods Receipt, By‑product (optional), Variances (basic).
+* **Inventory:** inventory_txn (receipt/issue/adjust/transfer), cost_layer (FIFO & Moving Avg), lot/serial.
+* **Accounting Hooks:** declarative auto‑journal events for each posting step.
+
+---
+
+## 4. High‑Level Architecture
+
+* **Controllers (thin)** → **FormRequests** → **App Services**: PurchaseService, SalesService, ManufacturingService, InventoryService, PricingService.
+* **Events:** `purchase.grn_posted`, `sales.delivery_posted`, `manufacturing.issue_posted`, `manufacturing.receipt_posted` → GL service.
+* **State Machines:** Document status transitions enforce allowed actions.
+* **Data Ownership:** Documents own business intent; inventory_txn owns stock movement; cost_layer owns valuation.
+
+---
+
+## 5. Core Data References (already modeled)
+
+* **Catalog:** product, product_variant, uom, uom_conversion(_rule), price_list(_item), partners (+ groups), tax_category(+ rules).
+* **Inventory:** location, inventory_item, inventory_txn(+_line), lot, serial, cost_layer.
+* **Manufacturing:** bom_header/line, work_order (minimal v1).
+* **Sales/Purchase Docs (shared invoice model):** invoices, invoice_detail with `invoice_type` and link to purchase/sales.
+
+---
+
+## 6. Document Lifecycles (statuses)
+
+**PO:** `draft → approved → sent → partially_received/received → closed/canceled`
+**GRN:** `draft → posted`
+**AP Invoice:** `draft → posted → paid/partially_paid`
+**SO:** `draft/quote → confirmed → partially_delivered/delivered → closed/canceled`
+**Delivery:** `draft → posted`
+**AR Invoice:** `draft → posted → paid/partially_paid`
+**WO:** `draft → released → in_progress → completed/closed → canceled`
+**Inventory Txn:** `posted` (immutable)
+
+---
+
+## 7. Purchasing Flow (Detailed)
+
+### 7.1 PO (Purchase Order)
+
+**Fields (header):** company_id, branch_id, partner_id (supplier), currency, incoterms (opt), expected_date, status.
+**Lines:** variant_id/product_id, uom_id, qty, unit_price, tax category (resolved), delivery_notes.
+**Actions:** create, approve, send (email/pdf), cancel.
+
+**Validations:** partner has supplier role; product purchasable; uom convertible; company/branch match.
+
+### 7.2 Goods Receipt (GRN)
+
+**Trigger:** Receive against PO.
+**Behavior:**
+
+* Create `inventory_txn(receipt)` with lines (qty, lot/serial, provisional unit_cost from PO).
+* Update `inventory_item.qty_on_hand += qty`.
+* Create `cost_layer` for each receipt line.
+* Partial receipts supported; close PO when fully received.
+
+**Auto‑Journal Event:** `purchase.grn_posted`
+*Default mapping:* Dr Inventory • Cr GRNI (Goods Received Not Invoiced)
+
+### 7.3 AP Invoice (3‑Way Match)
+
+**Trigger:** Supplier invoice arrives.
+**Behavior:**
+
+* Match to PO & GRNs; no quantity change.
+* If price ≠ provisional:
+
+  * **FIFO:** revaluation adjustment on open layers or PPV to P&L.
+  * **Moving Avg:** recompute average and post revaluation.
+
+**Auto‑Journal Event:** `purchase.ap_posted`
+*Default mapping:* Dr GRNI (or Inventory) • Dr/Cr Purchase Price Variance • Cr A/P
+
+### 7.4 Purchase Return (RMA)
+
+**Behavior:** issue inventory against original layers; post return document; adjust GRNI/AP.
+
+---
+
+## 8. Sales Flow (Detailed)
+
+### 8.1 Quotation / Sales Order (SO)
+
+**Fields:** company_id, branch_id, partner_id (customer), currency, payment_terms, ship_to, status.
+**Lines:** variant_id/product_id, uom_id, qty, unit_price (pricing service), tax.
+
+**Reservation (optional):** increment `qty_reserved` on `inventory_item` when SO is confirmed.
+
+### 8.2 Delivery / Shipment
+
+**Behavior:**
+
+* Create `inventory_txn(issue)` with lines; consume `cost_layer` per method (FIFO/Avg).
+* Update `inventory_item.qty_on_hand -= qty; qty_reserved -= shipped_qty`.
+
+**Auto‑Journal Event:** `sales.delivery_posted`
+*Default mapping:* Dr COGS • Cr Inventory
+
+### 8.3 AR Invoice
+
+**Behavior:** bill shipped qty; taxes resolved; link to delivery/SO line for traceability.
+
+**Auto‑Journal Event:** `sales.ar_posted`
+*Default mapping:* Dr A/R • Cr Revenue (+ tax lines)
+
+### 8.4 Sales Return
+
+**Behavior:** receipt into stock; try to restore original cost; variance if not traceable.
+
+---
+
+## 9. Manufacturing Flow (Detailed)
+
+### 9.1 BOM
+
+**Header:** fg_variant_id, uom_id, yield% (opt).
+**Lines:** component_variant_id, qty_per, scrap% (opt), backflush_flag.
+
+### 9.2 Work Order (WO)
+
+**Header:** company_id, branch_id, fg_variant_id, qty_planned, location_wip, status.
+**Actions:** release, start, complete, close, cancel.
+
+### 9.3 Component Issue
+
+**At start or backflush on complete:**
+
+* Create `inventory_txn(issue)` with `source_type='manufacturing'` (wo_id), lines per component.
+* Consume layers → accumulate material cost for WO.
+
+**Auto‑Journal Event:** `mfg.issue_posted`
+*Default mapping:* Dr WIP • Cr Inventory
+
+### 9.4 Finished Goods Receipt
+
+**On complete:**
+
+* Create `inventory_txn(receipt)` to FG location with computed unit cost: `(total material + labor + overhead) / good_qty`.
+* Create FG `cost_layer` with that cost.
+
+**Auto‑Journal Event:** `mfg.receipt_posted`
+*Default mapping:* Dr Inventory (FG) • Cr WIP (and variances if standard costing)
+
+### 9.5 Variances (basic v1)
+
+* If using standard cost: post usage/rate/mix variances on WO close.
+
+---
+
+## 10. UX: Pages & Flows (Inertia + Vue 3)
+
+**Purchasing:**
+
+* PO Index / Form (header + lines; supplier select; price & tax help).
+* GRN Post (scan lots/serials; partial receipt wizard).
+* AP Invoice Match (select PO/GRNs; price differences flagged).
+
+**Sales:**
+
+* SO/Quote Index / Form (pricing, availability hint, reservations opt).
+* Delivery Post (pick/pack/ship; lot/serial capture).
+* AR Invoice (from delivery).
+
+**Manufacturing:**
+
+* BOM Editor (simple grid).
+* WO Board (statuses), WO Detail: Issue Components (suggest from BOM), Receive FG (qty good, scrap, labor/oh inputs).
+
+**Inventory Ops (shared):**
+
+* Receive/Issue/Adjust/Transfer screens (direct), Stock On‑hand, Cost Layers, Lot/Serial inquiries.
+
+---
+
+## 11. Services & APIs (Backend contracts)
+
+* **PurchaseService**: create/approve PO, post GRN, create AP invoice.
+* **SalesService**: create/confirm SO, post Delivery, create AR invoice.
+* **ManufacturingService**: create/release WO, issue components, receive FG, close WO.
+* **InventoryService**: `receipt/issue/adjust/transfer` with layer management.
+* **PricingService**: price resolution by partner/group/company/date.
+* **TaxService**: resolve tax rules by category/jurisdiction/B2B.
+
+**API endpoints (examples):**
+
+* `POST /api/purchase/grn` → inventory receipt
+* `POST /api/sales/delivery` → inventory issue
+* `POST /api/mfg/wo/{id}/issue` → component issue
+* `POST /api/mfg/wo/{id}/receipt` → FG receipt
+
+---
+
+## 12. Validation & Business Rules
+
+* Cross‑company safeguards: document company/branch must match locations and inventory ownership.
+* UOM conversions via layered `uom_conversion_rule` (partner/company/product/context/date).
+* Lot/Serial policies: mandatory on items flagged as such.
+* Price list validity dates; partner/group precedence.
+* Tax category present on product or variant.
+
+---
+
+## 13. Accounting Events (default mappings)
+
+* **GRN posted:** Dr Inventory • Cr GRNI
+* **AP posted:** Dr GRNI/Inventory • Dr/Cr PPV • Cr A/P
+* **Delivery posted:** Dr COGS • Cr Inventory
+* **AR posted:** Dr A/R • Cr Revenue (+ Tax)
+* **MFG Issue:** Dr WIP • Cr Inventory
+* **MFG Receipt:** Dr Inventory(FG) • Cr WIP (± Variance)
+
+> Mapping configurable via GL service; events carry payloads for accounts and amounts.
+
+---
+
+## 14. Edge Cases & Error Handling
+
+* Partial receipts/deliveries; multiple GRNs per PO and multiple Deliveries per SO.
+* Price at GRN differs from invoice: revaluation or PPV.
+* Negative stock: default **blocked**; allow via setting with warnings.
+* Sales return w/ lot/serial mismatch → quarantine location & manual review.
+* WO yield < planned: recalc unit cost; post scrap variance.
+
+---
+
+## 15. Metrics & Reporting (v1)
+
+* On‑hand/Available by variant/location; Aging by lot with expiry.
+* Purchase cycle time (PO→GRN), GRN→AP lag, PPV totals.
+* Sales fill rate, On‑time delivery, COGS vs Revenue margin.
+* WO lead time, Material usage variance, FG unit cost trend.
+
+---
+
+## 16. Permissions & Security
+
+* Role‑based policies per module; document‑level permissions per company/branch.
+* Maker–checker (approve steps) optional via status transitions and policy checks.
+* Audit trail on all postings (user, timestamp, before/after deltas).
+
+---
+
+## 17. Rollout Plan
+
+1. **Alpha:** Purchasing + Inventory (Goods) in one company.
+2. **Beta:** Sales Delivery + AR; returns.
+3. **Mfg Pilot:** Simple BOM + WO in one branch; actual costing.
+4. **General:** Multi‑company enable; partner group pricing; tax resolver.
+
+---
+
+## 18. Acceptance Criteria (high level)
+
+* Posting GRN increases on‑hand and creates cost layers; Delivery decreases on‑hand and computes COGS.
+* 3‑Way Match flags quantity and price discrepancies.
+* SO cannot ship more than available (unless override).
+* WO component issue cannot exceed on‑hand (unless override).
+* All postings emit correct accounting events with reconcilable amounts.
+* Multi‑company guardrails prevent cross‑company stock movement without explicit transfer.
+
+---
+
+## 19. Open Questions
+
+* Standard vs Actual costing policy per company?
+* Should reservations be hard (deduct from available) or soft (advisory) per company?
+* Backflush default vs manual issue per BOM item?
+* Do we need landed cost allocation v1 or v2?

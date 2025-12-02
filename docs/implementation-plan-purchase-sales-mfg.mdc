@@ -1,0 +1,232 @@
+# Implementation Plan — Purchasing, Sales & Manufacturing (v1)
+
+This plan translates the PRD into executable work packages. Steps are grouped by module, numbered, and reference their dependencies using IDs such as `[F1]` or `[P2]`. Complete prerequisites before starting dependent steps to keep the flow deterministic.
+
+---
+
+## Dependency Summary
+
+| ID | Step | Module | Depends On |
+| --- | --- | --- | --- |
+| F1 | Master data & tenancy guardrails | Foundations | — |
+| F2 | Inventory transaction engine | Foundations | F1 |
+| F3 | Cost layer & costing policies | Foundations | F2 |
+| F4 | Document state machine framework | Foundations | F1 |
+| F5 | Accounting event bus & GL payloads | Foundations | F2 |
+| F6 | UI shell, permissions & navigation | Foundations | F4 |
+| P1 | Purchase Order lifecycle & service API | Purchasing | F1, F4, F6 |
+| P2 | Goods Receipt posting & cost layers | Purchasing | F2, F3, P1 |
+| P3 | AP Invoice (3-way match) & PPV handling | Purchasing | P1, P2, F5 |
+| P4 | Purchase returns & GRNI reversal | Purchasing | P2, P3 |
+| S1 | Sales Order/Quotation + reservation opt | Sales | F1, F4, F6 |
+| S2 | Delivery posting & COGS | Sales | F2, F3, S1 |
+| S3 | AR Invoice & tax posting | Sales | S2, F5 |
+| S4 | Sales returns & cost restoration | Sales | S2, S3, F2 |
+| M1 | BOM editor & validation | Manufacturing | F1, F6 |
+| M2 | Work Order lifecycle | Manufacturing | M1, F4 |
+| M3 | Component issue (material consumption) | Manufacturing | M2, F2, F3 |
+| M4 | Finished goods receipt & WIP relief | Manufacturing | M3, F2, F3, F5 |
+| M5 | Variance handling & WO closeout | Manufacturing | M4, F5 |
+| M6 | Backflush & scrap management | Manufacturing | M3, M4 |
+| A1 | GL event configuration UI & rules | Accounting | F5 |
+| A2 | Operational reconciliations & KPIs | Accounting | P3, S3, M5, A1 |
+
+---
+
+## Module Plans
+
+### Foundations (shared services & platform)
+
+#### [F1] Master data & tenancy guardrails
+- **Goal:** Ensure product, variant, partner, location, UOM, and company/branch relationships enforce cross-company safety before transactional work.
+- **Backend:** Harden models & policies (e.g., company-scoped GlobalScopes); add form requests that enforce branch/location ownership; seed reference data for tests.
+- **Data Ops:** Migration sanity checks (not-null, FK cascades) plus test fixtures for multi-company scenarios.
+- **QA:** Unit tests for policies; integration tests covering blocked cross-company inventory movements.
+- **Exit criteria:** Any document or inventory service call fails fast when company/branch mismatches occur.
+
+#### [F2] Inventory transaction engine
+- **Goal:** Provide immutable `inventory_txn` + lines writer APIs for receipt/issue/adjust/transfer with audit metadata.
+- **Backend:** Finalize `InventoryService` receipt/issue methods with locking, allocation to cost layers placeholders; expose events for stock adjustments; enforce lot/serial requirements.
+- **Infra:** Queue-friendly job or domain events to fan out to cost engine and accounting.
+- **QA:** Concurrency tests (double receipt), negative stock guard rails, lot/serial enforcement.
+- **Exit criteria:** Other services can request stock movements via a single service contract.
+
+#### [F3] Cost layer & costing policies
+- **Goal:** Implement FIFO and Moving Average valuations consumed by Purchasing, Sales, and Manufacturing.
+- **Backend:** `CostLayerRepository` with create/consume/adjust; revaluation hooks; PPV buckets.
+- **Data:** Background job to recompute moving averages when needed.
+- **QA:** Scenario tests for partial receipts, reorder consumption, and revaluation deltas.
+- **Exit criteria:** `inventory_txn` consumption automatically updates cost layers with deterministic unit cost.
+
+#### [F4] Document state machine framework
+- **Goal:** Provide reusable transition guard + status enums for PO, SO, WO, etc.
+- **Backend:** Create `DocumentStateMachine` trait; centralize allowed transitions + policy hooks (maker-checker).
+- **Frontend:** Shared status pill component reflecting transitions.
+- **QA:** Unit tests verifying transitions per document type.
+- **Exit criteria:** Each document type can declare statuses and automatically receives guard enforcement + events.
+
+#### [F5] Accounting event bus & GL payloads
+- **Goal:** Emit normalized accounting events (`purchase.grn_posted`, `sales.delivery_posted`, etc.) to the GL service.
+- **Backend:** Event dispatchers annotate payload (company, doc#, debit/credit amounts, currency); retry strategy.
+- **Infra:** Configure queue/topic; stub GL listener for dev.
+- **QA:** Contract tests verifying payload fields for each event.
+- **Exit criteria:** Any posting step produces accounting events ready for downstream mapping.
+
+#### [F6] UI shell, permissions & navigation
+- **Goal:** Baseline Inertia/Vue layout, menu guard by role, and breadcrumb scaffolding shared by modules.
+- **Frontend:** Build top-level navigation for Purchasing, Sales, Mfg, Inventory; integrate role-based route gating.
+- **Backend:** Policy middleware hooking into tenancy guard.
+- **QA:** Cypress smoke tests for role visibility.
+- **Exit criteria:** Users only see module pages they are allowed to and layout is consistent across flows.
+
+---
+
+### Purchasing Module
+
+#### [P1] Purchase Order lifecycle & service API
+- **Goal:** End-to-end PO creation, approval, send/cancel states per PRD.
+- **Backend:** Flesh out `PurchaseService` for create/update/approve/cancel; implement validations (supplier role, UOM conversion, company match); emit status events.
+- **Frontend:** PO index & form with supplier search, line grid, tax hints; approval CTA respecting maker-checker.
+- **QA:** Feature tests covering draft→approved→sent; negative test for invalid partner/uom; policy tests for branch scoping.
+- **Dependencies:** F1, F4, F6.
+- **Exit criteria:** Approved PO data feeds GRN step with correct pricing & expected dates.
+
+#### [P2] Goods Receipt posting & cost layers
+- **Goal:** Convert PO receipts into inventory movements with provisional costing.
+- **Backend:** Extend `PurchaseService::postGrn` to invoke `InventoryService` receipt (F2) and cost layer creation (F3); handle partial receipts, auto-close logic when fully received; emit `purchase.grn_posted`.
+- **Frontend:** GRN posting UI (scan lots/serial, partial quantities); show remaining PO qtys.
+- **QA:** Integration tests for multiple GRNs per PO, lot capture, location mismatch prevention.
+- **Dependencies:** F2, F3, P1.
+- **Exit criteria:** Inventory balances update and GRNI accounting entry fires per event spec.
+
+#### [P3] AP Invoice (3-way match) & PPV handling
+- **Goal:** Record supplier invoices, perform quantity/price validation, and post accounting.
+- **Backend:** Invoice model reuse with `invoice_type='ap'`; matching logic ties to PO + GRNs; revaluation algorithm (FIFO vs Moving Avg) when invoice price differs; event `purchase.ap_posted`.
+- **Frontend:** Matching screen showing PO lines, received qty, invoiced qty, highlighting variances.
+- **QA:** Scenario tests for price variance, quantity mismatch, blocking over-invoice; accounting payload assertions.
+- **Dependencies:** P1, P2, F5.
+- **Exit criteria:** Invoice posting adjusts GRNI and PPV correctly, ready for payment stub.
+
+#### [P4] Purchase returns & GRNI reversal
+- **Goal:** Support return-to-vendor workflows referencing source GRNs/AP.
+- **Backend:** Issue inventory against original cost layers; reverse GRNI/AP balances; allow lot/serial selection.
+- **Frontend:** Return wizard from PO/GRN context with reason codes.
+- **QA:** Ensure cost restoration, negative stock prevention, accounting reversals.
+- **Dependencies:** P2, P3.
+- **Exit criteria:** Return documents restore on-hand and post contra entries with traceability.
+
+---
+
+### Sales Module
+
+#### [S1] Sales Order / Quotation + optional reservation
+- **Goal:** Create SOs with pricing service integration and optional reservation of stock.
+- **Backend:** `SalesService` for quote→confirmation transitions; hook into PricingService & TaxService; optional reservation toggles `qty_reserved`.
+- **Frontend:** Quote/SO form with pricing breakdown, availability hints, reservation toggle.
+- **QA:** Tests for pricing precedence (partner/group/company) and reservation release on cancel.
+- **Dependencies:** F1, F4, F6.
+- **Exit criteria:** Confirmed SO lines are ready for delivery picking with optional reserved quantities.
+
+#### [S2] Delivery posting & COGS calculation
+- **Goal:** Ship goods, consume cost layers, reduce on-hand/reserved qty, and emit accounting.
+- **Backend:** `SalesService::postDelivery` uses `InventoryService` issue (F2) and cost consumption (F3); handles partial deliveries; emits `sales.delivery_posted`.
+- **Frontend:** Delivery posting UI (pick/pack/ship) with lot capture and quantity suggestions.
+- **QA:** Tests for reservation release, back-order handling, negative stock guard; accounting payload verification.
+- **Dependencies:** S1, F2, F3.
+- **Exit criteria:** Delivery reduces stock, books COGS, and updates SO status.
+
+#### [S3] AR Invoice & tax posting
+- **Goal:** Bill delivered quantities with accurate tax rules and GL entries.
+- **Backend:** Reuse invoice model with `invoice_type='ar'`; tie invoice lines to deliveries; integrate TaxService; emit `sales.ar_posted`.
+- **Frontend:** Invoice creation from delivery with tax summary, payment terms display.
+- **QA:** Unit tests for tax calculation, rounding, partial billing.
+- **Dependencies:** S2, F5.
+- **Exit criteria:** Posted AR invoices create revenue + tax accounting and can be handed to payment stubs.
+
+#### [S4] Sales returns & cost restoration
+- **Goal:** Receive returned goods, attempt original cost restoration, and adjust invoices.
+- **Backend:** Reverse delivery by issuing receipt into inventory; attempt layer match via delivery reference; handle variance if cost differs.
+- **Frontend:** Return wizard selecting delivered lines/lots; credit memo generation.
+- **QA:** Case coverage for serial mismatches (quarantine) and partial returns.
+- **Dependencies:** S2, S3, F2.
+- **Exit criteria:** Returns update inventory and financials, with traceable linkage to original SO/Delivery.
+
+---
+
+### Manufacturing Module
+
+#### [M1] BOM editor & validation
+- **Goal:** CRUD for BOM headers/lines with component validation and optional scrap/backflush flags.
+- **Backend:** `ManufacturingService` for BOM operations; ensure quantity-per and uom conversions; enforce fg/component company alignment.
+- **Frontend:** Grid-based BOM editor with autocomplete, scrap/backflush toggles.
+- **QA:** Tests for duplicate components, scrap percentages, UOM conversions.
+- **Dependencies:** F1, F6.
+- **Exit criteria:** Approved BOMs supply component structure for WO planning.
+
+#### [M2] Work Order lifecycle
+- **Goal:** Implement WO creation, release, start, in-progress, complete/close, cancel statuses.
+- **Backend:** Extend state machine (F4) for WO transitions; validations for qty planned, WIP location.
+- **Frontend:** WO board (kanban) and detail view with action buttons.
+- **QA:** Transition tests including maker-checker approvals if enabled.
+- **Dependencies:** M1, F4.
+- **Exit criteria:** Released WOs reference BOM data and expose issue/receipt entry points.
+
+#### [M3] Component issue (material consumption)
+- **Goal:** Record consumption of components per WO, affecting inventory and accumulating WIP costs.
+- **Backend:** `ManufacturingService::issueComponents` uses `InventoryService` issue (F2) with `source_type='manufacturing'`; cost accumulation bucket (F3).
+- **Frontend:** Issue screen with suggested quantities from BOM, lot selection, backflush indicator.
+- **QA:** Tests for over-issue prevention, negative stock guard, partial issues, and accounting event `mfg.issue_posted`.
+- **Dependencies:** M2, F2, F3.
+- **Exit criteria:** WO captures actual material cost ready for FG receipt.
+
+#### [M4] Finished goods receipt & WIP relief
+- **Goal:** Receive finished goods with calculated unit cost and relieve WIP.
+- **Backend:** Compute unit cost `(material + labor + overhead) / good_qty`; create receipt via `InventoryService`; create FG cost layer; emit `mfg.receipt_posted`.
+- **Frontend:** Receipt UI capturing good qty, scrap qty, labor/overhead inputs.
+- **QA:** Tests for under-yield, scrap recording, lot/serial generation, variance detection.
+- **Dependencies:** M3, F2, F3, F5.
+- **Exit criteria:** FG inventory reflects accurate unit cost and accounting moves WIP→Inventory.
+
+#### [M5] Variance handling & WO closeout
+- **Goal:** Post usage/rate/mix variances (if standard cost) and close WO.
+- **Backend:** Variance calculation module comparing standard vs actual; GL postings via F5.
+- **Frontend:** Close WO dialog summarizing variances for approval.
+- **QA:** Scenario tests for favorable/unfavorable outcomes; ensure variances balanced.
+- **Dependencies:** M4, F5.
+- **Exit criteria:** Closed WO has zero open WIP with variance journal posted.
+
+#### [M6] Backflush & scrap management
+- **Goal:** Optional automation to issue components at completion and capture scrap reasons.
+- **Backend:** Hook into `M4` to auto-trigger component issues flagged `backflush`; scrap logging per component.
+- **Frontend:** BOM flag management and completion UI toggles.
+- **QA:** Tests ensuring backflush respects on-hand constraints and scrap hits variance buckets.
+- **Dependencies:** M3, M4.
+- **Exit criteria:** Companies can choose manual vs backflush modes per BOM line with audit trail.
+
+---
+
+### Accounting & Reporting Touchpoints
+
+#### [A1] GL event configuration UI & rules
+- **Goal:** Admin UI to map accounting events to ledger accounts per company/branch.
+- **Backend:** Store mappings tied to event codes; validation to ensure debit/credit sum zero; expose API for GL service.
+- **Frontend:** Config screens with default templates and overrides.
+- **QA:** Tests ensuring fallback defaults apply; negative tests for missing accounts.
+- **Dependencies:** F5.
+- **Exit criteria:** Finance can adjust mappings without code changes; events from Purchasing/Sales/Mfg pick up correct accounts.
+
+#### [A2] Operational reconciliations & KPIs
+- **Goal:** Surface key metrics (GRNI aging, COGS vs revenue, WO lead time) and reconciliation dashboards.
+- **Backend:** Reporting queries/materialized views referencing transactional tables; schedule refresh jobs.
+- **Frontend:** Dashboard cards and drill-down tables with filters (company, branch, date).
+- **QA:** Data reconciliation tests comparing ledger totals vs source docs.
+- **Dependencies:** P3, S3, M5, A1.
+- **Exit criteria:** Stakeholders can monitor process health and catch discrepancies early.
+
+---
+
+## Execution Notes
+- Follow rollout order from PRD: deliver Purchasing + Inventory (F1–F6, P1–P4) before Sales (S1–S4), then Manufacturing (M1–M6), and finish with Accounting dashboards (A1–A2).
+- Each posting step must include end-to-end tests (service → inventory → cost layer → accounting event).
+- Costing policy per company, reservation strictness, and default backflush will refer to company settings from database (Company model: costing_policy, reservation_strictness, default_backflush)
+- Maintain feature flags per module to allow incremental releases without exposing incomplete flows.
