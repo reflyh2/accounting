@@ -30,6 +30,7 @@ use App\Http\Controllers\ExternalReceivableCardController;
 use App\Http\Controllers\InternalDebtAgingController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\GeneralLedgerController;
+use App\Http\Controllers\GoodsReceiptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\CashPaymentJournalController;
@@ -423,6 +424,13 @@ Route::middleware([
             Route::resource('adjustments', AdjustmentController::class);
             Route::resource('transfers', TransferController::class);
         });
+
+        Route::resource('goods-receipts', GoodsReceiptController::class)->only([
+            'index',
+            'create',
+            'store',
+            'show',
+        ]);
 
         Route::post('purchase-orders/{purchase_order}/approve', [PurchaseOrderController::class, 'approve'])
             ->name('purchase-orders.approve');

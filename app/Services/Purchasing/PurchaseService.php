@@ -2,24 +2,41 @@
 
 namespace App\Services\Purchasing;
 
+use App\Domain\Accounting\DTO\AccountingEntry;
+use App\Domain\Accounting\DTO\AccountingEventPayload;
+use App\Enums\AccountingEventCode;
+use App\Enums\Documents\GoodsReceiptStatus;
 use App\Enums\Documents\PurchaseOrderStatus;
 use App\Exceptions\PurchaseOrderException;
 use App\Models\Branch;
+use App\Models\GoodsReceipt;
+use App\Models\Location;
 use App\Models\Partner;
 use App\Models\ProductVariant;
 use App\Models\PurchaseOrder;
 use App\Models\Uom;
+use App\Services\Accounting\AccountingEventBus;
+use App\Services\Inventory\DTO\ReceiptDTO;
+use App\Services\Inventory\DTO\ReceiptLineDTO;
+use App\Services\Inventory\InventoryService;
 use App\Services\Inventory\UomConversionService;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
+use Throwable;
 
 class PurchaseService
 {
+    private const QTY_TOLERANCE = 0.0005;
+    private const COST_SCALE = 6;
+
     public function __construct(
-        private readonly UomConversionService $uomConverter
+        private readonly UomConversionService $uomConverter,
+        private readonly InventoryService $inventoryService,
+        private readonly AccountingEventBus $accountingEventBus,
     ) {
     }
 
@@ -132,6 +149,169 @@ class PurchaseService
         DB::transaction(function () use ($purchaseOrder): void {
             $purchaseOrder->lines()->delete();
             $purchaseOrder->delete();
+        });
+    }
+
+    public function postGrn(PurchaseOrder $purchaseOrder, array $payload, ?Authenticatable $actor = null): GoodsReceipt
+    {
+        $actor ??= Auth::user();
+
+        if (!in_array($purchaseOrder->status, [
+            PurchaseOrderStatus::SENT->value,
+            PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
+        ], true)) {
+            throw new PurchaseOrderException('Purchase Order belum siap untuk diterima.');
+        }
+
+        $purchaseOrder->loadMissing([
+            'lines.variant.product',
+            'lines.uom',
+            'lines.baseUom',
+            'partner',
+            'branch.branchGroup.company',
+            'currency',
+        ]);
+
+        if (!$purchaseOrder->lines->count()) {
+            throw new PurchaseOrderException('Purchase Order tidak memiliki detail barang.');
+        }
+
+        if (!isset($payload['location_id'])) {
+            throw new PurchaseOrderException('Lokasi penerimaan wajib dipilih.');
+        }
+
+        if (!isset($payload['receipt_date'])) {
+            throw new PurchaseOrderException('Tanggal penerimaan wajib diisi.');
+        }
+
+        $receiptDate = Carbon::parse($payload['receipt_date']);
+
+        /** @var Location $location */
+        $location = Location::with('branch.branchGroup.company')->findOrFail($payload['location_id']);
+
+        if ((int) $location->branch_id !== (int) $purchaseOrder->branch_id) {
+            throw new PurchaseOrderException('Lokasi penerimaan harus berasal dari cabang yang sama dengan Purchase Order.');
+        }
+
+        $valuationMethod = $payload['valuation_method']
+            ?? config('inventory.default_valuation_method', 'fifo');
+
+        $preparedLines = $this->prepareGoodsReceiptLines($purchaseOrder, $payload['lines'] ?? []);
+
+        if (empty($preparedLines)) {
+            throw new PurchaseOrderException('Minimal satu baris penerimaan harus diisi.');
+        }
+
+        return DB::transaction(function () use (
+            $purchaseOrder,
+            $preparedLines,
+            $location,
+            $receiptDate,
+            $valuationMethod,
+            $payload,
+            $actor
+        ) {
+            $receiptNumber = $this->generateGoodsReceiptNumber(
+                $purchaseOrder->company_id,
+                $purchaseOrder->branch_id,
+                $receiptDate
+            );
+
+            $goodsReceipt = GoodsReceipt::create([
+                'purchase_order_id' => $purchaseOrder->id,
+                'company_id' => $purchaseOrder->company_id,
+                'branch_id' => $purchaseOrder->branch_id,
+                'currency_id' => $purchaseOrder->currency_id,
+                'location_id' => $location->id,
+                'receipt_number' => $receiptNumber,
+                'status' => GoodsReceiptStatus::DRAFT->value,
+                'receipt_date' => $receiptDate,
+                'valuation_method' => strtolower($valuationMethod),
+                'exchange_rate' => $purchaseOrder->exchange_rate,
+                'notes' => $payload['notes'] ?? null,
+                'created_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            $totalQuantityBase = 0.0;
+            $totalValue = 0.0;
+            $totalValueBase = 0.0;
+
+            foreach ($preparedLines as $plan) {
+                $line = $plan['line'];
+                $goodsReceipt->lines()->create([
+                    'purchase_order_line_id' => $line->id,
+                    'product_id' => $line->product_id,
+                    'product_variant_id' => $line->product_variant_id,
+                    'description' => $line->description,
+                    'uom_id' => $line->uom_id,
+                    'base_uom_id' => $line->base_uom_id,
+                    'quantity' => $plan['quantity'],
+                    'quantity_base' => $plan['quantity_base'],
+                    'unit_price' => $plan['unit_price'],
+                    'unit_cost_base' => $plan['unit_cost_base'],
+                    'line_total' => $plan['line_total'],
+                    'line_total_base' => $plan['line_total_base'],
+                ]);
+
+                $line->quantity_received = $this->roundQuantity(
+                    (float) $line->quantity_received + $plan['quantity']
+                );
+                $line->quantity_received_base = $this->roundQuantity(
+                    (float) $line->quantity_received_base + $plan['quantity_base']
+                );
+                $line->save();
+
+                $totalQuantityBase += $plan['quantity_base'];
+                $totalValue += $plan['line_total'];
+                $totalValueBase += $plan['line_total_base'];
+            }
+
+            $receiptDto = new ReceiptDTO(
+                $receiptDate,
+                $location->id,
+                array_map(
+                    fn (array $plan) => new ReceiptLineDTO(
+                        $plan['line']->product_variant_id,
+                        $plan['line']->base_uom_id,
+                        $plan['quantity_base'],
+                        $plan['unit_cost_base']
+                    ),
+                    $preparedLines
+                ),
+                sourceType: PurchaseOrder::class,
+                sourceId: $purchaseOrder->id,
+                notes: $payload['notes'] ?? null,
+                valuationMethod: $valuationMethod,
+            );
+
+            $result = $this->inventoryService->receipt($receiptDto);
+
+            $goodsReceipt->update([
+                'inventory_transaction_id' => $result->transaction->id,
+                'status' => GoodsReceiptStatus::POSTED->value,
+                'posted_at' => now(),
+                'posted_by' => $actor?->getAuthIdentifier(),
+                'total_quantity' => $this->roundQuantity($totalQuantityBase),
+                'total_value' => $this->roundMoney($totalValue),
+                'total_value_base' => $this->roundCost($totalValueBase),
+                'updated_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            $purchaseOrder->load('lines');
+            $this->syncPurchaseOrderReceiptStatus($purchaseOrder, $actor);
+
+            $goodsReceipt->load([
+                'purchaseOrder.partner',
+                'purchaseOrder.branch.branchGroup.company',
+                'lines.variant.product',
+                'currency',
+                'location',
+                'inventoryTransaction',
+            ]);
+
+            $this->dispatchGoodsReceiptEvent($goodsReceipt, $purchaseOrder, $totalValueBase, $actor);
+
+            return $goodsReceipt;
         });
     }
 
@@ -291,6 +471,187 @@ class PurchaseService
             'tax_total' => $this->roundMoney($taxTotal),
             'total_amount' => $this->roundMoney($subtotal + $taxTotal),
         ];
+    }
+
+    /**
+     * @return array<int, array{
+     *     line: \App\Models\PurchaseOrderLine,
+     *     quantity: float,
+     *     quantity_base: float,
+     *     unit_price: float,
+     *     unit_cost_base: float,
+     *     line_total: float,
+     *     line_total_base: float,
+     * }>
+     */
+    private function prepareGoodsReceiptLines(PurchaseOrder $purchaseOrder, array $linesPayload): array
+    {
+        $prepared = [];
+        $lines = $purchaseOrder->lines->keyBy('id');
+
+        foreach ($linesPayload as $payloadLine) {
+            if (!isset($payloadLine['purchase_order_line_id'])) {
+                continue;
+            }
+
+            $quantity = (float) ($payloadLine['quantity'] ?? 0);
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            $lineId = (int) $payloadLine['purchase_order_line_id'];
+            $line = $lines->get($lineId);
+
+            if (!$line) {
+                throw new PurchaseOrderException('Baris penerimaan tidak valid.');
+            }
+
+            $remaining = max(0.0, (float) $line->quantity - (float) $line->quantity_received);
+            if ($quantity - $remaining > self::QTY_TOLERANCE) {
+                throw new PurchaseOrderException(
+                    sprintf('Jumlah diterima melebihi sisa pada baris #%d.', $line->line_number)
+                );
+            }
+
+            try {
+                $quantityBase = $this->roundQuantity(
+                    $this->uomConverter->convert($quantity, $line->uom_id, $line->base_uom_id)
+                );
+            } catch (RuntimeException $exception) {
+                throw new PurchaseOrderException($exception->getMessage(), previous: $exception);
+            }
+
+            $remainingBase = max(0.0, (float) $line->quantity_base - (float) $line->quantity_received_base);
+            if ($quantityBase - $remainingBase > self::QTY_TOLERANCE) {
+                throw new PurchaseOrderException(
+                    sprintf('Jumlah dasar melebihi sisa pada baris #%d.', $line->line_number)
+                );
+            }
+
+            $unitCostBase = (float) $line->unit_price;
+            if ((float) $line->quantity_base > 0 && (float) $line->quantity > 0) {
+                $unitCostBase = $line->unit_price * ((float) $line->quantity / (float) $line->quantity_base);
+            }
+
+            $unitCostBase = $this->roundCost($unitCostBase);
+            $orderedQuantity = $this->roundQuantity($quantity);
+            $lineTotal = $this->roundMoney($orderedQuantity * (float) $line->unit_price);
+            $lineTotalBase = $this->roundCost($quantityBase * $unitCostBase);
+
+            $prepared[] = [
+                'line' => $line,
+                'quantity' => $orderedQuantity,
+                'quantity_base' => $quantityBase,
+                'unit_price' => (float) $line->unit_price,
+                'unit_cost_base' => $unitCostBase,
+                'line_total' => $lineTotal,
+                'line_total_base' => $lineTotalBase,
+            ];
+        }
+
+        return $prepared;
+    }
+
+    private function generateGoodsReceiptNumber(int $companyId, int $branchId, Carbon $receiptDate): string
+    {
+        $config = config('purchasing.goods_receipt_numbering', []);
+        $prefix = strtoupper($config['prefix'] ?? 'GRN');
+        $sequencePadding = (int) ($config['sequence_padding'] ?? 5);
+        $sequence = str_pad(
+            (string) $this->nextGoodsReceiptSequence($branchId, $receiptDate),
+            $sequencePadding,
+            '0',
+            STR_PAD_LEFT
+        );
+
+        $companySegment = str_pad((string) $companyId, 2, '0', STR_PAD_LEFT);
+        $branchSegment = str_pad((string) $branchId, 3, '0', STR_PAD_LEFT);
+        $yearSegment = $receiptDate->format('y');
+
+        return sprintf('%s.%s%s.%s.%s', $prefix, $companySegment, $branchSegment, $yearSegment, $sequence);
+    }
+
+    private function nextGoodsReceiptSequence(int $branchId, Carbon $receiptDate): int
+    {
+        $latest = GoodsReceipt::withTrashed()
+            ->where('branch_id', $branchId)
+            ->whereYear('receipt_date', $receiptDate->year)
+            ->orderByDesc('receipt_number')
+            ->value('receipt_number');
+
+        if (!$latest) {
+            return 1;
+        }
+
+        $segments = explode('.', $latest);
+        $last = (int) (end($segments) ?: 0);
+
+        return $last + 1;
+    }
+
+    private function roundCost(float $value): float
+    {
+        return round($value, self::COST_SCALE);
+    }
+
+    private function syncPurchaseOrderReceiptStatus(PurchaseOrder $purchaseOrder, ?Authenticatable $actor = null): void
+    {
+        $actor ??= Auth::user();
+        $context = $this->makerCheckerContext($purchaseOrder->company_id);
+
+        $hasRemaining = $purchaseOrder->lines->contains(function ($line) {
+            return ((float) $line->quantity - (float) $line->quantity_received) > self::QTY_TOLERANCE;
+        });
+
+        $target = $hasRemaining
+            ? PurchaseOrderStatus::PARTIALLY_RECEIVED
+            : PurchaseOrderStatus::RECEIVED;
+
+        $purchaseOrder->transitionTo($target, $actor, $context);
+    }
+
+    private function dispatchGoodsReceiptEvent(
+        GoodsReceipt $goodsReceipt,
+        PurchaseOrder $purchaseOrder,
+        float $amountBase,
+        ?Authenticatable $actor = null
+    ): void {
+        if ($amountBase <= 0) {
+            return;
+        }
+
+        $currencyCode = $purchaseOrder->currency?->code ?? 'IDR';
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::PURCHASE_GRN_POSTED,
+            $purchaseOrder->company_id,
+            $purchaseOrder->branch_id,
+            'goods_receipt',
+            $goodsReceipt->id,
+            $goodsReceipt->receipt_number,
+            $currencyCode,
+            (float) $purchaseOrder->exchange_rate,
+            CarbonImmutable::parse($goodsReceipt->receipt_date),
+            $actor?->getAuthIdentifier(),
+            [
+                'purchase_order_id' => $purchaseOrder->id,
+                'purchase_order_number' => $purchaseOrder->order_number,
+                'inventory_transaction_id' => $goodsReceipt->inventory_transaction_id,
+            ],
+        );
+
+        $normalizedAmount = $this->roundCost($amountBase);
+
+        $payload->setLines([
+            AccountingEntry::debit('inventory', $normalizedAmount),
+            AccountingEntry::credit('goods_received_not_invoiced', $normalizedAmount),
+        ]);
+
+        rescue(function () use ($payload) {
+            $this->accountingEventBus->dispatch($payload);
+        }, static function (Throwable $throwable) {
+            report($throwable);
+        });
     }
 
     private function resolveSupplier(int $partnerId, int $companyId): Partner

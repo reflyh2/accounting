@@ -27,7 +27,7 @@ final class AccountingEventPayload implements Arrayable
         public readonly string $currencyCode,
         public readonly float $exchangeRate,
         public readonly CarbonInterface $occurredAt,
-        public readonly ?int $actorId = null,
+        public readonly int|string|null $actorId = null,
         public readonly array $meta = [],
     ) {
     }
@@ -123,7 +123,7 @@ final class AccountingEventPayload implements Arrayable
             currencyCode: (string) $payload['currency_code'],
             exchangeRate: (float) ($payload['exchange_rate'] ?? 1),
             occurredAt: CarbonImmutable::parse($payload['occurred_at'] ?? now()),
-            actorId: isset($payload['actor_id']) ? (int) $payload['actor_id'] : null,
+            actorId: $payload['actor_id'] ?? null,
             meta: $payload['meta'] ?? [],
         );
 

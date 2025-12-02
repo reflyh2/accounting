@@ -130,7 +130,8 @@ const isInventoryActive = computed(() => {
 });
 
 const isPurchasingActive = computed(() => {
-    return route().current('purchase-orders.*');
+    return route().current('purchase-orders.*')
+        || route().current('goods-receipts.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -220,6 +221,13 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Purchase Orders
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('goods-receipts.index')"
+                                :active="route().current('goods-receipts.*')"
+                                class="pl-11"
+                            >
+                                Penerimaan Pembelian
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -493,6 +501,13 @@ function toggleSidebar() {
                                         >
                                             Purchase Orders
                                         </NavLink>
+                                    <NavLink
+                                        :href="route('goods-receipts.index')"
+                                        :active="route().current('goods-receipts.*')"
+                                        class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                    >
+                                        Penerimaan Pembelian
+                                    </NavLink>
                                     </div>
                                 </div>
 
@@ -517,6 +532,13 @@ function toggleSidebar() {
                                         >
                                             Purchase Orders
                                         </NavLink>
+                                    <NavLink
+                                        :href="route('goods-receipts.index')"
+                                        :active="route().current('goods-receipts.*')"
+                                        class="flex items-center"
+                                    >
+                                        Penerimaan Pembelian
+                                    </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
                             </template>

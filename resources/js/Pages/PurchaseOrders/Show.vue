@@ -23,6 +23,16 @@ const canApprove = computed(() => props.allowedTransitions?.includes('approved')
 const canSend = computed(() => props.allowedTransitions?.includes('sent'));
 const canCancel = computed(() => props.allowedTransitions?.includes('canceled'));
 const isDraft = computed(() => props.purchaseOrder.status === 'draft');
+const hasOutstandingReceipt = computed(() =>
+    props.purchaseOrder.lines?.some((line) => {
+        const ordered = Number(line.quantity || 0);
+        const received = Number(line.quantity_received || 0);
+        return ordered - received > 0.0001;
+    })
+);
+const canCreateGoodsReceipt = computed(() =>
+    hasOutstandingReceipt.value && ['sent', 'partially_received'].includes(props.purchaseOrder.status)
+);
 
 function approve() {
     router.post(route('purchase-orders.approve', props.purchaseOrder.id));
@@ -82,6 +92,14 @@ function deleteOrder() {
                     <AppPrimaryButton v-if="canSend" type="button" @click="markSent">
                         Tandai Terkirim
                     </AppPrimaryButton>
+                    <Link
+                        v-if="canCreateGoodsReceipt"
+                        :href="route('goods-receipts.create', { purchase_order_id: purchaseOrder.id })"
+                    >
+                        <AppPrimaryButton type="button">
+                            Buat Penerimaan Pembelian
+                        </AppPrimaryButton>
+                    </Link>
                     <div v-if="canCancel" class="flex items-center gap-2">
                         <input
                             v-model="cancelReason"
@@ -140,7 +158,9 @@ function deleteOrder() {
                         <tr>
                             <th class="px-4 py-2 text-left font-medium text-gray-600">Produk</th>
                             <th class="px-4 py-2 text-left font-medium text-gray-600">Deskripsi</th>
-                            <th class="px-4 py-2 text-right font-medium text-gray-600">Qty</th>
+                            <th class="px-4 py-2 text-right font-medium text-gray-600">Qty PO</th>
+                            <th class="px-4 py-2 text-right font-medium text-gray-600">Qty Diterima</th>
+                            <th class="px-4 py-2 text-right font-medium text-gray-600">Sisa</th>
                             <th class="px-4 py-2 text-left font-medium text-gray-600">Satuan</th>
                             <th class="px-4 py-2 text-right font-medium text-gray-600">Harga</th>
                             <th class="px-4 py-2 text-right font-medium text-gray-600">Pajak</th>
@@ -155,6 +175,14 @@ function deleteOrder() {
                             </td>
                             <td class="px-4 py-3">{{ line.description || '—' }}</td>
                             <td class="px-4 py-3 text-right">{{ formatNumber(line.quantity) }}</td>
+                            <td class="px-4 py-3 text-right">{{ formatNumber(line.quantity_received) }}</td>
+                            <td class="px-4 py-3 text-right">
+                                {{
+                                    formatNumber(
+                                        Math.max(Number(line.quantity || 0) - Number(line.quantity_received || 0), 0)
+                                    )
+                                }}
+                            </td>
                             <td class="px-4 py-3">{{ line.uom?.code }}</td>
                             <td class="px-4 py-3 text-right">{{ formatNumber(line.unit_price) }}</td>
                             <td class="px-4 py-3 text-right">{{ formatNumber(line.tax_amount) }}</td>

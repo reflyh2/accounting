@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class PurchaseOrderLine extends Model
+class GoodsReceiptLine extends Model
 {
     use HasFactory;
 
@@ -14,18 +14,20 @@ class PurchaseOrderLine extends Model
     protected $casts = [
         'quantity' => 'decimal:3',
         'quantity_base' => 'decimal:3',
-        'quantity_received' => 'decimal:3',
-        'quantity_received_base' => 'decimal:3',
         'unit_price' => 'decimal:4',
-        'tax_rate' => 'decimal:2',
-        'tax_amount' => 'decimal:2',
+        'unit_cost_base' => 'decimal:6',
         'line_total' => 'decimal:2',
-        'expected_date' => 'date',
+        'line_total_base' => 'decimal:4',
     ];
 
-    public function purchaseOrder()
+    public function goodsReceipt()
     {
-        return $this->belongsTo(PurchaseOrder::class);
+        return $this->belongsTo(GoodsReceipt::class);
+    }
+
+    public function purchaseOrderLine()
+    {
+        return $this->belongsTo(PurchaseOrderLine::class);
     }
 
     public function product()
