@@ -55,6 +55,10 @@ use App\Http\Controllers\AssetFinancingPaymentController;
 use App\Http\Controllers\AssetTransferController;
 use App\Http\Controllers\AssetDisposalController;
 use App\Http\Controllers\ProductCategoryController;
+use App\Http\Controllers\Inventory\AdjustmentController;
+use App\Http\Controllers\Inventory\ReceiveController;
+use App\Http\Controllers\Inventory\ShipController;
+use App\Http\Controllers\Inventory\TransferController;
 use App\Http\Controllers\ExternalPayableController;
 use App\Http\Controllers\ExternalReceivableController;
 use App\Http\Controllers\InternalPayableController;
@@ -397,6 +401,13 @@ Route::middleware([
             Route::resource('accommodation', \App\Http\Controllers\Catalog\AccommodationProductController::class);
             Route::resource('rental', \App\Http\Controllers\Catalog\RentalProductController::class);
             Route::resource('packages', \App\Http\Controllers\Catalog\PackageProductController::class);
+        });
+
+        Route::prefix('inventory')->name('inventory.')->group(function () {
+            Route::resource('receipts', ReceiveController::class);
+            Route::resource('shipments', ShipController::class);
+            Route::resource('adjustments', AdjustmentController::class);
+            Route::resource('transfers', TransferController::class);
         });
     });
 

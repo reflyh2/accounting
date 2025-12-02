@@ -38,6 +38,16 @@ class ProductVariant extends Model
         return $this->hasMany(PriceListItem::class);
     }
 
+    public function inventoryItems()
+    {
+        return $this->hasMany(InventoryItem::class);
+    }
+
+    public function costLayers()
+    {
+        return $this->hasMany(CostLayer::class);
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by', 'global_id');

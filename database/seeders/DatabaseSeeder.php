@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             AttributeSetsSeeder::class,
             ProductTypeTemplatesSeeder::class,
             PriceListStarterSeeder::class,
+            InventoryDemoSeeder::class,
         ]);
     }
 }

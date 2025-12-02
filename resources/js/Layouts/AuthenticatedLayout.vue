@@ -7,7 +7,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link } from '@inertiajs/vue3';
-import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon } from '@heroicons/vue/24/solid';
+import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon, CubeIcon } from '@heroicons/vue/24/solid';
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue';
 import { Cog8ToothIcon, ChevronRightIcon, Bars3Icon } from '@heroicons/vue/24/solid';
 import AlertNotification from '@/Components/AlertNotification.vue';
@@ -122,6 +122,13 @@ const isProductsActive = computed(() => {
         || route().current('catalog.packages.*');
 });
 
+const isInventoryActive = computed(() => {
+    return route().current('inventory.receipts.*')
+        || route().current('inventory.shipments.*')
+        || route().current('inventory.adjustments.*')
+        || route().current('inventory.transfers.*');
+});
+
 const sidebarWidth = computed(() => {
     return sidebarCollapsed.value ? 'w-16' : 'w-72';
 });
@@ -217,6 +224,48 @@ function toggleSidebar() {
                                 " 
                                 class="pl-11">
                                 Katalog Produk
+                            </ResponsiveNavLink>
+                        </DisclosurePanel>
+                    </Disclosure>
+
+                    <!-- Inventory Section -->
+                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isInventoryActive">
+                        <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                            <CubeIcon class="h-5 w-5 mr-2" />
+                            <span>Persediaan</span>
+                            <ChevronRightIcon
+                                :class="open ? 'transform rotate-90' : ''"
+                                class="ml-auto h-4 w-4 text-gray-400"
+                            />
+                        </DisclosureButton>
+                        <DisclosurePanel class="mt-1 space-y-1 text-sm">
+                            <ResponsiveNavLink
+                                :href="route('inventory.receipts.index')"
+                                :active="route().current('inventory.receipts.*')"
+                                class="pl-11"
+                            >
+                                Penerimaan Barang
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('inventory.shipments.index')"
+                                :active="route().current('inventory.shipments.*')"
+                                class="pl-11"
+                            >
+                                Pengeluaran Barang
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('inventory.adjustments.index')"
+                                :active="route().current('inventory.adjustments.*')"
+                                class="pl-11"
+                            >
+                                Penyesuaian Stok
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('inventory.transfers.index')"
+                                :active="route().current('inventory.transfers.*')"
+                                class="pl-11"
+                            >
+                                Transfer Antar Lokasi
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -464,6 +513,94 @@ function toggleSidebar() {
                                             " 
                                             class="flex items-center">
                                             Katalog Produk
+                                        </NavLink>
+                                    </DisclosurePanel>
+                                </Disclosure>
+                            </template>
+                        </div>
+
+                        <!-- Inventory Section -->
+                        <div class="relative group">
+                            <template v-if="sidebarCollapsed">
+                                <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
+                                    <CubeIcon class="h-6 w-6" />
+                                </div>
+
+                                <div class="absolute left-full top-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-10" style="margin-left: 8px;">
+                                    <div class="p-2">
+                                        <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Persediaan</div>
+                                        <NavLink
+                                            :href="route('inventory.receipts.index')"
+                                            :active="route().current('inventory.receipts.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Penerimaan Barang
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('inventory.shipments.index')"
+                                            :active="route().current('inventory.shipments.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Pengeluaran Barang
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('inventory.adjustments.index')"
+                                            :active="route().current('inventory.adjustments.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Penyesuaian Stok
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('inventory.transfers.index')"
+                                            :active="route().current('inventory.transfers.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Transfer Antar Lokasi
+                                        </NavLink>
+                                    </div>
+                                </div>
+
+                                <div class="absolute left-full top-0 w-2 h-full opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto z-10"></div>
+                            </template>
+
+                            <template v-else>
+                                <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isInventoryActive">
+                                    <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
+                                        <CubeIcon class="h-6 w-6 mr-2" />
+                                        <span>Persediaan</span>
+                                        <ChevronRightIcon
+                                            :class="open ? 'transform rotate-90' : ''"
+                                            class="ml-auto h-4 w-4 text-gray-400"
+                                        />
+                                    </DisclosureButton>
+                                    <DisclosurePanel class="mt-2 space-y-2 pl-8">
+                                        <NavLink
+                                            :href="route('inventory.receipts.index')"
+                                            :active="route().current('inventory.receipts.*')"
+                                            class="flex items-center"
+                                        >
+                                            Penerimaan Barang
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('inventory.shipments.index')"
+                                            :active="route().current('inventory.shipments.*')"
+                                            class="flex items-center"
+                                        >
+                                            Pengeluaran Barang
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('inventory.adjustments.index')"
+                                            :active="route().current('inventory.adjustments.*')"
+                                            class="flex items-center"
+                                        >
+                                            Penyesuaian Stok
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('inventory.transfers.index')"
+                                            :active="route().current('inventory.transfers.*')"
+                                            class="flex items-center"
+                                        >
+                                            Transfer Antar Lokasi
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
