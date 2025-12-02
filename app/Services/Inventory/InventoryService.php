@@ -9,6 +9,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryTransactionLine;
 use App\Models\ProductVariant;
+use App\Models\Location;
 use App\Services\Inventory\DTO\AdjustDTO;
 use App\Services\Inventory\DTO\AdjustLineDTO;
 use App\Services\Inventory\DTO\InventoryTxnResult;
@@ -33,7 +34,7 @@ class InventoryService
 
     public function receipt(ReceiptDTO $dto, ?InventoryTransaction $transaction = null): InventoryTxnResult
     {
-        $valuation = $this->normalizeValuation($dto->valuationMethod);
+        $valuation = $this->normalizeValuation($dto->valuationMethod, $dto->locationId);
 
         return DB::transaction(function () use ($dto, $valuation, $transaction) {
             $transaction = $this->prepareTransaction('receipt', [
@@ -56,7 +57,7 @@ class InventoryService
 
     public function issue(IssueDTO $dto, ?InventoryTransaction $transaction = null): InventoryTxnResult
     {
-        $valuation = $this->normalizeValuation($dto->valuationMethod);
+        $valuation = $this->normalizeValuation($dto->valuationMethod, $dto->locationId);
 
         return DB::transaction(function () use ($dto, $valuation, $transaction) {
             $transaction = $this->prepareTransaction('issue', [
@@ -79,7 +80,7 @@ class InventoryService
 
     public function adjust(AdjustDTO $dto, ?InventoryTransaction $transaction = null): InventoryTxnResult
     {
-        $valuation = $this->normalizeValuation($dto->valuationMethod);
+        $valuation = $this->normalizeValuation($dto->valuationMethod, $dto->locationId);
 
         return DB::transaction(function () use ($dto, $valuation, $transaction) {
             $transaction = $this->prepareTransaction('adjustment', [
@@ -136,7 +137,7 @@ class InventoryService
             throw new InventoryException('Lokasi asal dan tujuan tidak boleh sama.');
         }
 
-        $valuation = $this->normalizeValuation($dto->valuationMethod);
+        $valuation = $this->normalizeValuation($dto->valuationMethod, $dto->locationIdFrom);
 
         return DB::transaction(function () use ($dto, $valuation, $transaction) {
             $transaction = $this->prepareTransaction('transfer', [
@@ -594,10 +595,33 @@ class InventoryService
         return $item;
     }
 
-    private function normalizeValuation(?string $method): string
+    private function normalizeValuation(?string $method, ?int $locationId = null): string
     {
-        $method = strtolower($method ?? config('inventory.default_valuation_method', 'fifo'));
-        return in_array($method, ['fifo', 'moving_avg'], true) ? $method : 'fifo';
+        $resolved = $method
+            ?? $this->resolveCompanyCostingPolicy($locationId)
+            ?? config('inventory.default_valuation_method', 'fifo');
+
+        $resolved = strtolower($resolved);
+
+        return in_array($resolved, ['fifo', 'moving_avg'], true) ? $resolved : 'fifo';
+    }
+
+    private function resolveCompanyCostingPolicy(?int $locationId): ?string
+    {
+        if (! $locationId) {
+            return null;
+        }
+
+        /** @var Location|null $location */
+        $location = Location::query()
+            ->with([
+                'branch:id,branch_group_id',
+                'branch.branchGroup:id,company_id',
+                'branch.branchGroup.company:id,costing_policy',
+            ])
+            ->find($locationId);
+
+        return $location?->branch?->branchGroup?->company?->costing_policy;
     }
 
     private function generateTransactionNumber(): string

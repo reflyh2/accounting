@@ -87,6 +87,40 @@ it('issues inventory using fifo costing', function () {
     expect((float) $item->qty_on_hand)->toBe(1.0);
 });
 
+it('issues inventory using company costing policy when not overridden', function () {
+    [$variant, $location] = createInventoryVariantWithLocation(companyAttributes: [
+        'costing_policy' => 'moving_avg',
+    ]);
+    $service = app(InventoryService::class);
+
+    $service->receipt(new ReceiptDTO(
+        Carbon::now(),
+        $location->id,
+        [
+            new ReceiptLineDTO($variant->id, $variant->uom_id, 3, 100),
+        ],
+    ));
+
+    $service->receipt(new ReceiptDTO(
+        Carbon::now()->addMinute(),
+        $location->id,
+        [
+            new ReceiptLineDTO($variant->id, $variant->uom_id, 2, 150),
+        ],
+    ));
+
+    $issueResult = $service->issue(new IssueDTO(
+        Carbon::now()->addMinutes(2),
+        $location->id,
+        [
+            new IssueLineDTO($variant->id, $variant->uom_id, 4),
+        ],
+    ));
+
+    expect($issueResult->transaction->lines)->toHaveCount(1);
+    expect((float) $issueResult->transaction->lines->first()->unit_cost)->toBe(120.0);
+});
+
 it('transfers inventory between locations', function () {
     [$variant, $sourceLocation, $branch] = createInventoryVariantWithLocation(returnBranch: true);
     $destination = createLocation($branch, 'LOC-B');
@@ -125,9 +159,9 @@ it('transfers inventory between locations', function () {
     expect((float) $destinationLayers->first()->qty_remaining)->toBe(2.0);
 });
 
-function createInventoryVariantWithLocation(bool $returnBranch = false): array
+function createInventoryVariantWithLocation(bool $returnBranch = false, array $companyAttributes = []): array
 {
-    $company = Company::create([
+    $companyData = array_merge([
         'name' => 'Acme Corp',
         'legal_name' => 'Acme Corp',
         'tax_id' => 'NPWP123456789',
@@ -138,7 +172,12 @@ function createInventoryVariantWithLocation(bool $returnBranch = false): array
         'postal_code' => '11530',
         'phone' => '021123456',
         'email' => 'info@example.com',
-    ]);
+        'costing_policy' => 'fifo',
+        'reservation_strictness' => 'soft',
+        'default_backflush' => false,
+    ], $companyAttributes);
+
+    $company = Company::create($companyData);
 
     $branchGroup = BranchGroup::create([
         'name' => 'Pusat',

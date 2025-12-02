@@ -37,11 +37,15 @@ class Company extends Model
         'default_interbranch_payable_account_id',
         'default_intercompany_receivable_account_id',
         'default_intercompany_payable_account_id',
+        'costing_policy',
+        'reservation_strictness',
+        'default_backflush',
     ];
 
     protected $casts = [
         'year_established' => 'integer',
         'business_license_expiry' => 'date',
+        'default_backflush' => 'boolean',
     ];
 
     protected static function booted()
