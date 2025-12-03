@@ -53,6 +53,7 @@ use App\Http\Controllers\AssetInvoicePaymentController;
 use App\Http\Controllers\PartnerBankAccountController;
 use App\Http\Controllers\PurchaseInvoiceController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
@@ -65,6 +66,7 @@ use App\Http\Controllers\Inventory\AdjustmentController;
 use App\Http\Controllers\Inventory\ReceiveController;
 use App\Http\Controllers\Inventory\ShipController;
 use App\Http\Controllers\Inventory\TransferController;
+use App\Http\Controllers\Api\InventoryAvailabilityController;
 use App\Http\Controllers\ExternalPayableController;
 use App\Http\Controllers\ExternalReceivableController;
 use App\Http\Controllers\InternalPayableController;
@@ -134,6 +136,8 @@ Route::middleware([
             Route::post('booking-lines/{bookingLine}/assign-instance', [BookingController::class, 'assignInstance'])->name('bookings.assign-instance');
             Route::get('purchase-invoices/purchase-orders', [PurchaseInvoiceLookupController::class, 'purchaseOrders'])
                 ->name('purchase-invoices.purchase-orders');
+            Route::get('inventory/availability', InventoryAvailabilityController::class)
+                ->name('inventory.availability');
         });
 
         Route::get('/', function () {
@@ -454,6 +458,17 @@ Route::middleware([
         Route::post('purchase-orders/{purchase_order}/cancel', [PurchaseOrderController::class, 'cancel'])
             ->name('purchase-orders.cancel');
         Route::resource('purchase-orders', PurchaseOrderController::class);
+        Route::post('sales-orders/{sales_order}/quote', [SalesOrderController::class, 'quote'])
+            ->name('sales-orders.quote');
+        Route::post('sales-orders/{sales_order}/confirm', [SalesOrderController::class, 'confirm'])
+            ->name('sales-orders.confirm');
+        Route::post('sales-orders/{sales_order}/cancel', [SalesOrderController::class, 'cancel'])
+            ->name('sales-orders.cancel');
+        Route::post('sales-orders/{sales_order}/reserve', [SalesOrderController::class, 'reserve'])
+            ->name('sales-orders.reserve');
+        Route::post('sales-orders/{sales_order}/release-reservation', [SalesOrderController::class, 'releaseReservation'])
+            ->name('sales-orders.release-reservation');
+        Route::resource('sales-orders', SalesOrderController::class);
         Route::get('purchase-invoices/export-xlsx', [PurchaseInvoiceController::class, 'exportXLSX'])->name('purchase-invoices.export-xlsx');
         Route::get('purchase-invoices/export-csv', [PurchaseInvoiceController::class, 'exportCSV'])->name('purchase-invoices.export-csv');
         Route::get('purchase-invoices/export-pdf', [PurchaseInvoiceController::class, 'exportPDF'])->name('purchase-invoices.export-pdf');
