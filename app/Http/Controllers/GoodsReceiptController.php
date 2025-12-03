@@ -196,6 +196,12 @@ class GoodsReceiptController extends Controller
             'total_value_base' => (float) $receipt->total_value_base,
             'notes' => $receipt->notes,
             'valuation_method' => $receipt->valuation_method,
+            'returnable_quantity' => $receipt->lines->sum(function ($line) {
+                return max(
+                    0,
+                    (float) $line->quantity - (float) $line->quantity_invoiced - (float) $line->quantity_returned
+                );
+            }),
             'inventory_transaction' => $receipt->inventoryTransaction ? [
                 'id' => $receipt->inventoryTransaction->id,
                 'transaction_number' => $receipt->inventoryTransaction->transaction_number,
@@ -235,11 +241,19 @@ class GoodsReceiptController extends Controller
 
         if ($includeLines) {
             $data['lines'] = $receipt->lines->map(function ($line) {
+                $availableForReturn = max(
+                    0,
+                    (float) $line->quantity - (float) $line->quantity_invoiced - (float) $line->quantity_returned
+                );
+
                 return [
                     'id' => $line->id,
                     'description' => $line->description,
                     'quantity' => (float) $line->quantity,
                     'quantity_base' => (float) $line->quantity_base,
+                    'quantity_invoiced' => (float) $line->quantity_invoiced,
+                    'quantity_returned' => (float) $line->quantity_returned,
+                    'available_for_return' => $availableForReturn,
                     'unit_price' => (float) $line->unit_price,
                     'unit_cost_base' => (float) $line->unit_cost_base,
                     'line_total' => (float) $line->line_total,

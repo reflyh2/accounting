@@ -131,7 +131,9 @@ const isInventoryActive = computed(() => {
 
 const isPurchasingActive = computed(() => {
     return route().current('purchase-orders.*')
-        || route().current('goods-receipts.*');
+        || route().current('goods-receipts.*')
+        || route().current('purchase-invoices.*')
+        || route().current('purchase-returns.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -228,6 +230,20 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Penerimaan Pembelian
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('purchase-invoices.index')"
+                                :active="route().current('purchase-invoices.*')"
+                                class="pl-11"
+                            >
+                                Faktur Pembelian
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('purchase-returns.index')"
+                                :active="route().current('purchase-returns.*')"
+                                class="pl-11"
+                            >
+                                Retur Pembelian
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -508,6 +524,20 @@ function toggleSidebar() {
                                     >
                                         Penerimaan Pembelian
                                     </NavLink>
+                                        <NavLink
+                                            :href="route('purchase-invoices.index')"
+                                            :active="route().current('purchase-invoices.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Faktur Pembelian
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('purchase-returns.index')"
+                                            :active="route().current('purchase-returns.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Retur Pembelian
+                                        </NavLink>
                                     </div>
                                 </div>
 
@@ -538,6 +568,20 @@ function toggleSidebar() {
                                         class="flex items-center"
                                     >
                                         Penerimaan Pembelian
+                                    </NavLink>
+                                    <NavLink
+                                        :href="route('purchase-invoices.index')"
+                                        :active="route().current('purchase-invoices.*')"
+                                        class="flex items-center"
+                                    >
+                                        Faktur Pembelian
+                                    </NavLink>
+                                    <NavLink
+                                        :href="route('purchase-returns.index')"
+                                        :active="route().current('purchase-returns.*')"
+                                        class="flex items-center"
+                                    >
+                                        Retur Pembelian
                                     </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>

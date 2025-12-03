@@ -51,7 +51,9 @@ use App\Http\Controllers\AssetPurchaseController;
 use App\Http\Controllers\AssetRentalController;
 use App\Http\Controllers\AssetInvoicePaymentController;
 use App\Http\Controllers\PartnerBankAccountController;
+use App\Http\Controllers\PurchaseInvoiceController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
 use App\Http\Controllers\AssetFinancingScheduleController;
@@ -71,6 +73,7 @@ use App\Http\Controllers\InternalDebtController;
 use App\Http\Controllers\ExternalPayablePaymentController;
 use App\Http\Controllers\ExternalReceivablePaymentController;
 use App\Http\Controllers\InternalDebtPaymentController;
+use App\Http\Controllers\Api\PurchaseInvoiceLookupController;
 
 /*
 |--------------------------------------------------------------------------
@@ -129,6 +132,8 @@ Route::middleware([
             Route::post('bookings/{booking}/check-out', [BookingController::class, 'checkOut'])->name('bookings.check-out');
             Route::post('bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
             Route::post('booking-lines/{bookingLine}/assign-instance', [BookingController::class, 'assignInstance'])->name('bookings.assign-instance');
+            Route::get('purchase-invoices/purchase-orders', [PurchaseInvoiceLookupController::class, 'purchaseOrders'])
+                ->name('purchase-invoices.purchase-orders');
         });
 
         Route::get('/', function () {
@@ -432,6 +437,16 @@ Route::middleware([
             'show',
         ]);
 
+        Route::get('purchase-returns/export-xlsx', [PurchaseReturnController::class, 'exportXLSX'])->name('purchase-returns.export-xlsx');
+        Route::get('purchase-returns/export-csv', [PurchaseReturnController::class, 'exportCSV'])->name('purchase-returns.export-csv');
+        Route::get('purchase-returns/export-pdf', [PurchaseReturnController::class, 'exportPDF'])->name('purchase-returns.export-pdf');
+        Route::resource('purchase-returns', PurchaseReturnController::class)->only([
+            'index',
+            'create',
+            'store',
+            'show',
+        ]);
+
         Route::post('purchase-orders/{purchase_order}/approve', [PurchaseOrderController::class, 'approve'])
             ->name('purchase-orders.approve');
         Route::post('purchase-orders/{purchase_order}/send', [PurchaseOrderController::class, 'send'])
@@ -439,6 +454,12 @@ Route::middleware([
         Route::post('purchase-orders/{purchase_order}/cancel', [PurchaseOrderController::class, 'cancel'])
             ->name('purchase-orders.cancel');
         Route::resource('purchase-orders', PurchaseOrderController::class);
+        Route::get('purchase-invoices/export-xlsx', [PurchaseInvoiceController::class, 'exportXLSX'])->name('purchase-invoices.export-xlsx');
+        Route::get('purchase-invoices/export-csv', [PurchaseInvoiceController::class, 'exportCSV'])->name('purchase-invoices.export-csv');
+        Route::get('purchase-invoices/export-pdf', [PurchaseInvoiceController::class, 'exportPDF'])->name('purchase-invoices.export-pdf');
+        Route::post('purchase-invoices/{purchase_invoice}/post', [PurchaseInvoiceController::class, 'post'])
+            ->name('purchase-invoices.post');
+        Route::resource('purchase-invoices', PurchaseInvoiceController::class);
     });
 
     Route::middleware('guest')->group(function () {

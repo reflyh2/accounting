@@ -1,15 +1,19 @@
 <script setup>
+import { computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 import DocumentStatusPill from '@/Components/DocumentStatusPill.vue';
 import { DocumentStatusKind } from '@/constants/documentStatuses';
 import { formatNumber } from '@/utils/numberFormat';
+import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 
 const props = defineProps({
     goodsReceipt: Object,
     filters: Object,
 });
+
+const canCreateReturn = computed(() => Number(props.goodsReceipt?.returnable_quantity || 0) > 0);
 </script>
 
 <template>
@@ -32,7 +36,17 @@ const props = defineProps({
         <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
             <div class="bg-white overflow-auto shadow-sm sm:rounded-s border border-gray-200">
                 <div class="p-6 text-gray-900 space-y-6">
-                    <AppBackLink :href="route('goods-receipts.index', filters)" text="Kembali ke Daftar Penerimaan Pembelian" />
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <AppBackLink :href="route('goods-receipts.index', filters)" text="Kembali ke Daftar Penerimaan Pembelian" />
+                        <Link
+                            v-if="canCreateReturn"
+                            :href="route('purchase-returns.create', { goods_receipt_id: goodsReceipt.id })"
+                        >
+                            <AppSecondaryButton as="span">
+                                Buat Retur
+                            </AppSecondaryButton>
+                        </Link>
+                    </div>
 
                     <div class="grid lg:grid-cols-3 gap-4">
                         <div class="border border-gray-200 rounded p-4 space-y-2">

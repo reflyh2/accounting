@@ -14,10 +14,16 @@ class GoodsReceiptLine extends Model
     protected $casts = [
         'quantity' => 'decimal:3',
         'quantity_base' => 'decimal:3',
+        'quantity_invoiced' => 'decimal:3',
+        'quantity_invoiced_base' => 'decimal:3',
+        'quantity_returned' => 'decimal:3',
+        'quantity_returned_base' => 'decimal:3',
         'unit_price' => 'decimal:4',
         'unit_cost_base' => 'decimal:6',
         'line_total' => 'decimal:2',
         'line_total_base' => 'decimal:4',
+        'amount_invoiced' => 'decimal:2',
+        'amount_returned' => 'decimal:2',
     ];
 
     public function goodsReceipt()
@@ -48,6 +54,16 @@ class GoodsReceiptLine extends Model
     public function baseUom()
     {
         return $this->belongsTo(Uom::class, 'base_uom_id');
+    }
+
+    public function invoiceLines()
+    {
+        return $this->hasMany(PurchaseInvoiceLine::class);
+    }
+
+    public function purchaseReturnLines()
+    {
+        return $this->hasMany(PurchaseReturnLine::class);
     }
 }
 

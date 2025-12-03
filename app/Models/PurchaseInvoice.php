@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
-use App\Domain\Documents\StateMachine\Definitions\PurchaseOrderStates;
+use App\Domain\Documents\StateMachine\Definitions\InvoiceStates;
 use App\Domain\Documents\StateMachine\DocumentStateMachineDefinition;
-use App\Enums\Documents\PurchaseOrderStatus;
+use App\Enums\Documents\InvoiceStatus;
 use App\Traits\DocumentStateMachine;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class PurchaseOrder extends Model
+class PurchaseInvoice extends Model
 {
     use HasFactory;
     use SoftDeletes;
@@ -19,27 +19,36 @@ class PurchaseOrder extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'order_date' => 'date',
-        'expected_date' => 'date',
-        'approved_at' => 'datetime',
-        'sent_at' => 'datetime',
-        'canceled_at' => 'datetime',
+        'invoice_date' => 'date',
+        'due_date' => 'date',
         'subtotal' => 'decimal:2',
         'tax_total' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'exchange_rate' => 'decimal:6',
+        'grn_value_base' => 'decimal:4',
+        'ppv_amount' => 'decimal:2',
     ];
 
     protected static function booted(): void
     {
-        static::creating(function (PurchaseOrder $model): void {
-            $model->status ??= PurchaseOrderStatus::DRAFT->value;
+        static::creating(function (PurchaseInvoice $invoice): void {
+            $invoice->status ??= InvoiceStatus::DRAFT->value;
         });
     }
 
     protected static function stateMachineDefinition(): DocumentStateMachineDefinition
     {
-        return PurchaseOrderStates::definition();
+        return InvoiceStates::definition();
+    }
+
+    public function statusEnum(): InvoiceStatus
+    {
+        return InvoiceStatus::from($this->status);
+    }
+
+    public function purchaseOrder()
+    {
+        return $this->belongsTo(PurchaseOrder::class);
     }
 
     public function company()
@@ -64,7 +73,7 @@ class PurchaseOrder extends Model
 
     public function lines()
     {
-        return $this->hasMany(PurchaseOrderLine::class)->orderBy('line_number');
+        return $this->hasMany(PurchaseInvoiceLine::class)->orderBy('line_number');
     }
 
     public function creator()
@@ -72,30 +81,14 @@ class PurchaseOrder extends Model
         return $this->belongsTo(User::class, 'created_by', 'global_id');
     }
 
-    public function approver()
+    public function updater()
     {
-        return $this->belongsTo(User::class, 'approved_by', 'global_id');
+        return $this->belongsTo(User::class, 'updated_by', 'global_id');
     }
 
-    public function sender()
+    public function poster()
     {
-        return $this->belongsTo(User::class, 'sent_by', 'global_id');
-    }
-
-    public function canceler()
-    {
-        return $this->belongsTo(User::class, 'canceled_by', 'global_id');
-    }
-
-    public function statusEnum(): PurchaseOrderStatus
-    {
-        return PurchaseOrderStatus::from($this->status);
-    }
-
-    public function invoices()
-    {
-        return $this->hasMany(PurchaseInvoice::class);
+        return $this->belongsTo(User::class, 'posted_by', 'global_id');
     }
 }
-
 

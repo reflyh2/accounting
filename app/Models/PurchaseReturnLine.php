@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class PurchaseOrderLine extends Model
+class PurchaseReturnLine extends Model
 {
     use HasFactory;
 
@@ -14,23 +14,25 @@ class PurchaseOrderLine extends Model
     protected $casts = [
         'quantity' => 'decimal:3',
         'quantity_base' => 'decimal:3',
-        'quantity_received' => 'decimal:3',
-        'quantity_received_base' => 'decimal:3',
-        'quantity_invoiced' => 'decimal:3',
-        'quantity_invoiced_base' => 'decimal:3',
-        'quantity_returned' => 'decimal:3',
-        'quantity_returned_base' => 'decimal:3',
         'unit_price' => 'decimal:4',
-        'tax_rate' => 'decimal:2',
-        'tax_amount' => 'decimal:2',
+        'unit_cost_base' => 'decimal:6',
         'line_total' => 'decimal:2',
-        'amount_invoiced' => 'decimal:2',
-        'expected_date' => 'date',
+        'line_total_base' => 'decimal:4',
     ];
 
-    public function purchaseOrder()
+    public function purchaseReturn()
     {
-        return $this->belongsTo(PurchaseOrder::class);
+        return $this->belongsTo(PurchaseReturn::class);
+    }
+
+    public function goodsReceiptLine()
+    {
+        return $this->belongsTo(GoodsReceiptLine::class);
+    }
+
+    public function purchaseOrderLine()
+    {
+        return $this->belongsTo(PurchaseOrderLine::class);
     }
 
     public function product()
@@ -51,16 +53,6 @@ class PurchaseOrderLine extends Model
     public function baseUom()
     {
         return $this->belongsTo(Uom::class, 'base_uom_id');
-    }
-
-    public function invoiceLines()
-    {
-        return $this->hasMany(PurchaseInvoiceLine::class);
-    }
-
-    public function purchaseReturnLines()
-    {
-        return $this->hasMany(PurchaseReturnLine::class);
     }
 }
 
