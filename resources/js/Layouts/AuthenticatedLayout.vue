@@ -137,7 +137,9 @@ const isPurchasingActive = computed(() => {
 });
 
 const isSalesActive = computed(() => {
-    return route().current('sales-orders.*');
+    return route().current('sales-orders.*')
+        || route().current('sales-deliveries.*')
+        || route().current('sales-invoices.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -270,6 +272,20 @@ function toggleSidebar() {
                             >
                                 Sales Order
                             </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('sales-deliveries.index')"
+                                :active="route().current('sales-deliveries.*')"
+                                class="pl-11"
+                            >
+                                Pengiriman Penjualan
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('sales-invoices.index')"
+                                :active="route().current('sales-invoices.*')"
+                                class="pl-11"
+                            >
+                                Faktur Penjualan
+                            </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
 
@@ -361,11 +377,17 @@ function toggleSidebar() {
                             <ResponsiveNavLink :href="route('currencies.index')" :active="route().current('currencies.*')" class="pl-11">
                                 Mata Uang
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('journals.index')" 
-                                :active="route().current('journals.*') || route().current('cash-receipt-journals.*') || route().current('cash-payment-journals.*')" 
+                            <ResponsiveNavLink :href="route('journals.index')"
+                                :active="route().current('journals.*') || route().current('cash-receipt-journals.*') || route().current('cash-payment-journals.*')"
                                 class="pl-11"
                             >
                                 Jurnal
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('sales-invoices.index')"
+                                :active="route().current('sales-invoices.*')"
+                                class="pl-11"
+                            >
+                                Faktur Penjualan
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('external-payables.index')" 
                                 :active="route().current('external-payables.*') 
@@ -587,27 +609,27 @@ function toggleSidebar() {
                                         >
                                             Purchase Orders
                                         </NavLink>
-                                    <NavLink
-                                        :href="route('goods-receipts.index')"
-                                        :active="route().current('goods-receipts.*')"
-                                        class="flex items-center"
-                                    >
-                                        Penerimaan Pembelian
-                                    </NavLink>
-                                    <NavLink
-                                        :href="route('purchase-invoices.index')"
-                                        :active="route().current('purchase-invoices.*')"
-                                        class="flex items-center"
-                                    >
-                                        Faktur Pembelian
-                                    </NavLink>
-                                    <NavLink
-                                        :href="route('purchase-returns.index')"
-                                        :active="route().current('purchase-returns.*')"
-                                        class="flex items-center"
-                                    >
-                                        Retur Pembelian
-                                    </NavLink>
+                                        <NavLink
+                                            :href="route('goods-receipts.index')"
+                                            :active="route().current('goods-receipts.*')"
+                                            class="flex items-center"
+                                        >
+                                            Penerimaan Pembelian
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('purchase-invoices.index')"
+                                            :active="route().current('purchase-invoices.*')"
+                                            class="flex items-center"
+                                        >
+                                            Faktur Pembelian
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('purchase-returns.index')"
+                                            :active="route().current('purchase-returns.*')"
+                                            class="flex items-center"
+                                        >
+                                            Retur Pembelian
+                                        </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
                             </template>
@@ -629,6 +651,19 @@ function toggleSidebar() {
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Sales Order
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('sales-deliveries.index')"
+                                            :active="route().current('sales-deliveries.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Pengiriman Penjualan
+                                        </NavLink>
+                                        <NavLink :href="route('sales-invoices.index')"
+                                            :active="route().current('sales-invoices.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Faktur Penjualan
                                         </NavLink>
                                     </div>
                                 </div>
@@ -653,6 +688,19 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Sales Order
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('sales-deliveries.index')"
+                                            :active="route().current('sales-deliveries.*')"
+                                            class="flex items-center"
+                                        >
+                                            Pengiriman Penjualan
+                                        </NavLink>
+                                        <NavLink :href="route('sales-invoices.index')"
+                                            :active="route().current('sales-invoices.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Faktur Penjualan
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
@@ -838,12 +886,12 @@ function toggleSidebar() {
                                         >
                                             Mata Uang
                                         </NavLink>
-                                        <NavLink :href="route('journals.index')" 
+                                        <NavLink :href="route('journals.index')"
                                             :active="
-                                                route().current('journals.*') 
-                                                || route().current('cash-receipt-journals.*') 
+                                                route().current('journals.*')
+                                                || route().current('cash-receipt-journals.*')
                                                 || route().current('cash-payment-journals.*')
-                                            " 
+                                            "
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Jurnal
@@ -914,12 +962,12 @@ function toggleSidebar() {
                                         >
                                             Mata Uang
                                         </NavLink>
-                                        <NavLink :href="route('journals.index')" 
+                                        <NavLink :href="route('journals.index')"
                                             :active="
-                                                route().current('journals.*') 
-                                                || route().current('cash-receipt-journals.*') 
+                                                route().current('journals.*')
+                                                || route().current('cash-receipt-journals.*')
                                                 || route().current('cash-payment-journals.*')
-                                            " 
+                                            "
                                             class="flex items-center"
                                         >
                                             Jurnal

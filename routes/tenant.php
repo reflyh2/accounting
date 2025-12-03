@@ -52,8 +52,10 @@ use App\Http\Controllers\AssetRentalController;
 use App\Http\Controllers\AssetInvoicePaymentController;
 use App\Http\Controllers\PartnerBankAccountController;
 use App\Http\Controllers\PurchaseInvoiceController;
+use App\Http\Controllers\SalesInvoiceController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\SalesOrderController;
+use App\Http\Controllers\SalesDeliveryController;
 use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
@@ -76,6 +78,7 @@ use App\Http\Controllers\ExternalPayablePaymentController;
 use App\Http\Controllers\ExternalReceivablePaymentController;
 use App\Http\Controllers\InternalDebtPaymentController;
 use App\Http\Controllers\Api\PurchaseInvoiceLookupController;
+use App\Http\Controllers\Api\SalesInvoiceLookupController;
 
 /*
 |--------------------------------------------------------------------------
@@ -136,6 +139,8 @@ Route::middleware([
             Route::post('booking-lines/{bookingLine}/assign-instance', [BookingController::class, 'assignInstance'])->name('bookings.assign-instance');
             Route::get('purchase-invoices/purchase-orders', [PurchaseInvoiceLookupController::class, 'purchaseOrders'])
                 ->name('purchase-invoices.purchase-orders');
+            Route::get('sales-invoices/sales-orders', [SalesInvoiceLookupController::class, 'salesOrders'])
+                ->name('sales-invoices.sales-orders');
             Route::get('inventory/availability', InventoryAvailabilityController::class)
                 ->name('inventory.availability');
         });
@@ -469,12 +474,25 @@ Route::middleware([
         Route::post('sales-orders/{sales_order}/release-reservation', [SalesOrderController::class, 'releaseReservation'])
             ->name('sales-orders.release-reservation');
         Route::resource('sales-orders', SalesOrderController::class);
+        Route::resource('sales-deliveries', SalesDeliveryController::class)->only([
+            'index',
+            'create',
+            'store',
+            'show',
+        ]);
         Route::get('purchase-invoices/export-xlsx', [PurchaseInvoiceController::class, 'exportXLSX'])->name('purchase-invoices.export-xlsx');
         Route::get('purchase-invoices/export-csv', [PurchaseInvoiceController::class, 'exportCSV'])->name('purchase-invoices.export-csv');
         Route::get('purchase-invoices/export-pdf', [PurchaseInvoiceController::class, 'exportPDF'])->name('purchase-invoices.export-pdf');
         Route::post('purchase-invoices/{purchase_invoice}/post', [PurchaseInvoiceController::class, 'post'])
             ->name('purchase-invoices.post');
         Route::resource('purchase-invoices', PurchaseInvoiceController::class);
+
+        Route::get('sales-invoices/export-xlsx', [SalesInvoiceController::class, 'exportXLSX'])->name('sales-invoices.export-xlsx');
+        Route::get('sales-invoices/export-csv', [SalesInvoiceController::class, 'exportCSV'])->name('sales-invoices.export-csv');
+        Route::get('sales-invoices/export-pdf', [SalesInvoiceController::class, 'exportPDF'])->name('sales-invoices.export-pdf');
+        Route::post('sales-invoices/{sales_invoice}/post', [SalesInvoiceController::class, 'post'])
+            ->name('sales-invoices.post');
+        Route::resource('sales-invoices', SalesInvoiceController::class);
     });
 
     Route::middleware('guest')->group(function () {

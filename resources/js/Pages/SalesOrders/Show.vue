@@ -29,6 +29,14 @@ const canReserve = computed(
         props.salesOrder.status === 'confirmed'
 );
 const canReleaseReservation = computed(() => !!props.salesOrder.reservation_applied_at);
+const hasDeliverableLines = computed(() =>
+    props.salesOrder?.lines?.some(
+        (line) => Number(line.quantity) - Number(line.quantity_delivered) > 0
+    )
+);
+const canCreateDelivery = computed(() =>
+    ['confirmed', 'partially_delivered'].includes(props.salesOrder.status) && hasDeliverableLines.value
+);
 
 function submitAction(routeName, payload = {}) {
     actionForm.post(route(routeName, props.salesOrder.id), {
@@ -84,6 +92,14 @@ const amountSummary = computed(() => ({
                         <AppPrimaryButton v-if="canConfirm" @click="submitAction('sales-orders.confirm')">
                             Konfirmasi Order
                         </AppPrimaryButton>
+                        <Link
+                            v-if="canCreateDelivery"
+                            :href="route('sales-deliveries.create', { sales_order_id: salesOrder.id })"
+                        >
+                            <AppPrimaryButton>
+                                Buat Delivery
+                            </AppPrimaryButton>
+                        </Link>
                         <AppSecondaryButton v-if="canReserve" @click="submitAction('sales-orders.reserve')">
                             Reservasi Stok
                         </AppSecondaryButton>
@@ -177,6 +193,12 @@ const amountSummary = computed(() => ({
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     {{ formatNumber(line.quantity) }} {{ line.uom?.code }}
+                                    <div class="text-xs text-gray-500">
+                                        Terkirim: {{ formatNumber(line.quantity_delivered) }}
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        Sisa: {{ formatNumber(Number(line.quantity) - Number(line.quantity_delivered)) }}
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     {{ formatNumber(line.unit_price) }}
