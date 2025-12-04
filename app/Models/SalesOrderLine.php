@@ -22,6 +22,8 @@ class SalesOrderLine extends Model
         'quantity_reserved_base' => 'decimal:3',
         'quantity_delivered' => 'decimal:3',
         'quantity_delivered_base' => 'decimal:3',
+        'quantity_returned' => 'decimal:3',
+        'quantity_returned_base' => 'decimal:3',
         'quantity_invoiced' => 'decimal:3',
         'quantity_invoiced_base' => 'decimal:3',
         'requested_delivery_date' => 'date',

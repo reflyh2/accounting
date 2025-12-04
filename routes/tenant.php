@@ -56,6 +56,8 @@ use App\Http\Controllers\SalesInvoiceController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesDeliveryController;
+use App\Http\Controllers\SalesReturnController;
+use App\Http\Controllers\BillOfMaterialController;
 use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
@@ -493,6 +495,19 @@ Route::middleware([
         Route::post('sales-invoices/{sales_invoice}/post', [SalesInvoiceController::class, 'post'])
             ->name('sales-invoices.post');
         Route::resource('sales-invoices', SalesInvoiceController::class);
+
+        Route::delete('sales-returns/bulk-delete', [SalesReturnController::class, 'bulkDelete'])->name('sales-returns.bulk-delete');
+        Route::get('sales-returns/export-xlsx', [SalesReturnController::class, 'exportXLSX'])->name('sales-returns.export-xlsx');
+        Route::get('sales-returns/export-csv', [SalesReturnController::class, 'exportCSV'])->name('sales-returns.export-csv');
+        Route::get('sales-returns/export-pdf', [SalesReturnController::class, 'exportPDF'])->name('sales-returns.export-pdf');
+        Route::resource('sales-returns', SalesReturnController::class);
+
+        // Bill of Materials Routes
+        Route::delete('bill-of-materials/bulk-delete', [BillOfMaterialController::class, 'bulkDelete'])->name('bill-of-materials.bulk-delete');
+        Route::get('bill-of-materials/export-xlsx', [BillOfMaterialController::class, 'exportXLSX'])->name('bill-of-materials.export-xlsx');
+        Route::get('bill-of-materials/export-csv', [BillOfMaterialController::class, 'exportCSV'])->name('bill-of-materials.export-csv');
+        Route::get('bill-of-materials/export-pdf', [BillOfMaterialController::class, 'exportPDF'])->name('bill-of-materials.export-pdf');
+        Route::resource('bill-of-materials', BillOfMaterialController::class);
     });
 
     Route::middleware('guest')->group(function () {

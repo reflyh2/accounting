@@ -139,7 +139,12 @@ const isPurchasingActive = computed(() => {
 const isSalesActive = computed(() => {
     return route().current('sales-orders.*')
         || route().current('sales-deliveries.*')
-        || route().current('sales-invoices.*');
+        || route().current('sales-invoices.*')
+        || route().current('sales-returns.*');
+});
+
+const isProduksiActive = computed(() => {
+    return route().current('bill-of-materials.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -285,6 +290,34 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Faktur Penjualan
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('sales-returns.index')"
+                                :active="route().current('sales-returns.*')"
+                                class="pl-11"
+                            >
+                                Retur Penjualan
+                            </ResponsiveNavLink>
+                        </DisclosurePanel>
+                    </Disclosure>
+
+                    <!-- Produksi Section -->
+                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProduksiActive">
+                        <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                            <Cog8ToothIcon class="h-5 w-5 mr-2" />
+                            <span>Produksi</span>
+                            <ChevronRightIcon
+                                :class="open ? 'transform rotate-90' : ''"
+                                class="ml-auto h-4 w-4 text-gray-400"
+                            />
+                        </DisclosureButton>
+                        <DisclosurePanel class="mt-1 space-y-1 text-sm">
+                            <ResponsiveNavLink
+                                :href="route('bill-of-materials.index')"
+                                :active="route().current('bill-of-materials.*')"
+                                class="pl-11"
+                            >
+                                Bill of Materials
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -701,6 +734,58 @@ function toggleSidebar() {
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Faktur Penjualan
+                                        </NavLink>
+                                        <NavLink :href="route('sales-returns.index')"
+                                            :active="route().current('sales-returns.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Retur Penjualan
+                                        </NavLink>
+                                    </DisclosurePanel>
+                                </Disclosure>
+                            </template>
+                        </div>
+
+                        <!-- Produksi Section -->
+                        <div class="relative group">
+                            <template v-if="sidebarCollapsed">
+                                <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
+                                    <Cog8ToothIcon class="h-6 w-6" />
+                                </div>
+
+                                <div class="absolute left-full top-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-10" style="margin-left: 8px;">
+                                    <div class="p-2">
+                                        <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Produksi</div>
+                                        <NavLink
+                                            :href="route('bill-of-materials.index')"
+                                            :active="route().current('bill-of-materials.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Bill of Materials
+                                        </NavLink>
+                                    </div>
+                                </div>
+
+                                <div class="absolute left-full top-0 w-2 h-full opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto z-10"></div>
+                            </template>
+
+                            <template v-else>
+                                <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProduksiActive">
+                                    <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
+                                        <Cog8ToothIcon class="h-6 w-6 mr-2" />
+                                        <span>Produksi</span>
+                                        <ChevronRightIcon
+                                            :class="open ? 'transform rotate-90' : ''"
+                                            class="ml-auto h-4 w-4 text-gray-400"
+                                        />
+                                    </DisclosureButton>
+                                    <DisclosurePanel class="mt-2 space-y-2 pl-8">
+                                        <NavLink
+                                            :href="route('bill-of-materials.index')"
+                                            :active="route().current('bill-of-materials.*')"
+                                            class="flex items-center"
+                                        >
+                                            Bill of Materials
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>

@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class SalesDeliveryLine extends Model
+class SalesReturnLine extends Model
 {
     use HasFactory;
 
@@ -14,20 +14,20 @@ class SalesDeliveryLine extends Model
     protected $casts = [
         'quantity' => 'decimal:3',
         'quantity_base' => 'decimal:3',
-        'quantity_returned' => 'decimal:3',
-        'quantity_invoiced' => 'decimal:3',
-        'quantity_invoiced_base' => 'decimal:3',
         'unit_price' => 'decimal:4',
         'unit_cost_base' => 'decimal:6',
         'line_total' => 'decimal:2',
-        'amount_returned' => 'decimal:2',
-        'cogs_total' => 'decimal:4',
-        'amount_invoiced' => 'decimal:2',
+        'line_total_base' => 'decimal:4',
     ];
 
-    public function salesDelivery()
+    public function salesReturn()
     {
-        return $this->belongsTo(SalesDelivery::class);
+        return $this->belongsTo(SalesReturn::class);
+    }
+
+    public function salesDeliveryLine()
+    {
+        return $this->belongsTo(SalesDeliveryLine::class);
     }
 
     public function salesOrderLine()
@@ -55,5 +55,3 @@ class SalesDeliveryLine extends Model
         return $this->belongsTo(Uom::class, 'base_uom_id');
     }
 }
-
-
