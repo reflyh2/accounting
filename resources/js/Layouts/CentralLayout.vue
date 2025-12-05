@@ -15,7 +15,7 @@ const showingNavigationDropdown = ref(false);
         <div class="min-h-screen bg-gray-100">
             <nav class="bg-white border-b border-gray-100">
                 <!-- Primary Navigation Menu -->
-                <div class="min-w-max sm:min-w-min md:max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between h-16">
                         <div class="flex">
                             <!-- Logo -->
@@ -86,7 +86,7 @@ const showingNavigationDropdown = ref(false);
             <div>
                <!-- Page Heading -->
                <header class="bg-white shadow" v-if="$slots.header">
-                  <div class="flex justify-between items-center min-w-max sm:min-w-min md:max-w-full mx-auto py-4 px-4 sm:px-6 lg:px-8">
+                  <div class="flex justify-between items-center mx-auto py-4 px-4 sm:px-6 lg:px-8">
                      <slot name="header" />
                      <slot name="header-right" />
                   </div>

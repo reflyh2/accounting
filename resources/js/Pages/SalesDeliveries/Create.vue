@@ -21,7 +21,7 @@ const props = defineProps({
             <h2>Buat Pengiriman Penjualan</h2>
         </template>
 
-        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+        <div class="mx-auto">
             <div class="bg-white shadow-sm sm:rounded border border-gray-200 p-6 space-y-6">
                 <AppBackLink :href="route('sales-deliveries.index')" text="Kembali ke daftar pengiriman" />
 

@@ -141,7 +141,7 @@ function submit() {
             <h2>Buat Retur Pembelian</h2>
         </template>
 
-        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+        <div class="mx-auto">
             <div class="bg-white overflow-auto shadow-sm sm:rounded border border-gray-200">
                 <div class="p-6 text-gray-900 space-y-6">
                     <AppBackLink :href="route('purchase-returns.index', filters)" text="Kembali ke Daftar Retur" />

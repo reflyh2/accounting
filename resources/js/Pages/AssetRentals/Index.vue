@@ -188,7 +188,7 @@ function handleFilter(newFilters) {
             <h2>Daftar Faktur Penyewaan Aset</h2>
         </template>
 
-        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+        <div class="mx-auto">
             <TabLinks :tabs="tabs" />
 
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">

@@ -58,6 +58,7 @@ use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesDeliveryController;
 use App\Http\Controllers\SalesReturnController;
 use App\Http\Controllers\BillOfMaterialController;
+use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
@@ -508,6 +509,14 @@ Route::middleware([
         Route::get('bill-of-materials/export-csv', [BillOfMaterialController::class, 'exportCSV'])->name('bill-of-materials.export-csv');
         Route::get('bill-of-materials/export-pdf', [BillOfMaterialController::class, 'exportPDF'])->name('bill-of-materials.export-pdf');
         Route::resource('bill-of-materials', BillOfMaterialController::class);
+
+        // Work Orders Routes
+        Route::put('work-orders/{workOrder}/transition', [WorkOrderController::class, 'transition'])->name('work-orders.transition');
+        Route::delete('work-orders/bulk-delete', [WorkOrderController::class, 'bulkDelete'])->name('work-orders.bulk-delete');
+        Route::get('work-orders/export-xlsx', [WorkOrderController::class, 'exportXLSX'])->name('work-orders.export-xlsx');
+        Route::get('work-orders/export-csv', [WorkOrderController::class, 'exportCSV'])->name('work-orders.export-csv');
+        Route::get('work-orders/export-pdf', [WorkOrderController::class, 'exportPDF'])->name('work-orders.export-pdf');
+        Route::resource('work-orders', WorkOrderController::class);
     });
 
     Route::middleware('guest')->group(function () {

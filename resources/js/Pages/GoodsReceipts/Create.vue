@@ -161,7 +161,7 @@ function submit() {
             <h2>Buat Penerimaan Pembelian</h2>
         </template>
 
-        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+        <div class="mx-auto">
             <div class="bg-white overflow-auto shadow-sm sm:rounded-s border border-gray-200">
                 <div class="p-6 text-gray-900 space-y-6">
                     <AppBackLink :href="route('goods-receipts.index')" text="Kembali ke Daftar Penerimaan Pembelian" />

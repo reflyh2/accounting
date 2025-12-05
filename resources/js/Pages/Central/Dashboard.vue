@@ -27,7 +27,7 @@ function getImpersonationUrl(tenant) {
         </template>
 
         <div class="py-12">
-            <div class="min-w-max sm:min-w-min md:max-w-full mx-auto sm:px-6 lg:px-8">
+            <div class="mx-auto sm:px-6 lg:px-8">
                 <div class="overflow-hidden">
                     <div class="text-gray-900">
                         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

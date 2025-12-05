@@ -133,7 +133,7 @@ function handleFilter(newFilters) {
             <h2>Pembayaran Hutang/Piutang Internal</h2>
         </template>
 
-        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+        <div class="mx-auto">
             <InternalDebtTabs activeTab="internal-debt-payments.index" />
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">

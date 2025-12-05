@@ -144,7 +144,8 @@ const isSalesActive = computed(() => {
 });
 
 const isProduksiActive = computed(() => {
-    return route().current('bill-of-materials.*');
+    return route().current('bill-of-materials.*')
+        || route().current('work-orders.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -318,6 +319,13 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Bill of Materials
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('work-orders.index')"
+                                :active="route().current('work-orders.*')"
+                                class="pl-11"
+                            >
+                                Work Orders
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -763,6 +771,13 @@ function toggleSidebar() {
                                         >
                                             Bill of Materials
                                         </NavLink>
+                                        <NavLink
+                                            :href="route('work-orders.index')"
+                                            :active="route().current('work-orders.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Work Orders
+                                        </NavLink>
                                     </div>
                                 </div>
 
@@ -786,6 +801,13 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Bill of Materials
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('work-orders.index')"
+                                            :active="route().current('work-orders.*')"
+                                            class="flex items-center"
+                                        >
+                                            Work Orders
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
@@ -1341,7 +1363,7 @@ function toggleSidebar() {
             <div :class="[mainContentLeft, 'flex-1 overflow-y-auto thin-scrollbar border-t border-gray-200 fixed top-16 bottom-0 right-0 left-0 main-content print:p-0 print:m-0 print:bg-white print:left-0 print:w-full print:h-full z-0 transition-all duration-300']">
                 <!-- Page Heading -->
                 <header class="bg-gray-100 no-print">
-                    <div class="min-w-max sm:min-w-min md:max-w-full mx-auto pt-8 pb-6 pl-10 lg:pr-10">
+                    <div class="mx-auto pt-8 pb-6 pl-10 lg:pr-10">
                         <h2 class="font-semibold text-2xl text-gray-800 leading-tight">
                             <slot name="header"></slot>
                         </h2>

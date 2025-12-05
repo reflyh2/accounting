@@ -4,10 +4,8 @@ import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
-import AppUtilityButton from '@/Components/AppUtilityButton.vue';
-import { ref, watch, onMounted, nextTick } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { PlusCircleIcon, TrashIcon } from '@heroicons/vue/24/solid';
-import { formatNumber } from '@/utils/numberFormat';
 import AppTextarea from '@/Components/AppTextarea.vue';
 import AppCheckbox from '@/Components/AppCheckbox.vue';
 
@@ -50,13 +48,43 @@ watch(selectedCompany, (newCompanyId) => {
 }, { immediate: true });
 
 watch(
-    () => props.branches,
-    (newBranches) => {
-        if (!props.bom && newBranches.length === 1) {
-            form.branch_id = newBranches[0].id;
-        }
-    },
-    { immediate: true }
+   () => props.branches, 
+   (newBranches) => {
+      if (!props.bom && newBranches.length === 1) {
+         form.branch_id = newBranches[0].id;
+      }
+   }, 
+   { immediate: true }
+);
+
+const finishedProductVariants = ref([]);
+
+watch(
+   () => form.finished_product_id, 
+   (newProductId) => {
+      if (newProductId) {
+         const product = props.finishedProducts.find(p => p.id === newProductId);
+         if (product && product.variants) {
+            finishedProductVariants.value = product.variants;
+         }
+      }
+   }, 
+   { immediate: true }
+);
+
+const componentProductVariants = ref([]);
+
+watch(
+   () => form.lines,
+   (newLines) => {
+      if (newLines.length > 0) {
+         const product = props.componentProducts.find(p => p.id === newLines[0].component_product_id);
+         if (product && product.variants) {
+            componentProductVariants.value = product.variants;
+         }
+      }
+   },
+   { immediate: true, deep: true }
 );
 
 onMounted(() => {
@@ -143,14 +171,22 @@ function getFinishedProductUoms(productId) {
                />
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-3 gap-4">
                <AppSelect
                   v-model="form.finished_product_id"
-                  :options="props.finishedProducts.map(product => ({ value: product.id, label: product.name }))"
+                  :options="props.finishedProducts.map(product => ({ value: product.id, label: `${product.name}` }))"
                   label="Produk Jadi:"
                   placeholder="Pilih Produk Jadi"
                   :error="form.errors.finished_product_id"
                   required
+               />
+
+               <AppSelect
+                  v-model="form.finished_product_variant_id"
+                  :options="finishedProductVariants.map(variant => ({ value: variant.id, label: `${variant.sku} - ${variant.name}` }))"
+                  label="Varian Produk:"
+                  placeholder="Pilih Varian (Opsional)"
+                  :error="form.errors.finished_product_variant_id"
                />
 
                <AppInput
@@ -251,6 +287,7 @@ function getFinishedProductUoms(productId) {
             <thead>
                <tr class="bg-gray-100">
                   <th class="border border-gray-300 text-sm min-w-48 lg:min-w-72 px-1.5 py-1.5">Komponen</th>
+                  <th class="border border-gray-300 text-sm min-w-48 lg:min-w-72 px-1.5 py-1.5">Varian (Opsional)</th>
                   <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Kuantitas per Unit</th>
                   <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Satuan</th>
                   <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Scrap (%)</th>
@@ -270,6 +307,16 @@ function getFinishedProductUoms(productId) {
                         :maxRows="3"
                         @update:modelValue="updateSelectedUom(index)"
                         required
+                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                     />
+                  </td>
+                  <td class="border border-gray-300 px-1.5 py-1.5">
+                     <AppSelect
+                        v-model="line.component_product_variant_id"
+                        :options="componentProductVariants.map(variant => ({ value: variant.id, label: `${variant.sku} - ${variant.name}` }))"
+                        :error="form.errors[`lines.${index}.component_product_variant_id`]"
+                        :maxRows="3"
+                        placeholder="Pilih Varian (Opsional)"
                         :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                   </td>

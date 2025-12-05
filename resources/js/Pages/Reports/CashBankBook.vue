@@ -88,7 +88,7 @@ function getJournalViewRoute(journal) {
          <h2>Buku Kas & Bank</h2>
       </template>
 
-      <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+      <div class="mx-auto">
          <AccountingReportTabs activeTab="cash-bank-book.index" />
 
          <div class="bg-white shadow-sm sm:rounded border border-gray-200">

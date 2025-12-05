@@ -63,7 +63,7 @@ const submit = () => {
             <h2>Ubah Sales Order</h2>
         </template>
 
-        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+        <div class="mx-auto">
             <div class="bg-white shadow-sm sm:rounded border border-gray-200 p-6">
                 <div class="mb-6">
                     <AppBackLink :href="route('sales-orders.index', props.filters)" text="Kembali ke Daftar Sales Order" />

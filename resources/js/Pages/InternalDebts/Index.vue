@@ -137,7 +137,7 @@ function handleFilter(newFilters) {
             <h2>Daftar Hutang / Piutang Internal</h2>
         </template>
 
-        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+        <div class="mx-auto">
             <InternalDebtTabs activeTab="internal-debts.index" />
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">

@@ -19,7 +19,7 @@ defineProps({
             <h2>Penerimaan Barang Baru</h2>
         </template>
 
-        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+        <div class="mx-auto">
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="p-6 text-gray-900 space-y-6">
                     <AppBackLink :href="route('inventory.receipts.index')" text="Kembali ke daftar penerimaan" />

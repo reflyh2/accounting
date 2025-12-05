@@ -101,10 +101,10 @@ class BillOfMaterialController extends Controller
             })->orderBy('name', 'asc')->get(),
             'finishedProducts' => fn() => Product::whereHas('companies', function ($query) use ($request) {
                 $query->where('company_id', $request->input('company_id'));
-            })->where('kind', 'goods')->with('defaultUom')->orderBy('name', 'asc')->get(),
+            })->where('kind', 'goods')->with('defaultUom', 'variants')->orderBy('name', 'asc')->get(),
             'componentProducts' => fn() => Product::whereHas('companies', function ($query) use ($request) {
                 $query->where('company_id', $request->input('company_id'));
-            })->where('kind', 'goods')->with('defaultUom')->orderBy('name', 'asc')->get(),
+            })->where('kind', 'goods')->with('defaultUom', 'variants')->orderBy('name', 'asc')->get(),
         ]);
     }
 

@@ -75,7 +75,7 @@ function downloadReport(format) {
          <h2>Laba/Rugi</h2>
       </template>
 
-      <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+      <div class="mx-auto">
          <AccountingReportTabs activeTab="income.index" />
 
          <div class="bg-white shadow-sm sm:rounded border border-gray-200">

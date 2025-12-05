@@ -143,7 +143,7 @@ function handleFilter(newFilters) {
             <h2>Retur Pembelian</h2>
         </template>
 
-        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+        <div class="mx-auto">
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">
                     <AppDataTable

@@ -98,7 +98,7 @@ function handleFilter(newFilters) {
             <h2>Hutang</h2>
         </template>
 
-        <div class="min-w-max sm:min-w-min md:max-w-full mx-auto">
+        <div class="mx-auto">
             <DebtTabs activeTab="external-payables.index" />
 
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
