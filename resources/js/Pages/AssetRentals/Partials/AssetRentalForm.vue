@@ -540,7 +540,7 @@ function submitForm(createAnother = false) {
                             </div>
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5 text-center align-middle">
-                            <button type="button" @click="removeDetail(index)" class="text-red-500 hover:text-red-700 mb-4">
+                            <button type="button" @click="removeDetail(index)" class="text-red-500 hover:text-red-700">
                                 <TrashIcon class="w-5 h-5" />
                             </button>
                         </td>
