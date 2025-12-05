@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->string('bom_number')->unique();
             $table->foreignId('company_id')->constrained('companies')->onUpdate('cascade')->onDelete('restrict');
-            $table->foreignId('branch_id')->constrained('branches')->onUpdate('cascade')->onDelete('restrict');
             $table->string('user_global_id');
             $table->foreignId('finished_product_id')->constrained('products')->onUpdate('cascade')->onDelete('restrict');
             $table->foreignId('finished_product_variant_id')->nullable()->constrained('product_variants')->onUpdate('cascade')->onDelete('restrict');
@@ -36,7 +35,7 @@ return new class extends Migration
             $table->string('deleted_by')->nullable();
 
             $table->index(['company_id', 'finished_product_id'], 'idx_bom_company_product');
-            $table->index(['branch_id', 'status'], 'idx_bom_branch_status');
+            $table->index(['company_id', 'status'], 'idx_bom_company_status');
             $table->index('bom_number', 'idx_bom_number');
 
             $table->foreign('user_global_id')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');

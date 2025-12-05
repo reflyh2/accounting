@@ -7,7 +7,6 @@ import AppBackLink from '@/Components/AppBackLink.vue';
 defineProps({
    filters: Object,
    companies: Array,
-   branches: Array,
    finishedProducts: Array,
    componentProducts: Array,
 });
@@ -28,7 +27,7 @@ defineProps({
                   <div class="mb-6">
                      <AppBackLink :href="route('bill-of-materials.index', filters)" text="Kembali ke Daftar BOM" />
                   </div>
-                  <BillOfMaterialForm :companies="companies" :branches="branches" :finishedProducts="finishedProducts" :componentProducts="componentProducts" :filters="filters" />
+                  <BillOfMaterialForm :companies="companies" :finishedProducts="finishedProducts" :componentProducts="componentProducts" :filters="filters" />
                </div>
             </div>
          </div>

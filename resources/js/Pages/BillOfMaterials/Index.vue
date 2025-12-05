@@ -10,7 +10,6 @@ const props = defineProps({
     boms: Object,
     filters: Object,
     companies: Array,
-    branches: Array,
     finishedProducts: Array,
     perPage: [String, Number],
     sort: String,
@@ -28,15 +27,10 @@ const tableHeaders = [
     { key: 'finished_uom.name', label: 'Satuan' },
     { key: 'version', label: 'Versi' },
     { key: 'status', label: 'Status' },
-    { key: 'branch.branch_group.company.name', label: 'Perusahaan' },
-    { key: 'branch.name', label: 'Cabang' },
+    { key: 'company.name', label: 'Perusahaan' },
     { key: 'bom_lines_count', label: 'Komponen' },
     { key: 'actions', label: '' }
 ];
-
-const branchOptions = computed(() =>
-    props.branches.map(branch => ({ value: branch.id, label: branch.name }))
-);
 
 const statusOptions = [
     { value: 'draft', label: 'Draft' },
@@ -52,14 +46,6 @@ const customFilters = computed(() => [
         multiple: true,
         placeholder: 'Pilih perusahaan',
         label: 'Perusahaan'
-    },
-    {
-        name: 'branch_id',
-        type: 'select',
-        options: branchOptions.value,
-        multiple: true,
-        placeholder: 'Pilih cabang',
-        label: 'Cabang'
     },
     {
         name: 'status',

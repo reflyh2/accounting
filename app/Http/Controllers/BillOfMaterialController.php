@@ -34,7 +34,7 @@ class BillOfMaterialController extends Controller
                   ->orWhereHas('finishedProduct', function ($q) use ($filters) {
                       $q->where(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%');
                   })
-                  ->orWhereHas('branch', function ($q) use ($filters) {
+                  ->orWhereHas('company', function ($q) use ($filters) {
                       $q->where(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%');
                   });
             });
@@ -42,10 +42,6 @@ class BillOfMaterialController extends Controller
 
         if (!empty($filters['company_id'])) {
             $query->whereIn('company_id', $filters['company_id']);
-        }
-
-        if (!empty($filters['branch_id'])) {
-            $query->whereIn('branch_id', $filters['branch_id']);
         }
 
         if (!empty($filters['status'])) {
@@ -66,21 +62,11 @@ class BillOfMaterialController extends Controller
 
         $companies = Company::orderBy('name', 'asc')->get();
 
-        if (!empty($filters['company_id'])) {
-            $branches = Branch::whereIn('branch_group.company_id', $filters['company_id'])
-                ->join('branch_groups', 'branches.branch_group_id', '=', 'branch_groups.id')
-                ->select('branches.*')
-                ->get();
-        } else {
-            $branches = Branch::orderBy('name', 'asc')->get();
-        }
-
         $finishedProducts = Product::where('kind', 'goods')->orderBy('name', 'asc')->get();
 
         return Inertia::render('BillOfMaterials/Index', [
             'boms' => $boms,
             'companies' => $companies,
-            'branches' => $branches,
             'finishedProducts' => $finishedProducts,
             'filters' => $filters,
             'perPage' => $perPage,
@@ -96,9 +82,6 @@ class BillOfMaterialController extends Controller
         return Inertia::render('BillOfMaterials/Create', [
             'filters' => $filters,
             'companies' => Company::orderBy('name', 'asc')->get(),
-            'branches' => fn() => Branch::whereHas('branchGroup', function ($query) use ($request) {
-                $query->where('company_id', $request->input('company_id'));
-            })->orderBy('name', 'asc')->get(),
             'finishedProducts' => fn() => Product::whereHas('companies', function ($query) use ($request) {
                 $query->where('company_id', $request->input('company_id'));
             })->where('kind', 'goods')->with('defaultUom', 'variants')->orderBy('name', 'asc')->get(),
@@ -112,7 +95,6 @@ class BillOfMaterialController extends Controller
     {
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
-            'branch_id' => 'required|exists:branches,id',
             'finished_product_id' => 'required|exists:products,id',
             'finished_product_variant_id' => 'nullable|exists:product_variants,id',
             'finished_quantity' => 'required|numeric|min:0.001',
@@ -138,7 +120,6 @@ class BillOfMaterialController extends Controller
         $bom = DB::transaction(function () use ($validated, $request) {
             $bom = BillOfMaterial::create([
                 'company_id' => $validated['company_id'],
-                'branch_id' => $validated['branch_id'],
                 'user_global_id' => $request->user()->global_id,
                 'finished_product_id' => $validated['finished_product_id'],
                 'finished_product_variant_id' => $validated['finished_product_variant_id'],
@@ -178,7 +159,7 @@ class BillOfMaterialController extends Controller
     {
         $filters = Session::get('bill_of_materials.index_filters', []);
         $bom = BillOfMaterial::find($id);
-        $bom->load(['branch.branchGroup.company', 'finishedProduct', 'finishedProductVariant', 'finishedUom', 'bomLines.componentProduct', 'bomLines.componentProductVariant', 'bomLines.uom', 'user']);
+        $bom->load(['company', 'finishedProduct', 'finishedProductVariant', 'finishedUom', 'bomLines.componentProduct', 'bomLines.componentProductVariant', 'bomLines.uom', 'user']);
 
         return Inertia::render('BillOfMaterials/Show', [
             'bom' => $bom,
@@ -189,15 +170,12 @@ class BillOfMaterialController extends Controller
     public function edit(Request $request, BillOfMaterial $bom)
     {
         $filters = Session::get('bill_of_materials.index_filters', []);
-        $bom->load(['branch.branchGroup', 'finishedProduct', 'finishedProductVariant', 'finishedUom', 'bomLines.componentProduct', 'bomLines.componentProductVariant', 'bomLines.uom']);
+        $bom->load(['company', 'finishedProduct', 'finishedProductVariant', 'finishedUom', 'bomLines.componentProduct', 'bomLines.componentProductVariant', 'bomLines.uom']);
 
         return Inertia::render('BillOfMaterials/Edit', [
             'bom' => $bom,
             'filters' => $filters,
             'companies' => Company::orderBy('name', 'asc')->get(),
-            'branches' => Branch::whereHas('branchGroup', function ($query) use ($bom) {
-                $query->where('company_id', $bom->company_id);
-            })->orderBy('name', 'asc')->get(),
             'finishedProducts' => Product::whereHas('companies', function ($query) use ($bom) {
                 $query->where('company_id', $bom->company_id);
             })->where('kind', 'goods')->with('defaultUom')->orderBy('name', 'asc')->get(),
@@ -211,7 +189,6 @@ class BillOfMaterialController extends Controller
     {
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
-            'branch_id' => 'required|exists:branches,id',
             'finished_product_id' => 'required|exists:products,id',
             'finished_product_variant_id' => 'nullable|exists:product_variants,id',
             'finished_quantity' => 'required|numeric|min:0.001',
@@ -242,7 +219,6 @@ class BillOfMaterialController extends Controller
 
         DB::transaction(function () use ($validated, $bom) {
             $bom->update([
-                'branch_id' => $validated['branch_id'],
                 'finished_product_id' => $validated['finished_product_id'],
                 'finished_product_variant_id' => $validated['finished_product_variant_id'],
                 'finished_quantity' => $validated['finished_quantity'],
@@ -321,7 +297,7 @@ class BillOfMaterialController extends Controller
     {
         $filters = $request->all() ?: Session::get('bill_of_materials.index_filters', []);
 
-        $query = BillOfMaterial::with(['branch', 'finishedProduct'])->withCount('bomLines');
+        $query = BillOfMaterial::with(['company', 'finishedProduct'])->withCount('bomLines');
 
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
@@ -331,7 +307,7 @@ class BillOfMaterialController extends Controller
                   ->orWhereHas('finishedProduct', function ($q) use ($filters) {
                       $q->where(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%');
                   })
-                  ->orWhereHas('branch', function ($q) use ($filters) {
+                  ->orWhereHas('company', function ($q) use ($filters) {
                       $q->where(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%');
                   });
             });
@@ -339,10 +315,6 @@ class BillOfMaterialController extends Controller
 
         if (!empty($filters['company_id'])) {
             $query->whereIn('company_id', $filters['company_id']);
-        }
-
-        if (!empty($filters['branch_id'])) {
-            $query->whereIn('branch_id', $filters['branch_id']);
         }
 
         if (!empty($filters['status'])) {

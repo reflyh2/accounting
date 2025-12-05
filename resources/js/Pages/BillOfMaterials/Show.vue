@@ -84,12 +84,8 @@ const statusLabels = {
                                 <p>{{ bom.effective_date ? new Date(bom.effective_date).toLocaleDateString('id-ID') : '-' }}</p>
                             </div>
                             <div>
-                                <p class="font-semibold">Cabang:</p>
-                                <p>{{ bom.branch.name }}</p>
-                            </div>
-                            <div>
                                 <p class="font-semibold">Perusahaan:</p>
-                                <p>{{ bom.branch.branch_group.company.name }}</p>
+                                <p>{{ bom.company.name }}</p>
                             </div>
                             <div>
                                 <p class="font-semibold">Jumlah Komponen:</p>

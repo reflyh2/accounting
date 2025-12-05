@@ -12,7 +12,6 @@ import AppCheckbox from '@/Components/AppCheckbox.vue';
 const props = defineProps({
    bom: Object,
    companies: Array,
-   branches: Array,
    finishedProducts: Array,
    componentProducts: Array,
    filters: Object,
@@ -20,7 +19,6 @@ const props = defineProps({
 
 const form = useForm({
    company_id: props.bom?.company_id || null,
-   branch_id: props.bom?.branch_id || null,
    finished_product_id: props.bom?.finished_product_id || null,
    finished_product_variant_id: props.bom?.finished_product_variant_id || null,
    finished_quantity: props.bom?.finished_quantity || 1,
@@ -46,16 +44,6 @@ watch(selectedCompany, (newCompanyId) => {
       router.reload({ only: ['branches', 'finishedProducts', 'componentProducts'], data: { company_id: newCompanyId } });
    }
 }, { immediate: true });
-
-watch(
-   () => props.branches, 
-   (newBranches) => {
-      if (!props.bom && newBranches.length === 1) {
-         form.branch_id = newBranches[0].id;
-      }
-   }, 
-   { immediate: true }
-);
 
 const finishedProductVariants = ref([]);
 
@@ -89,9 +77,6 @@ watch(
 
 onMounted(() => {
    selectedCompany.value = props.bom?.company_id || (props.companies.length > 1 ? null : props.companies[0].id);
-   if (!props.bom && props.branches.length === 1) {
-      form.branch_id = props.branches[0].id;
-   }
 });
 
 function addLine() {
@@ -160,18 +145,15 @@ function getFinishedProductUoms(productId) {
                   required
                />
 
-               <AppSelect
-                  v-model="form.branch_id"
-                  :options="props.branches.map(branch => ({ value: branch.id, label: branch.name }))"
-                  label="Cabang:"
-                  placeholder="Pilih Cabang"
-                  :error="form.errors.branch_id"
-                  :disabled="!!props.bom"
+               <AppInput
+                  v-model="form.name"
+                  label="Nama BOM:"
+                  :error="form.errors.name"
                   required
                />
             </div>
 
-            <div class="grid grid-cols-3 gap-4">
+            <div class="grid grid-cols-2 gap-4">
                <AppSelect
                   v-model="form.finished_product_id"
                   :options="props.finishedProducts.map(product => ({ value: product.id, label: `${product.name}` }))"
@@ -188,7 +170,9 @@ function getFinishedProductUoms(productId) {
                   placeholder="Pilih Varian (Opsional)"
                   :error="form.errors.finished_product_variant_id"
                />
+            </div>
 
+            <div class="grid grid-cols-2 gap-4">
                <AppInput
                   v-model="form.finished_quantity"
                   type="number"
@@ -197,15 +181,27 @@ function getFinishedProductUoms(productId) {
                   :error="form.errors.finished_quantity"
                   required
                />
-            </div>
 
-            <div class="grid grid-cols-2 gap-4">
                <AppSelect
                   v-model="form.finished_uom_id"
                   :options="getFinishedProductUoms(form.finished_product_id).map(uom => ({ value: uom.id, label: uom.name }))"
                   label="Satuan Jadi:"
                   placeholder="Pilih Satuan"
                   :error="form.errors.finished_uom_id"
+                  required
+               />
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+               <AppSelect
+                  v-model="form.status"
+                  :options="[
+                     { value: 'draft', label: 'Draft' },
+                     { value: 'active', label: 'Active' },
+                     { value: 'inactive', label: 'Inactive' }
+                  ]"
+                  label="Status:"
+                  :error="form.errors.status"
                   required
                />
 
@@ -233,34 +229,13 @@ function getFinishedProductUoms(productId) {
                />
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-               <AppSelect
-                  v-model="form.status"
-                  :options="[
-                     { value: 'draft', label: 'Draft' },
-                     { value: 'active', label: 'Active' },
-                     { value: 'inactive', label: 'Inactive' }
-                  ]"
-                  label="Status:"
-                  :error="form.errors.status"
-                  required
+            <div class="flex items-center my-2">
+               <AppCheckbox
+                  v-model="form.is_default"
+                  label="Jadikan Default"
+                  :error="form.errors.is_default"
                />
-
-               <div class="flex items-center mt-6">
-                  <AppCheckbox
-                     v-model="form.is_default"
-                     label="Jadikan Default"
-                     :error="form.errors.is_default"
-                  />
-               </div>
             </div>
-
-            <AppInput
-               v-model="form.name"
-               label="Nama BOM:"
-               :error="form.errors.name"
-               required
-            />
 
             <AppTextarea
                v-model="form.description"
@@ -286,20 +261,18 @@ function getFinishedProductUoms(productId) {
          <table class="min-w-full bg-white border border-gray-300">
             <thead>
                <tr class="bg-gray-100">
-                  <th class="border border-gray-300 text-sm min-w-48 lg:min-w-72 px-1.5 py-1.5">Komponen</th>
-                  <th class="border border-gray-300 text-sm min-w-48 lg:min-w-72 px-1.5 py-1.5">Varian (Opsional)</th>
-                  <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Kuantitas per Unit</th>
-                  <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Satuan</th>
-                  <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Scrap (%)</th>
-                  <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Backflush</th>
-                  <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Operasi</th>
-                  <th class="border border-gray-300 text-sm min-w-48 px-1.5 py-1.5">Catatan</th>
-                  <th class="border border-gray-300 px-1.5 py-1.5"></th>
+                  <th class="border-b border-gray-300 text-sm min-w-48 lg:min-w-72 px-4 py-2">Komponen</th>
+                  <th class="border-b border-gray-300 text-sm min-w-36 px-4 py-2">Kuantitas per Unit</th>
+                  <th class="border-b border-gray-300 text-sm min-w-36 px-4 py-2">Satuan</th>
+                  <th class="border-b border-gray-300 text-sm min-w-24 px-4 py-2">Scrap (%)</th>
+                  <th class="border-b border-gray-300 text-sm min-w-24 px-4 py-2">Backflush</th>
+                  <th class="border-b border-gray-300 text-sm min-w-48 px-4 py-2">Catatan</th>
+                  <th class="border-b border-gray-300 px-4 py-2"></th>
                </tr>
             </thead>
             <tbody>
                <tr v-for="(line, index) in form.lines" :key="index">
-                  <td class="border border-gray-300 px-1.5 py-1.5">
+                  <td class="px-4 py-2 border-b border-gray-300">
                      <AppSelect
                         v-model="line.component_product_id"
                         :options="props.componentProducts.map(product => ({ value: product.id, label: product.name }))"
@@ -307,20 +280,19 @@ function getFinishedProductUoms(productId) {
                         :maxRows="3"
                         @update:modelValue="updateSelectedUom(index)"
                         required
-                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                        :margins="{ top: 2, right: 0, bottom: 0, left: 0 }"
                      />
-                  </td>
-                  <td class="border border-gray-300 px-1.5 py-1.5">
+
                      <AppSelect
                         v-model="line.component_product_variant_id"
                         :options="componentProductVariants.map(variant => ({ value: variant.id, label: `${variant.sku} - ${variant.name}` }))"
                         :error="form.errors[`lines.${index}.component_product_variant_id`]"
                         :maxRows="3"
                         placeholder="Pilih Varian (Opsional)"
-                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                        :margins="{ top: 4, right: 0, bottom: 2, left: 0 }"
                      />
                   </td>
-                  <td class="border border-gray-300 px-1.5 py-1.5">
+                  <td class="px-4 py-2 border-b border-gray-300">
                      <AppInput
                         v-model="line.quantity_per"
                         type="number"
@@ -330,7 +302,7 @@ function getFinishedProductUoms(productId) {
                         :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                   </td>
-                  <td class="border border-gray-300 px-1.5 py-1.5">
+                  <td class="px-4 py-2 border-b border-gray-300">
                      <AppSelect
                         v-model="line.uom_id"
                         :options="getProductUoms(line.component_product_id).map(uom => ({ value: uom.id, label: uom.name }))"
@@ -339,7 +311,7 @@ function getFinishedProductUoms(productId) {
                         :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                   </td>
-                  <td class="border border-gray-300 px-1.5 py-1.5">
+                  <td class="px-4 py-2 border-b border-gray-300">
                      <AppInput
                         v-model="line.scrap_percentage"
                         type="number"
@@ -350,29 +322,22 @@ function getFinishedProductUoms(productId) {
                         :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                   </td>
-                  <td class="border border-gray-300 px-1.5 py-1.5 text-center">
+                  <td class="px-4 py-2 text-center border-b border-gray-300">
                      <AppCheckbox
                         v-model="line.backflush"
                         :error="form.errors[`lines.${index}.backflush`]"
                         :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                   </td>
-                  <td class="border border-gray-300 px-1.5 py-1.5">
-                     <AppInput
-                        v-model="line.operation"
-                        :error="form.errors[`lines.${index}.operation`]"
-                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
-                     />
-                  </td>
-                  <td class="border border-gray-300 px-1.5 py-1.5">
+                  <td class="px-4 py-2 border-b border-gray-300">
                      <AppInput
                         v-model="line.notes"
                         :error="form.errors[`lines.${index}.notes`]"
                         :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                   </td>
-                  <td class="border border-gray-300 px-1.5 py-1.5 text-center align-middle">
-                     <button type="button" @click="removeLine(index)" class="text-red-500 hover:text-red-700 mb-4">
+                  <td class="px-4 py-2 text-center align-middle border-b border-gray-300">
+                     <button type="button" @click="removeLine(index)" class="text-red-500 hover:text-red-700">
                         <TrashIcon class="w-5 h-5" />
                      </button>
                   </td>
