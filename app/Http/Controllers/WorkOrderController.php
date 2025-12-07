@@ -111,10 +111,8 @@ class WorkOrderController extends Controller
                 $query->where('company_id', $request->input('company_id'));
             })->orderBy('name', 'asc')->get(),
             'boms' => fn() => BillOfMaterial::where('status', 'active')
-                ->whereHas('branch.branchGroup', function ($query) use ($request) {
-                    $query->where('company_id', $request->input('company_id'));
-                })
-                ->with(['finishedProduct.productVariants', 'finishedUom'])
+                ->where('company_id', $request->input('company_id'))
+                ->with(['finishedProduct.variants', 'finishedUom'])
                 ->orderBy('name', 'asc')
                 ->get(),
             'locations' => fn() => Location::whereHas('branch', function ($query) use ($request) {

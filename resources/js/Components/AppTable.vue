@@ -133,8 +133,8 @@ watch(() => props.data, () => {
 </script>
 
 <template>
-  <div>
-    <table class="relative w-full border-collapse border-y border-gray-300">
+  <div class="overflow-x-auto">
+    <table class="relative min-w-full border-collapse border-y border-gray-300">
       <thead>
         <tr>
           <th v-if="enableBulkActions" class="sticky border-y pl-6 pr-2 py-4 w-8 bg-main-100" style="top:-1px">

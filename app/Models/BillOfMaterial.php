@@ -21,13 +21,13 @@ class BillOfMaterial extends Model
         static::creating(function ($model) {
             $bomDate = date('y', strtotime($model->effective_date ?? now()));
             $lastBom = self::whereYear('effective_date', date('Y', strtotime($model->effective_date ?? now())))
-                          ->where('branch_id', $model->branch_id)
+                          ->where('company_id', $model->company_id)
                           ->withTrashed()
                           ->orderBy('bom_number', 'desc')
                           ->first();
             $lastNumber = $lastBom ? intval(substr($lastBom->bom_number, -5)) : 0;
             $newNumber = str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
-            $model->bom_number = 'BOM.' . str_pad($model->company_id, 2, '0', STR_PAD_LEFT) . str_pad($model->branch_id, 3, '0', STR_PAD_LEFT) . $bomDate . '.' . $newNumber;
+            $model->bom_number = 'BOM.' . str_pad($model->company_id, 2, '0', STR_PAD_LEFT) . $bomDate . '.' . $newNumber;
         });
 
         static::addGlobalScope('userBoms', function ($builder) {
@@ -35,7 +35,7 @@ class BillOfMaterial extends Model
                 $user = User::find(Auth::user()->global_id);
 
                 if ($user->roles->whereIn('access_level', ['company', 'branch_group', 'branch'])->isNotEmpty()) {
-                    $builder->whereHas('branch');
+                    $builder->whereHas('company');
                 } else {
                     $builder->where('bill_of_materials.user_global_id', $user->global_id);
                 }

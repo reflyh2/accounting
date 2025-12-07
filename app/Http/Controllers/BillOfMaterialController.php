@@ -23,7 +23,7 @@ class BillOfMaterialController extends Controller
 
         Session::put('bill_of_materials.index_filters', $filters);
 
-        $query = BillOfMaterial::with(['branch.branchGroup.company', 'finishedProduct', 'finishedUom'])
+        $query = BillOfMaterial::with(['company', 'finishedProduct', 'finishedUom'])
             ->withCount('bomLines');
 
         if (!empty($filters['search'])) {
