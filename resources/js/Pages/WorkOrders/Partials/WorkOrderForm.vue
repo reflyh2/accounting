@@ -148,7 +148,7 @@ function submitForm() {
             <div class="grid grid-cols-2 gap-4">
                <AppSelect
                   v-model="form.bom_id"
-                  :options="props.boms.map(bom => ({ value: bom.id, label: `${bom.name} - ${bom.finished_product?.name}` }))"
+                  :options="props.boms.map(bom => ({ value: bom.id, label: `${bom.name}`, description: `Produk Jadi: ${bom.finished_product?.name}` }))"
                   label="Bill of Material:"
                   placeholder="Pilih BOM"
                   :error="form.errors.bom_id"

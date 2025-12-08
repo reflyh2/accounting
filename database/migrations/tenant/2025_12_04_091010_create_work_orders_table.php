@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('wo_number')->unique();
             $table->foreignId('company_id')->constrained()->onDelete('cascade');
             $table->foreignId('branch_id')->constrained()->onDelete('cascade');
-            $table->unsignedBigInteger('user_global_id');
+            $table->string('user_global_id');
             $table->foreignId('bom_id')->constrained('bill_of_materials')->onDelete('cascade');
             $table->foreignId('wip_location_id')->nullable()->constrained('locations')->onDelete('set null');
             $table->decimal('quantity_planned', 15, 6);
@@ -35,6 +35,8 @@ return new class extends Migration
             $table->index(['branch_id', 'status']);
             $table->index('bom_id');
             $table->index('status');
+
+            $table->foreign('user_global_id')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
         });
     }
 
