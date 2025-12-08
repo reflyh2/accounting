@@ -159,7 +159,7 @@ class BillOfMaterialController extends Controller
     {
         $filters = Session::get('bill_of_materials.index_filters', []);
         $bom = BillOfMaterial::find($id);
-        $bom->load(['company', 'finishedProduct', 'finishedProductVariant', 'finishedUom', 'bomLines.componentProduct', 'bomLines.componentProductVariant', 'bomLines.uom', 'user']);
+        $bom->load(['company', 'finishedProduct.variants', 'finishedProductVariant', 'finishedUom', 'bomLines.componentProduct.variants', 'bomLines.componentProductVariant', 'bomLines.uom', 'user']);
 
         return Inertia::render('BillOfMaterials/Show', [
             'bom' => $bom,
@@ -167,10 +167,11 @@ class BillOfMaterialController extends Controller
         ]);
     }
 
-    public function edit(Request $request, BillOfMaterial $bom)
+    public function edit(Request $request, $id)
     {
         $filters = Session::get('bill_of_materials.index_filters', []);
-        $bom->load(['company', 'finishedProduct', 'finishedProductVariant', 'finishedUom', 'bomLines.componentProduct', 'bomLines.componentProductVariant', 'bomLines.uom']);
+        $bom = BillOfMaterial::find($id);
+        $bom->load(['company', 'finishedProduct.variants', 'finishedProductVariant', 'finishedUom', 'bomLines.componentProduct.variants', 'bomLines.componentProductVariant', 'bomLines.uom']);
 
         return Inertia::render('BillOfMaterials/Edit', [
             'bom' => $bom,
@@ -178,15 +179,16 @@ class BillOfMaterialController extends Controller
             'companies' => Company::orderBy('name', 'asc')->get(),
             'finishedProducts' => Product::whereHas('companies', function ($query) use ($bom) {
                 $query->where('company_id', $bom->company_id);
-            })->where('kind', 'goods')->with('defaultUom')->orderBy('name', 'asc')->get(),
+            })->where('kind', 'goods')->with(['defaultUom', 'variants'])->orderBy('name', 'asc')->get(),
             'componentProducts' => Product::whereHas('companies', function ($query) use ($bom) {
                 $query->where('company_id', $bom->company_id);
-            })->where('kind', 'goods')->with('defaultUom')->orderBy('name', 'asc')->get(),
+            })->where('kind', 'goods')->with(['defaultUom', 'variants'])->orderBy('name', 'asc')->get(),
         ]);
     }
 
-    public function update(Request $request, BillOfMaterial $bom)
+    public function update(Request $request, $id)
     {
+        $bom = BillOfMaterial::find($id);
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
             'finished_product_id' => 'required|exists:products,id',
@@ -255,8 +257,9 @@ class BillOfMaterialController extends Controller
             ->with('success', 'BOM berhasil diubah.');
     }
 
-    public function destroy(Request $request, BillOfMaterial $bom)
+    public function destroy(Request $request, $id)
     {
+        $bom = BillOfMaterial::find($id);
         DB::transaction(function () use ($bom) {
             $bom->bomLines()->delete();
             $bom->delete();

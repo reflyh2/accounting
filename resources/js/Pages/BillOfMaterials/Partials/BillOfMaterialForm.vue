@@ -30,7 +30,7 @@ const form = useForm({
    expiration_date: props.bom?.expiration_date || '',
    status: props.bom?.status || 'draft',
    is_default: props.bom?.is_default || false,
-   lines: props.bom?.bom_lines || [
+   lines: props.bom?.bom_lines || props.bom?.bomLines || [
       { component_product_id: null, component_product_variant_id: null, quantity_per: 1, uom_id: null, scrap_percentage: 0, backflush: false, operation: '', notes: '' },
    ],
 });
@@ -66,10 +66,18 @@ watch(
    () => form.lines,
    (newLines) => {
       if (newLines.length > 0) {
-         const product = props.componentProducts.find(p => p.id === newLines[0].component_product_id);
-         if (product && product.variants) {
-            componentProductVariants.value = product.variants;
-         }
+         newLines.forEach((line, index) => {
+            if (line.component_product_id) {
+               const product = props.componentProducts.find(p => p.id === line.component_product_id);
+               if (product && product.variants) {
+                  // For now, we'll just set it to the first line's variants
+                  // In a more complex implementation, we might need to handle variants per line
+                  if (index === 0) {
+                     componentProductVariants.value = product.variants;
+                  }
+               }
+            }
+         });
       }
    },
    { immediate: true, deep: true }
@@ -258,6 +266,8 @@ function getFinishedProductUoms(productId) {
       </div>
 
       <div class="overflow-x-auto">
+         <h2 class="text-lg font-semibold">Komponen</h2>
+         <p class="text-sm text-gray-500 mb-4">Tambahkan komponen yang diperlukan beserta kuantitas per unit</p>
          <table class="min-w-full bg-white border border-gray-300">
             <thead>
                <tr class="bg-gray-100">

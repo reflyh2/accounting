@@ -139,6 +139,9 @@ const transitionTo = (status) => {
                             <div>
                                 <p class="font-semibold">Produk Jadi:</p>
                                 <p>{{ workOrder.bom.finished_product.name }}</p>
+                                <p v-if="workOrder.finished_product_variant" class="text-sm text-gray-600 mt-1">
+                                    Varian: {{ workOrder.finished_product_variant.name }} ({{ workOrder.finished_product_variant.sku }})
+                                </p>
                             </div>
                             <div>
                                 <p class="font-semibold">Quantity Direncanakan:</p>

@@ -21,6 +21,7 @@ const form = useForm({
    company_id: props.workOrder?.company_id || null,
    branch_id: props.workOrder?.branch_id || null,
    bom_id: props.workOrder?.bom_id || null,
+   finished_product_variant_id: props.workOrder?.finished_product_variant_id || null,
    wip_location_id: props.workOrder?.wip_location_id || null,
    quantity_planned: props.workOrder?.quantity_planned || 1,
    scheduled_start_date: props.workOrder?.scheduled_start_date || '',
@@ -67,6 +68,12 @@ onMounted(() => {
       form.bom_id = props.boms[0].id;
    }
 });
+
+function getFinishedProductVariants(bomId) {
+   if (!bomId) return [];
+   const bom = props.boms.find(b => b.id === bomId);
+   return bom && bom.finished_product && bom.finished_product.variants ? bom.finished_product.variants : [];
+}
 
 function submitForm() {
    submitted.value = true;
@@ -120,7 +127,7 @@ function submitForm() {
                />
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-3 gap-4">
                <AppSelect
                   v-model="form.bom_id"
                   :options="props.boms.map(bom => ({ value: bom.id, label: `${bom.name} - ${bom.finished_product?.name}` }))"
@@ -129,6 +136,14 @@ function submitForm() {
                   :error="form.errors.bom_id"
                   :disabled="!!props.workOrder"
                   required
+               />
+
+               <AppSelect
+                  v-model="form.finished_product_variant_id"
+                  :options="getFinishedProductVariants(form.bom_id).map(variant => ({ value: variant.id, label: `${variant.sku} - ${variant.name}` }))"
+                  label="Varian Produk Jadi:"
+                  placeholder="Pilih Varian (Opsional)"
+                  :error="form.errors.finished_product_variant_id"
                />
 
                <AppSelect
@@ -198,6 +213,9 @@ function submitForm() {
                <div>
                   <p class="font-semibold">Produk Jadi:</p>
                   <p>{{ bom.finished_product?.name }}</p>
+                  <p v-if="bom.finished_product_variant" class="text-sm text-gray-600 mt-1">
+                     Varian: {{ bom.finished_product_variant.name }} ({{ bom.finished_product_variant.sku }})
+                  </p>
                </div>
                <div>
                   <p class="font-semibold">Quantity per BOM:</p>

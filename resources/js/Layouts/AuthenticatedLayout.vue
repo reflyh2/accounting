@@ -7,7 +7,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link } from '@inertiajs/vue3';
-import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon, CubeIcon, ShoppingCartIcon, CurrencyDollarIcon } from '@heroicons/vue/24/solid';
+import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon, CubeIcon, ShoppingCartIcon, CurrencyDollarIcon, PuzzlePieceIcon } from '@heroicons/vue/24/solid';
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue';
 import { Cog8ToothIcon, ChevronRightIcon, Bars3Icon } from '@heroicons/vue/24/solid';
 import AlertNotification from '@/Components/AlertNotification.vue';
@@ -305,7 +305,7 @@ function toggleSidebar() {
                     <!-- Produksi Section -->
                     <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProduksiActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
-                            <Cog8ToothIcon class="h-5 w-5 mr-2" />
+                            <PuzzlePieceIcon class="h-5 w-5 mr-2" />
                             <span>Produksi</span>
                             <ChevronRightIcon
                                 :class="open ? 'transform rotate-90' : ''"
@@ -758,7 +758,7 @@ function toggleSidebar() {
                         <div class="relative group">
                             <template v-if="sidebarCollapsed">
                                 <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
-                                    <Cog8ToothIcon class="h-6 w-6" />
+                                    <PuzzlePieceIcon class="h-6 w-6" />
                                 </div>
 
                                 <div class="absolute left-full top-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-10" style="margin-left: 8px;">
@@ -787,7 +787,7 @@ function toggleSidebar() {
                             <template v-else>
                                 <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProduksiActive">
                                     <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
-                                        <Cog8ToothIcon class="h-6 w-6 mr-2" />
+                                        <PuzzlePieceIcon class="h-6 w-6 mr-2" />
                                         <span>Produksi</span>
                                         <ChevronRightIcon
                                             :class="open ? 'transform rotate-90' : ''"

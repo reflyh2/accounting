@@ -53,11 +53,6 @@ class BillOfMaterial extends Model
         return $this->belongsTo(Company::class);
     }
 
-    public function branch()
-    {
-        return $this->belongsTo(Branch::class);
-    }
-
     public function user()
     {
         return $this->belongsTo(User::class, 'user_global_id', 'global_id');

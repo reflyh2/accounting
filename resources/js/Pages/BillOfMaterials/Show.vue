@@ -74,6 +74,9 @@ const statusLabels = {
                             <div>
                                 <p class="font-semibold">Produk Jadi:</p>
                                 <p>{{ bom.finished_product.name }}</p>
+                                <p v-if="bom.finished_product_variant" class="text-sm text-gray-600 mt-1">
+                                    Varian: {{ bom.finished_product_variant.name }} ({{ bom.finished_product_variant.sku }})
+                                </p>
                             </div>
                             <div>
                                 <p class="font-semibold">Kuantitas Jadi:</p>
@@ -103,6 +106,7 @@ const statusLabels = {
                                     <tr>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">No.</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Komponen</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">Varian</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Kuantitas per Unit</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Satuan</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Scrap (%)</th>
@@ -115,6 +119,10 @@ const statusLabels = {
                                     <tr v-for="line in bom.bom_lines" :key="line.id" class="group">
                                         <td class="border border-gray-300 px-4 py-2 text-center">{{ line.line_number }}</td>
                                         <td class="border border-gray-300 px-4 py-2">{{ line.component_product.name }}</td>
+                                        <td class="border border-gray-300 px-4 py-2">
+                                            <span v-if="line.component_product_variant">{{ line.component_product_variant.name }} ({{ line.component_product_variant.sku }})</span>
+                                            <span v-else class="text-gray-400">-</span>
+                                        </td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.quantity_per) }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-center">{{ line.uom.name }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.scrap_percentage) }}</td>

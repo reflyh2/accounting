@@ -192,7 +192,7 @@ class WorkOrderController extends Controller
                 ->whereHas('branch.branchGroup', function ($query) use ($workOrder) {
                     $query->where('company_id', $workOrder->company_id);
                 })
-                ->with(['finishedProduct.productVariants', 'finishedUom'])
+                ->with(['finishedProduct.variants', 'finishedUom'])
                 ->orderBy('name', 'asc')
                 ->get(),
             'locations' => Location::whereHas('branch', function ($query) use ($workOrder) {
