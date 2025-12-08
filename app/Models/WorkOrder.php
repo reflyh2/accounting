@@ -133,16 +133,6 @@ class WorkOrder extends Model
         return $this->hasManyThrough(ComponentIssueLine::class, ComponentIssue::class);
     }
 
-    public function getTotalComponentIssueQuantityAttribute($componentId)
-    {
-        return $this->componentIssueLines()->where('component_product_id', $componentId)->sum('quantity_issued');
-    }
-
-    public function getTotalComponentIssueLineQuantityAttribute($componentId)
-    {
-        return 0;
-    }
-
     public function getRemainingQuantityAttribute($componentId)
     {
         return $this->quantity_planned - $this->quantity_produced;
