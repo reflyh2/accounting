@@ -262,11 +262,17 @@ onUnmounted(() => {
               :key="option.value"
               class="bg-main-100 text-main-800 text-xs font-medium px-1.5 py-0.5 rounded mr-1 my-0.5 flex items-center"
             >
-              {{ option.label }}
-              <button @click.stop="removeOption(option.value)" class="ml-1 text-main-600 hover:text-main-800">&times;</button>
+               <div>
+                  {{ option.label }}
+                  <span v-if="option.description" class="text-gray-500 text-xs">{{ option.description }}</span>
+               </div>
+               <button @click.stop="removeOption(option.value)" class="ml-1 text-main-600 hover:text-main-800">&times;</button>
             </span>
           </template>
-          <span v-else-if="!multiple && selectedOptions">{{ selectedOptions.label }}</span>
+          <div v-else-if="!multiple && selectedOptions" class="flex flex-col">
+            <span>{{ selectedOptions.label }}</span>
+            <span v-if="selectedOptions.description" class="text-gray-500 text-xs">{{ selectedOptions.description }}</span>
+          </div>
           <span v-else class="text-gray-500 text-sm">{{ placeholder }}</span>
         </div>
         <div class="flex items-center">
@@ -322,7 +328,10 @@ onUnmounted(() => {
                 (multiple && selectValue.includes(option.value)) || (!multiple && selectValue == option.value) ? 'bg-main-50 text-main-900' : ''
               ]"
             >
-              {{ option.label }}
+              <div class="flex flex-col">
+                <span>{{ option.label }}</span>
+                <span v-if="option.description" class="text-gray-500 text-xs">{{ option.description }}</span>
+              </div>
             </div>
           </div>
         </template>
