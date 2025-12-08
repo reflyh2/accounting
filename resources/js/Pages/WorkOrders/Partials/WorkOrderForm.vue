@@ -59,6 +59,20 @@ watch(
     { immediate: true }
 );
 
+// Watch for BOM selection to auto-populate finished product variant
+watch(
+    () => form.bom_id,
+    (newBomId) => {
+        if (newBomId && !props.workOrder) {
+            const selectedBom = props.boms.find(bom => bom.id === newBomId);
+            if (selectedBom && selectedBom.finished_product_variant) {
+                form.finished_product_variant_id = selectedBom.finished_product_variant.id;
+            }
+        }
+    },
+    { immediate: true }
+);
+
 onMounted(() => {
    selectedCompany.value = props.workOrder?.company_id || (props.companies.length > 1 ? null : props.companies[0].id);
    if (!props.workOrder && props.branches.length === 1) {
@@ -66,6 +80,10 @@ onMounted(() => {
    }
    if (!props.workOrder && props.boms.length === 1) {
       form.bom_id = props.boms[0].id;
+   }
+   // Auto-populate variant if editing existing work order
+   if (props.workOrder && props.workOrder.bom && props.workOrder.bom.finished_product_variant) {
+      form.finished_product_variant_id = props.workOrder.bom.finished_product_variant.id;
    }
 });
 
@@ -127,7 +145,7 @@ function submitForm() {
                />
             </div>
 
-            <div class="grid grid-cols-3 gap-4">
+            <div class="grid grid-cols-2 gap-4">
                <AppSelect
                   v-model="form.bom_id"
                   :options="props.boms.map(bom => ({ value: bom.id, label: `${bom.name} - ${bom.finished_product?.name}` }))"
@@ -145,14 +163,6 @@ function submitForm() {
                   placeholder="Pilih Varian (Opsional)"
                   :error="form.errors.finished_product_variant_id"
                />
-
-               <AppSelect
-                  v-model="form.wip_location_id"
-                  :options="props.locations.map(location => ({ value: location.id, label: location.name }))"
-                  label="Lokasi WIP:"
-                  placeholder="Pilih Lokasi WIP"
-                  :error="form.errors.wip_location_id"
-               />
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -165,7 +175,13 @@ function submitForm() {
                   required
                />
 
-               <div></div>
+               <AppSelect
+                  v-model="form.wip_location_id"
+                  :options="props.locations.map(location => ({ value: location.id, label: location.name }))"
+                  label="Lokasi WIP:"
+                  placeholder="Pilih Lokasi WIP"
+                  :error="form.errors.wip_location_id"
+               />
             </div>
 
             <div class="grid grid-cols-2 gap-4">
@@ -233,6 +249,7 @@ function submitForm() {
                      <tr class="bg-gray-100">
                         <th class="border border-gray-300 px-2 py-1">No.</th>
                         <th class="border border-gray-300 px-2 py-1">Komponen</th>
+                        <th class="border border-gray-300 px-2 py-1">Varian</th>
                         <th class="border border-gray-300 px-2 py-1">Qty per Unit</th>
                         <th class="border border-gray-300 px-2 py-1">Total Qty</th>
                         <th class="border border-gray-300 px-2 py-1">Satuan</th>
@@ -243,6 +260,10 @@ function submitForm() {
                      <tr v-for="line in bom.bom_lines" :key="line.id">
                         <td class="border border-gray-300 px-2 py-1">{{ line.line_number }}</td>
                         <td class="border border-gray-300 px-2 py-1">{{ line.component_product?.name }}</td>
+                        <td class="border border-gray-300 px-2 py-1">
+                           <span v-if="line.component_product_variant">{{ line.component_product_variant.name }} ({{ line.component_product_variant.sku }})</span>
+                           <span v-else class="text-gray-400">-</span>
+                        </td>
                         <td class="border border-gray-300 px-2 py-1 text-right">{{ formatNumber(line.quantity_per) }}</td>
                         <td class="border border-gray-300 px-2 py-1 text-right">{{ formatNumber(line.quantity_per * form.quantity_planned) }}</td>
                         <td class="border border-gray-300 px-2 py-1">{{ line.uom?.name }}</td>

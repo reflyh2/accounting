@@ -112,7 +112,14 @@ class WorkOrderController extends Controller
             })->orderBy('name', 'asc')->get(),
             'boms' => fn() => BillOfMaterial::where('status', 'active')
                 ->where('company_id', $request->input('company_id'))
-                ->with(['finishedProduct.variants', 'finishedUom'])
+                ->with([
+                    'finishedProduct.variants',
+                    'finishedProductVariant',
+                    'finishedUom',
+                    'bomLines.componentProduct',
+                    'bomLines.componentProductVariant',
+                    'bomLines.uom'
+                ])
                 ->orderBy('name', 'asc')
                 ->get(),
             'locations' => fn() => Location::whereHas('branch', function ($query) use ($request) {
@@ -192,7 +199,14 @@ class WorkOrderController extends Controller
                 ->whereHas('branch.branchGroup', function ($query) use ($workOrder) {
                     $query->where('company_id', $workOrder->company_id);
                 })
-                ->with(['finishedProduct.variants', 'finishedUom'])
+                ->with([
+                    'finishedProduct.variants',
+                    'finishedProductVariant',
+                    'finishedUom',
+                    'bomLines.componentProduct',
+                    'bomLines.componentProductVariant',
+                    'bomLines.uom'
+                ])
                 ->orderBy('name', 'asc')
                 ->get(),
             'locations' => Location::whereHas('branch', function ($query) use ($workOrder) {
