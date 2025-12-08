@@ -260,10 +260,10 @@ onUnmounted(() => {
             <span 
               v-for="option in selectedOptions" 
               :key="option.value"
-              class="bg-main-100 text-main-800 text-xs font-medium px-1.5 py-0.5 rounded mr-1 my-0.5 flex items-center"
+              class="bg-main-100 text-main-800 text-sm font-medium px-1.5 py-0.5 rounded mr-1 my-0.5 flex items-center"
             >
-               <div>
-                  {{ option.label }}
+               <div class="flex flex-col">
+                  <span>{{ option.label }}</span>
                   <span v-if="option.description" class="text-gray-500 text-xs">{{ option.description }}</span>
                </div>
                <button @click.stop="removeOption(option.value)" class="ml-1 text-main-600 hover:text-main-800">&times;</button>
