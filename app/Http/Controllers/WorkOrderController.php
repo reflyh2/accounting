@@ -24,9 +24,7 @@ class WorkOrderController extends Controller
 
         Session::put('work_orders.index_filters', $filters);
 
-        $query = WorkOrder::with(['branch.branchGroup.company', 'bom.finishedProduct', 'wipLocation', 'user'])
-            ->withSum('workOrderIssues', 'quantity_issued')
-            ->withSum('workOrderReceipts', 'quantity_received');
+        $query = WorkOrder::with(['branch.branchGroup.company', 'bom.finishedProduct', 'bom.finishedProductVariant', 'bom.finishedUom', 'wipLocation', 'user']);
 
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {

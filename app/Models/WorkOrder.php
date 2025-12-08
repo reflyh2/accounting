@@ -73,16 +73,6 @@ class WorkOrder extends Model
         return $this->belongsTo(Location::class, 'wip_location_id');
     }
 
-    public function workOrderIssues()
-    {
-        return $this->hasMany(WorkOrderIssue::class);
-    }
-
-    public function workOrderReceipts()
-    {
-        return $this->hasMany(WorkOrderReceipt::class);
-    }
-
     public static function workOrderStatuses()
     {
         return [
@@ -133,19 +123,29 @@ class WorkOrder extends Model
         return $this;
     }
 
-    public function getTotalIssuedQuantityAttribute()
+    public function componentIssues()
     {
-        return $this->workOrderIssues()->sum('quantity_issued');
+        return $this->hasMany(ComponentIssue::class);
     }
 
-    public function getTotalReceivedQuantityAttribute()
+    public function componentIssueLines()
     {
-        return $this->workOrderReceipts()->sum('quantity_received');
+        return $this->hasManyThrough(ComponentIssueLine::class, ComponentIssue::class);
     }
 
-    public function getRemainingQuantityAttribute()
+    public function getTotalComponentIssueQuantityAttribute($componentId)
     {
-        return $this->quantity_planned - $this->total_received_quantity;
+        return $this->componentIssueLines()->where('component_product_id', $componentId)->sum('quantity_issued');
+    }
+
+    public function getTotalComponentIssueLineQuantityAttribute($componentId)
+    {
+        return 0;
+    }
+
+    public function getRemainingQuantityAttribute($componentId)
+    {
+        return $this->quantity_planned - $this->quantity_produced;
     }
 
     public function getProgressPercentageAttribute()
@@ -154,6 +154,6 @@ class WorkOrder extends Model
             return 0;
         }
 
-        return round(($this->total_received_quantity / $this->quantity_planned) * 100, 2);
+        return round(($this->quantity_produced / $this->quantity_planned) * 100, 2);
     }
 }

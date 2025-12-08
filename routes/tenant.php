@@ -59,6 +59,7 @@ use App\Http\Controllers\SalesDeliveryController;
 use App\Http\Controllers\SalesReturnController;
 use App\Http\Controllers\BillOfMaterialController;
 use App\Http\Controllers\WorkOrderController;
+use App\Http\Controllers\ComponentIssueController;
 use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
@@ -146,6 +147,20 @@ Route::middleware([
                 ->name('sales-invoices.sales-orders');
             Route::get('inventory/availability', InventoryAvailabilityController::class)
                 ->name('inventory.availability');
+            Route::get('lots/by-product-variant/{productVariantId}', function ($productVariantId) {
+                $lots = \App\Models\Lot::where('product_variant_id', $productVariantId)
+                    ->where('status', 'active')
+                    ->orderBy('lot_code', 'asc')
+                    ->get();
+                return response()->json($lots);
+            })->name('api.lots.by-product-variant');
+            Route::get('serials/by-product-variant/{productVariantId}', function ($productVariantId) {
+                $serials = \App\Models\Serial::where('product_variant_id', $productVariantId)
+                    ->where('status', 'in_stock')
+                    ->orderBy('serial_no', 'asc')
+                    ->get();
+                return response()->json($serials);
+            })->name('api.serials.by-product-variant');
         });
 
         Route::get('/', function () {
@@ -517,6 +532,14 @@ Route::middleware([
         Route::get('work-orders/export-csv', [WorkOrderController::class, 'exportCSV'])->name('work-orders.export-csv');
         Route::get('work-orders/export-pdf', [WorkOrderController::class, 'exportPDF'])->name('work-orders.export-pdf');
         Route::resource('work-orders', WorkOrderController::class);
+
+        // Component Issues Routes
+        Route::delete('component-issues/bulk-delete', [ComponentIssueController::class, 'bulkDelete'])->name('component-issues.bulk-delete');
+        Route::get('component-issues/export-xlsx', [ComponentIssueController::class, 'exportXLSX'])->name('component-issues.export-xlsx');
+        Route::get('component-issues/export-csv', [ComponentIssueController::class, 'exportCSV'])->name('component-issues.export-csv');
+        Route::get('component-issues/export-pdf', [ComponentIssueController::class, 'exportPDF'])->name('component-issues.export-pdf');
+        Route::post('component-issues/{componentIssue}/post', [ComponentIssueController::class, 'post'])->name('component-issues.post');
+        Route::resource('component-issues', ComponentIssueController::class);
     });
 
     Route::middleware('guest')->group(function () {

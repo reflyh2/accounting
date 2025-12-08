@@ -145,7 +145,8 @@ const isSalesActive = computed(() => {
 
 const isProduksiActive = computed(() => {
     return route().current('bill-of-materials.*')
-        || route().current('work-orders.*');
+        || route().current('work-orders.*')
+        || route().current('component-issues.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -326,6 +327,13 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Work Orders
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('component-issues.index')"
+                                :active="route().current('component-issues.*')"
+                                class="pl-11"
+                            >
+                                Component Issues
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -778,6 +786,13 @@ function toggleSidebar() {
                                         >
                                             Work Orders
                                         </NavLink>
+                                        <NavLink
+                                            :href="route('component-issues.index')"
+                                            :active="route().current('component-issues.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Component Issues
+                                        </NavLink>
                                     </div>
                                 </div>
 
@@ -808,6 +823,13 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Work Orders
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('component-issues.index')"
+                                            :active="route().current('component-issues.*')"
+                                            class="flex items-center"
+                                        >
+                                            Component Issues
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
