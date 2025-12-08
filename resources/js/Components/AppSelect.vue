@@ -260,7 +260,7 @@ onUnmounted(() => {
             <span 
               v-for="option in selectedOptions" 
               :key="option.value"
-              class="bg-main-100 text-main-800 text-sm font-medium px-1.5 py-0.5 rounded mr-1 my-0.5 flex items-center"
+              class="bg-main-100 text-main-800 text-sm font-medium px-1.5 py-0.5 rounded mr-1 flex items-center"
             >
                <div class="flex flex-col">
                   <span>{{ option.label }}</span>
