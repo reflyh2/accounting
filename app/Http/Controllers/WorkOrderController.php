@@ -171,8 +171,11 @@ class WorkOrderController extends Controller
             'finishedProductVariant',
             'wipLocation',
             'user',
-            'workOrderIssues.productVariant',
-            'workOrderReceipts.productVariant'
+            'componentIssues.componentIssueLines.componentProduct.variants',
+            'componentIssues.componentIssueLines.componentProductVariant',
+            'componentIssues.componentIssueLines.uom',
+            'finishedGoodsReceipts.finishedProductVariant',
+            'finishedGoodsReceipts.uom',
         ]);
 
         return Inertia::render('WorkOrders/Show', [
@@ -194,7 +197,7 @@ class WorkOrderController extends Controller
                 $query->where('company_id', $workOrder->company_id);
             })->orderBy('name', 'asc')->get(),
             'boms' => BillOfMaterial::where('status', 'active')
-                ->whereHas('branch.branchGroup', function ($query) use ($workOrder) {
+                ->whereHas('company', function ($query) use ($workOrder) {
                     $query->where('company_id', $workOrder->company_id);
                 })
                 ->with([
@@ -207,8 +210,8 @@ class WorkOrderController extends Controller
                 ])
                 ->orderBy('name', 'asc')
                 ->get(),
-            'locations' => Location::whereHas('branch', function ($query) use ($workOrder) {
-                $query->where('id', $workOrder->branch_id);
+            'locations' => Location::whereHas('branch', function ($query) use ($request) {
+                $query->where('id', $request->input('branch_id'));
             })->orderBy('name', 'asc')->get(),
         ]);
     }

@@ -50,6 +50,16 @@ watch(
 );
 
 watch(
+   () => form.branch_id,
+   (newBranchId) => {
+      if (newBranchId) {
+         router.reload({ only: ['locations'], data: { branch_id: newBranchId } });
+      }
+   },
+   { immediate: true }
+)
+
+watch(
     () => props.boms,
     (newBoms) => {
         if (!props.workOrder && newBoms.length === 1) {
@@ -158,7 +168,7 @@ function submitForm() {
 
                <AppSelect
                   v-model="form.finished_product_variant_id"
-                  :options="getFinishedProductVariants(form.bom_id).map(variant => ({ value: variant.id, label: `${variant.sku} - ${variant.name}` }))"
+                  :options="getFinishedProductVariants(form.bom_id).map(variant => ({ value: variant.id, label: `${variant.name}`, description: `SKU: ${variant.sku}` }))"
                   label="Varian Produk Jadi:"
                   placeholder="Pilih Varian (Opsional)"
                   :error="form.errors.finished_product_variant_id"
