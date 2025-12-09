@@ -2,88 +2,85 @@
 
 declare(strict_types=1);
 
-use Inertia\Inertia;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Api\AvailabilityController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\InventoryAvailabilityController;
+use App\Http\Controllers\Api\PurchaseInvoiceLookupController;
+use App\Http\Controllers\Api\SalesInvoiceLookupController;
 use App\Http\Controllers\ApiController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\AssetController;
-use App\Http\Controllers\BranchController;
-use App\Http\Controllers\AccountController;
-use App\Http\Controllers\CompanyController;
-use App\Http\Controllers\JournalController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\CurrencyController;
-use Stancl\Tenancy\Features\UserImpersonation;
-use App\Http\Controllers\BranchGroupController;
-use App\Http\Controllers\BalanceSheetController;
-use App\Http\Controllers\CashBankBookController;
-use App\Http\Controllers\IncomeReportController;
-use App\Http\Controllers\ExternalPayableAgingController;
-use App\Http\Controllers\ExternalPayableMutationController;
-use App\Http\Controllers\ExternalPayableCardController;
-use App\Http\Controllers\ExternalReceivableAgingController;
-use App\Http\Controllers\ExternalReceivableMutationController;
-use App\Http\Controllers\ExternalReceivableCardController;
-use App\Http\Controllers\InternalDebtAgingController;
-use App\Http\Controllers\Auth\PasswordController;
-use App\Http\Controllers\GeneralLedgerController;
-use App\Http\Controllers\GoodsReceiptController;
-use App\Http\Controllers\Auth\NewPasswordController;
-use App\Http\Controllers\Auth\VerifyEmailController;
-use App\Http\Controllers\CashPaymentJournalController;
-use App\Http\Controllers\CashReceiptJournalController;
-use App\Http\Controllers\Auth\RegisteredUserController;
-use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\CompanyDefaultAccountsController;
-use Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain;
-use App\Http\Controllers\Auth\ConfirmablePasswordController;
-use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
-use App\Http\Controllers\Auth\EmailVerificationPromptController;
-use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
-use App\Http\Controllers\Auth\EmailVerificationNotificationController;
-use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\AssetCategoryController;
+use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AssetDisposalController;
+use App\Http\Controllers\AssetFinancingAgreementController;
+use App\Http\Controllers\AssetFinancingPaymentController;
+use App\Http\Controllers\AssetFinancingScheduleController;
+use App\Http\Controllers\AssetInvoicePaymentController;
 use App\Http\Controllers\AssetPurchaseController;
 use App\Http\Controllers\AssetRentalController;
-use App\Http\Controllers\AssetInvoicePaymentController;
-use App\Http\Controllers\PartnerBankAccountController;
-use App\Http\Controllers\PurchaseInvoiceController;
-use App\Http\Controllers\SalesInvoiceController;
-use App\Http\Controllers\PurchaseOrderController;
-use App\Http\Controllers\SalesOrderController;
-use App\Http\Controllers\SalesDeliveryController;
-use App\Http\Controllers\SalesReturnController;
-use App\Http\Controllers\BillOfMaterialController;
-use App\Http\Controllers\WorkOrderController;
-use App\Http\Controllers\ComponentIssueController;
-use App\Http\Controllers\FinishedGoodsReceiptController;
-use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\AssetSalesController;
-use App\Http\Controllers\AssetFinancingAgreementController;
-use App\Http\Controllers\AssetFinancingScheduleController;
-use App\Http\Controllers\AssetFinancingPaymentController;
 use App\Http\Controllers\AssetTransferController;
-use App\Http\Controllers\AssetDisposalController;
-use App\Http\Controllers\ProductCategoryController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\BalanceSheetController;
+use App\Http\Controllers\BillOfMaterialController;
+use App\Http\Controllers\BranchController;
+use App\Http\Controllers\BranchGroupController;
+use App\Http\Controllers\CashBankBookController;
+use App\Http\Controllers\CashPaymentJournalController;
+use App\Http\Controllers\CashReceiptJournalController;
+use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\CompanyDefaultAccountsController;
+use App\Http\Controllers\ComponentIssueController;
+use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\ExternalPayableAgingController;
+use App\Http\Controllers\ExternalPayableCardController;
+use App\Http\Controllers\ExternalPayableController;
+use App\Http\Controllers\ExternalPayableMutationController;
+use App\Http\Controllers\ExternalPayablePaymentController;
+use App\Http\Controllers\ExternalReceivableAgingController;
+use App\Http\Controllers\ExternalReceivableCardController;
+use App\Http\Controllers\ExternalReceivableController;
+use App\Http\Controllers\ExternalReceivableMutationController;
+use App\Http\Controllers\ExternalReceivablePaymentController;
+use App\Http\Controllers\FinishedGoodsReceiptController;
+use App\Http\Controllers\GeneralLedgerController;
+use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\IncomeReportController;
+use App\Http\Controllers\InternalDebtAgingController;
+use App\Http\Controllers\InternalDebtController;
+use App\Http\Controllers\InternalDebtPaymentController;
 use App\Http\Controllers\Inventory\AdjustmentController;
 use App\Http\Controllers\Inventory\ReceiveController;
 use App\Http\Controllers\Inventory\ShipController;
 use App\Http\Controllers\Inventory\TransferController;
-use App\Http\Controllers\Api\InventoryAvailabilityController;
-use App\Http\Controllers\ExternalPayableController;
-use App\Http\Controllers\ExternalReceivableController;
-use App\Http\Controllers\InternalPayableController;
-use App\Http\Controllers\InternalReceivableController;
-use App\Http\Controllers\InternalDebtController;
-use App\Http\Controllers\ExternalPayablePaymentController;
-use App\Http\Controllers\ExternalReceivablePaymentController;
-use App\Http\Controllers\InternalDebtPaymentController;
-use App\Http\Controllers\Api\PurchaseInvoiceLookupController;
-use App\Http\Controllers\Api\SalesInvoiceLookupController;
+use App\Http\Controllers\JournalController;
+use App\Http\Controllers\PartnerBankAccountController;
+use App\Http\Controllers\PartnerController;
+use App\Http\Controllers\ProductCategoryController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PurchaseInvoiceController;
+use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\PurchaseReturnController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SalesDeliveryController;
+use App\Http\Controllers\SalesInvoiceController;
+use App\Http\Controllers\SalesOrderController;
+use App\Http\Controllers\SalesReturnController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\WorkOrderController;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+use Stancl\Tenancy\Features\UserImpersonation;
+use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
+use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 
 /*
 |--------------------------------------------------------------------------
@@ -106,30 +103,30 @@ Route::middleware([
         return UserImpersonation::makeResponse($token);
     })->name('impersonate');
 
-    Route::middleware('auth')->group(function() {
+    Route::middleware('auth')->group(function () {
         Route::get('verify-email', EmailVerificationPromptController::class)
-                ->name('verification.notice');
+            ->name('verification.notice');
 
         Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
-                    ->middleware(['signed', 'throttle:6,1'])
-                    ->name('verification.verify');
+            ->middleware(['signed', 'throttle:6,1'])
+            ->name('verification.verify');
 
         Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
-                    ->middleware('throttle:6,1')
-                    ->name('verification.send');
+            ->middleware('throttle:6,1')
+            ->name('verification.send');
 
         Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
-                    ->name('password.confirm');
+            ->name('password.confirm');
 
         Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
 
         Route::put('password', [PasswordController::class, 'update'])->name('password.update');
 
         Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
-                    ->name('logout');
+            ->name('logout');
 
         Route::get('api/branches-by-company/{companyId}', [ApiController::class, 'getBranchesByCompany'])->name('api.branches-by-company');
-        Route::get('api/accounts-by-branch/{branchId}', [ApiController::class, 'getAccountsByBranch'])->name('api.accounts-by-branch');       
+        Route::get('api/accounts-by-branch/{branchId}', [ApiController::class, 'getAccountsByBranch'])->name('api.accounts-by-branch');
         Route::get('api/financing-schedule', [ApiController::class, 'getFinancingSchedule'])->name('api.financing-schedule');
         Route::get('api/partners', [ApiController::class, 'getPartners'])->name('api.partners');
         Route::get('api/partners/{partner}', [ApiController::class, 'getPartner'])->name('api.partners.show');
@@ -153,6 +150,7 @@ Route::middleware([
                     ->where('status', 'active')
                     ->orderBy('lot_code', 'asc')
                     ->get();
+
                 return response()->json($lots);
             })->name('api.lots.by-product-variant');
             Route::get('serials/by-product-variant/{productVariantId}', function ($productVariantId) {
@@ -160,6 +158,7 @@ Route::middleware([
                     ->where('status', 'in_stock')
                     ->orderBy('serial_no', 'asc')
                     ->get();
+
                 return response()->json($serials);
             })->name('api.serials.by-product-variant');
         });
@@ -167,15 +166,15 @@ Route::middleware([
         Route::get('/', function () {
             return redirect(route('dashboard'));
         });
-    
+
         Route::get('/dashboard', function () {
             return Inertia::render('Dashboard');
         })->name('dashboard');
-        
+
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-        
+
         Route::get('/companies/{company}/default-accounts', [CompanyDefaultAccountsController::class, 'edit'])->name('companies.default-accounts.edit');
         Route::put('/companies/{company}/default-accounts', [CompanyDefaultAccountsController::class, 'update'])->name('companies.default-accounts.update');
         Route::delete('/companies/bulk-delete', [CompanyController::class, 'bulkDelete'])->name('companies.bulk-delete');
@@ -228,7 +227,6 @@ Route::middleware([
         Route::get('users/export-pdf', [UserController::class, 'exportPDF'])->name('users.export-pdf');
         Route::resource('users', UserController::class);
 
-        
         Route::delete('accounts/bulk-delete', [AccountController::class, 'bulkDelete'])->name('accounts.bulk-delete');
         Route::get('accounts/export-xlsx', [AccountController::class, 'exportXLSX'])->name('accounts.export-xlsx');
         Route::get('accounts/export-csv', [AccountController::class, 'exportCSV'])->name('accounts.export-csv');
@@ -308,7 +306,7 @@ Route::middleware([
         Route::get('asset-categories/export-csv', [AssetCategoryController::class, 'exportCSV'])->name('asset-categories.export-csv');
         Route::get('asset-categories/export-pdf', [AssetCategoryController::class, 'exportPDF'])->name('asset-categories.export-pdf');
         Route::resource('asset-categories', AssetCategoryController::class);
-        
+
         // Assets Routes
         Route::delete('/assets/bulk-delete', [AssetController::class, 'bulkDelete'])->name('assets.bulk-delete');
         Route::get('assets/export-xlsx', [AssetController::class, 'exportXLSX'])->name('assets.export-xlsx');
@@ -426,7 +424,7 @@ Route::middleware([
         Route::put('internal-debts/{internalDebt}/approve', [InternalDebtController::class, 'approve'])->name('internal-debts.approve');
         Route::put('internal-debts/{internalDebt}/reject', [InternalDebtController::class, 'reject'])->name('internal-debts.reject');
         Route::resource('internal-debts', InternalDebtController::class);
-        
+
         // Internal Debt Payments (unified)
         Route::delete('internal-debt-payments/bulk-delete', [InternalDebtPaymentController::class, 'bulkDelete'])->name('internal-debt-payments.bulk-delete');
         Route::get('internal-debt-payments/export-xlsx', [InternalDebtPaymentController::class, 'exportXLSX'])->name('internal-debt-payments.export-xlsx');
@@ -528,6 +526,7 @@ Route::middleware([
 
         // Work Orders Routes
         Route::put('work-orders/{workOrder}/transition', [WorkOrderController::class, 'transition'])->name('work-orders.transition');
+        Route::post('work-orders/{workOrder}/closeout', [WorkOrderController::class, 'closeout'])->name('work-orders.closeout');
         Route::delete('work-orders/bulk-delete', [WorkOrderController::class, 'bulkDelete'])->name('work-orders.bulk-delete');
         Route::get('work-orders/export-xlsx', [WorkOrderController::class, 'exportXLSX'])->name('work-orders.export-xlsx');
         Route::get('work-orders/export-csv', [WorkOrderController::class, 'exportCSV'])->name('work-orders.export-csv');
@@ -553,27 +552,26 @@ Route::middleware([
 
     Route::middleware('guest')->group(function () {
         Route::get('register', [RegisteredUserController::class, 'create'])
-                ->name('register');
+            ->name('register');
 
         Route::post('register', [RegisteredUserController::class, 'store']);
 
         Route::get('login', [AuthenticatedSessionController::class, 'create'])
-                    ->name('login');
-    
-        Route::post('login', [AuthenticatedSessionController::class, 'store']);
-    
-        Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
-                    ->name('password.request');
-    
-        Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
-                    ->name('password.email');
-    
-        Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
-                    ->name('password.reset');
-    
-        Route::post('reset-password', [NewPasswordController::class, 'store'])
-                    ->name('password.store');
-    });
-    
-});
+            ->name('login');
 
+        Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+        Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
+            ->name('password.request');
+
+        Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+            ->name('password.email');
+
+        Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
+            ->name('password.reset');
+
+        Route::post('reset-password', [NewPasswordController::class, 'store'])
+            ->name('password.store');
+    });
+
+});

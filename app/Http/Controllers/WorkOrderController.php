@@ -2,22 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use Inertia\Inertia;
-use App\Models\Branch;
-use App\Models\Product;
-use App\Models\Company;
-use App\Models\WorkOrder;
-use App\Models\BillOfMaterial;
-use App\Models\Location;
-use Illuminate\Http\Request;
 use App\Exports\WorkOrdersExport;
+use App\Models\BillOfMaterial;
+use App\Models\Branch;
+use App\Models\Company;
+use App\Models\Location;
+use App\Models\WorkOrder;
+use App\Services\Manufacturing\ManufacturingService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Session;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class WorkOrderController extends Controller
 {
+    public function __construct(
+        private readonly ManufacturingService $manufacturingService
+    ) {}
+
     public function index(Request $request)
     {
         $filters = $request->all() ?: Session::get('work_orders.index_filters', []);
@@ -26,40 +30,40 @@ class WorkOrderController extends Controller
 
         $query = WorkOrder::with(['branch.branchGroup.company', 'bom.finishedProduct', 'bom.finishedProductVariant', 'bom.finishedUom', 'wipLocation', 'user']);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
-                $q->where(DB::raw('lower(wo_number)'), 'like', '%' . strtolower($filters['search']) . '%')
-                  ->orWhere(DB::raw('lower(notes)'), 'like', '%' . strtolower($filters['search']) . '%')
-                  ->orWhereHas('bom.finishedProduct', function ($q) use ($filters) {
-                      $q->where(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%');
-                  })
-                  ->orWhereHas('branch', function ($q) use ($filters) {
-                      $q->where(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%');
-                  });
+                $q->where(DB::raw('lower(wo_number)'), 'like', '%'.strtolower($filters['search']).'%')
+                    ->orWhere(DB::raw('lower(notes)'), 'like', '%'.strtolower($filters['search']).'%')
+                    ->orWhereHas('bom.finishedProduct', function ($q) use ($filters) {
+                        $q->where(DB::raw('lower(name)'), 'like', '%'.strtolower($filters['search']).'%');
+                    })
+                    ->orWhereHas('branch', function ($q) use ($filters) {
+                        $q->where(DB::raw('lower(name)'), 'like', '%'.strtolower($filters['search']).'%');
+                    });
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereIn('company_id', $filters['company_id']);
         }
 
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', $filters['branch_id']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->whereIn('status', $filters['status']);
         }
 
-        if (!empty($filters['bom_id'])) {
+        if (! empty($filters['bom_id'])) {
             $query->where('bom_id', $filters['bom_id']);
         }
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('scheduled_start_date', '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('scheduled_start_date', '<=', $filters['to_date']);
         }
 
@@ -73,7 +77,7 @@ class WorkOrderController extends Controller
 
         $companies = Company::orderBy('name', 'asc')->get();
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $branches = Branch::whereHas('branchGroup', function ($query) use ($filters) {
                 $query->whereIn('company_id', $filters['company_id']);
             })->orderBy('name', 'asc')->get();
@@ -105,10 +109,10 @@ class WorkOrderController extends Controller
         return Inertia::render('WorkOrders/Create', [
             'filters' => $filters,
             'companies' => Company::orderBy('name', 'asc')->get(),
-            'branches' => fn() => Branch::whereHas('branchGroup', function ($query) use ($request) {
+            'branches' => fn () => Branch::whereHas('branchGroup', function ($query) use ($request) {
                 $query->where('company_id', $request->input('company_id'));
             })->orderBy('name', 'asc')->get(),
-            'boms' => fn() => BillOfMaterial::where('status', 'active')
+            'boms' => fn () => BillOfMaterial::where('status', 'active')
                 ->where('company_id', $request->input('company_id'))
                 ->with([
                     'finishedProduct.variants',
@@ -116,11 +120,11 @@ class WorkOrderController extends Controller
                     'finishedUom',
                     'bomLines.componentProduct',
                     'bomLines.componentProductVariant',
-                    'bomLines.uom'
+                    'bomLines.uom',
                 ])
                 ->orderBy('name', 'asc')
                 ->get(),
-            'locations' => fn() => Location::whereHas('branch', function ($query) use ($request) {
+            'locations' => fn () => Location::whereHas('branch', function ($query) use ($request) {
                 $query->where('id', $request->input('branch_id'));
             })->orderBy('name', 'asc')->get(),
         ]);
@@ -206,7 +210,7 @@ class WorkOrderController extends Controller
                     'finishedUom',
                     'bomLines.componentProduct',
                     'bomLines.componentProductVariant',
-                    'bomLines.uom'
+                    'bomLines.uom',
                 ])
                 ->orderBy('name', 'asc')
                 ->get(),
@@ -236,7 +240,7 @@ class WorkOrderController extends Controller
         }
 
         // Check if work order can be edited (only draft status)
-        if (!in_array($workOrder->status, ['draft'])) {
+        if (! in_array($workOrder->status, ['draft'])) {
             return redirect()->back()->with('error', 'Work Order hanya dapat diubah jika status masih draft.');
         }
 
@@ -263,6 +267,7 @@ class WorkOrderController extends Controller
 
         try {
             $workOrder->transitionTo($validated['status']);
+
             return redirect()->back()->with('success', 'Status Work Order berhasil diubah.');
         } catch (\InvalidArgumentException $e) {
             return redirect()->back()->with('error', $e->getMessage());
@@ -284,7 +289,7 @@ class WorkOrderController extends Controller
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('work-orders.index') . ($currentQuery ? '?' . $currentQuery : '');
+            $redirectUrl = route('work-orders.index').($currentQuery ? '?'.$currentQuery : '');
 
             return Redirect::to($redirectUrl)
                 ->with('success', 'Work Order berhasil dihapus.');
@@ -318,7 +323,7 @@ class WorkOrderController extends Controller
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('work-orders.index') . ($currentQuery ? '?' . $currentQuery : '');
+            $redirectUrl = route('work-orders.index').($currentQuery ? '?'.$currentQuery : '');
 
             return Redirect::to($redirectUrl)
                 ->with('success', 'Work Order berhasil dihapus.');
@@ -333,40 +338,40 @@ class WorkOrderController extends Controller
             ->withSum('workOrderIssues', 'quantity_issued')
             ->withSum('workOrderReceipts', 'quantity_received');
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
-                $q->where(DB::raw('lower(wo_number)'), 'like', '%' . strtolower($filters['search']) . '%')
-                  ->orWhere(DB::raw('lower(notes)'), 'like', '%' . strtolower($filters['search']) . '%')
-                  ->orWhereHas('bom.finishedProduct', function ($q) use ($filters) {
-                      $q->where(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%');
-                  })
-                  ->orWhereHas('branch', function ($q) use ($filters) {
-                      $q->where(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%');
-                  });
+                $q->where(DB::raw('lower(wo_number)'), 'like', '%'.strtolower($filters['search']).'%')
+                    ->orWhere(DB::raw('lower(notes)'), 'like', '%'.strtolower($filters['search']).'%')
+                    ->orWhereHas('bom.finishedProduct', function ($q) use ($filters) {
+                        $q->where(DB::raw('lower(name)'), 'like', '%'.strtolower($filters['search']).'%');
+                    })
+                    ->orWhereHas('branch', function ($q) use ($filters) {
+                        $q->where(DB::raw('lower(name)'), 'like', '%'.strtolower($filters['search']).'%');
+                    });
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereIn('company_id', $filters['company_id']);
         }
 
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', $filters['branch_id']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->whereIn('status', $filters['status']);
         }
 
-        if (!empty($filters['bom_id'])) {
+        if (! empty($filters['bom_id'])) {
             $query->where('bom_id', $filters['bom_id']);
         }
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('scheduled_start_date', '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('scheduled_start_date', '<=', $filters['to_date']);
         }
 
@@ -381,18 +386,34 @@ class WorkOrderController extends Controller
     public function exportXLSX(Request $request)
     {
         $workOrders = $this->getFilteredWorkOrders($request);
+
         return Excel::download(new WorkOrdersExport($workOrders), 'work_orders.xlsx');
     }
 
     public function exportCSV(Request $request)
     {
         $workOrders = $this->getFilteredWorkOrders($request);
+
         return Excel::download(new WorkOrdersExport($workOrders), 'work_orders.csv', \Maatwebsite\Excel\Excel::CSV);
     }
 
     public function exportPDF(Request $request)
     {
         $workOrders = $this->getFilteredWorkOrders($request);
+
         return Excel::download(new WorkOrdersExport($workOrders), 'work_orders.pdf', \Maatwebsite\Excel\Excel::MPDF);
+    }
+
+    public function closeout(Request $request, WorkOrder $workOrder)
+    {
+        try {
+            $this->manufacturingService->closeWorkOrder($workOrder, $request->user());
+
+            return redirect()->back()->with('success', 'Work Order berhasil ditutup dan variance telah diposting.');
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Terjadi kesalahan saat menutup Work Order: '.$e->getMessage());
+        }
     }
 }

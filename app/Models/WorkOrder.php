@@ -2,11 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 
 class WorkOrder extends Model
 {
@@ -21,13 +20,13 @@ class WorkOrder extends Model
         static::creating(function ($model) {
             $woDate = date('y', strtotime($model->scheduled_start_date ?? now()));
             $lastWo = self::whereYear('scheduled_start_date', date('Y', strtotime($model->scheduled_start_date ?? now())))
-                          ->where('branch_id', $model->branch_id)
-                          ->withTrashed()
-                          ->orderBy('wo_number', 'desc')
-                          ->first();
+                ->where('branch_id', $model->branch_id)
+                ->withTrashed()
+                ->orderBy('wo_number', 'desc')
+                ->first();
             $lastNumber = $lastWo ? intval(substr($lastWo->wo_number, -5)) : 0;
             $newNumber = str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
-            $model->wo_number = 'WO.' . str_pad($model->company_id, 2, '0', STR_PAD_LEFT) . str_pad($model->branch_id, 3, '0', STR_PAD_LEFT) . $woDate . '.' . $newNumber;
+            $model->wo_number = 'WO.'.str_pad($model->company_id, 2, '0', STR_PAD_LEFT).str_pad($model->branch_id, 3, '0', STR_PAD_LEFT).$woDate.'.'.$newNumber;
         });
 
         static::addGlobalScope('userWorkOrders', function ($builder) {
@@ -105,16 +104,16 @@ class WorkOrder extends Model
 
     public function transitionTo($newStatus)
     {
-        if (!$this->canTransitionTo($newStatus)) {
+        if (! $this->canTransitionTo($newStatus)) {
             throw new \InvalidArgumentException("Cannot transition from {$this->status} to {$newStatus}");
         }
 
         $this->status = $newStatus;
 
         // Set actual dates based on status
-        if ($newStatus === 'in_progress' && !$this->actual_start_date) {
+        if ($newStatus === 'in_progress' && ! $this->actual_start_date) {
             $this->actual_start_date = now()->toDateString();
-        } elseif ($newStatus === 'completed' && !$this->actual_end_date) {
+        } elseif ($newStatus === 'completed' && ! $this->actual_end_date) {
             $this->actual_end_date = now()->toDateString();
         }
 
@@ -136,6 +135,11 @@ class WorkOrder extends Model
     public function finishedGoodsReceipts()
     {
         return $this->hasMany(FinishedGoodsReceipt::class);
+    }
+
+    public function variances()
+    {
+        return $this->hasMany(WorkOrderVariance::class);
     }
 
     public function getRemainingQuantityAttribute($componentId)

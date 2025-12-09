@@ -18,11 +18,20 @@ const props = defineProps({
 
 const form = useForm({});
 const showDeleteConfirmation = ref(false);
+const showCloseoutConfirmation = ref(false);
 
 const deleteWorkOrder = () => {
     form.delete(route('work-orders.destroy', props.workOrder.id), {
         onSuccess: () => {
             showDeleteConfirmation.value = false;
+        },
+    });
+};
+
+const closeoutWorkOrder = () => {
+    form.post(route('work-orders.closeout', props.workOrder.id), {
+        onSuccess: () => {
+            showCloseoutConfirmation.value = false;
         },
     });
 };
@@ -109,6 +118,11 @@ const transitionTo = (status) => {
                                             @click="transitionTo('completed')"
                                             class="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600">
                                         Complete
+                                    </button>
+                                    <button v-if="workOrder.status === 'completed'"
+                                            @click="showCloseoutConfirmation = true"
+                                            class="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600">
+                                        Close Work Order
                                     </button>
                                     <button v-if="canTransition('cancelled')"
                                             @click="transitionTo('cancelled')"
@@ -226,6 +240,14 @@ const transitionTo = (status) => {
             title="Hapus Work Order"
             @close="showDeleteConfirmation = false"
             @confirm="deleteWorkOrder"
+        />
+
+        <DeleteConfirmationModal
+            :show="showCloseoutConfirmation"
+            title="Tutup Work Order"
+            message="Apakah Anda yakin ingin menutup Work Order ini? Variance akan dihitung dan diposting ke jurnal."
+            @close="showCloseoutConfirmation = false"
+            @confirm="closeoutWorkOrder"
         />
     </AuthenticatedLayout>
 </template>
