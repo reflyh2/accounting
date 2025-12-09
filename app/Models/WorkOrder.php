@@ -142,6 +142,11 @@ class WorkOrder extends Model
         return $this->hasMany(WorkOrderVariance::class);
     }
 
+    public function componentScraps()
+    {
+        return $this->hasMany(ComponentScrap::class);
+    }
+
     public function getRemainingQuantityAttribute($componentId)
     {
         return $this->quantity_planned - $this->quantity_produced;

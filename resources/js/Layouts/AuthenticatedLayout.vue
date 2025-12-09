@@ -147,6 +147,7 @@ const isProduksiActive = computed(() => {
     return route().current('bill-of-materials.*')
         || route().current('work-orders.*')
         || route().current('component-issues.*')
+        || route().current('component-scraps.*')
         || route().current('finished-goods-receipts.*');
 });
 
@@ -342,6 +343,13 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Finished Goods Receipts
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('component-scraps.index')"
+                                :active="route().current('component-scraps.*')"
+                                class="pl-11"
+                            >
+                                Component Scraps
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -807,6 +815,13 @@ function toggleSidebar() {
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Finished Goods Receipts
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('component-scraps.index')"
+                                            :active="route().current('component-scraps.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Component Scraps
                                         </NavLink>
                                     </div>
                                 </div>

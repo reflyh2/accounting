@@ -541,6 +541,12 @@ Route::middleware([
         Route::post('component-issues/{componentIssue}/post', [ComponentIssueController::class, 'post'])->name('component-issues.post');
         Route::resource('component-issues', ComponentIssueController::class);
 
+        // Component Scraps Routes
+        Route::get('component-scraps/export-xlsx', [ComponentScrapController::class, 'exportXLSX'])->name('component-scraps.export-xlsx');
+        Route::get('component-scraps/export-csv', [ComponentScrapController::class, 'exportCSV'])->name('component-scraps.export-csv');
+        Route::get('component-scraps/export-pdf', [ComponentScrapController::class, 'exportPDF'])->name('component-scraps.export-pdf');
+        Route::resource('component-scraps', ComponentScrapController::class)->only(['index', 'show']);
+
         // Finished Goods Receipts Routes
         Route::delete('finished-goods-receipts/bulk-delete', [FinishedGoodsReceiptController::class, 'bulkDelete'])->name('finished-goods-receipts.bulk-delete');
         Route::get('finished-goods-receipts/export-xlsx', [FinishedGoodsReceiptController::class, 'exportXLSX'])->name('finished-goods-receipts.export-xlsx');
@@ -548,6 +554,12 @@ Route::middleware([
         Route::get('finished-goods-receipts/export-pdf', [FinishedGoodsReceiptController::class, 'exportPDF'])->name('finished-goods-receipts.export-pdf');
         Route::post('finished-goods-receipts/{finishedGoodsReceipt}/post', [FinishedGoodsReceiptController::class, 'post'])->name('finished-goods-receipts.post');
         Route::resource('finished-goods-receipts', FinishedGoodsReceiptController::class);
+
+        // Component Scraps Routes
+        Route::get('component-scraps/export-xlsx', [ComponentScrapController::class, 'exportXLSX'])->name('component-scraps.export-xlsx');
+        Route::get('component-scraps/export-csv', [ComponentScrapController::class, 'exportCSV'])->name('component-scraps.export-csv');
+        Route::get('component-scraps/export-pdf', [ComponentScrapController::class, 'exportPDF'])->name('component-scraps.export-pdf');
+        Route::resource('component-scraps', ComponentScrapController::class)->only(['index', 'show']);
     });
 
     Route::middleware('guest')->group(function () {

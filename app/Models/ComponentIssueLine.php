@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class ComponentIssueLine extends Model
 {
@@ -54,5 +54,10 @@ class ComponentIssueLine extends Model
     public function serial()
     {
         return $this->belongsTo(Serial::class);
+    }
+
+    public function componentScraps()
+    {
+        return $this->hasMany(ComponentScrap::class);
     }
 }

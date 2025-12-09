@@ -4,6 +4,7 @@ namespace App\Services\Manufacturing;
 
 use App\Enums\AccountingEventCode;
 use App\Models\ComponentIssue;
+use App\Models\ComponentIssueLine;
 use App\Models\FinishedGoodsReceipt;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderVariance;
@@ -170,6 +171,10 @@ class ManufacturingService
         $receipt->load([
             'workOrder',
             'workOrder.componentIssues',
+            'workOrder.bom.bomLines.componentProduct',
+            'workOrder.bom.bomLines.componentProductVariant',
+            'workOrder.bom.bomLines.uom',
+            'workOrder.wipLocation',
             'finishedProductVariant',
             'company',
             'branch.branchGroup.company',
@@ -233,6 +238,9 @@ class ManufacturingService
             if ($receipt->quantity_scrap > 0) {
                 $receipt->workOrder->increment('quantity_scrap', $this->roundQuantity((float) $receipt->quantity_scrap));
             }
+
+            // Handle backflush: auto-issue components flagged for backflush
+            $this->handleBackflush($receipt, $goodQty, $actor);
 
             $this->dispatchReceiptEvent($receipt, $totalCost, $totalMaterialCost, $actor);
 
@@ -429,5 +437,114 @@ class ManufacturingService
         }, static function ($throwable) {
             report($throwable);
         });
+    }
+
+    private function handleBackflush(
+        FinishedGoodsReceipt $receipt,
+        float $goodQty,
+        ?Authenticatable $actor = null
+    ): void {
+        $workOrder = $receipt->workOrder;
+        $bom = $workOrder->bom;
+
+        if (! $bom) {
+            return;
+        }
+
+        // Get BOM lines flagged for backflush
+        $backflushLines = $bom->bomLines->where('backflush', true);
+
+        if ($backflushLines->isEmpty()) {
+            return;
+        }
+
+        // Get WIP location for issuing components
+        $wipLocationId = $workOrder->wip_location_id;
+        if (! $wipLocationId) {
+            // If no WIP location, skip backflush (components should be issued manually)
+            return;
+        }
+
+        // Check which components have already been issued (to avoid double-issuing)
+        $alreadyIssued = $workOrder->componentIssues()
+            ->where('status', 'posted')
+            ->with('componentIssueLines')
+            ->get()
+            ->flatMap(function ($issue) {
+                return $issue->componentIssueLines->map(function ($line) {
+                    return [
+                        'bom_line_id' => $line->bom_line_id,
+                        'variant_id' => $line->component_product_variant_id,
+                    ];
+                });
+            })
+            ->filter()
+            ->unique(function ($item) {
+                return ($item['bom_line_id'] ?? 'none').'-'.($item['variant_id'] ?? 'none');
+            });
+
+        foreach ($backflushLines as $bomLine) {
+            // Check if this component was already issued manually
+            $alreadyIssuedForThisLine = $alreadyIssued->contains(function ($item) use ($bomLine) {
+                return ($item['bom_line_id'] ?? null) === $bomLine->id;
+            });
+
+            if ($alreadyIssuedForThisLine) {
+                // Component was already issued manually, skip backflush
+                continue;
+            }
+
+            // Calculate quantity needed: (quantity_per * good_qty) * (1 + scrap_percentage/100)
+            $scrapFactor = 1 + ($bomLine->scrap_percentage / 100);
+            $quantityNeeded = $this->roundQuantity($bomLine->quantity_per * $goodQty * $scrapFactor);
+
+            if ($quantityNeeded <= 0) {
+                continue;
+            }
+
+            // Determine which variant to use
+            $variantId = $bomLine->component_product_variant_id;
+            if (! $variantId) {
+                // If no variant specified, skip (variant must be selected)
+                continue;
+            }
+
+            // Create component issue for backflush
+            $componentIssue = ComponentIssue::create([
+                'work_order_id' => $workOrder->id,
+                'company_id' => $workOrder->company_id,
+                'branch_id' => $workOrder->branch_id,
+                'user_global_id' => $actor?->getAuthIdentifier() ?? $workOrder->user_global_id,
+                'issue_date' => $receipt->receipt_date,
+                'location_from_id' => $wipLocationId,
+                'status' => 'draft',
+                'notes' => 'Auto-issued via backflush on FG receipt',
+            ]);
+
+            // Create component issue line
+            $issueLine = ComponentIssueLine::create([
+                'component_issue_id' => $componentIssue->id,
+                'line_number' => 1,
+                'bom_line_id' => $bomLine->id,
+                'component_product_id' => $bomLine->component_product_id,
+                'component_product_variant_id' => $variantId,
+                'quantity_issued' => $quantityNeeded,
+                'uom_id' => $bomLine->uom_id,
+                'backflush' => true,
+                'notes' => 'Backflushed component',
+            ]);
+
+            // Post the component issue
+            try {
+                $this->issueComponents($componentIssue, $actor);
+            } catch (\Exception $e) {
+                // If backflush fails, log but don't fail the entire receipt
+                report($e);
+                // Delete the draft component issue
+                $componentIssue->delete();
+
+                continue;
+            }
+        }
     }
 }

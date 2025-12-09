@@ -2,11 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 
 class FinishedGoodsReceipt extends Model
 {
@@ -21,13 +20,13 @@ class FinishedGoodsReceipt extends Model
         static::creating(function ($model) {
             $receiptDate = date('y', strtotime($model->receipt_date ?? now()));
             $lastReceipt = self::whereYear('receipt_date', date('Y', strtotime($model->receipt_date ?? now())))
-                          ->where('branch_id', $model->branch_id)
-                          ->withTrashed()
-                          ->orderBy('receipt_number', 'desc')
-                          ->first();
+                ->where('branch_id', $model->branch_id)
+                ->withTrashed()
+                ->orderBy('receipt_number', 'desc')
+                ->first();
             $lastNumber = $lastReceipt ? intval(substr($lastReceipt->receipt_number, -5)) : 0;
             $newNumber = str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
-            $model->receipt_number = 'FGR.' . str_pad($model->company_id, 2, '0', STR_PAD_LEFT) . str_pad($model->branch_id, 3, '0', STR_PAD_LEFT) . $receiptDate . '.' . $newNumber;
+            $model->receipt_number = 'FGR.'.str_pad($model->company_id, 2, '0', STR_PAD_LEFT).str_pad($model->branch_id, 3, '0', STR_PAD_LEFT).$receiptDate.'.'.$newNumber;
         });
 
         static::addGlobalScope('userFinishedGoodsReceipts', function ($builder) {
@@ -111,5 +110,10 @@ class FinishedGoodsReceipt extends Model
             'draft' => 'Draft',
             'posted' => 'Posted',
         ];
+    }
+
+    public function componentScraps()
+    {
+        return $this->hasMany(ComponentScrap::class);
     }
 }
