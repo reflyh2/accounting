@@ -148,7 +148,8 @@ const isProduksiActive = computed(() => {
         || route().current('work-orders.*')
         || route().current('component-issues.*')
         || route().current('component-scraps.*')
-        || route().current('finished-goods-receipts.*');
+        || route().current('finished-goods-receipts.*')
+        || route().current('gl-event-configurations.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -823,6 +824,13 @@ function toggleSidebar() {
                                         >
                                             Pembuangan Bahan Baku
                                         </NavLink>
+                                        <NavLink
+                                            :href="route('gl-event-configurations.index')"
+                                            :active="route().current('gl-event-configurations.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Konfigurasi GL Event
+                                        </NavLink>
                                     </div>
                                 </div>
 
@@ -874,6 +882,13 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Pembuangan Bahan Baku
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('gl-event-configurations.index')"
+                                            :active="route().current('gl-event-configurations.*')"
+                                            class="flex items-center"
+                                        >
+                                            Konfigurasi GL Event
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>

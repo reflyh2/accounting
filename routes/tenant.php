@@ -39,6 +39,7 @@ use App\Http\Controllers\CashReceiptJournalController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CompanyDefaultAccountsController;
 use App\Http\Controllers\ComponentIssueController;
+use App\Http\Controllers\ComponentScrapController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\ExternalPayableAgingController;
 use App\Http\Controllers\ExternalPayableCardController;
@@ -52,6 +53,7 @@ use App\Http\Controllers\ExternalReceivableMutationController;
 use App\Http\Controllers\ExternalReceivablePaymentController;
 use App\Http\Controllers\FinishedGoodsReceiptController;
 use App\Http\Controllers\GeneralLedgerController;
+use App\Http\Controllers\GlEventConfigurationController;
 use App\Http\Controllers\GoodsReceiptController;
 use App\Http\Controllers\IncomeReportController;
 use App\Http\Controllers\InternalDebtAgingController;
@@ -76,7 +78,6 @@ use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesReturnController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkOrderController;
-use App\Http\Controllers\ComponentScrapController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Stancl\Tenancy\Features\UserImpersonation;
@@ -246,6 +247,12 @@ Route::middleware([
         Route::get('journals/export-pdf', [JournalController::class, 'exportPDF'])->name('journals.export-pdf');
         Route::get('journals/{journal}/print', [JournalController::class, 'print'])->name('journals.print');
         Route::resource('journals', JournalController::class);
+
+        Route::delete('gl-event-configurations/bulk-delete', [GlEventConfigurationController::class, 'bulkDelete'])->name('gl-event-configurations.bulk-delete');
+        Route::get('gl-event-configurations/export-xlsx', [GlEventConfigurationController::class, 'exportXLSX'])->name('gl-event-configurations.export-xlsx');
+        Route::get('gl-event-configurations/export-csv', [GlEventConfigurationController::class, 'exportCSV'])->name('gl-event-configurations.export-csv');
+        Route::get('gl-event-configurations/export-pdf', [GlEventConfigurationController::class, 'exportPDF'])->name('gl-event-configurations.export-pdf');
+        Route::resource('gl-event-configurations', GlEventConfigurationController::class);
 
         // Partners Routes
         Route::delete('partners/bulk-delete', [PartnerController::class, 'bulkDelete'])->name('partners.bulk-delete');
