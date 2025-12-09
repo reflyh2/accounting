@@ -16,6 +16,7 @@ const tabs = [
     { label: 'Umur Piutang', route: 'external-receivable-aging.index', active: props.activeTab === 'external-receivable-aging.index' ? true : false },
     { label: 'Mutasi Piutang', route: 'external-receivable-mutation.index', active: props.activeTab === 'external-receivable-mutation.index' ? true : false },
     { label: 'Kartu Piutang', route: 'external-receivable-card.index', active: props.activeTab === 'external-receivable-card.index' ? true : false },
+    { label: 'Rekonsiliasi Operasional', route: 'operational-reconciliation.index', active: props.activeTab === 'operational-reconciliation.index' ? true : false },
 ];
 
 </script>

@@ -55,6 +55,7 @@ use App\Http\Controllers\FinishedGoodsReceiptController;
 use App\Http\Controllers\GeneralLedgerController;
 use App\Http\Controllers\GlEventConfigurationController;
 use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\OperationalReconciliationController;
 use App\Http\Controllers\IncomeReportController;
 use App\Http\Controllers\InternalDebtAgingController;
 use App\Http\Controllers\InternalDebtController;
@@ -286,6 +287,8 @@ Route::middleware([
 
         Route::get('balance-sheet', [BalanceSheetController::class, 'index'])->name('balance-sheet.index');
         Route::get('balance-sheet/download', [BalanceSheetController::class, 'download'])->name('balance-sheet.download');
+
+        Route::get('operational-reconciliation', [OperationalReconciliationController::class, 'index'])->name('operational-reconciliation.index');
 
         Route::get('external-payable-aging', [ExternalPayableAgingController::class, 'index'])->name('external-payable-aging.index');
         Route::get('external-payable-aging/download', [ExternalPayableAgingController::class, 'download'])->name('external-payable-aging.download');

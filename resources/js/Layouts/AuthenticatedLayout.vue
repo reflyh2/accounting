@@ -96,7 +96,8 @@ const isAccountingActive = computed(() => {
         || route().current('external-payable-card.*')
         || route().current('external-receivable-aging.*')
         || route().current('external-receivable-mutation.*')
-        || route().current('external-receivable-card.*');
+        || route().current('external-receivable-card.*')
+        || route().current('operational-reconciliation.*');
 });
 
 const isAssetActive = computed(() => {
