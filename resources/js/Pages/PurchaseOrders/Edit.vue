@@ -7,7 +7,12 @@ import PurchaseOrderForm from './Partials/PurchaseOrderForm.vue';
 const props = defineProps({
     purchaseOrder: Object,
     filters: Object,
-    formOptions: Object,
+    companies: Array,
+    branches: Array,
+    currencies: Array,
+    suppliers: Array,
+    products: Array,
+    uoms: Array,
 });
 
 const form = useForm({
@@ -53,7 +58,13 @@ const submit = () => {
 
                 <PurchaseOrderForm
                     :form="form"
-                    :form-options="formOptions"
+                    :companies="companies"
+                    :branches="branches"
+                    :currencies="currencies"
+                    :suppliers="suppliers"
+                    :products="products"
+                    :uoms="uoms"
+                    :filters="filters"
                     mode="edit"
                     submit-label="Perbarui Purchase Order"
                     :on-submit="submit"

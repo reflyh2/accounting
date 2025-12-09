@@ -1,5 +1,6 @@
 <script setup>
-import { computed, watch } from 'vue';
+import { computed, watch, ref, onMounted } from 'vue';
+import { router, useForm, usePage } from '@inertiajs/vue3';
 import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
@@ -8,15 +9,34 @@ import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppDangerButton from '@/Components/AppDangerButton.vue';
 import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
 import AppHint from '@/Components/AppHint.vue';
+import { PlusCircleIcon, TrashIcon } from '@heroicons/vue/24/solid';
 import { formatNumber } from '@/utils/numberFormat';
 
+const page = usePage();
+
 const props = defineProps({
-    form: {
-        type: Object,
+    companies: {
+        type: Array,
         required: true,
     },
-    formOptions: {
-        type: Object,
+    branches: {
+        type: Array,
+        required: true,
+    },
+    currencies: {
+        type: Array,
+        required: true,
+    },
+    suppliers: {
+        type: Array,
+        required: true,
+    },
+    products: {
+        type: Array,
+        required: true,
+    },
+    uoms: {
+        type: Array,
         required: true,
     },
     mode: {
@@ -31,10 +51,40 @@ const props = defineProps({
         type: Function,
         required: true,
     },
+    filters: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
-const form = props.form;
-const formOptions = props.formOptions;
+const form = useForm({
+    company_id: props.purchaseOrder?.company_id || null,
+    branch_id: props.purchaseOrder?.branch_id || null,
+    partner_id: props.purchaseOrder?.partner_id || null,
+    currency_id: props.purchaseOrder?.currency_id || (page.props.primaryCurrency?.id || null),
+    order_date: props.purchaseOrder?.order_date || new Date().toISOString().split('T')[0],
+    expected_date: props.purchaseOrder?.expected_date || '',
+    supplier_reference: props.purchaseOrder?.supplier_reference || '',
+    payment_terms: props.purchaseOrder?.payment_terms || '',
+    exchange_rate: props.purchaseOrder?.exchange_rate || 1,
+    notes: props.purchaseOrder?.notes || '',
+    lines: props.purchaseOrder?.lines || [
+        {
+            product_variant_id: null,
+            uom_id: null,
+            quantity: 1,
+            unit_price: 0,
+            tax_rate: 0,
+            description: null,
+            expected_date: null,
+        }
+    ],
+    create_another: false,
+});
+
+const selectedCompany = ref(
+    form.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id)
+);
 
 const supplierTableHeaders = [
     { key: 'code', label: 'Kode' },
@@ -43,12 +93,12 @@ const supplierTableHeaders = [
 ];
 
 const supplierSearchUrl = computed(() => route('api.partners', {
-    company_id: form.company_id || undefined,
+    company_id: form.company_id,
     roles: ['supplier'],
 }));
 
 const selectedSupplierLabel = computed(() => {
-    const supplier = formOptions.suppliers.find((candidate) => candidate.id === form.partner_id);
+    const supplier = props.suppliers.find((candidate) => candidate.id === form.partner_id);
     if (!supplier) {
         return '';
     }
@@ -56,30 +106,22 @@ const selectedSupplierLabel = computed(() => {
     return `${supplier.code} — ${supplier.name}`;
 });
 
-const filteredBranches = computed(() => {
-    if (!form.company_id) {
-        return formOptions.branches;
-    }
-
-    return formOptions.branches.filter((branch) => branch.company_id === form.company_id);
-});
-
 const filteredSuppliers = computed(() => {
     if (!form.company_id) {
-        return formOptions.suppliers;
+        return props.suppliers;
     }
 
-    return formOptions.suppliers.filter((supplier) =>
+    return props.suppliers.filter((supplier) =>
         Array.isArray(supplier.company_ids) && supplier.company_ids.includes(form.company_id)
     );
 });
 
 const filteredProducts = computed(() => {
     if (!form.company_id) {
-        return formOptions.products;
+        return props.products;
     }
 
-    return formOptions.products.filter((product) =>
+    return props.products.filter((product) =>
         Array.isArray(product.company_ids) && product.company_ids.includes(form.company_id)
     );
 });
@@ -87,7 +129,7 @@ const filteredProducts = computed(() => {
 const variantLookup = computed(() => {
     const lookup = {};
 
-    formOptions.products.forEach((product) => {
+    props.products.forEach((product) => {
         product.variants.forEach((variant) => {
             lookup[variant.id] = {
                 ...variant,
@@ -113,10 +155,10 @@ const variantOptions = computed(() =>
 
 const uomOptions = computed(() => {
     if (!form.company_id) {
-        return formOptions.uoms;
+        return props.uoms;
     }
 
-    return formOptions.uoms.filter((uom) => uom.company_id === form.company_id);
+    return props.uoms.filter((uom) => uom.company_id === form.company_id);
 });
 
 const totals = computed(() => {
@@ -140,24 +182,27 @@ const totals = computed(() => {
 
 const grandTotal = computed(() => totals.value.subtotal + totals.value.tax);
 
-watch(
-    () => form.branch_id,
-    (branchId) => {
-        if (!branchId) {
-            return;
-        }
-
-        const branch = formOptions.branches.find((candidate) => candidate.id === branchId);
-        if (branch?.company_id) {
-            form.company_id = branch.company_id;
-        }
+watch(selectedCompany, (newCompanyId) => {
+    if (props.mode === 'create') {
+        form.company_id = newCompanyId;
+        router.reload({ only: ['branches'], data: { company_id: newCompanyId } });
     }
+}, { immediate: true });
+
+watch(
+    () => props.branches,
+    (newBranches) => {
+        if (props.mode === 'create' && newBranches.length === 1) {
+            form.branch_id = newBranches[0].id;
+        }
+    },
+    { immediate: true }
 );
 
 watch(
     () => form.company_id,
     () => {
-        if (form.branch_id && !filteredBranches.value.some((branch) => branch.id === form.branch_id)) {
+        if (form.branch_id && !props.branches.some((branch) => branch.id === form.branch_id)) {
             form.branch_id = '';
         }
 
@@ -176,6 +221,13 @@ watch(
         });
     }
 );
+
+onMounted(() => {
+    selectedCompany.value = form.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id);
+    if (props.mode === 'create' && props.branches.length === 1) {
+        form.branch_id = props.branches[0].id;
+    }
+});
 
 function lineUomOptions(line) {
     const variant = variantLookup.value[line.product_variant_id];
@@ -248,157 +300,200 @@ function lineTax(line) {
 </script>
 
 <template>
-    <form @submit.prevent="onSubmit" class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-4">
-                <AppSelect
-                    v-model="form.company_id"
-                    :options="formOptions.companies.map((company) => ({ value: company.id, label: company.name }))"
-                    label="Perusahaan"
-                    required
-                    placeholder="Pilih Perusahaan"
-                />
-
-                <AppSelect
-                    v-model="form.branch_id"
-                    :options="filteredBranches.map((branch) => ({ value: branch.id, label: branch.name }))"
-                    label="Cabang"
-                    required
-                    placeholder="Pilih Cabang"
-                />
-
-                <div>
-                    <AppPopoverSearch
-                        v-model="form.partner_id"
-                        label="Supplier"
-                        placeholder="Pilih Supplier"
-                        hint="Gunakan pencarian untuk menemukan supplier lintas perusahaan."
-                        :url="supplierSearchUrl"
-                        :tableHeaders="supplierTableHeaders"
-                        :displayKeys="['code', 'name']"
-                        :initialDisplayValue="selectedSupplierLabel"
-                        :disabled="!form.company_id"
-                        modalTitle="Pilih Supplier"
+    <form @submit.prevent="onSubmit" class="space-y-4">
+        <div class="flex justify-between">
+            <div class="w-2/3 max-w-2xl mr-8">
+                <div class="grid grid-cols-2 gap-4">
+                    <AppSelect
+                        v-model="selectedCompany"
+                        :options="companies.map((company) => ({ value: company.id, label: company.name }))"
+                        label="Perusahaan:"
+                        placeholder="Pilih Perusahaan"
+                        :error="form.errors?.company_id"
+                        :disabled="mode === 'edit'"
                         required
-                        :error="form.errors?.partner_id"
+                    />
+
+                    <AppSelect
+                        v-model="form.branch_id"
+                        :options="branches.map((branch) => ({ value: branch.id, label: branch.name }))"
+                        label="Cabang:"
+                        placeholder="Pilih Cabang"
+                        :error="form.errors?.branch_id"
+                        :disabled="mode === 'edit' || !form.company_id"
+                        required
                     />
                 </div>
 
-                <AppSelect
-                    v-model="form.currency_id"
-                    :options="formOptions.currencies.map((currency) => ({ value: currency.id, label: `${currency.code} — ${currency.name}` }))"
-                    label="Mata Uang"
-                    required
-                />
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <AppInput
+                        v-model="form.order_date"
+                        type="date"
+                        label="Tanggal PO:"
+                        required
+                        :error="form.errors?.order_date"
+                    />
 
-                <AppInput
-                    v-model="form.exchange_rate"
-                    type="number"
-                    step="0.0001"
-                    label="Kurs"
-                    required
-                    min="0.0001"
-                />
+                    <div>
+                        <AppPopoverSearch
+                            v-model="form.partner_id"
+                            label="Supplier:"
+                            placeholder="Pilih Supplier"
+                            hint="Gunakan pencarian untuk menemukan supplier berdasarkan perusahaan yang dipilih."
+                            :url="supplierSearchUrl"
+                            :tableHeaders="supplierTableHeaders"
+                            :displayKeys="['code', 'name']"
+                            :initialDisplayValue="selectedSupplierLabel"
+                            :disabled="!form.company_id"
+                            modalTitle="Pilih Supplier"
+                            required
+                            :error="form.errors?.partner_id"
+                        />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <AppSelect
+                        v-model="form.currency_id"
+                        :options="currencies.map((currency) => ({ value: currency.id, label: `${currency.code} — ${currency.name}` }))"
+                        label="Mata Uang:"
+                        required
+                        :error="form.errors?.currency_id"
+                    />
+
+                    <AppInput
+                        v-model="form.exchange_rate"
+                        type="number"
+                        step="0.0001"
+                        label="Kurs:"
+                        required
+                        min="0.0001"
+                        :error="form.errors?.exchange_rate"
+                    />
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <AppInput
+                        v-model="form.expected_date"
+                        type="date"
+                        label="Estimasi Kedatangan:"
+                        :error="form.errors?.expected_date"
+                    />
+
+                    <AppInput
+                        v-model="form.supplier_reference"
+                        label="Referensi Supplier:"
+                        placeholder="Nomor referensi (opsional)"
+                        :error="form.errors?.supplier_reference"
+                    />
+                </div>
+
+                <div class="mt-4">
+                    <AppInput
+                        v-model="form.payment_terms"
+                        label="Syarat Pembayaran:"
+                        placeholder="Net 30, COD, dll"
+                        :error="form.errors?.payment_terms"
+                    />
+                </div>
+
+                <div class="mt-4">
+                    <AppTextarea
+                        v-model="form.notes"
+                        label="Catatan:"
+                        rows="3"
+                        placeholder="Instruksi tambahan yang ingin disampaikan ke supplier."
+                        :error="form.errors?.notes"
+                    />
+                </div>
             </div>
 
-            <div class="space-y-4">
-                <AppInput
-                    v-model="form.order_date"
-                    type="date"
-                    label="Tanggal PO"
-                    required
-                />
-
-                <AppInput
-                    v-model="form.expected_date"
-                    type="date"
-                    label="Estimasi Kedatangan"
-                />
-
-                <AppInput
-                    v-model="form.supplier_reference"
-                    label="Referensi Supplier"
-                    placeholder="Nomor referensi (opsional)"
-                />
-
-                <AppInput
-                    v-model="form.payment_terms"
-                    label="Syarat Pembayaran"
-                    placeholder="Net 30, COD, dll"
-                />
+            <div class="w-1/3 bg-gray-100 p-4 rounded-lg text-sm">
+                <h3 class="text-lg font-semibold mb-2">Informasi Purchase Order</h3>
+                <p class="mb-2">Purchase Order adalah dokumen yang digunakan untuk memesan barang atau jasa dari supplier. Pastikan informasi yang dimasukkan akurat.</p>
+                <ul class="list-disc list-inside">
+                    <li>Pilih perusahaan yang sesuai</li>
+                    <li>Pilih cabang yang sesuai</li>
+                    <li>Pilih supplier yang akan menerima PO</li>
+                    <li>Pilih mata uang dan kurs yang sesuai</li>
+                    <li>Tanggal PO adalah tanggal pembuatan purchase order</li>
+                    <li>Estimasi kedatangan adalah perkiraan kapan barang akan tiba</li>
+                    <li>Referensi supplier adalah nomor referensi dari supplier (opsional)</li>
+                    <li>Syarat pembayaran menjelaskan cara pembayaran (opsional)</li>
+                    <li>Tambahkan baris untuk setiap item yang akan dipesan</li>
+                </ul>
             </div>
         </div>
 
-        <div class="space-y-2">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold">Baris Purchase Order</h3>
-                <AppSecondaryButton type="button" @click="addLine">
-                    Tambah Baris
-                </AppSecondaryButton>
-            </div>
-            <p class="text-sm text-gray-500">Lengkapi detail item termasuk kuantitas, satuan, harga, dan pajak.</p>
-        </div>
+        <div class="overflow-x-auto">
+            <h2 class="text-lg font-semibold">Baris Purchase Order</h2>
+            <p class="text-sm text-gray-500 mb-4">Lengkapi detail item termasuk kuantitas, satuan, harga, dan pajak.</p>
 
-        <div class="overflow-auto border border-gray-200 rounded">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Produk / Varian</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Satuan</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Qty</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Harga Satuan</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">
+            <table class="min-w-full bg-white border border-gray-300">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border border-gray-300 text-sm min-w-48 lg:min-w-48 px-1.5 py-1.5">Produk / Varian</th>
+                        <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Satuan</th>
+                        <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty</th>
+                        <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Harga Satuan</th>
+                        <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">
                             Pajak (%)
                             <AppHint text="Isi 11 untuk PPN 11%. Kosongkan jika non taxable." />
                         </th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Tgl Kedatangan</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Subtotal</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Aksi</th>
+                        <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Tgl Kedatangan</th>
+                        <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Subtotal</th>
+                        <th class="border border-gray-300 px-1.5 py-1.5"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 bg-white">
+                <tbody>
                     <tr v-for="(line, index) in form.lines" :key="index">
-                        <td class="px-4 py-3 min-w-[220px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5">
                             <AppSelect
                                 v-model="line.product_variant_id"
                                 :options="variantOptions"
                                 placeholder="Pilih produk"
+                                :error="form.errors?.[`lines.${index}.product_variant_id`]"
                                 required
                                 @update:modelValue="syncVariant(line)"
+                                :margins="{ top: 0, right: 0, bottom: 2, left: 0 }"
                             />
                             <AppInput
                                 v-model="line.description"
                                 placeholder="Deskripsi baris"
                                 class="mt-2"
+                                :error="form.errors?.[`lines.${index}.description`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="px-4 py-3 min-w-[140px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppSelect
                                 v-model="line.uom_id"
-                                :options="lineUomOptions(line).map((uom) => ({ value: uom.id, label: `${uom.code} — ${uom.name}` }))"
+                                :options="lineUomOptions(line).map((uom) => ({ value: uom.id, label: `${uom.code}`, description: `${uom.name}` }))"
                                 placeholder="Satuan"
+                                :error="form.errors?.[`lines.${index}.uom_id`]"
                                 required
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="px-4 py-3 min-w-[120px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppInput
                                 v-model="line.quantity"
-                                type="number"
-                                min="0.0001"
-                                step="0.0001"
+                                :numberFormat="true"
                                 required
+                                :error="form.errors?.[`lines.${index}.quantity`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="px-4 py-3 min-w-[140px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppInput
                                 v-model="line.unit_price"
-                                type="number"
-                                min="0"
-                                step="0.01"
+                                :numberFormat="true"
                                 required
+                                :error="form.errors?.[`lines.${index}.unit_price`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="px-4 py-3 min-w-[120px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppInput
                                 v-model="line.tax_rate"
                                 hint="Isi 11 untuk PPN 11%. Kosongkan jika non taxable."
@@ -406,64 +501,68 @@ function lineTax(line) {
                                 min="0"
                                 step="0.01"
                                 placeholder="0"
+                                :error="form.errors?.[`lines.${index}.tax_rate`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="px-4 py-3 min-w-[150px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppInput
                                 v-model="line.expected_date"
                                 type="date"
+                                :error="form.errors?.[`lines.${index}.expected_date`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap min-w-[140px]">
-                            <div>Subtotal: {{ formatNumber(lineSubtotal(line)) }}</div>
-                            <div>Pajak: {{ formatNumber(lineTax(line)) }}</div>
+                        <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-right whitespace-nowrap align-top">
+                            <div class="flex justify-between">
+                                <div>Subtotal:</div>
+                                <div>{{ formatNumber(lineSubtotal(line)) }}</div>
+                            </div>
+                            <div class="flex justify-between">
+                                <div>Pajak:</div>
+                                <div>{{ formatNumber(lineTax(line)) }}</div>
+                            </div>
                         </td>
-                        <td class="px-4 py-3">
-                            <AppDangerButton
-                                type="button"
-                                @click="removeLine(index)"
-                                :disabled="form.lines.length === 1"
-                            >
-                                Hapus
-                            </AppDangerButton>
+                        <td class="border border-gray-300 px-1.5 py-1.5 text-center align-top">
+                            <button type="button" @click="removeLine(index)" :disabled="form.lines.length === 1" class="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <TrashIcon class="w-5 h-5" />
+                            </button>
                         </td>
                     </tr>
                 </tbody>
+
+                <tfoot>
+                    <tr class="text-sm">
+                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="6">Total</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.subtotal) }}</th>
+                        <th class="border border-gray-300 px-4 py-2"></th>
+                    </tr>
+                    <tr class="text-sm">
+                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="6">Total Pajak</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.tax) }}</th>
+                        <th class="border border-gray-300 px-4 py-2"></th>
+                    </tr>
+                    <tr class="text-sm font-semibold">
+                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="6">Grand Total</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(grandTotal) }}</th>
+                        <th class="border border-gray-300 px-4 py-2"></th>
+                    </tr>
+                </tfoot>
             </table>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AppTextarea
-                v-model="form.notes"
-                label="Catatan"
-                rows="5"
-                placeholder="Instruksi tambahan yang ingin disampaikan ke supplier."
-            />
-
-            <div class="border border-gray-200 rounded p-4 space-y-2 bg-gray-50">
-                <div class="flex items-center justify-between text-sm">
-                    <span>Subtotal</span>
-                    <span>{{ formatNumber(totals.subtotal) }}</span>
-                </div>
-                <div class="flex items-center justify-between text-sm">
-                    <span>Total Pajak</span>
-                    <span>{{ formatNumber(totals.tax) }}</span>
-                </div>
-                <div class="flex items-center justify-between text-base font-semibold">
-                    <span>Grand Total</span>
-                    <span>{{ formatNumber(grandTotal) }}</span>
-                </div>
+            <div class="flex mt-2 mb-4">
+                <button type="button" @click="addLine" class="flex items-center text-main-500 hover:text-main-700">
+                    <PlusCircleIcon class="w-6 h-6 mr-2" /> Tambah Baris
+                </button>
             </div>
         </div>
 
-        <div class="flex items-center justify-end gap-3">
-            <AppSecondaryButton type="button" @click="$inertia.visit(route('purchase-orders.index'))">
-                Batal
-            </AppSecondaryButton>
-            <AppPrimaryButton type="submit" :disabled="form.processing">
+        <div class="mt-4 flex items-center">
+            <AppPrimaryButton type="submit" class="mr-2" :disabled="form.processing">
                 {{ submitLabel }}
             </AppPrimaryButton>
+            <AppSecondaryButton @click="$inertia.visit(route('purchase-orders.index', filters))">
+                Batal
+            </AppSecondaryButton>
         </div>
     </form>
 </template>
-

@@ -91,7 +91,7 @@ class PurchaseOrderController extends Controller
         $order = $filters['order'] ?? 'desc';
 
         $allowedSorts = ['order_date', 'order_number', 'status', 'total_amount', 'expected_date'];
-        if (!in_array($sort, $allowedSorts, true)) {
+        if (! in_array($sort, $allowedSorts, true)) {
             $sort = 'order_date';
         }
 
@@ -114,11 +114,21 @@ class PurchaseOrderController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        $filters = Session::get('purchase_orders.index_filters', []);
+        $formOptions = $this->formOptions();
+
         return Inertia::render('PurchaseOrders/Create', [
-            'filters' => Session::get('purchase_orders.index_filters', []),
-            'formOptions' => $this->formOptions(),
+            'filters' => $filters,
+            'companies' => $formOptions['companies'],
+            'branches' => fn () => Branch::whereHas('branchGroup', function ($query) use ($request) {
+                $query->where('company_id', $request->input('company_id'));
+            })->orderBy('name', 'asc')->get(),
+            'currencies' => $formOptions['currencies'],
+            'suppliers' => $formOptions['suppliers'],
+            'products' => $formOptions['products'],
+            'uoms' => $formOptions['uoms'],
         ]);
     }
 
@@ -153,18 +163,35 @@ class PurchaseOrderController extends Controller
         ]);
     }
 
-    public function edit(PurchaseOrder $purchaseOrder): Response
+    public function edit(Request $request, PurchaseOrder $purchaseOrder): Response
     {
         $purchaseOrder->load([
+            'branch.branchGroup',
             'lines.variant',
             'lines.uom',
             'lines.baseUom',
         ]);
 
+        $filters = Session::get('purchase_orders.index_filters', []);
+        $formOptions = $this->formOptions();
+
+        $companyId = $purchaseOrder->branch->branchGroup->company_id;
+
+        if ($request->company_id) {
+            $companyId = $request->company_id;
+        }
+
         return Inertia::render('PurchaseOrders/Edit', [
             'purchaseOrder' => $purchaseOrder,
-            'filters' => Session::get('purchase_orders.index_filters', []),
-            'formOptions' => $this->formOptions(),
+            'filters' => $filters,
+            'companies' => $formOptions['companies'],
+            'branches' => Branch::whereHas('branchGroup', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })->orderBy('name', 'asc')->get(),
+            'currencies' => $formOptions['currencies'],
+            'suppliers' => $formOptions['suppliers'],
+            'products' => $formOptions['products'],
+            'uoms' => $formOptions['uoms'],
         ]);
     }
 
@@ -308,5 +335,3 @@ class PurchaseOrderController extends Controller
             ->toArray();
     }
 }
-
-

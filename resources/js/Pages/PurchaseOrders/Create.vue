@@ -6,7 +6,12 @@ import PurchaseOrderForm from './Partials/PurchaseOrderForm.vue';
 
 const props = defineProps({
     filters: Object,
-    formOptions: Object,
+    companies: Array,
+    branches: Array,
+    currencies: Array,
+    suppliers: Array,
+    products: Array,
+    uoms: Array,
 });
 
 const initialLine = () => ({
@@ -23,7 +28,7 @@ const form = useForm({
     company_id: '',
     branch_id: '',
     partner_id: '',
-    currency_id: props.formOptions.currencies?.[0]?.id || '',
+    currency_id: props.currencies?.[0]?.id || '',
     order_date: new Date().toISOString().slice(0, 10),
     expected_date: '',
     supplier_reference: '',
@@ -54,7 +59,13 @@ const submit = () => {
 
                 <PurchaseOrderForm
                     :form="form"
-                    :form-options="formOptions"
+                    :companies="companies"
+                    :branches="branches"
+                    :currencies="currencies"
+                    :suppliers="suppliers"
+                    :products="products"
+                    :uoms="uoms"
+                    :filters="filters"
                     mode="create"
                     submit-label="Simpan Purchase Order"
                     :on-submit="submit"

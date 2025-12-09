@@ -246,7 +246,7 @@ onUnmounted(() => {
           'w-full px-1.5 py-1.5 border text-sm border-gray-300 rounded flex items-center justify-between',
           isFocused ? 'outline-none ring-1 ring-main-500' : '',
           !isFocused && props.error && !hasChanged ? 'border-red-500' : '',
-          props.disabled ? 'bg-gray-50 cursor-not-allowed' : 'bg-white cursor-pointer'
+          props.disabled ? 'bg-gray-100 border-gray-300 cursor-not-allowed' : 'bg-white cursor-pointer'
         ]"
       >
         <div 
