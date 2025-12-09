@@ -76,6 +76,7 @@ use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesReturnController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkOrderController;
+use App\Http\Controllers\ComponentScrapController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Stancl\Tenancy\Features\UserImpersonation;

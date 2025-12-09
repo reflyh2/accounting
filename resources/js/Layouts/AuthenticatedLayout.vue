@@ -328,28 +328,28 @@ function toggleSidebar() {
                                 :active="route().current('work-orders.*')"
                                 class="pl-11"
                             >
-                                Work Orders
+                                Surat Perintah Produksi
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 :href="route('component-issues.index')"
                                 :active="route().current('component-issues.*')"
                                 class="pl-11"
                             >
-                                Component Issues
+                                Pengeluaran Bahan Baku
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 :href="route('finished-goods-receipts.index')"
                                 :active="route().current('finished-goods-receipts.*')"
                                 class="pl-11"
                             >
-                                Finished Goods Receipts
+                                Penerimaan Produk Jadi
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 :href="route('component-scraps.index')"
                                 :active="route().current('component-scraps.*')"
                                 class="pl-11"
                             >
-                                Component Scraps
+                                Pembuangan Bahan Baku
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -800,28 +800,28 @@ function toggleSidebar() {
                                             :active="route().current('work-orders.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
-                                            Work Orders
+                                            Surat Perintah Produksi
                                         </NavLink>
                                         <NavLink
                                             :href="route('component-issues.index')"
                                             :active="route().current('component-issues.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
-                                            Component Issues
+                                            Pengeluaran Bahan Baku
                                         </NavLink>
                                         <NavLink
                                             :href="route('finished-goods-receipts.index')"
                                             :active="route().current('finished-goods-receipts.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
-                                            Finished Goods Receipts
+                                            Penerimaan Produk Jadi
                                         </NavLink>
                                         <NavLink
                                             :href="route('component-scraps.index')"
                                             :active="route().current('component-scraps.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
-                                            Component Scraps
+                                            Pembuangan Bahan Baku
                                         </NavLink>
                                     </div>
                                 </div>
@@ -852,21 +852,28 @@ function toggleSidebar() {
                                             :active="route().current('work-orders.*')"
                                             class="flex items-center"
                                         >
-                                            Work Orders
+                                            Surat Perintah Produksi
                                         </NavLink>
                                         <NavLink
                                             :href="route('component-issues.index')"
                                             :active="route().current('component-issues.*')"
                                             class="flex items-center"
                                         >
-                                            Component Issues
+                                            Pengeluaran Bahan Baku
                                         </NavLink>
                                         <NavLink
                                             :href="route('finished-goods-receipts.index')"
                                             :active="route().current('finished-goods-receipts.*')"
                                             class="flex items-center"
                                         >
-                                            Finished Goods Receipts
+                                            Penerimaan Produk Jadi
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('component-scraps.index')"
+                                            :active="route().current('component-scraps.*')"
+                                            class="flex items-center"
+                                        >
+                                            Pembuangan Bahan Baku
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
