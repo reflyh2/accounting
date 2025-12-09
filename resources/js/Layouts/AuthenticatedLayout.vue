@@ -146,7 +146,8 @@ const isSalesActive = computed(() => {
 const isProduksiActive = computed(() => {
     return route().current('bill-of-materials.*')
         || route().current('work-orders.*')
-        || route().current('component-issues.*');
+        || route().current('component-issues.*')
+        || route().current('finished-goods-receipts.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -334,6 +335,13 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Component Issues
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('finished-goods-receipts.index')"
+                                :active="route().current('finished-goods-receipts.*')"
+                                class="pl-11"
+                            >
+                                Finished Goods Receipts
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -793,6 +801,13 @@ function toggleSidebar() {
                                         >
                                             Component Issues
                                         </NavLink>
+                                        <NavLink
+                                            :href="route('finished-goods-receipts.index')"
+                                            :active="route().current('finished-goods-receipts.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Finished Goods Receipts
+                                        </NavLink>
                                     </div>
                                 </div>
 
@@ -830,6 +845,13 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Component Issues
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('finished-goods-receipts.index')"
+                                            :active="route().current('finished-goods-receipts.*')"
+                                            class="flex items-center"
+                                        >
+                                            Finished Goods Receipts
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>

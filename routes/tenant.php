@@ -60,6 +60,7 @@ use App\Http\Controllers\SalesReturnController;
 use App\Http\Controllers\BillOfMaterialController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\ComponentIssueController;
+use App\Http\Controllers\FinishedGoodsReceiptController;
 use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetFinancingAgreementController;
@@ -540,6 +541,14 @@ Route::middleware([
         Route::get('component-issues/export-pdf', [ComponentIssueController::class, 'exportPDF'])->name('component-issues.export-pdf');
         Route::post('component-issues/{componentIssue}/post', [ComponentIssueController::class, 'post'])->name('component-issues.post');
         Route::resource('component-issues', ComponentIssueController::class);
+
+        // Finished Goods Receipts Routes
+        Route::delete('finished-goods-receipts/bulk-delete', [FinishedGoodsReceiptController::class, 'bulkDelete'])->name('finished-goods-receipts.bulk-delete');
+        Route::get('finished-goods-receipts/export-xlsx', [FinishedGoodsReceiptController::class, 'exportXLSX'])->name('finished-goods-receipts.export-xlsx');
+        Route::get('finished-goods-receipts/export-csv', [FinishedGoodsReceiptController::class, 'exportCSV'])->name('finished-goods-receipts.export-csv');
+        Route::get('finished-goods-receipts/export-pdf', [FinishedGoodsReceiptController::class, 'exportPDF'])->name('finished-goods-receipts.export-pdf');
+        Route::post('finished-goods-receipts/{finishedGoodsReceipt}/post', [FinishedGoodsReceiptController::class, 'post'])->name('finished-goods-receipts.post');
+        Route::resource('finished-goods-receipts', FinishedGoodsReceiptController::class);
     });
 
     Route::middleware('guest')->group(function () {

@@ -133,6 +133,11 @@ class WorkOrder extends Model
         return $this->hasManyThrough(ComponentIssueLine::class, ComponentIssue::class);
     }
 
+    public function finishedGoodsReceipts()
+    {
+        return $this->hasMany(FinishedGoodsReceipt::class);
+    }
+
     public function getRemainingQuantityAttribute($componentId)
     {
         return $this->quantity_planned - $this->quantity_produced;

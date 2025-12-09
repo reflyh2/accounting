@@ -5,11 +5,14 @@ namespace App\Services\Manufacturing;
 use App\Enums\AccountingEventCode;
 use App\Exceptions\InventoryException;
 use App\Models\ComponentIssue;
+use App\Models\FinishedGoodsReceipt;
 use App\Models\WorkOrder;
 use App\Services\Accounting\AccountingEventBuilder;
 use App\Services\Accounting\AccountingEventBus;
 use App\Services\Inventory\DTO\IssueDTO;
 use App\Services\Inventory\DTO\IssueLineDTO;
+use App\Services\Inventory\DTO\ReceiptDTO;
+use App\Services\Inventory\DTO\ReceiptLineDTO;
 use App\Services\Inventory\InventoryService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -148,6 +151,142 @@ class ManufacturingService
     private function roundCost(float $value): float
     {
         return round($value, self::COST_SCALE);
+    }
+
+    public function receiveFinishedGoods(FinishedGoodsReceipt $receipt, ?Authenticatable $actor = null): FinishedGoodsReceipt
+    {
+        if ($receipt->status === 'posted') {
+            throw new \InvalidArgumentException('Finished goods receipt sudah diposting.');
+        }
+
+        if (!$receipt->location_to_id) {
+            throw new \InvalidArgumentException('Location to harus dipilih untuk posting finished goods receipt.');
+        }
+
+        if ($receipt->quantity_good <= 0) {
+            throw new \InvalidArgumentException('Quantity good harus lebih dari nol.');
+        }
+
+        $receipt->load([
+            'workOrder',
+            'workOrder.componentIssues',
+            'finishedProductVariant',
+            'company',
+            'branch.branchGroup.company',
+        ]);
+
+        return DB::transaction(function () use ($receipt, $actor) {
+            // Calculate total material cost from posted component issues
+            $totalMaterialCost = $receipt->workOrder->componentIssues
+                ->where('status', 'posted')
+                ->sum('total_material_cost');
+
+            $totalMaterialCost = $this->roundCost($totalMaterialCost);
+            $laborCost = $this->roundCost((float) $receipt->labor_cost);
+            $overheadCost = $this->roundCost((float) $receipt->overhead_cost);
+            $totalCost = $this->roundCost($totalMaterialCost + $laborCost + $overheadCost);
+
+            // Calculate unit cost: (material + labor + overhead) / good_qty
+            $goodQty = $this->roundQuantity((float) $receipt->quantity_good);
+            $unitCost = $goodQty > 0 ? $this->roundCost($totalCost / $goodQty) : 0;
+
+            // Create inventory receipt
+            $receiptLine = new ReceiptLineDTO(
+                $receipt->finished_product_variant_id,
+                $receipt->uom_id,
+                $goodQty,
+                $unitCost,
+                $receipt->lot_id,
+                $receipt->serial_id,
+            );
+
+            $receiptDto = new ReceiptDTO(
+                CarbonImmutable::parse($receipt->receipt_date),
+                $receipt->location_to_id,
+                [$receiptLine],
+                sourceType: 'manufacturing',
+                sourceId: $receipt->work_order_id,
+                notes: $receipt->notes,
+                valuationMethod: null, // Will use company costing policy
+            );
+
+            $result = $this->inventoryService->receipt($receiptDto);
+
+            // Update finished goods receipt
+            $receipt->update([
+                'inventory_transaction_id' => $result->transaction->id,
+                'status' => 'posted',
+                'total_material_cost' => $totalMaterialCost,
+                'total_cost' => $totalCost,
+                'unit_cost' => $unitCost,
+                'posted_at' => now(),
+                'posted_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            $result->transaction->update([
+                'source_type' => FinishedGoodsReceipt::class,
+                'source_id' => $receipt->id,
+            ]);
+
+            // Update work order quantity produced
+            $receipt->workOrder->increment('quantity_produced', $goodQty);
+            if ($receipt->quantity_scrap > 0) {
+                $receipt->workOrder->increment('quantity_scrap', $this->roundQuantity((float) $receipt->quantity_scrap));
+            }
+
+            $this->dispatchReceiptEvent($receipt, $totalCost, $totalMaterialCost, $actor);
+
+            return $receipt->fresh([
+                'workOrder',
+                'finishedProductVariant',
+                'locationTo',
+                'uom',
+                'inventoryTransaction',
+                'lot',
+                'serial',
+            ]);
+        });
+    }
+
+    private function dispatchReceiptEvent(
+        FinishedGoodsReceipt $receipt,
+        float $totalCost,
+        float $totalMaterialCost,
+        ?Authenticatable $actor = null
+    ): void {
+        if ($totalCost <= 0) {
+            return;
+        }
+
+        $workOrder = $receipt->workOrder;
+
+        $payload = AccountingEventBuilder::forDocument(AccountingEventCode::MFG_RECEIPT_POSTED, [
+            'company_id' => $receipt->company_id,
+            'branch_id' => $receipt->branch_id,
+            'document_type' => 'finished_goods_receipt',
+            'document_id' => $receipt->id,
+            'document_number' => $receipt->receipt_number,
+            'currency_code' => 'IDR',
+            'exchange_rate' => 1.0,
+            'occurred_at' => CarbonImmutable::parse($receipt->receipt_date),
+            'actor_id' => $actor?->getAuthIdentifier(),
+            'meta' => [
+                'work_order_id' => $workOrder->id,
+                'work_order_number' => $workOrder->wo_number,
+                'inventory_transaction_id' => $receipt->inventory_transaction_id,
+                'total_material_cost' => $totalMaterialCost,
+                'labor_cost' => $receipt->labor_cost,
+                'overhead_cost' => $receipt->overhead_cost,
+            ],
+        ])->debit('inventory', $this->roundCost($totalCost))
+            ->credit('wip', $this->roundCost($totalCost))
+            ->build();
+
+        rescue(function () use ($payload) {
+            $this->accountingEventBus->dispatch($payload);
+        }, static function ($throwable) {
+            report($throwable);
+        });
     }
 
     private function roundQuantity(float $value): float
