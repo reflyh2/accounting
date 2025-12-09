@@ -179,6 +179,9 @@ function submitForm(createAnother = false) {
       </div>
       
       <div class="overflow-x-auto">
+         <h2 class="text-lg font-semibold">Entri Jurnal</h2>
+         <p class="text-sm text-gray-500 mb-4">Masukan akun, debit, kredit, mata uang, dan kurs yang sesuai dengan jurnal yang akan dibuat.</p>
+
          <table class="min-w-full bg-white border border-gray-300">
             <thead>
                <tr class="bg-gray-100">
