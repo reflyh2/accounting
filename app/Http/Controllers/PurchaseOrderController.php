@@ -311,6 +311,7 @@ class PurchaseOrderController extends Controller
                         'company_ids' => $product->companies->pluck('id')->all(),
                         'variants' => $product->variants->map(fn ($variant) => [
                             'id' => $variant->id,
+                            'barcode' => $variant->barcode,
                             'sku' => $variant->sku,
                             'uom_id' => $variant->uom_id,
                             'uom' => [

@@ -27,6 +27,7 @@ const form = useForm({
     exchange_rate: props.purchaseOrder.exchange_rate,
     notes: props.purchaseOrder.notes,
     lines: props.purchaseOrder.lines.map((line) => ({
+        product_id: line.product_id,
         product_variant_id: line.product_variant_id,
         uom_id: line.uom_id,
         quantity: Number(line.quantity),
@@ -57,6 +58,7 @@ const submit = () => {
                 </div>
 
                 <PurchaseOrderForm
+                    :purchase-order="purchaseOrder"
                     :form="form"
                     :companies="companies"
                     :branches="branches"

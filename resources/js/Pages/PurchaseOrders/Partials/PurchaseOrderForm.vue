@@ -15,6 +15,10 @@ import { formatNumber } from '@/utils/numberFormat';
 const page = usePage();
 
 const props = defineProps({
+    purchaseOrder: {
+        type: Object,
+        default: null,
+    },
     companies: {
         type: Array,
         required: true,
@@ -70,13 +74,14 @@ const form = useForm({
     notes: props.purchaseOrder?.notes || '',
     lines: props.purchaseOrder?.lines || [
         {
+            product_id: null,
             product_variant_id: null,
             uom_id: null,
             quantity: 1,
             unit_price: 0,
             tax_rate: 0,
-            description: null,
-            expected_date: null,
+            description: '',
+            expected_date: '',
         }
     ],
     create_another: false,
@@ -142,16 +147,29 @@ const variantLookup = computed(() => {
     return lookup;
 });
 
-const variantOptions = computed(() =>
-    filteredProducts.value.flatMap((product) =>
-        product.variants.map((variant) => ({
-            value: variant.id,
-            label: `${product.name} — ${variant.sku}`,
-            productName: product.name,
-            uom: variant.uom,
-        }))
-    )
+const productOptions = computed(() =>
+    filteredProducts.value.map((product) => ({
+        value: product.id,
+        label: product.name,
+    }))
 );
+
+function getVariantsForProduct(productId) {
+    if (!productId) {
+        return [];
+    }
+
+    const product = filteredProducts.value.find((p) => p.id === productId);
+    if (!product || !product.variants || product.variants.length === 0) {
+        return [];
+    }
+
+    return product.variants.map((variant) => ({
+        value: variant.id,
+        label: variant.sku,
+        description: variant.barcode,
+    }));
+}
 
 const uomOptions = computed(() => {
     if (!form.company_id) {
@@ -211,12 +229,22 @@ watch(
         }
 
         form.lines.forEach((line) => {
-            if (!line.product_variant_id) {
+            if (!line.product_id) {
                 return;
             }
 
-            if (!variantOptions.value.some((option) => option.value === line.product_variant_id)) {
+            const product = filteredProducts.value.find((p) => p.id === line.product_id);
+            if (!product) {
                 resetLine(line);
+                return;
+            }
+
+            if (line.product_variant_id) {
+                const variant = product.variants.find((v) => v.id === line.product_variant_id);
+                if (!variant) {
+                    line.product_variant_id = null;
+                    line.uom_id = null;
+                }
             }
         });
     }
@@ -230,7 +258,16 @@ onMounted(() => {
 });
 
 function lineUomOptions(line) {
-    const variant = variantLookup.value[line.product_variant_id];
+    if (!line.product_id || !line.product_variant_id) {
+        return uomOptions.value;
+    }
+
+    const product = filteredProducts.value.find((p) => p.id === line.product_id);
+    if (!product) {
+        return uomOptions.value;
+    }
+
+    const variant = product.variants.find((v) => v.id === line.product_variant_id);
     if (!variant?.uom?.kind) {
         return uomOptions.value;
     }
@@ -252,8 +289,9 @@ function removeLine(index) {
 
 function createEmptyLine() {
     return {
-        product_variant_id: '',
-        uom_id: '',
+        product_id: null,
+        product_variant_id: null,
+        uom_id: null,
         quantity: 1,
         unit_price: 0,
         tax_rate: 0,
@@ -263,8 +301,9 @@ function createEmptyLine() {
 }
 
 function resetLine(line) {
-    line.product_variant_id = '';
-    line.uom_id = '';
+    line.product_id = null;
+    line.product_variant_id = null;
+    line.uom_id = null;
     line.quantity = 1;
     line.unit_price = 0;
     line.tax_rate = 0;
@@ -272,9 +311,28 @@ function resetLine(line) {
     line.expected_date = '';
 }
 
-function syncVariant(line) {
-    const variant = variantLookup.value[line.product_variant_id];
+function handleProductChange(line) {
+    line.product_variant_id = null;
+    line.uom_id = null;
+    if (!line.description) {
+        const product = filteredProducts.value.find((p) => p.id === line.product_id);
+        if (product) {
+            line.description = product.name;
+        }
+    }
+}
 
+function syncVariant(line) {
+    if (!line.product_id || !line.product_variant_id) {
+        return;
+    }
+
+    const product = filteredProducts.value.find((p) => p.id === line.product_id);
+    if (!product) {
+        return;
+    }
+
+    const variant = product.variants.find((v) => v.id === line.product_variant_id);
     if (!variant) {
         return;
     }
@@ -282,7 +340,7 @@ function syncVariant(line) {
     line.uom_id = variant.uom?.id || line.uom_id;
 
     if (!line.description) {
-        line.description = variant.product_name;
+        line.description = product.name;
     }
 }
 
@@ -432,7 +490,7 @@ function lineTax(line) {
             <table class="min-w-full bg-white border border-gray-300">
                 <thead>
                     <tr class="bg-gray-100">
-                        <th class="border border-gray-300 text-sm min-w-48 lg:min-w-48 px-1.5 py-1.5">Produk / Varian</th>
+                        <th class="border border-gray-300 text-sm min-w-48 lg:min-w-48 px-1.5 py-1.5">Produk</th>
                         <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Satuan</th>
                         <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty</th>
                         <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Harga Satuan</th>
@@ -447,21 +505,25 @@ function lineTax(line) {
                 </thead>
                 <tbody>
                     <tr v-for="(line, index) in form.lines" :key="index">
-                        <td class="border border-gray-300 px-1.5 py-1.5">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppSelect
-                                v-model="line.product_variant_id"
-                                :options="variantOptions"
+                                v-model="line.product_id"
+                                :options="productOptions"
                                 placeholder="Pilih produk"
-                                :error="form.errors?.[`lines.${index}.product_variant_id`]"
+                                :error="form.errors?.[`lines.${index}.product_id`]"
                                 required
-                                @update:modelValue="syncVariant(line)"
+                                @update:modelValue="handleProductChange(line)"
                                 :margins="{ top: 0, right: 0, bottom: 2, left: 0 }"
                             />
-                            <AppInput
-                                v-model="line.description"
-                                placeholder="Deskripsi baris"
-                                class="mt-2"
-                                :error="form.errors?.[`lines.${index}.description`]"
+
+                            <AppSelect
+                                v-model="line.product_variant_id"
+                                :options="getVariantsForProduct(line.product_id)"
+                                :placeholder="!line.product_id ? 'Pilih produk terlebih dahulu' : getVariantsForProduct(line.product_id).length === 0 ? 'Produk tidak memiliki varian' : 'Pilih varian'"
+                                :error="form.errors?.[`lines.${index}.product_variant_id`]"
+                                :disabled="!line.product_id || getVariantsForProduct(line.product_id).length === 0"
+                                :required="line.product_id && getVariantsForProduct(line.product_id).length > 0"
+                                @update:modelValue="syncVariant(line)"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
