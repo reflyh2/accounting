@@ -20,6 +20,7 @@ use App\Services\Inventory\DTO\ReceiptDTO;
 use App\Services\Inventory\DTO\ReceiptLineDTO;
 use App\Services\Inventory\InventoryService;
 use App\Services\Inventory\UomConversionService;
+use App\Services\Tax\TaxService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Carbon;
@@ -37,6 +38,7 @@ class PurchaseService
         private readonly UomConversionService $uomConverter,
         private readonly InventoryService $inventoryService,
         private readonly AccountingEventBus $accountingEventBus,
+        private readonly TaxService $taxService,
     ) {
     }
 
@@ -414,6 +416,7 @@ class PurchaseService
         foreach ($lines as $line) {
             $variant = ProductVariant::with([
                 'product.companies:id',
+                'product.taxCategory',
                 'product',
                 'uom',
             ])->findOrFail($line['product_variant_id']);
@@ -434,7 +437,17 @@ class PurchaseService
 
             $quantity = $this->roundQuantity((float) $line['quantity']);
             $unitPrice = $this->roundMoney((float) $line['unit_price']);
-            $taxRate = isset($line['tax_rate']) ? (float) $line['tax_rate'] : 0.0;
+            
+            // Auto-resolve tax rate from product's tax category if not explicitly provided
+            $taxRate = $this->resolveTaxRate(
+                $variant,
+                [
+                    'company_id' => $companyId,
+                    'partner_id' => $purchaseOrder->partner_id,
+                    'date' => $purchaseOrder->order_date,
+                ],
+                $line['tax_rate'] ?? null
+            );
 
             try {
                 $quantityBase = $this->uomConverter->convert($quantity, $orderedUom->id, $baseUom->id);
@@ -734,6 +747,29 @@ class PurchaseService
         if ((int) $requestedCompanyId !== (int) $branchCompanyId) {
             throw new PurchaseOrderException('Cabang tidak sesuai dengan perusahaan yang dipilih.');
         }
+    }
+
+    /**
+     * Resolve tax rate for a product variant.
+     * Uses TaxService to get rate from tax rules if no explicit rate provided.
+     */
+    private function resolveTaxRate(
+        ProductVariant $variant,
+        array $context,
+        ?float $explicitRate
+    ): float {
+        // If explicit rate provided, use it
+        if ($explicitRate !== null) {
+            return round($explicitRate, 2);
+        }
+
+        // Auto-resolve from product's tax category via TaxService
+        $quote = $this->taxService->quote(
+            $variant->product,
+            $context
+        );
+
+        return round((float) ($quote['rate'] ?? 0), 2);
     }
 }
 

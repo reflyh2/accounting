@@ -1,6 +1,7 @@
 <script setup>
 import { computed, watch, ref, onMounted } from 'vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
+import axios from 'axios';
 import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
@@ -341,6 +342,49 @@ function syncVariant(line) {
 
     if (!line.description) {
         line.description = product.name;
+    }
+
+    // Auto-fetch suggested tax rate from API
+    fetchTaxQuote(line);
+}
+
+/**
+ * Fetch suggested tax rate from API for a line item.
+ * Uses product variant, partner, and company context to resolve tax rule.
+ */
+async function fetchTaxQuote(line) {
+    if (!line.product_variant_id) {
+        return;
+    }
+
+    try {
+        const params = {
+            product_variant_id: line.product_variant_id,
+        };
+
+        if (form.partner_id) {
+            params.partner_id = form.partner_id;
+        }
+
+        if (form.company_id) {
+            params.company_id = form.company_id;
+        }
+
+        if (form.order_date) {
+            params.date = form.order_date;
+        }
+
+        const response = await axios.get(route('api.tax-quote'), { params });
+        
+        if (response.data?.success && response.data?.data?.rate !== undefined) {
+            // Only auto-fill if tax_rate is still 0 (not manually set)
+            if (line.tax_rate === 0 || line.tax_rate === '0' || line.tax_rate === '') {
+                line.tax_rate = response.data.data.rate;
+            }
+        }
+    } catch (error) {
+        // Silently fail - user can still manually enter tax rate
+        console.warn('Failed to fetch tax quote:', error);
     }
 }
 

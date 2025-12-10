@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\InventoryAvailabilityController;
 use App\Http\Controllers\Api\PurchaseInvoiceLookupController;
 use App\Http\Controllers\Api\SalesInvoiceLookupController;
+use App\Http\Controllers\Api\TaxQuoteController;
 use App\Http\Controllers\ApiController;
 use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\AssetController;
@@ -152,6 +153,8 @@ Route::middleware([
                 ->name('sales-invoices.sales-orders');
             Route::get('inventory/availability', InventoryAvailabilityController::class)
                 ->name('inventory.availability');
+            Route::get('tax-quote', TaxQuoteController::class)
+                ->name('tax-quote');
             Route::get('lots/by-product-variant/{productVariantId}', function ($productVariantId) {
                 $lots = \App\Models\Lot::where('product_variant_id', $productVariantId)
                     ->where('status', 'active')

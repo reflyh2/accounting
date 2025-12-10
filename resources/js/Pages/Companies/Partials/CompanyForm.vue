@@ -10,6 +10,7 @@ import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 const props = defineProps({
    company: Object,
    filters: Object,
+   taxJurisdictions: Array,
 });
 
 const form = useForm({
@@ -17,6 +18,7 @@ const form = useForm({
    legal_name: props.company?.legal_name || '',
    tax_id: props.company?.tax_id || '',
    business_registration_number: props.company?.business_registration_number || '',
+   default_tax_jurisdiction_id: props.company?.default_tax_jurisdiction_id || '',
    address: props.company?.address || '',
    city: props.company?.city || '',
    province: props.company?.province || '',
@@ -85,6 +87,15 @@ function submitForm(createAnother = false) {
             v-model="form.tax_id"
             label="NPWP:"
             :error="form.errors.tax_id"
+         />
+         <AppSelect
+            v-model="form.default_tax_jurisdiction_id"
+            label="Jurisdiksi Pajak:"
+            :options="taxJurisdictions.map((jurisdiction) => ({
+               value: jurisdiction.id,
+               label: jurisdiction.name,
+            }))"
+            :error="form.errors.default_tax_jurisdiction_id"
          />
          <AppInput
             v-model="form.business_registration_number"

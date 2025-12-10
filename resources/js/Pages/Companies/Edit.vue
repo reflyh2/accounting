@@ -6,6 +6,7 @@ import AppBackLink from '@/Components/AppBackLink.vue';
 defineProps({
    company: Object,
    filters: Object,
+   taxJurisdictions: Array,
 });
 </script>
 
@@ -24,7 +25,7 @@ defineProps({
                   <div class="mb-6">
                      <AppBackLink :href="route('companies.index', filters)" text="Kembali ke Daftar Perusahaan" />
                   </div>
-                  <CompanyForm :company="company" :filters="filters" />
+                  <CompanyForm :company="company" :filters="filters" :tax-jurisdictions="taxJurisdictions" />
                </div>
             </div>
          </div>

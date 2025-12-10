@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Journal;
 use App\Models\BranchGroup;
+use App\Models\TaxJurisdiction;
 use Illuminate\Http\Request;
 use App\Exports\CompaniesExport;
 use Illuminate\Support\Facades\DB;
@@ -60,6 +61,7 @@ class CompanyController extends Controller
         
         return Inertia::render('Companies/Create', [
             'filters' => $filters,
+            'taxJurisdictions' => TaxJurisdiction::orderBy('name', 'asc')->get(),
         ]);
     }
 
@@ -83,6 +85,7 @@ class CompanyController extends Controller
             'business_license_expiry' => 'nullable|date',
             'tax_registration_number' => 'nullable|string|max:255',
             'social_security_number' => 'nullable|string|max:255',
+            'default_tax_jurisdiction_id' => 'nullable|exists:tax_jurisdictions,id',
         ]);
 
         $validated['tenant_id'] = $request->user()->tenant_id;
@@ -100,7 +103,7 @@ class CompanyController extends Controller
 
     public function show(Request $request, $companyId)
     {
-        $company = Company::withoutGlobalScope('userCompanies')->find($companyId);
+        $company = Company::withoutGlobalScope('userCompanies')->with('defaultTaxJurisdiction')->find($companyId);
         $filters = Session::get('companies.index_filters', []);
         
         return Inertia::render('Companies/Show', [
@@ -117,6 +120,7 @@ class CompanyController extends Controller
         return Inertia::render('Companies/Edit', [
             'company' => $company,
             'filters' => $filters,
+            'taxJurisdictions' => TaxJurisdiction::orderBy('name', 'asc')->get(),
         ]);
     }
 
@@ -141,6 +145,7 @@ class CompanyController extends Controller
             'business_license_expiry' => 'nullable|date',
             'tax_registration_number' => 'nullable|string|max:255',
             'social_security_number' => 'nullable|string|max:255',
+            'default_tax_jurisdiction_id' => 'nullable|exists:tax_jurisdictions,id',
         ]);
 
         $company->update($validated);

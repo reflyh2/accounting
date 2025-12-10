@@ -76,6 +76,10 @@ const showBanner = computed(() => {
                                 <p>{{ company.tax_id ?? '-' }}</p>
                             </div>
                             <div>
+                                <p class="font-semibold">Jurisdiksi Pajak:</p>
+                                <p>{{ company.default_tax_jurisdiction?.name ?? '-' }}</p>
+                            </div>
+                            <div>
                                 <p class="font-semibold">NIB:</p>
                                 <p>{{ company.business_registration_number ?? '-' }}</p>
                             </div>

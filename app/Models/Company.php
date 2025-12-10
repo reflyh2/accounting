@@ -40,6 +40,7 @@ class Company extends Model
         'costing_policy',
         'reservation_strictness',
         'default_backflush',
+        'default_tax_jurisdiction_id',
     ];
 
     protected $casts = [
@@ -147,5 +148,10 @@ class Company extends Model
     public function defaultIntercompanyPayableAccount()
     {
         return $this->belongsTo(Account::class, 'default_intercompany_payable_account_id');
+    }
+
+    public function defaultTaxJurisdiction()
+    {
+        return $this->belongsTo(TaxJurisdiction::class, 'default_tax_jurisdiction_id');
     }
 }
