@@ -380,7 +380,7 @@ Route::middleware([
         Route::get('asset-financing-payments/{assetFinancingPayment}/print', [AssetFinancingPaymentController::class, 'print'])->name('asset-financing-payments.print');
         Route::resource('asset-financing-payments', AssetFinancingPaymentController::class);
 
-        Route::put('asset-financing-schedules/{schedule}/pay', [AssetFinancingScheduleController::class, 'pay'])->name('asset-financing-schedules.pay');
+        // Route::put('asset-financing-schedules/{schedule}/pay', [AssetFinancingScheduleController::class, 'pay'])->name('asset-financing-schedules.pay');
 
         // Asset Transfers Routes
         Route::delete('asset-transfers/bulk-delete', [AssetTransferController::class, 'bulkDelete'])->name('asset-transfers.bulk-delete');
