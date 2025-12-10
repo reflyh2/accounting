@@ -72,6 +72,10 @@ const isSettingsActive = computed(() => {
         || route().current('partners.*')
         || route().current('roles.*')
         || route().current('users.*')
+        || route().current('tax-jurisdictions.*')
+        || route().current('tax-components.*')
+        || route().current('tax-categories.*')
+        || route().current('tax-rules.*')
 });
 
 const isAccountingActive = computed(() => {
@@ -569,6 +573,18 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Hak Akses Pengguna
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink 
+                                :href="route('tax-jurisdictions.index')" 
+                                :active="
+                                    route().current('tax-jurisdictions.*')
+                                    || route().current('tax-components.*')
+                                    || route().current('tax-categories.*')
+                                    || route().current('tax-rules.*')
+                                " 
+                                class="pl-11"
+                            >
+                                Pajak
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -1367,6 +1383,18 @@ function toggleSidebar() {
                                         >
                                             Hak Akses Pengguna
                                         </NavLink>
+                                        <NavLink 
+                                            :href="route('tax-jurisdictions.index')" 
+                                            :active="
+                                                route().current('tax-jurisdictions.*')
+                                                || route().current('tax-components.*')
+                                                || route().current('tax-categories.*')
+                                                || route().current('tax-rules.*')
+                                            " 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Pajak
+                                        </NavLink>
                                     </div>
                                 </div>
                                 
@@ -1414,6 +1442,18 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Hak Akses Pengguna
+                                        </NavLink>
+                                        <NavLink 
+                                            :href="route('tax-jurisdictions.index')" 
+                                            :active="
+                                                route().current('tax-jurisdictions.*')
+                                                || route().current('tax-components.*')
+                                                || route().current('tax-categories.*')
+                                                || route().current('tax-rules.*')
+                                            " 
+                                            class="flex items-center"
+                                        >
+                                            Pajak
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>

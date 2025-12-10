@@ -79,6 +79,10 @@ use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesReturnController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkOrderController;
+use App\Http\Controllers\TaxJurisdictionController;
+use App\Http\Controllers\TaxComponentController;
+use App\Http\Controllers\TaxCategoryController;
+use App\Http\Controllers\TaxRuleController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Stancl\Tenancy\Features\UserImpersonation;
@@ -444,6 +448,31 @@ Route::middleware([
         Route::put('internal-debt-payments/{internalDebtPayment}/approve', [InternalDebtPaymentController::class, 'approve'])->name('internal-debt-payments.approve');
         Route::put('internal-debt-payments/{internalDebtPayment}/reject', [InternalDebtPaymentController::class, 'reject'])->name('internal-debt-payments.reject');
         Route::resource('internal-debt-payments', InternalDebtPaymentController::class);
+
+        // Tax Management Routes
+        Route::delete('tax-jurisdictions/bulk-delete', [TaxJurisdictionController::class, 'bulkDelete'])->name('tax-jurisdictions.bulk-delete');
+        Route::get('tax-jurisdictions/export-xlsx', [TaxJurisdictionController::class, 'exportXLSX'])->name('tax-jurisdictions.export-xlsx');
+        Route::get('tax-jurisdictions/export-csv', [TaxJurisdictionController::class, 'exportCSV'])->name('tax-jurisdictions.export-csv');
+        Route::get('tax-jurisdictions/export-pdf', [TaxJurisdictionController::class, 'exportPDF'])->name('tax-jurisdictions.export-pdf');
+        Route::resource('tax-jurisdictions', TaxJurisdictionController::class);
+
+        Route::delete('tax-components/bulk-delete', [TaxComponentController::class, 'bulkDelete'])->name('tax-components.bulk-delete');
+        Route::get('tax-components/export-xlsx', [TaxComponentController::class, 'exportXLSX'])->name('tax-components.export-xlsx');
+        Route::get('tax-components/export-csv', [TaxComponentController::class, 'exportCSV'])->name('tax-components.export-csv');
+        Route::get('tax-components/export-pdf', [TaxComponentController::class, 'exportPDF'])->name('tax-components.export-pdf');
+        Route::resource('tax-components', TaxComponentController::class);
+
+        Route::delete('tax-categories/bulk-delete', [TaxCategoryController::class, 'bulkDelete'])->name('tax-categories.bulk-delete');
+        Route::get('tax-categories/export-xlsx', [TaxCategoryController::class, 'exportXLSX'])->name('tax-categories.export-xlsx');
+        Route::get('tax-categories/export-csv', [TaxCategoryController::class, 'exportCSV'])->name('tax-categories.export-csv');
+        Route::get('tax-categories/export-pdf', [TaxCategoryController::class, 'exportPDF'])->name('tax-categories.export-pdf');
+        Route::resource('tax-categories', TaxCategoryController::class);
+
+        Route::delete('tax-rules/bulk-delete', [TaxRuleController::class, 'bulkDelete'])->name('tax-rules.bulk-delete');
+        Route::get('tax-rules/export-xlsx', [TaxRuleController::class, 'exportXLSX'])->name('tax-rules.export-xlsx');
+        Route::get('tax-rules/export-csv', [TaxRuleController::class, 'exportCSV'])->name('tax-rules.export-csv');
+        Route::get('tax-rules/export-pdf', [TaxRuleController::class, 'exportPDF'])->name('tax-rules.export-pdf');
+        Route::resource('tax-rules', TaxRuleController::class);
 
         // Catalog Routes
         Route::prefix('catalog')->name('catalog.')->group(function () {
