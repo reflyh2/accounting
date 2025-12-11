@@ -44,8 +44,8 @@ class GoodsReceiptController extends Controller
 
         $query = GoodsReceipt::query()
             ->with([
-                'purchaseOrder.partner',
-                'purchaseOrder.currency',
+                'purchaseOrders',
+                'supplier',
                 'branch.branchGroup.company',
                 'location',
                 'currency',
@@ -122,38 +122,55 @@ class GoodsReceiptController extends Controller
 
     public function create(Request $request): Response
     {
-        $selectedId = $request->integer('purchase_order_id');
-        $selectedPurchaseOrder = $selectedId ? $this->purchaseOrderDetail($selectedId) : null;
-        $locations = $selectedPurchaseOrder
-            ? $this->locationOptions($selectedPurchaseOrder['branch']['id'])
-            : [];
+        $selectedPartnerId = $request->integer('partner_id') ?: null;
+        $selectedIds = $request->input('purchase_order_ids', []);
+        if (!is_array($selectedIds)) {
+            $selectedIds = $selectedIds ? [$selectedIds] : [];
+        }
+        $selectedIds = array_filter(array_map('intval', $selectedIds));
+
+        $selectedPurchaseOrders = [];
+        $locations = [];
+
+        if (!empty($selectedIds)) {
+            $selectedPurchaseOrders = $this->purchaseOrdersDetail($selectedIds);
+            if (!empty($selectedPurchaseOrders)) {
+                $branchId = $selectedPurchaseOrders[0]['branch']['id'] ?? null;
+                if ($branchId) {
+                    $locations = $this->locationOptions($branchId);
+                }
+            }
+        }
 
         return Inertia::render('GoodsReceipts/Create', [
-            'purchaseOrders' => $this->availablePurchaseOrders($selectedId),
-            'selectedPurchaseOrder' => $selectedPurchaseOrder,
+            'purchaseOrders' => $this->availablePurchaseOrders($selectedIds, $selectedPartnerId),
+            'selectedPurchaseOrders' => $selectedPurchaseOrders,
+            'selectedPartnerId' => $selectedPartnerId,
+            'suppliers' => $this->supplierOptions(),
             'locations' => $locations,
-            'valuationMethods' => $this->valuationOptions(),
-            'defaultValuationMethod' => config('inventory.default_valuation_method', 'fifo'),
+            'filters' => Session::get('goods_receipts.index_filters', []),
         ]);
     }
 
     public function store(Request $request, PurchaseService $purchaseService): RedirectResponse
     {
         $data = $request->validate([
-            'purchase_order_id' => ['required', 'exists:purchase_orders,id'],
+            'supplier_id' => ['required', 'exists:partners,id'],
+            'purchase_order_ids' => ['required', 'array', 'min:1'],
+            'purchase_order_ids.*' => ['required', 'exists:purchase_orders,id'],
             'receipt_date' => ['required', 'date'],
             'location_id' => ['required', 'exists:locations,id'],
-            'valuation_method' => ['nullable', 'in:fifo,moving_avg'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.purchase_order_line_id' => ['required', 'exists:purchase_order_lines,id'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
         ]);
 
-        $purchaseOrder = PurchaseOrder::findOrFail($data['purchase_order_id']);
-
         try {
-            $goodsReceipt = $purchaseService->postGrn($purchaseOrder, $data);
+            $goodsReceipt = $purchaseService->createGoodsReceipt(
+                $data['purchase_order_ids'],
+                $data
+            );
         } catch (PurchaseOrderException $exception) {
             return Redirect::back()
                 ->withInput()
@@ -170,9 +187,12 @@ class GoodsReceiptController extends Controller
             'purchaseOrder.partner',
             'purchaseOrder.branch.branchGroup.company',
             'purchaseOrder.currency',
+            'purchaseOrders.partner',
+            'purchaseOrders.branch.branchGroup.company',
             'lines.variant.product',
             'lines.uom',
             'lines.baseUom',
+            'lines.purchaseOrderLine',
             'location',
             'currency',
             'inventoryTransaction',
@@ -182,6 +202,59 @@ class GoodsReceiptController extends Controller
             'goodsReceipt' => $this->transformGoodsReceipt($goodsReceipt, includeLines: true),
             'filters' => Session::get('goods_receipts.index_filters', []),
         ]);
+    }
+
+    public function edit(GoodsReceipt $goodsReceipt): Response
+    {
+        $goodsReceipt->load([
+            'purchaseOrders.lines.variant.product',
+            'purchaseOrders.lines.uom',
+            'purchaseOrders.partner',
+            'purchaseOrders.branch.branchGroup.company',
+            'purchaseOrder.lines.variant.product',
+            'purchaseOrder.lines.uom',
+            'purchaseOrder.partner',
+            'purchaseOrder.branch.branchGroup.company',
+            'lines.variant.product',
+            'lines.uom',
+            'lines.purchaseOrderLine',
+            'location',
+        ]);
+
+        $locations = $this->locationOptions($goodsReceipt->branch_id);
+
+        // Get available PO lines for the goods receipt
+        $selectedPurchaseOrders = $this->getGoodsReceiptPurchaseOrders($goodsReceipt);
+
+        return Inertia::render('GoodsReceipts/Edit', [
+            'goodsReceipt' => $this->transformGoodsReceiptForEdit($goodsReceipt),
+            'selectedPurchaseOrders' => $selectedPurchaseOrders,
+            'locations' => $locations,
+            'filters' => Session::get('goods_receipts.index_filters', []),
+        ]);
+    }
+
+    public function update(Request $request, GoodsReceipt $goodsReceipt, PurchaseService $purchaseService): RedirectResponse
+    {
+        $data = $request->validate([
+            'receipt_date' => ['required', 'date'],
+            'location_id' => ['required', 'exists:locations,id'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.purchase_order_line_id' => ['required', 'exists:purchase_order_lines,id'],
+            'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+        ]);
+
+        try {
+            $goodsReceipt = $purchaseService->updateGoodsReceipt($goodsReceipt, $data);
+        } catch (PurchaseOrderException $exception) {
+            return Redirect::back()
+                ->withInput()
+                ->withErrors(['lines' => $exception->getMessage()]);
+        }
+
+        return Redirect::route('goods-receipts.show', $goodsReceipt->id)
+            ->with('success', 'Penerimaan Barang berhasil diperbarui.');
     }
 
     private function transformGoodsReceipt(GoodsReceipt $receipt, bool $includeLines = false): array
@@ -231,6 +304,21 @@ class GoodsReceiptController extends Controller
                     'code' => $receipt->purchaseOrder->currency->code,
                 ] : null,
             ] : null,
+            'purchase_orders' => $receipt->purchaseOrders->map(function ($po) {
+                return [
+                    'id' => $po->id,
+                    'order_number' => $po->order_number,
+                    'status' => $po->status,
+                    'partner' => $po->partner ? [
+                        'id' => $po->partner->id,
+                        'name' => $po->partner->name,
+                    ] : null,
+                ];
+            })->values(),
+            'supplier' => $receipt->supplier ? [
+                'id' => $receipt->supplier->id,
+                'name' => $receipt->supplier->name,
+            ] : null,
             'location' => $receipt->location ? [
                 'id' => $receipt->location->id,
                 'code' => $receipt->location->code,
@@ -278,7 +366,7 @@ class GoodsReceiptController extends Controller
         return $data;
     }
 
-    private function availablePurchaseOrders(?int $selectedId = null)
+    private function availablePurchaseOrders(array $selectedIds = [], ?int $partnerId = null)
     {
         $query = PurchaseOrder::query()
             ->with(['partner', 'branch.branchGroup.company', 'lines'])
@@ -287,16 +375,27 @@ class GoodsReceiptController extends Controller
                 PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
             ])
             ->orderByDesc('order_date')
-            ->limit(25);
+            ->limit(50);
+
+        if ($partnerId) {
+            $query->where('partner_id', $partnerId);
+        }
 
         $purchaseOrders = $query->get();
 
-        if ($selectedId && !$purchaseOrders->firstWhere('id', $selectedId)) {
-            $selected = PurchaseOrder::with(['partner', 'branch.branchGroup.company', 'lines'])
-                ->find($selectedId);
+        // Include any selected POs that aren't in the query result
+        if (!empty($selectedIds)) {
+            $existingIds = $purchaseOrders->pluck('id')->toArray();
+            $missingIds = array_diff($selectedIds, $existingIds);
 
-            if ($selected) {
-                $purchaseOrders->push($selected);
+            if (!empty($missingIds)) {
+                $additionalPOs = PurchaseOrder::with(['partner', 'branch.branchGroup.company', 'lines'])
+                    ->whereIn('id', $missingIds)
+                    ->get();
+
+                foreach ($additionalPOs as $po) {
+                    $purchaseOrders->push($po);
+                }
             }
         }
 
@@ -309,6 +408,7 @@ class GoodsReceiptController extends Controller
                 'id' => $purchaseOrder->id,
                 'order_number' => $purchaseOrder->order_number,
                 'status' => $purchaseOrder->status,
+                'order_date' => optional($purchaseOrder->order_date)?->toDateString(),
                 'partner' => $purchaseOrder->partner ? [
                     'id' => $purchaseOrder->partner->id,
                     'name' => $purchaseOrder->partner->name,
@@ -322,34 +422,150 @@ class GoodsReceiptController extends Controller
         });
     }
 
-    private function purchaseOrderDetail(int $purchaseOrderId): ?array
+    private function purchaseOrdersDetail(array $purchaseOrderIds): array
     {
-        $purchaseOrder = PurchaseOrder::with([
+        $purchaseOrders = PurchaseOrder::with([
             'partner',
             'branch.branchGroup.company',
             'currency',
             'lines.variant.product',
             'lines.uom',
             'lines.baseUom',
-        ])->find($purchaseOrderId);
+        ])->whereIn('id', $purchaseOrderIds)->get();
 
-        if (!$purchaseOrder) {
-            return null;
+        $result = [];
+
+        foreach ($purchaseOrders as $purchaseOrder) {
+            $lines = $purchaseOrder->lines->map(function ($line) {
+                $remaining = max(0, (float) $line->quantity - (float) $line->quantity_received);
+                return [
+                    'id' => $line->id,
+                    'line_number' => $line->line_number,
+                    'description' => $line->description,
+                    'variant' => $line->variant ? [
+                        'id' => $line->variant->id,
+                        'sku' => $line->variant->sku,
+                        'product_name' => $line->variant->product?->name,
+                    ] : null,
+                    'uom' => [
+                        'id' => $line->uom?->id,
+                        'code' => $line->uom?->code,
+                    ],
+                    'ordered_quantity' => (float) $line->quantity,
+                    'received_quantity' => (float) $line->quantity_received,
+                    'remaining_quantity' => $remaining,
+                    'unit_price' => (float) $line->unit_price,
+                ];
+            })->values();
+
+            $result[] = [
+                'id' => $purchaseOrder->id,
+                'order_number' => $purchaseOrder->order_number,
+                'status' => $purchaseOrder->status,
+                'partner' => $purchaseOrder->partner ? [
+                    'id' => $purchaseOrder->partner->id,
+                    'name' => $purchaseOrder->partner->name,
+                ] : null,
+                'branch' => $purchaseOrder->branch ? [
+                    'id' => $purchaseOrder->branch->id,
+                    'name' => $purchaseOrder->branch->name,
+                    'company' => $purchaseOrder->branch->branchGroup?->company ? [
+                        'id' => $purchaseOrder->branch->branchGroup->company->id,
+                        'name' => $purchaseOrder->branch->branchGroup->company->name,
+                    ] : null,
+                ] : null,
+                'currency' => $purchaseOrder->currency ? [
+                    'id' => $purchaseOrder->currency->id,
+                    'code' => $purchaseOrder->currency->code,
+                ] : null,
+                'lines' => $lines,
+            ];
         }
 
-        $hasRemaining = $purchaseOrder->lines->contains(function ($line) {
-            return ((float) $line->quantity - (float) $line->quantity_received) > 0.0001;
-        });
+        return $result;
+    }
 
-        if (!$hasRemaining) {
-            return null;
+    private function purchaseOrderDetail(int $purchaseOrderId): ?array
+    {
+        $result = $this->purchaseOrdersDetail([$purchaseOrderId]);
+        return $result[0] ?? null;
+    }
+
+    private function getGoodsReceiptPurchaseOrders(GoodsReceipt $goodsReceipt): array
+    {
+        // Try multi-PO relationship first
+        $purchaseOrders = $goodsReceipt->purchaseOrders;
+
+        // Fallback to single PO
+        if ($purchaseOrders->isEmpty() && $goodsReceipt->purchaseOrder) {
+            $purchaseOrders = collect([$goodsReceipt->purchaseOrder]);
         }
 
-        $lines = $purchaseOrder->lines->map(function ($line) {
-            $remaining = max(0, (float) $line->quantity - (float) $line->quantity_received);
+        $result = [];
+
+        foreach ($purchaseOrders as $purchaseOrder) {
+            // Calculate remaining quantity considering current GRN lines
+            $grnLinesByPoLineId = $goodsReceipt->lines->keyBy('purchase_order_line_id');
+
+            $lines = $purchaseOrder->lines->map(function ($line) use ($grnLinesByPoLineId) {
+                $grnLine = $grnLinesByPoLineId->get($line->id);
+                $currentGrnQty = $grnLine ? (float) $grnLine->quantity : 0;
+
+                // Remaining = ordered - received (from other GRNs) + current GRN qty (to allow editing)
+                $receivedFromOthers = max(0, (float) $line->quantity_received - $currentGrnQty);
+                $remaining = max(0, (float) $line->quantity - $receivedFromOthers);
+
+                return [
+                    'id' => $line->id,
+                    'line_number' => $line->line_number,
+                    'description' => $line->description,
+                    'variant' => $line->variant ? [
+                        'id' => $line->variant->id,
+                        'sku' => $line->variant->sku,
+                        'product_name' => $line->variant->product?->name,
+                    ] : null,
+                    'uom' => [
+                        'id' => $line->uom?->id,
+                        'code' => $line->uom?->code,
+                    ],
+                    'ordered_quantity' => (float) $line->quantity,
+                    'received_quantity' => $receivedFromOthers,
+                    'remaining_quantity' => $remaining,
+                    'current_grn_quantity' => $currentGrnQty,
+                    'unit_price' => (float) $line->unit_price,
+                ];
+            })->values();
+
+            $result[] = [
+                'id' => $purchaseOrder->id,
+                'order_number' => $purchaseOrder->order_number,
+                'status' => $purchaseOrder->status,
+                'partner' => $purchaseOrder->partner ? [
+                    'id' => $purchaseOrder->partner->id,
+                    'name' => $purchaseOrder->partner->name,
+                ] : null,
+                'branch' => $purchaseOrder->branch ? [
+                    'id' => $purchaseOrder->branch->id,
+                    'name' => $purchaseOrder->branch->name,
+                    'company' => $purchaseOrder->branch->branchGroup?->company ? [
+                        'id' => $purchaseOrder->branch->branchGroup->company->id,
+                        'name' => $purchaseOrder->branch->branchGroup->company->name,
+                    ] : null,
+                ] : null,
+                'lines' => $lines,
+            ];
+        }
+
+        return $result;
+    }
+
+    private function transformGoodsReceiptForEdit(GoodsReceipt $receipt): array
+    {
+        $lines = $receipt->lines->map(function ($line) {
             return [
                 'id' => $line->id,
-                'line_number' => $line->line_number,
+                'purchase_order_line_id' => $line->purchase_order_line_id,
+                'quantity' => (float) $line->quantity,
                 'description' => $line->description,
                 'variant' => $line->variant ? [
                     'id' => $line->variant->id,
@@ -360,32 +576,19 @@ class GoodsReceiptController extends Controller
                     'id' => $line->uom?->id,
                     'code' => $line->uom?->code,
                 ],
-                'ordered_quantity' => (float) $line->quantity,
-                'received_quantity' => (float) $line->quantity_received,
-                'remaining_quantity' => $remaining,
-                'unit_price' => (float) $line->unit_price,
             ];
         })->values();
 
         return [
-            'id' => $purchaseOrder->id,
-            'order_number' => $purchaseOrder->order_number,
-            'status' => $purchaseOrder->status,
-            'partner' => $purchaseOrder->partner ? [
-                'id' => $purchaseOrder->partner->id,
-                'name' => $purchaseOrder->partner->name,
-            ] : null,
-            'branch' => $purchaseOrder->branch ? [
-                'id' => $purchaseOrder->branch->id,
-                'name' => $purchaseOrder->branch->name,
-                'company' => $purchaseOrder->branch->branchGroup?->company ? [
-                    'id' => $purchaseOrder->branch->branchGroup->company->id,
-                    'name' => $purchaseOrder->branch->branchGroup->company->name,
-                ] : null,
-            ] : null,
-            'currency' => $purchaseOrder->currency ? [
-                'id' => $purchaseOrder->currency->id,
-                'code' => $purchaseOrder->currency->code,
+            'id' => $receipt->id,
+            'receipt_number' => $receipt->receipt_number,
+            'receipt_date' => optional($receipt->receipt_date)?->toDateString(),
+            'location_id' => $receipt->location_id,
+            'notes' => $receipt->notes,
+            'location' => $receipt->location ? [
+                'id' => $receipt->location->id,
+                'code' => $receipt->location->code,
+                'name' => $receipt->location->name,
             ] : null,
             'lines' => $lines,
         ];
@@ -398,9 +601,30 @@ class GoodsReceiptController extends Controller
             ->get()
             ->map(fn ($location) => [
                 'id' => $location->id,
-                'label' => "{$location->code} — {$location->name}",
+                'name' => $location->name,
+                'code' => $location->code,
             ])
             ->values();
+    }
+
+    private function supplierOptions(): array
+    {
+        return Partner::query()
+            ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
+            ->whereHas('purchaseOrders', function ($q) {
+                $q->whereIn('status', [
+                    PurchaseOrderStatus::SENT->value,
+                    PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
+                ]);
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($partner) => [
+                'value' => $partner->id,
+                'label' => $partner->name,
+            ])
+            ->values()
+            ->toArray();
     }
 
     private function statusOptions(): array
@@ -438,14 +662,34 @@ class GoodsReceiptController extends Controller
             ->values();
     }
 
-    private function supplierOptions()
+    /**
+     * API endpoint for suppliers with available Purchase Orders.
+     * Used by AppPopoverSearch component.
+     */
+    public function apiSuppliersWithPOs(Request $request)
     {
-        return Partner::query()
-            ->with('roles')
+        $query = Partner::query()
             ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->values();
+            ->whereHas('purchaseOrders', function ($q) {
+                $q->whereIn('status', [
+                    PurchaseOrderStatus::SENT->value,
+                    PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
+                ]);
+            });
+
+        if ($request->search) {
+            $search = strtolower($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('lower(name) like ?', ["%{$search}%"])
+                  ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
+            });
+        }
+
+        $sort = $request->input('sort', 'name');
+        $order = $request->input('order', 'asc');
+        $query->orderBy($sort, $order);
+
+        return $query->paginate($request->input('per_page', 10))->withQueryString();
     }
 }
 

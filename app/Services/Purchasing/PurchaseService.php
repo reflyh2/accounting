@@ -317,6 +317,390 @@ class PurchaseService
         });
     }
 
+    /**
+     * Create a goods receipt from multiple purchase orders.
+     *
+     * @param array<int> $purchaseOrderIds
+     * @param array $payload
+     * @param Authenticatable|null $actor
+     * @return GoodsReceipt
+     */
+    public function createGoodsReceipt(array $purchaseOrderIds, array $payload, ?Authenticatable $actor = null): GoodsReceipt
+    {
+        $actor ??= Auth::user();
+
+        if (empty($purchaseOrderIds)) {
+            throw new PurchaseOrderException('Minimal satu Purchase Order harus dipilih.');
+        }
+
+        $purchaseOrders = PurchaseOrder::with([
+            'lines.variant.product',
+            'lines.uom',
+            'lines.baseUom',
+            'partner',
+            'branch.branchGroup.company',
+            'currency',
+        ])->whereIn('id', $purchaseOrderIds)->get();
+
+        if ($purchaseOrders->count() !== count($purchaseOrderIds)) {
+            throw new PurchaseOrderException('Satu atau lebih Purchase Order tidak ditemukan.');
+        }
+
+        // Validate all POs have valid status
+        foreach ($purchaseOrders as $po) {
+            if (!in_array($po->status, [
+                PurchaseOrderStatus::SENT->value,
+                PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
+            ], true)) {
+                throw new PurchaseOrderException("Purchase Order {$po->order_number} belum siap untuk diterima.");
+            }
+        }
+
+        // Validate all POs belong to the same branch
+        $branchIds = $purchaseOrders->pluck('branch_id')->unique();
+        if ($branchIds->count() > 1) {
+            throw new PurchaseOrderException('Semua Purchase Order harus berasal dari cabang yang sama.');
+        }
+
+        $firstPo = $purchaseOrders->first();
+
+        if (!isset($payload['location_id'])) {
+            throw new PurchaseOrderException('Lokasi penerimaan wajib dipilih.');
+        }
+
+        if (!isset($payload['receipt_date'])) {
+            throw new PurchaseOrderException('Tanggal penerimaan wajib diisi.');
+        }
+
+        $receiptDate = Carbon::parse($payload['receipt_date']);
+
+        /** @var Location $location */
+        $location = Location::with('branch.branchGroup.company')->findOrFail($payload['location_id']);
+
+        if ((int) $location->branch_id !== (int) $firstPo->branch_id) {
+            throw new PurchaseOrderException('Lokasi penerimaan harus berasal dari cabang yang sama dengan Purchase Order.');
+        }
+
+        // Get valuation method from company's costing_policy
+        $valuationMethod = $location->branch?->branchGroup?->company?->costing_policy
+            ?? config('inventory.default_valuation_method', 'fifo');
+
+        // Prepare lines from all POs
+        $preparedLines = $this->prepareGoodsReceiptLinesFromMultiplePOs($purchaseOrders, $payload['lines'] ?? []);
+
+        if (empty($preparedLines)) {
+            throw new PurchaseOrderException('Minimal satu baris penerimaan harus diisi.');
+        }
+
+        return DB::transaction(function () use (
+            $purchaseOrders,
+            $firstPo,
+            $preparedLines,
+            $location,
+            $receiptDate,
+            $valuationMethod,
+            $payload,
+            $actor
+        ) {
+            $receiptNumber = $this->generateGoodsReceiptNumber(
+                $firstPo->company_id,
+                $firstPo->branch_id,
+                $receiptDate
+            );
+
+            $goodsReceipt = GoodsReceipt::create([
+                'purchase_order_id' => null, // Null for multi-PO receipts
+                'supplier_id' => $payload['supplier_id'] ?? null,
+                'company_id' => $firstPo->company_id,
+                'branch_id' => $firstPo->branch_id,
+                'currency_id' => $firstPo->currency_id,
+                'location_id' => $location->id,
+                'receipt_number' => $receiptNumber,
+                'status' => GoodsReceiptStatus::DRAFT->value,
+                'receipt_date' => $receiptDate,
+                'valuation_method' => strtolower($valuationMethod),
+                'exchange_rate' => $firstPo->exchange_rate,
+                'notes' => $payload['notes'] ?? null,
+                'created_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            // Attach all purchase orders via pivot table
+            $goodsReceipt->purchaseOrders()->attach($purchaseOrders->pluck('id'));
+
+            $totalQuantityBase = 0.0;
+            $totalValue = 0.0;
+            $totalValueBase = 0.0;
+
+            foreach ($preparedLines as $plan) {
+                $line = $plan['line'];
+                $goodsReceipt->lines()->create([
+                    'purchase_order_line_id' => $line->id,
+                    'product_id' => $line->product_id,
+                    'product_variant_id' => $line->product_variant_id,
+                    'description' => $line->description,
+                    'uom_id' => $line->uom_id,
+                    'base_uom_id' => $line->base_uom_id,
+                    'quantity' => $plan['quantity'],
+                    'quantity_base' => $plan['quantity_base'],
+                    'unit_price' => $plan['unit_price'],
+                    'unit_cost_base' => $plan['unit_cost_base'],
+                    'line_total' => $plan['line_total'],
+                    'line_total_base' => $plan['line_total_base'],
+                ]);
+
+                // Update PO line received quantity
+                $line->quantity_received = $this->roundQuantity(
+                    (float) $line->quantity_received + $plan['quantity']
+                );
+                $line->quantity_received_base = $this->roundQuantity(
+                    (float) $line->quantity_received_base + $plan['quantity_base']
+                );
+                $line->save();
+
+                $totalQuantityBase += $plan['quantity_base'];
+                $totalValue += $plan['line_total'];
+                $totalValueBase += $plan['line_total_base'];
+            }
+
+            // Create inventory transaction
+            $receiptDto = new ReceiptDTO(
+                $receiptDate,
+                $location->id,
+                array_map(
+                    fn (array $plan) => new ReceiptLineDTO(
+                        $plan['line']->product_variant_id,
+                        $plan['line']->base_uom_id,
+                        $plan['quantity_base'],
+                        $plan['unit_cost_base']
+                    ),
+                    $preparedLines
+                ),
+                sourceType: GoodsReceipt::class,
+                sourceId: $goodsReceipt->id,
+                notes: $payload['notes'] ?? null,
+                valuationMethod: $valuationMethod,
+            );
+
+            $result = $this->inventoryService->receipt($receiptDto);
+
+            $goodsReceipt->update([
+                'inventory_transaction_id' => $result->transaction->id,
+                'status' => GoodsReceiptStatus::POSTED->value,
+                'posted_at' => now(),
+                'posted_by' => $actor?->getAuthIdentifier(),
+                'total_quantity' => $this->roundQuantity($totalQuantityBase),
+                'total_value' => $this->roundMoney($totalValue),
+                'total_value_base' => $this->roundCost($totalValueBase),
+                'updated_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            // Sync all PO statuses
+            foreach ($purchaseOrders as $po) {
+                $po->load('lines');
+                $this->syncPurchaseOrderReceiptStatus($po, $actor);
+            }
+
+            $goodsReceipt->load([
+                'purchaseOrders.partner',
+                'purchaseOrders.branch.branchGroup.company',
+                'lines.variant.product',
+                'currency',
+                'location',
+                'inventoryTransaction',
+            ]);
+
+            // Dispatch accounting event
+            $this->dispatchGoodsReceiptEventMultiPO($goodsReceipt, $totalValueBase, $actor);
+
+            return $goodsReceipt;
+        });
+    }
+
+    /**
+     * Update an existing goods receipt.
+     */
+    public function updateGoodsReceipt(GoodsReceipt $goodsReceipt, array $payload, ?Authenticatable $actor = null): GoodsReceipt
+    {
+        $actor ??= Auth::user();
+
+        $goodsReceipt->loadMissing([
+            'lines.purchaseOrderLine',
+            'purchaseOrders.lines',
+            'inventoryTransaction',
+            'location.branch.branchGroup.company',
+        ]);
+
+        if (!isset($payload['location_id'])) {
+            throw new PurchaseOrderException('Lokasi penerimaan wajib dipilih.');
+        }
+
+        if (!isset($payload['receipt_date'])) {
+            throw new PurchaseOrderException('Tanggal penerimaan wajib diisi.');
+        }
+
+        $receiptDate = Carbon::parse($payload['receipt_date']);
+
+        /** @var Location $location */
+        $location = Location::with('branch.branchGroup.company')->findOrFail($payload['location_id']);
+
+        if ((int) $location->branch_id !== (int) $goodsReceipt->branch_id) {
+            throw new PurchaseOrderException('Lokasi penerimaan harus berasal dari cabang yang sama.');
+        }
+
+        // Get valuation method from company's costing_policy
+        $valuationMethod = $location->branch?->branchGroup?->company?->costing_policy
+            ?? config('inventory.default_valuation_method', 'fifo');
+
+        return DB::transaction(function () use (
+            $goodsReceipt,
+            $location,
+            $receiptDate,
+            $valuationMethod,
+            $payload,
+            $actor
+        ) {
+            // Reverse existing inventory transaction if posted
+            if ($goodsReceipt->inventory_transaction_id && $goodsReceipt->inventoryTransaction) {
+                // First, reverse the PO line received quantities
+                foreach ($goodsReceipt->lines as $grnLine) {
+                    if ($grnLine->purchaseOrderLine) {
+                        $poLine = $grnLine->purchaseOrderLine;
+                        $poLine->quantity_received = $this->roundQuantity(
+                            max(0, (float) $poLine->quantity_received - (float) $grnLine->quantity)
+                        );
+                        $poLine->quantity_received_base = $this->roundQuantity(
+                            max(0, (float) $poLine->quantity_received_base - (float) $grnLine->quantity_base)
+                        );
+                        $poLine->save();
+                    }
+                }
+
+                // Delete the inventory transaction (reverses inventory)
+                $this->inventoryService->deleteTransaction($goodsReceipt->inventoryTransaction);
+            }
+
+            // Delete existing GRN lines
+            $goodsReceipt->lines()->delete();
+
+            // Get all related POs
+            $purchaseOrders = $goodsReceipt->purchaseOrders()->with([
+                'lines.variant.product',
+                'lines.uom',
+                'lines.baseUom',
+            ])->get();
+
+            // If no POs via pivot, try the legacy single PO relationship
+            if ($purchaseOrders->isEmpty() && $goodsReceipt->purchase_order_id) {
+                $purchaseOrders = collect([
+                    PurchaseOrder::with([
+                        'lines.variant.product',
+                        'lines.uom',
+                        'lines.baseUom',
+                    ])->find($goodsReceipt->purchase_order_id)
+                ])->filter();
+            }
+
+            // Prepare new lines
+            $preparedLines = $this->prepareGoodsReceiptLinesFromMultiplePOs($purchaseOrders, $payload['lines'] ?? []);
+
+            if (empty($preparedLines)) {
+                throw new PurchaseOrderException('Minimal satu baris penerimaan harus diisi.');
+            }
+
+            $totalQuantityBase = 0.0;
+            $totalValue = 0.0;
+            $totalValueBase = 0.0;
+
+            foreach ($preparedLines as $plan) {
+                $line = $plan['line'];
+                $goodsReceipt->lines()->create([
+                    'purchase_order_line_id' => $line->id,
+                    'product_id' => $line->product_id,
+                    'product_variant_id' => $line->product_variant_id,
+                    'description' => $line->description,
+                    'uom_id' => $line->uom_id,
+                    'base_uom_id' => $line->base_uom_id,
+                    'quantity' => $plan['quantity'],
+                    'quantity_base' => $plan['quantity_base'],
+                    'unit_price' => $plan['unit_price'],
+                    'unit_cost_base' => $plan['unit_cost_base'],
+                    'line_total' => $plan['line_total'],
+                    'line_total_base' => $plan['line_total_base'],
+                ]);
+
+                // Update PO line received quantity
+                $line->quantity_received = $this->roundQuantity(
+                    (float) $line->quantity_received + $plan['quantity']
+                );
+                $line->quantity_received_base = $this->roundQuantity(
+                    (float) $line->quantity_received_base + $plan['quantity_base']
+                );
+                $line->save();
+
+                $totalQuantityBase += $plan['quantity_base'];
+                $totalValue += $plan['line_total'];
+                $totalValueBase += $plan['line_total_base'];
+            }
+
+            // Update basic fields
+            $goodsReceipt->update([
+                'location_id' => $location->id,
+                'receipt_date' => $receiptDate,
+                'valuation_method' => strtolower($valuationMethod),
+                'notes' => $payload['notes'] ?? null,
+                'updated_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            // Create new inventory transaction
+            $receiptDto = new ReceiptDTO(
+                $receiptDate,
+                $location->id,
+                array_map(
+                    fn (array $plan) => new ReceiptLineDTO(
+                        $plan['line']->product_variant_id,
+                        $plan['line']->base_uom_id,
+                        $plan['quantity_base'],
+                        $plan['unit_cost_base']
+                    ),
+                    $preparedLines
+                ),
+                sourceType: GoodsReceipt::class,
+                sourceId: $goodsReceipt->id,
+                notes: $payload['notes'] ?? null,
+                valuationMethod: $valuationMethod,
+            );
+
+            $result = $this->inventoryService->receipt($receiptDto);
+
+            $goodsReceipt->update([
+                'inventory_transaction_id' => $result->transaction->id,
+                'status' => GoodsReceiptStatus::POSTED->value,
+                'posted_at' => now(),
+                'posted_by' => $actor?->getAuthIdentifier(),
+                'total_quantity' => $this->roundQuantity($totalQuantityBase),
+                'total_value' => $this->roundMoney($totalValue),
+                'total_value_base' => $this->roundCost($totalValueBase),
+            ]);
+
+            // Sync all PO statuses
+            foreach ($purchaseOrders as $po) {
+                $po->load('lines');
+                $this->syncPurchaseOrderReceiptStatus($po, $actor);
+            }
+
+            $goodsReceipt->load([
+                'purchaseOrders.partner',
+                'purchaseOrders.branch.branchGroup.company',
+                'lines.variant.product',
+                'currency',
+                'location',
+                'inventoryTransaction',
+            ]);
+
+            return $goodsReceipt;
+        });
+    }
+
     public function approve(PurchaseOrder $purchaseOrder, ?Authenticatable $actor = null): PurchaseOrder
     {
         $actor ??= Auth::user();
@@ -565,6 +949,88 @@ class PurchaseService
         return $prepared;
     }
 
+    /**
+     * Prepare goods receipt lines from multiple purchase orders.
+     *
+     * @param \Illuminate\Support\Collection<int, PurchaseOrder> $purchaseOrders
+     * @param array $linesPayload
+     * @return array
+     */
+    private function prepareGoodsReceiptLinesFromMultiplePOs($purchaseOrders, array $linesPayload): array
+    {
+        $prepared = [];
+
+        // Build a combined lookup of all PO lines from all POs
+        $allLines = collect();
+        foreach ($purchaseOrders as $po) {
+            foreach ($po->lines as $line) {
+                $allLines->put($line->id, $line);
+            }
+        }
+
+        foreach ($linesPayload as $payloadLine) {
+            if (!isset($payloadLine['purchase_order_line_id'])) {
+                continue;
+            }
+
+            $quantity = (float) ($payloadLine['quantity'] ?? 0);
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            $lineId = (int) $payloadLine['purchase_order_line_id'];
+            $line = $allLines->get($lineId);
+
+            if (!$line) {
+                throw new PurchaseOrderException('Baris penerimaan tidak valid.');
+            }
+
+            $remaining = max(0.0, (float) $line->quantity - (float) $line->quantity_received);
+            if ($quantity - $remaining > self::QTY_TOLERANCE) {
+                throw new PurchaseOrderException(
+                    sprintf('Jumlah diterima melebihi sisa pada baris #%d.', $line->line_number)
+                );
+            }
+
+            try {
+                $quantityBase = $this->roundQuantity(
+                    $this->uomConverter->convert($quantity, $line->uom_id, $line->base_uom_id)
+                );
+            } catch (RuntimeException $exception) {
+                throw new PurchaseOrderException($exception->getMessage(), previous: $exception);
+            }
+
+            $remainingBase = max(0.0, (float) $line->quantity_base - (float) $line->quantity_received_base);
+            if ($quantityBase - $remainingBase > self::QTY_TOLERANCE) {
+                throw new PurchaseOrderException(
+                    sprintf('Jumlah dasar melebihi sisa pada baris #%d.', $line->line_number)
+                );
+            }
+
+            $unitCostBase = (float) $line->unit_price;
+            if ((float) $line->quantity_base > 0 && (float) $line->quantity > 0) {
+                $unitCostBase = $line->unit_price * ((float) $line->quantity / (float) $line->quantity_base);
+            }
+
+            $unitCostBase = $this->roundCost($unitCostBase);
+            $orderedQuantity = $this->roundQuantity($quantity);
+            $lineTotal = $this->roundMoney($orderedQuantity * (float) $line->unit_price);
+            $lineTotalBase = $this->roundCost($quantityBase * $unitCostBase);
+
+            $prepared[] = [
+                'line' => $line,
+                'quantity' => $orderedQuantity,
+                'quantity_base' => $quantityBase,
+                'unit_price' => (float) $line->unit_price,
+                'unit_cost_base' => $unitCostBase,
+                'line_total' => $lineTotal,
+                'line_total_base' => $lineTotalBase,
+            ];
+        }
+
+        return $prepared;
+    }
+
     private function generateGoodsReceiptNumber(int $companyId, int $branchId, Carbon $receiptDate): string
     {
         $config = config('purchasing.goods_receipt_numbering', []);
@@ -649,6 +1115,51 @@ class PurchaseService
             [
                 'purchase_order_id' => $purchaseOrder->id,
                 'purchase_order_number' => $purchaseOrder->order_number,
+                'inventory_transaction_id' => $goodsReceipt->inventory_transaction_id,
+            ],
+        );
+
+        $normalizedAmount = $this->roundCost($amountBase);
+
+        $payload->setLines([
+            AccountingEntry::debit('inventory', $normalizedAmount),
+            AccountingEntry::credit('goods_received_not_invoiced', $normalizedAmount),
+        ]);
+
+        rescue(function () use ($payload) {
+            $this->accountingEventBus->dispatch($payload);
+        }, static function (Throwable $throwable) {
+            report($throwable);
+        });
+    }
+
+    private function dispatchGoodsReceiptEventMultiPO(
+        GoodsReceipt $goodsReceipt,
+        float $amountBase,
+        ?Authenticatable $actor = null
+    ): void {
+        if ($amountBase <= 0) {
+            return;
+        }
+
+        $currencyCode = $goodsReceipt->currency?->code ?? 'IDR';
+        $purchaseOrderIds = $goodsReceipt->purchaseOrders->pluck('id')->toArray();
+        $purchaseOrderNumbers = $goodsReceipt->purchaseOrders->pluck('order_number')->toArray();
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::PURCHASE_GRN_POSTED,
+            $goodsReceipt->company_id,
+            $goodsReceipt->branch_id,
+            'goods_receipt',
+            $goodsReceipt->id,
+            $goodsReceipt->receipt_number,
+            $currencyCode,
+            (float) $goodsReceipt->exchange_rate,
+            CarbonImmutable::parse($goodsReceipt->receipt_date),
+            $actor?->getAuthIdentifier(),
+            [
+                'purchase_order_ids' => $purchaseOrderIds,
+                'purchase_order_numbers' => $purchaseOrderNumbers,
                 'inventory_transaction_id' => $goodsReceipt->inventory_transaction_id,
             ],
         );

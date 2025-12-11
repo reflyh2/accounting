@@ -5,21 +5,19 @@ import GoodsReceiptForm from './Partials/GoodsReceiptForm.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 
 defineProps({
-   purchaseOrders: Array,
+   goodsReceipt: Object,
    selectedPurchaseOrders: Array,
-   selectedPartnerId: Number,
-   suppliers: Array,
    locations: Array,
    filters: Object,
 });
 </script>
 
 <template>
-   <Head title="Buat Penerimaan Pembelian" />
+   <Head title="Ubah Penerimaan Pembelian" />
 
    <AuthenticatedLayout>
       <template #header>
-         <h2>Buat Penerimaan Pembelian</h2>
+         <h2>Ubah Penerimaan Pembelian</h2>
       </template>
 
       <div>
@@ -30,10 +28,8 @@ defineProps({
                      <AppBackLink :href="route('goods-receipts.index', filters)" text="Kembali ke Daftar Penerimaan" />
                   </div>
                   <GoodsReceiptForm
-                     :purchaseOrders="purchaseOrders"
+                     :goodsReceipt="goodsReceipt"
                      :selectedPurchaseOrders="selectedPurchaseOrders"
-                     :selectedPartnerId="selectedPartnerId"
-                     :suppliers="suppliers"
                      :locations="locations"
                      :filters="filters"
                   />

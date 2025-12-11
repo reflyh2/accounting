@@ -36,6 +36,12 @@ class GoodsReceipt extends Model
         return $this->belongsTo(PurchaseOrder::class);
     }
 
+    public function purchaseOrders()
+    {
+        return $this->belongsToMany(PurchaseOrder::class, 'goods_receipt_purchase_order')
+            ->withTimestamps();
+    }
+
     public function company()
     {
         return $this->belongsTo(Company::class);
@@ -49,6 +55,11 @@ class GoodsReceipt extends Model
     public function location()
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Partner::class, 'supplier_id');
     }
 
     public function currency()

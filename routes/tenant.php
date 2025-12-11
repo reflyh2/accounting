@@ -138,6 +138,7 @@ Route::middleware([
         Route::get('api/financing-schedule', [ApiController::class, 'getFinancingSchedule'])->name('api.financing-schedule');
         Route::get('api/partners', [ApiController::class, 'getPartners'])->name('api.partners');
         Route::get('api/partners/{partner}', [ApiController::class, 'getPartner'])->name('api.partners.show');
+        Route::get('api/suppliers-with-pos', [GoodsReceiptController::class, 'apiSuppliersWithPOs'])->name('api.suppliers-with-pos');
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('availability/pool/{pool}', [AvailabilityController::class, 'pool'])->name('availability.pool');
             Route::get('availability/pool/{pool}/free-instances', [AvailabilityController::class, 'freeInstances'])->name('availability.pool.free-instances');
@@ -504,6 +505,8 @@ Route::middleware([
             'create',
             'store',
             'show',
+            'edit',
+            'update',
         ]);
 
         Route::get('purchase-returns/export-xlsx', [PurchaseReturnController::class, 'exportXLSX'])->name('purchase-returns.export-xlsx');

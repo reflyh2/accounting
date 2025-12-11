@@ -29,8 +29,8 @@ const props = defineProps({
       type: Boolean,
       default: false
    },
-   prefix: [String, Object],
-   suffix: [String, Object],
+   prefix: [String, Object, Boolean],
+   suffix: [String, Object, Boolean],
    disabled: Boolean,
    hint: {
       type: String,
@@ -192,7 +192,8 @@ function onKeyDown(event) {
       <div class="flex">
          <div v-if="prefix" class="flex items-center px-2 bg-gray-100 border border-r-0 border-gray-300 rounded-l text-sm">
             <span v-if="typeof prefix === 'string'" v-html="prefix"></span>
-            <component v-else :is="prefix"></component>
+            <component v-else-if="typeof prefix === 'object'" :is="prefix"></component>
+            <slot name="prefix-slot"></slot>
          </div>
          <input
             :value="displayValue"
@@ -207,9 +208,11 @@ function onKeyDown(event) {
             :placeholder="placeholder"
             @click="onClick($event)"
          >
+         <slot name="suffix-slot"></slot>
          <div v-if="suffix" class="flex items-center px-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r text-sm">
             <span v-if="typeof suffix === 'string'" v-html="suffix"></span>
-            <component v-else :is="suffix"></component>
+            <component v-else-if="typeof suffix === 'object'" :is="suffix"></component>
+            <slot name="suffix-slot"></slot>
          </div>
       </div>
       <div v-if="props.error && !focused && !hasChanged" class="text-red-500 text-sm mt-2">{{ props.error }}</div>

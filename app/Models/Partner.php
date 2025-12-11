@@ -81,6 +81,11 @@ class Partner extends Model
         return $this->belongsTo(User::class, 'updated_by', 'global_id');
     }
 
+    public function purchaseOrders()
+    {
+        return $this->hasMany(PurchaseOrder::class);
+    }
+
     // Helper methods to check roles
     public function isSupplier()
     {
