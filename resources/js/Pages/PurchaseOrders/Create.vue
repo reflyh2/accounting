@@ -23,24 +23,6 @@ const initialLine = () => ({
     description: '',
     expected_date: '',
 });
-
-const form = useForm({
-    company_id: '',
-    branch_id: '',
-    partner_id: '',
-    currency_id: props.currencies?.[0]?.id || '',
-    order_date: new Date().toISOString().slice(0, 10),
-    expected_date: '',
-    supplier_reference: '',
-    payment_terms: '',
-    exchange_rate: 1,
-    notes: '',
-    lines: [initialLine()],
-});
-
-const submit = () => {
-    form.post(route('purchase-orders.store'));
-};
 </script>
 
 <template>
@@ -58,7 +40,6 @@ const submit = () => {
                 </div>
 
                 <PurchaseOrderForm
-                    :form="form"
                     :companies="companies"
                     :branches="branches"
                     :currencies="currencies"
@@ -67,8 +48,7 @@ const submit = () => {
                     :uoms="uoms"
                     :filters="filters"
                     mode="create"
-                    submit-label="Simpan Purchase Order"
-                    :on-submit="submit"
+                    submit-label="Tambah Purchase Order"
                 />
             </div>
         </div>

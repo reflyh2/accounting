@@ -140,6 +140,11 @@ class PurchaseOrderController extends Controller
             return Redirect::back()->withInput()->with('error', $exception->getMessage());
         }
 
+        if ($request->input('create_another', false)) {
+            return Redirect::route('purchase-orders.create')
+                ->with('success', 'Purchase Order berhasil dibuat. Silahkan buat PO lainnya.');
+        }
+
         return Redirect::route('purchase-orders.show', $purchaseOrder->id)
             ->with('success', 'Purchase Order berhasil dibuat.');
     }

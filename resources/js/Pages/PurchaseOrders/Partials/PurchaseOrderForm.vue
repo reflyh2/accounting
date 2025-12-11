@@ -6,6 +6,7 @@ import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
+import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppDangerButton from '@/Components/AppDangerButton.vue';
 import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
@@ -51,10 +52,6 @@ const props = defineProps({
     submitLabel: {
         type: String,
         default: 'Simpan',
-    },
-    onSubmit: {
-        type: Function,
-        required: true,
     },
     filters: {
         type: Object,
@@ -399,10 +396,41 @@ function lineTax(line) {
     const taxRate = Number(line.tax_rate) || 0;
     return subtotal * (taxRate / 100);
 }
+
+const submitted = ref(false);
+function submitForm(createAnother = false) {
+   submitted.value = true;
+   form.create_another = createAnother;
+   if (props.purchaseOrder) {
+      form.put(route('purchase-orders.update', props.purchaseOrder.id), {
+         preserveScroll: true,
+         onSuccess: () => {
+            submitted.value = false;
+         },
+         onError: () => {
+            submitted.value = false;
+         }
+      });
+   } else {
+      form.post(route('purchase-orders.store'), {
+         preserveScroll: true,
+         onSuccess: () => {
+            submitted.value = false;
+            if (createAnother) {
+               form.reset();
+               form.clearErrors();
+            }
+         },
+         onError: () => {
+            submitted.value = false;
+         }
+      });
+   }
+}
 </script>
 
 <template>
-    <form @submit.prevent="onSubmit" class="space-y-4">
+    <form @submit.prevent="submitForm(false)" class="space-y-4">
         <div class="flex justify-between">
             <div class="w-2/3 max-w-2xl mr-8">
                 <div class="grid grid-cols-2 gap-4">
@@ -666,6 +694,9 @@ function lineTax(line) {
             <AppPrimaryButton type="submit" class="mr-2" :disabled="form.processing">
                 {{ submitLabel }}
             </AppPrimaryButton>
+            <AppUtilityButton v-if="!props.purchaseOrder" type="button" @click="submitForm(true)" class="mr-2">
+                Tambah & Buat Lagi
+            </AppUtilityButton>
             <AppSecondaryButton @click="$inertia.visit(route('purchase-orders.index', filters))">
                 Batal
             </AppSecondaryButton>
