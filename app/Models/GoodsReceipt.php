@@ -76,6 +76,11 @@ class GoodsReceipt extends Model
     {
         return $this->hasMany(GoodsReceiptLine::class)->orderBy('id');
     }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }
 
 

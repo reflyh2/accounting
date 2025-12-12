@@ -893,6 +893,30 @@ class GoodsReceiptController extends Controller
 
         return response()->json($serial, 201);
     }
+
+    /**
+     * Display the print view for GR.
+     */
+    public function print(GoodsReceipt $goodsReceipt): Response
+    {
+        $goodsReceipt->load([
+            'purchaseOrder',
+            'purchaseOrders',
+            'lines.variant.product',
+            'lines.uom',
+            'lines.lot',
+            'lines.serial',
+            'location',
+            'creator:global_id,name',
+            'branch',
+            'company',
+            'supplier',
+        ]);
+
+        return Inertia::render('GoodsReceipts/Print', [
+            'goodsReceipt' => $goodsReceipt,
+        ]);
+    }
 }
 
 

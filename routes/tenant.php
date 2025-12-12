@@ -508,6 +508,7 @@ Route::middleware([
         Route::get('goods-receipts/export-csv', [GoodsReceiptController::class, 'exportCSV'])->name('goods-receipts.export-csv');
         Route::get('goods-receipts/export-pdf', [GoodsReceiptController::class, 'exportPDF'])->name('goods-receipts.export-pdf');
         Route::post('goods-receipts/bulk-delete', [GoodsReceiptController::class, 'bulkDelete'])->name('goods-receipts.bulk-delete');
+        Route::get('goods-receipts/{goods_receipt}/print', [GoodsReceiptController::class, 'print'])->name('goods-receipts.print');
         Route::resource('goods-receipts', GoodsReceiptController::class);
 
         Route::get('purchase-returns/export-xlsx', [PurchaseReturnController::class, 'exportXLSX'])->name('purchase-returns.export-xlsx');
@@ -530,6 +531,7 @@ Route::middleware([
             ->name('purchase-orders.send');
         Route::post('purchase-orders/{purchase_order}/cancel', [PurchaseOrderController::class, 'cancel'])
             ->name('purchase-orders.cancel');
+        Route::get('purchase-orders/{purchase_order}/print', [PurchaseOrderController::class, 'print'])->name('purchase-orders.print');
         Route::resource('purchase-orders', PurchaseOrderController::class);
         Route::post('sales-orders/{sales_order}/quote', [SalesOrderController::class, 'quote'])
             ->name('sales-orders.quote');

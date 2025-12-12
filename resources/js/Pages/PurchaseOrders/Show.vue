@@ -8,6 +8,9 @@ import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppDangerButton from '@/Components/AppDangerButton.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
+import AppPrintButton from '@/Components/AppPrintButton.vue';
+import AppDeleteButton from '@/Components/AppDeleteButton.vue';
+import AppEditButton from '@/Components/AppEditButton.vue';
 import { formatNumber } from '@/utils/numberFormat';
 
 const props = defineProps({
@@ -80,21 +83,23 @@ function deleteOrder() {
                     <div class="space-y-6">
                         <div class="flex items-center justify-between">
                             <AppBackLink :href="route('purchase-orders.index', filters)" text="Kembali ke Daftar Purchase Order" />
-                            <div class="flex flex-wrap gap-3">
-                                <Link v-if="isDraft" :href="route('purchase-orders.edit', purchaseOrder.id)">
-                                    <AppSecondaryButton type="button">
-                                        Ubah
-                                    </AppSecondaryButton>
+                            <div class="flex flex-wrap">
+                                <a :href="route('purchase-orders.print', purchaseOrder.id)" target="_blank">
+                                    <AppPrintButton title="Print" />
+                                </a>
+                                <Link v-if="isDraft" :href="route('purchase-orders.edit', purchaseOrder.id)" class="ml-3">
+                                    <AppEditButton title="Edit" />
                                 </Link>
-                                <AppPrimaryButton v-if="canApprove" type="button" @click="approve">
+                                <AppPrimaryButton v-if="canApprove" type="button" @click="approve" class="ml-3">
                                     Approve
                                 </AppPrimaryButton>
-                                <AppPrimaryButton v-if="canSend" type="button" @click="markSent">
+                                <AppPrimaryButton v-if="canSend" type="button" @click="markSent" class="ml-3">
                                     Tandai Terkirim
                                 </AppPrimaryButton>
                                 <Link
                                     v-if="canCreateGoodsReceipt"
-                                    :href="route('goods-receipts.create', { purchase_order_id: purchaseOrder.id })"
+                                    :href="route('goods-receipts.create', { partner_id: purchaseOrder.partner_id, purchase_order_ids: [purchaseOrder.id] })"
+                                    class="ml-3"
                                 >
                                     <AppPrimaryButton type="button">
                                         Buat Penerimaan Pembelian
@@ -111,9 +116,7 @@ function deleteOrder() {
                                         Batalkan
                                     </AppDangerButton>
                                 </div>
-                                <AppDangerButton v-if="isDraft && !canApprove" type="button" @click="deleteOrder">
-                                    Hapus
-                                </AppDangerButton>
+                                <AppDeleteButton v-if="isDraft && !canApprove" @click="deleteOrder" title="Delete" />
                             </div>
                         </div>
 

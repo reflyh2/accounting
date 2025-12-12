@@ -8,6 +8,7 @@ import { DocumentStatusKind } from '@/constants/documentStatuses';
 import { formatNumber } from '@/utils/numberFormat';
 import { computed } from 'vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
+import AppPrintButton from '@/Components/AppPrintButton.vue';
 
 const props = defineProps({
    goodsReceipt: Object,
@@ -58,13 +59,17 @@ const supplierName = computed(() => {
                   <div class="space-y-6">
                      <div class="flex justify-between items-center mb-4">
                         <AppBackLink :href="route('goods-receipts.index', filters)" text="Kembali ke Daftar Penerimaan" />
-                        <div class="flex flex-wrap gap-3">
+                        <div class="flex flex-wrap">
+                           <a :href="route('goods-receipts.print', goodsReceipt.id)" target="_blank">
+                              <AppPrintButton title="Print" />
+                           </a>
                            <Link :href="route('goods-receipts.edit', goodsReceipt.id)">
                               <AppEditButton title="Edit" />
                            </Link>
                            <Link
                               v-if="canCreateReturn"
                               :href="route('purchase-returns.create', { goods_receipt_id: goodsReceipt.id })"
+                              class="ml-3"
                            >
                               <AppSecondaryButton>Buat Retur</AppSecondaryButton>
                            </Link>

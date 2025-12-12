@@ -434,4 +434,24 @@ class PurchaseOrderController extends Controller
 
         return $query->orderBy($sort, $order)->get();
     }
+
+    /**
+     * Display the print view for PO.
+     */
+    public function print(PurchaseOrder $purchaseOrder): Response
+    {
+        $purchaseOrder->load([
+            'partner',
+            'branch.branchGroup.company',
+            'currency',
+            'lines.variant.product',
+            'lines.uom',
+            'creator:global_id,name',
+            'approver:global_id,name',
+        ]);
+
+        return Inertia::render('PurchaseOrders/Print', [
+            'purchaseOrder' => $purchaseOrder,
+        ]);
+    }
 }
