@@ -43,13 +43,13 @@ const columnFormatters = {
     status: (value) => props.statusOptions?.[value] || value,
 };
 
+const downloadOptions = [
+    { format: 'pdf', label: 'Download PDF' },
+    { format: 'xlsx', label: 'Download Excel' },
+    { format: 'csv', label: 'Download CSV' }
+];
+
 const customFilters = computed(() => [
-    {
-        name: 'search',
-        type: 'text',
-        label: 'Pencarian',
-        placeholder: 'Nomor GRN atau PO',
-    },
     {
         name: 'from_date',
         type: 'date',
@@ -140,16 +140,17 @@ function handleFilter(newFilters) {
                         :columnFormatters="columnFormatters"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'goods-receipts.create' }"
+                        :editRoute="{ name: 'goods-receipts.edit' }"
                         :viewRoute="{ name: 'goods-receipts.show' }"
                         :indexRoute="{ name: 'goods-receipts.index' }"
+                        :downloadOptions="downloadOptions"
+                        downloadBaseRoute="goods-receipts"
                         :sortable="sortableColumns"
                         :defaultSort="defaultSort"
                         :currentSort="currentSort"
                         :perPage="perPage"
                         :enableBulkActions="false"
                         routeName="goods-receipts.index"
-                        itemKey="id"
-                        searchPlaceholder="Cari nomor GRN atau PO..."
                         @sort="handleSort"
                         @filter="handleFilter"
                     />

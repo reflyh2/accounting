@@ -223,12 +223,17 @@ class GoodsReceiptController extends Controller
 
         $locations = $this->locationOptions($goodsReceipt->branch_id);
 
+        $selectedIds = $goodsReceipt->purchaseOrders()->pluck('purchase_orders.id')->toArray();
+
         // Get available PO lines for the goods receipt
         $selectedPurchaseOrders = $this->getGoodsReceiptPurchaseOrders($goodsReceipt);
 
         return Inertia::render('GoodsReceipts/Edit', [
             'goodsReceipt' => $this->transformGoodsReceiptForEdit($goodsReceipt),
             'selectedPurchaseOrders' => $selectedPurchaseOrders,
+            'selectedPartnerId' => $goodsReceipt->supplier_id,
+            'purchaseOrders' => $this->availablePurchaseOrders($selectedIds, $goodsReceipt->supplier_id),
+            'suppliers' => $this->supplierOptions(),
             'locations' => $locations,
             'filters' => Session::get('goods_receipts.index_filters', []),
         ]);

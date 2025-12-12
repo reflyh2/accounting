@@ -35,7 +35,14 @@ const columnFormatters = {
     order_date: (value) => new Date(value).toLocaleDateString('id-ID'),
     expected_date: (value) => (value ? new Date(value).toLocaleDateString('id-ID') : '-'),
     total_amount: (value) => formatNumber(value),
+    status: (value) => props.statusOptions?.[value] || value,
 };
+
+const downloadOptions = [
+    { format: 'pdf', label: 'Download PDF' },
+    { format: 'xlsx', label: 'Download Excel' },
+    { format: 'csv', label: 'Download CSV' }
+];
 
 const currentSort = ref({ key: props.sort || 'order_date', order: props.order || 'desc' });
 const sortableColumns = ['order_date', 'order_number', 'status', 'total_amount', 'expected_date'];
@@ -167,6 +174,8 @@ function handleFilter(newFilters) {
                         :perPage="perPage"
                         routeName="purchase-orders.index"
                         :enableBulkActions="false"
+                        :downloadOptions="downloadOptions"
+                        downloadBaseRoute="purchase-orders"
                         @sort="handleSort"
                         @filter="handleFilter"
                     >

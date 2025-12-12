@@ -99,20 +99,20 @@ function getQuantity(poLineId) {
 function setQuantity(poLineId, value) {
     const existingIndex = form.lines.findIndex(l => l.purchase_order_line_id === poLineId);
     if (existingIndex >= 0) {
-    form.lines[existingIndex].quantity = parseFloat(value) || 0;
-} else {
-    form.lines.push({
-        purchase_order_line_id: poLineId,
-        quantity: parseFloat(value) || 0,
-    });
-}
+        form.lines[existingIndex].quantity = parseFloat(value) || 0;
+    } else {
+        form.lines.push({
+            purchase_order_line_id: poLineId,
+            quantity: parseFloat(value) || 0,
+        });
+    }
 }
 
 // Click on remaining quantity to receive all for that row
 function receiveRemainingForLine(line) {
-if (line.remaining_quantity > 0) {
-    setQuantity(line.id, line.remaining_quantity);
-}
+    if (line.remaining_quantity > 0) {
+        setQuantity(line.id, line.remaining_quantity);
+    }
 }
 
 const totalQuantity = computed(() =>
@@ -145,12 +145,12 @@ watch(selectedSupplierId, (newId) => {
         selectedPoIds.value = [];
         router.get(route('goods-receipts.create'), {
             partner_id: newId,
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-        only: ['purchaseOrders', 'selectedPurchaseOrders', 'locations', 'selectedPartnerId'],
-    });
-}
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['purchaseOrders', 'selectedPurchaseOrders', 'locations', 'selectedPartnerId'],
+        });
+    }
 });
 
 // Watch for PO selection changes

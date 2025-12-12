@@ -6,7 +6,10 @@ import AppBackLink from '@/Components/AppBackLink.vue';
 
 defineProps({
    goodsReceipt: Object,
+   purchaseOrders: Array,
    selectedPurchaseOrders: Array,
+   selectedPartnerId: Number,
+   suppliers: Array,
    locations: Array,
    filters: Object,
 });
@@ -29,7 +32,10 @@ defineProps({
                   </div>
                   <GoodsReceiptForm
                      :goodsReceipt="goodsReceipt"
+                     :purchaseOrders="purchaseOrders"
                      :selectedPurchaseOrders="selectedPurchaseOrders"
+                     :selectedPartnerId="selectedPartnerId"
+                     :suppliers="suppliers"
                      :locations="locations"
                      :filters="filters"
                   />

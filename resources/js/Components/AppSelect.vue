@@ -260,13 +260,13 @@ onUnmounted(() => {
             <span 
               v-for="option in selectedOptions" 
               :key="option.value"
-              class="bg-main-100 text-main-800 text-sm font-medium px-1.5 py-0.5 rounded mr-1 flex items-center"
+              :class="['text-sm font-medium px-1.5 py-0.5 rounded mr-1 flex items-center', props.disabled ? 'cursor-not-allowed bg-gray-50 text-gray-600' : 'bg-main-100 text-main-800 ']"
             >
                <div class="flex flex-col">
                   <span>{{ option.label }}</span>
-                  <span v-if="option.description" class="text-gray-500 text-xs">{{ option.description }}</span>
+                  <span v-if="option.description" :class="['text-xs', props.disabled ? 'text-gray-400' : 'text-gray-500']">{{ option.description }}</span>
                </div>
-               <button @click.stop="removeOption(option.value)" class="ml-1 text-main-600 hover:text-main-800">&times;</button>
+               <button :disabled="props.disabled" @click.stop="removeOption(option.value)" :class="['ml-1', props.disabled ? 'text-gray-600 cursor-not-allowed' : 'text-main-600 hover:text-main-800']">&times;</button>
             </span>
           </template>
           <div v-else-if="!multiple && selectedOptions" class="flex flex-col">
@@ -298,7 +298,7 @@ onUnmounted(() => {
         v-if="isOpen" 
         ref="dropdownRef"
         :class="[
-          'fixed bg-white shadow-lg rounded-md text-base ring-1 ring-black ring-opacity-5 overflow-hidden focus:outline-none text-sm',
+          'fixed bg-white shadow-lg rounded-md text-sm ring-1 ring-black ring-opacity-5 overflow-hidden focus:outline-none',
           dropdownZIndexClass,
           isOpenUpwards ? 'bottom-0' : 'top-0'
         ]"
