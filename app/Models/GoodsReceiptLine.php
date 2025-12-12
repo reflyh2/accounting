@@ -65,6 +65,16 @@ class GoodsReceiptLine extends Model
     {
         return $this->hasMany(PurchaseReturnLine::class);
     }
+
+    public function lot()
+    {
+        return $this->belongsTo(Lot::class);
+    }
+
+    public function serial()
+    {
+        return $this->belongsTo(Serial::class);
+    }
 }
 
 

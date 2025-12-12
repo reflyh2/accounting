@@ -64,7 +64,7 @@ const form = useForm({
     branch_id: props.purchaseOrder?.branch_id || null,
     partner_id: props.purchaseOrder?.partner_id || null,
     currency_id: props.purchaseOrder?.currency_id || (page.props.primaryCurrency?.id || null),
-    order_date: props.purchaseOrder?.order_date || new Date().toISOString().split('T')[0],
+    order_date: props.purchaseOrder?.order_date ? new Date(props.purchaseOrder?.order_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     expected_date: props.purchaseOrder?.expected_date || '',
     supplier_reference: props.purchaseOrder?.supplier_reference || '',
     payment_terms: props.purchaseOrder?.payment_terms || '',

@@ -11,7 +11,7 @@ enum GoodsReceiptStatus: string
     {
         return match ($this) {
             self::DRAFT => 'Draft',
-            self::POSTED => 'Posted',
+            self::POSTED => 'Tercatat',
         };
     }
 }

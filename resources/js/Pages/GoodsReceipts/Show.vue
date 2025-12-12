@@ -37,34 +37,38 @@ const supplierName = computed(() => {
 
    <AuthenticatedLayout>
       <template #header>
-         <h2>Detail Penerimaan Pembelian</h2>
+         <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+               <p class="text-sm text-gray-500">Penerimaan Pembelian</p>
+               <h2 class="text-2xl font-semibold">
+                  {{ goodsReceipt.receipt_number }}                    
+               </h2>
+            </div>
+            <DocumentStatusPill
+               :documentKind="DocumentStatusKind.GOODS_RECEIPT"
+               :status="goodsReceipt.status"
+            />
+         </div>
       </template>
 
       <div>
          <div class="mx-auto">
             <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
                <div class="p-6 text-gray-900">
-                  <div class="mb-6">
-                     <AppBackLink :href="route('goods-receipts.index', filters)" text="Kembali ke Daftar Penerimaan" />
-                  </div>
-                  <div class="flex justify-between items-center mb-4">
-                     <div class="flex items-center gap-3">
-                        <h3 class="text-lg font-bold">{{ goodsReceipt.receipt_number }}</h3>
-                        <DocumentStatusPill
-                           :documentKind="DocumentStatusKind.GOODS_RECEIPT"
-                           :status="goodsReceipt.status"
-                        />
-                     </div>
-                     <div class="flex items-center gap-2">
-                        <Link :href="route('goods-receipts.edit', goodsReceipt.id)">
-                           <AppEditButton title="Edit" />
-                        </Link>
-                        <Link
-                           v-if="canCreateReturn"
-                           :href="route('purchase-returns.create', { goods_receipt_id: goodsReceipt.id })"
-                        >
-                           <AppSecondaryButton>Buat Retur</AppSecondaryButton>
-                        </Link>
+                  <div class="space-y-6">
+                     <div class="flex justify-between items-center mb-4">
+                        <AppBackLink :href="route('goods-receipts.index', filters)" text="Kembali ke Daftar Penerimaan" />
+                        <div class="flex flex-wrap gap-3">
+                           <Link :href="route('goods-receipts.edit', goodsReceipt.id)">
+                              <AppEditButton title="Edit" />
+                           </Link>
+                           <Link
+                              v-if="canCreateReturn"
+                              :href="route('purchase-returns.create', { goods_receipt_id: goodsReceipt.id })"
+                           >
+                              <AppSecondaryButton>Buat Retur</AppSecondaryButton>
+                           </Link>
+                        </div>
                      </div>
                   </div>
 
@@ -121,6 +125,8 @@ const supplierName = computed(() => {
                               <th class="bg-gray-100 border border-gray-300 px-4 py-2">Produk</th>
                               <th class="bg-gray-100 border border-gray-300 px-4 py-2 text-right">Qty</th>
                               <th class="bg-gray-100 border border-gray-300 px-4 py-2">Satuan</th>
+                              <th class="bg-gray-100 border border-gray-300 px-4 py-2">Lot</th>
+                              <th class="bg-gray-100 border border-gray-300 px-4 py-2">Serial</th>
                            </tr>
                         </thead>
                         <tbody>
@@ -131,12 +137,21 @@ const supplierName = computed(() => {
                               </td>
                               <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.quantity, 3) }}</td>
                               <td class="border border-gray-300 px-4 py-2">{{ line.uom?.code || '—' }}</td>
+                              <td class="border border-gray-300 px-4 py-2">
+                                 {{ line.lot?.lot_code || '—' }}
+                                 <div v-if="line.lot?.expiry_date" class="text-xs text-gray-500">
+                                    Expire: {{ new Date(line.lot.expiry_date).toLocaleDateString('id-ID') }}
+                                 </div>
+                              </td>
+                              <td class="border border-gray-300 px-4 py-2">{{ line.serial?.serial_no || '—' }}</td>
                            </tr>
                         </tbody>
                         <tfoot>
                            <tr>
                               <td class="border border-gray-300 px-4 py-2 font-semibold">Total</td>
                               <td class="border border-gray-300 px-4 py-2 text-right font-semibold">{{ formatNumber(goodsReceipt.total_quantity, 3) }}</td>
+                              <td class="border border-gray-300 px-4 py-2"></td>
+                              <td class="border border-gray-300 px-4 py-2"></td>
                               <td class="border border-gray-300 px-4 py-2"></td>
                            </tr>
                         </tfoot>

@@ -8,8 +8,11 @@ import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
-import { ArchiveBoxArrowDownIcon } from '@heroicons/vue/24/outline';
+import LotFormModal from './LotFormModal.vue';
+import SerialFormModal from './SerialFormModal.vue';
+import { ArchiveBoxArrowDownIcon, PlusCircleIcon } from '@heroicons/vue/24/outline';
 import { formatNumber } from '@/utils/numberFormat';
+import axios from 'axios';
 
 const props = defineProps({
     goodsReceipt: Object,
@@ -36,12 +39,23 @@ if (isEditMode.value && props.goodsReceipt?.supplier) {
     if (supplier) selectedSupplierName.value = supplier.label;
 }
 
+// Lot/Serial modals state
+const showLotModal = ref(false);
+const showSerialModal = ref(false);
+const currentLineForModal = ref(null);
+
+// Lot and serial options cache per product variant
+const lotsCache = ref({});
+const serialsCache = ref({});
+
 // Build initial lines from selected POs or existing GRN
 function buildInitialLines() {
     if (isEditMode.value && props.goodsReceipt?.lines) {
         return props.goodsReceipt.lines.map(line => ({
             purchase_order_line_id: line.purchase_order_line_id,
             quantity: line.quantity,
+            lot_id: line.lot_id || null,
+            serial_id: line.serial_id || null,
         }));
     }
 
@@ -50,8 +64,10 @@ function buildInitialLines() {
         for (const line of po.lines) {
             if (line.remaining_quantity > 0) {
                 lines.push({
-                purchase_order_line_id: line.id,
-                quantity: line.remaining_quantity,
+                    purchase_order_line_id: line.id,
+                    quantity: line.remaining_quantity,
+                    lot_id: null,
+                    serial_id: null,
                 });
             }
         }
@@ -104,7 +120,115 @@ function setQuantity(poLineId, value) {
         form.lines.push({
             purchase_order_line_id: poLineId,
             quantity: parseFloat(value) || 0,
+            lot_id: null,
+            serial_id: null,
         });
+    }
+}
+
+function getLotId(poLineId) {
+    return formLinesByPoLineId.value[poLineId]?.lot_id ?? null;
+}
+
+function setLotId(poLineId, value) {
+    const existingIndex = form.lines.findIndex(l => l.purchase_order_line_id === poLineId);
+    if (existingIndex >= 0) {
+        form.lines[existingIndex].lot_id = value;
+    }
+}
+
+function getSerialId(poLineId) {
+    return formLinesByPoLineId.value[poLineId]?.serial_id ?? null;
+}
+
+function setSerialId(poLineId, value) {
+    const existingIndex = form.lines.findIndex(l => l.purchase_order_line_id === poLineId);
+    if (existingIndex >= 0) {
+        form.lines[existingIndex].serial_id = value;
+    }
+}
+
+// Fetch lots for a product variant
+async function fetchLots(productVariantId) {
+    if (!productVariantId) return [];
+    if (lotsCache.value[productVariantId]) return lotsCache.value[productVariantId];
+    
+    try {
+        const response = await axios.get(route('api.lots'), {
+            params: {
+                product_variant_id: productVariantId,
+                receipt_date: form.receipt_date,
+            }
+        });
+        const options = response.data.map(lot => ({
+            value: lot.id,
+            label: lot.lot_code,
+            description: lot.expiry_date ? `Exp: ${new Date(lot.expiry_date).toLocaleDateString('ID-id')}` : null,
+        }));
+        lotsCache.value[productVariantId] = options;
+        return options;
+    } catch {
+        return [];
+    }
+}
+
+// Fetch serials for a product variant
+async function fetchSerials(productVariantId) {
+    if (!productVariantId) return [];
+    if (serialsCache.value[productVariantId]) return serialsCache.value[productVariantId];
+    
+    try {
+        const response = await axios.get(route('api.serials'), {
+            params: { product_variant_id: productVariantId }
+        });
+        const options = response.data.map(serial => ({
+            value: serial.id,
+            label: serial.serial_no,
+        }));
+        serialsCache.value[productVariantId] = options;
+        return options;
+    } catch {
+        return [];
+    }
+}
+
+// Open lot modal for a line
+function openLotModal(line) {
+    currentLineForModal.value = line;
+    showLotModal.value = true;
+}
+
+// Open serial modal for a line
+function openSerialModal(line) {
+    currentLineForModal.value = line;
+    showSerialModal.value = true;
+}
+
+// Handle lot created from modal
+function handleLotCreated(lot) {
+    if (currentLineForModal.value) {
+        const variantId = currentLineForModal.value.variant.id;
+        // Invalidate cache and set the new lot
+        delete lotsCache.value[variantId];
+        // Re-fetch to update options
+        fetchLots(variantId).then(options => {
+            lotOptionsMap.value[currentLineForModal.value.variant.id] = options;
+        });
+        setLotId(currentLineForModal.value.id, lot.id);
+    }
+}
+
+// Handle serial created from modal
+function handleSerialCreated(serial) {
+    if (currentLineForModal.value) {
+        const variantId = currentLineForModal.value.variant.id;
+        // Invalidate cache and set the new serial
+        delete serialsCache.value[variantId];
+        // Re-fetch to update options
+        fetchSerials(variantId).then(options => {
+            serialOptionsMap.value[currentLineForModal.value.variant.id] = options;
+        });
+        setSerialId(currentLineForModal.value.id, serial.id);
     }
 }
 
@@ -218,6 +342,32 @@ const supplierTableHeaders = [
    { key: 'name', label: 'Nama' },
    { key: 'actions', label: '' },
 ];
+
+// Lot options per line (reactive)
+const lotOptionsMap = ref({});
+const serialOptionsMap = ref({});
+
+// Load lot/serial options when PO lines change
+watch(allPoLines, async (lines) => {
+    for (const line of lines) {
+        if (line.variant.id) {
+            fetchLots(line.variant.id).then(options => {
+                lotOptionsMap.value[line.variant.id] = options;
+            });
+            fetchSerials(line.variant.id).then(options => {
+                serialOptionsMap.value[line.variant.id] = options;
+            });
+        }
+    }
+}, { immediate: true });
+
+const lotOptions = computed(() => {
+    return lotOptionsMap.value;
+});
+
+const serialOptions = computed(() => {
+    return serialOptionsMap.value;
+});
 </script>
 
 <template>
@@ -285,7 +435,7 @@ const supplierTableHeaders = [
                 <ul class="list-disc list-inside">
                 <li>Pilih supplier terlebih dahulu</li>
                 <li>Pilih satu atau lebih Purchase Order</li>
-                <li>Klik pada kolom "Sisa" untuk menerima semua sisa baris tersebut</li>
+                <li>Pilih Lot atau Serial jika diperlukan</li>
                 <li>Metode penilaian akan otomatis mengikuti pengaturan perusahaan</li>
                 </ul>
             </div>
@@ -295,7 +445,7 @@ const supplierTableHeaders = [
             <div class="flex justify-between flex-col lg:flex-row">
                 <div>
                     <h2 class="text-lg font-semibold">Detail Penerimaan</h2>
-                    <p class="text-sm text-gray-500 mb-4">Masukkan jumlah barang yang diterima untuk setiap baris. Klik pada kolom "Sisa" untuk langsung menerima semua sisa.</p>
+                    <p class="text-sm text-gray-500 mb-4">Masukkan jumlah barang yang diterima. Pilih Lot/Serial jika diperlukan.</p>
                 </div>
 
                 <div class="flex mb-2 py-4 min-w-max">
@@ -314,10 +464,10 @@ const supplierTableHeaders = [
                         <tr class="bg-gray-100">
                             <th class="border border-gray-300 text-sm min-w-48 px-1.5 py-1.5">Produk</th>
                             <th class="border border-gray-300 text-sm px-1.5 py-1.5">PO #</th>
-                            <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Dipesan</th>
-                            <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Diterima</th>
                             <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Sisa</th>
                             <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Qty Terima</th>
+                            <th class="border border-gray-300 text-sm min-w-40 px-1.5 py-1.5">Lot</th>
+                            <th class="border border-gray-300 text-sm min-w-40 px-1.5 py-1.5">Serial</th>
                             <th class="border border-gray-300 text-sm px-1.5 py-1.5">UOM</th>
                         </tr>
                     </thead>
@@ -331,17 +481,9 @@ const supplierTableHeaders = [
                                 {{ line.purchase_order_number }}
                             </td>
                             <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-right">
-                                {{ formatNumber(line.ordered_quantity, 2) }}
-                            </td>
-                            <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-right">
-                                {{ formatNumber(line.received_quantity, 2) }}
-                            </td>
-                            <td class="group border border-gray-300 px-1.5 py-1.5 text-sm text-right">
-                                <div class="flex items-center justify-end">
-                                    <span :class="line.remaining_quantity > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'">
-                                        {{ formatNumber(line.remaining_quantity, 2) }}
-                                    </span>
-                                </div>
+                                <span :class="line.remaining_quantity > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'">
+                                    {{ formatNumber(line.remaining_quantity, 2) }}
+                                </span>
                             </td>
                             <td class="border border-gray-300 px-1.5 py-1.5">
                                 <AppInput
@@ -365,6 +507,34 @@ const supplierTableHeaders = [
                                     </template>
                                 </AppInput>
                             </td>
+                            <td class="border border-gray-300 px-1.5 py-1.5">
+                                <AppSelect
+                                    :modelValue="getLotId(line.id)"
+                                    @update:modelValue="setLotId(line.id, $event)"
+                                    :options="lotOptions[line.variant.id]"
+                                    placeholder="Pilih Lot"
+                                    :disabled="line.remaining_quantity <= 0"
+                                    :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                    :addNewButton="{
+                                       label: 'Tambah Lot Baru',
+                                       action: () => openLotModal(line)
+                                    }"
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1.5 py-1.5">
+                                <AppSelect
+                                    :modelValue="getSerialId(line.id)"
+                                    @update:modelValue="setSerialId(line.id, $event)"
+                                    :options="serialOptions[line.variant.id]"
+                                    placeholder="Pilih Serial"
+                                    :disabled="line.remaining_quantity <= 0"
+                                    :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                    :addNewButton="{
+                                       label: 'Tambah Serial Baru',
+                                       action: () => openSerialModal(line)
+                                    }"
+                                />
+                            </td>
                             <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-gray-500">
                                 {{ line.uom?.code ?? '-' }}
                             </td>
@@ -372,9 +542,9 @@ const supplierTableHeaders = [
                     </tbody>
                     <tfoot>
                         <tr class="text-sm">
-                            <th colspan="5" class="border border-gray-300 px-4 py-2 text-right">Total Diterima</th>
+                            <th colspan="3" class="border border-gray-300 px-4 py-2 text-right">Total Diterima</th>
                             <th class="border border-gray-300 px-4 py-2 text-left">{{ formatNumber(totalQuantity, 2) }}</th>
-                            <th></th>
+                            <th colspan="3"></th>
                         </tr>
                     </tfoot>
                 </table>
@@ -398,4 +568,22 @@ const supplierTableHeaders = [
             </AppSecondaryButton>
         </div>
     </form>
+
+    <!-- Lot Modal -->
+    <LotFormModal
+        :show="showLotModal"
+        :productVariantId="currentLineForModal?.variant?.id"
+        :productName="currentLineForModal?.variant?.product_name"
+        @close="showLotModal = false"
+        @created="handleLotCreated"
+    />
+
+    <!-- Serial Modal -->
+    <SerialFormModal
+        :show="showSerialModal"
+        :productVariantId="currentLineForModal?.variant?.id"
+        :productName="currentLineForModal?.variant?.product_name"
+        @close="showSerialModal = false"
+        @created="handleSerialCreated"
+    />
 </template>

@@ -139,6 +139,10 @@ Route::middleware([
         Route::get('api/partners', [ApiController::class, 'getPartners'])->name('api.partners');
         Route::get('api/partners/{partner}', [ApiController::class, 'getPartner'])->name('api.partners.show');
         Route::get('api/suppliers-with-pos', [GoodsReceiptController::class, 'apiSuppliersWithPOs'])->name('api.suppliers-with-pos');
+        Route::get('api/lots', [GoodsReceiptController::class, 'apiLots'])->name('api.lots');
+        Route::post('api/lots', [GoodsReceiptController::class, 'apiStoreLot'])->name('api.lots.store');
+        Route::get('api/serials', [GoodsReceiptController::class, 'apiSerials'])->name('api.serials');
+        Route::post('api/serials', [GoodsReceiptController::class, 'apiStoreSerial'])->name('api.serials.store');
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('availability/pool/{pool}', [AvailabilityController::class, 'pool'])->name('availability.pool');
             Route::get('availability/pool/{pool}/free-instances', [AvailabilityController::class, 'freeInstances'])->name('availability.pool.free-instances');
@@ -500,14 +504,11 @@ Route::middleware([
             Route::resource('transfers', TransferController::class);
         });
 
-        Route::resource('goods-receipts', GoodsReceiptController::class)->only([
-            'index',
-            'create',
-            'store',
-            'show',
-            'edit',
-            'update',
-        ]);
+        Route::get('goods-receipts/export-xlsx', [GoodsReceiptController::class, 'exportXLSX'])->name('goods-receipts.export-xlsx');
+        Route::get('goods-receipts/export-csv', [GoodsReceiptController::class, 'exportCSV'])->name('goods-receipts.export-csv');
+        Route::get('goods-receipts/export-pdf', [GoodsReceiptController::class, 'exportPDF'])->name('goods-receipts.export-pdf');
+        Route::post('goods-receipts/bulk-delete', [GoodsReceiptController::class, 'bulkDelete'])->name('goods-receipts.bulk-delete');
+        Route::resource('goods-receipts', GoodsReceiptController::class);
 
         Route::get('purchase-returns/export-xlsx', [PurchaseReturnController::class, 'exportXLSX'])->name('purchase-returns.export-xlsx');
         Route::get('purchase-returns/export-csv', [PurchaseReturnController::class, 'exportCSV'])->name('purchase-returns.export-csv');
@@ -519,6 +520,10 @@ Route::middleware([
             'show',
         ]);
 
+        Route::get('purchase-orders/export-xlsx', [PurchaseOrderController::class, 'exportXLSX'])->name('purchase-orders.export-xlsx');
+        Route::get('purchase-orders/export-csv', [PurchaseOrderController::class, 'exportCSV'])->name('purchase-orders.export-csv');
+        Route::get('purchase-orders/export-pdf', [PurchaseOrderController::class, 'exportPDF'])->name('purchase-orders.export-pdf');
+        Route::post('purchase-orders/bulk-delete', [PurchaseOrderController::class, 'bulkDelete'])->name('purchase-orders.bulk-delete');
         Route::post('purchase-orders/{purchase_order}/approve', [PurchaseOrderController::class, 'approve'])
             ->name('purchase-orders.approve');
         Route::post('purchase-orders/{purchase_order}/send', [PurchaseOrderController::class, 'send'])

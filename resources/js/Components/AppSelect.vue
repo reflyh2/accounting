@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import AppHint from '@/Components/AppHint.vue';
 import { XMarkIcon } from '@heroicons/vue/24/outline';
+import { PlusIcon } from '@heroicons/vue/24/solid';
 
 defineOptions({
    inheritAttrs: false
@@ -61,6 +62,10 @@ const props = defineProps({
    inModal: {
       type: Boolean,
       default: false
+   },
+   addNewButton :{
+      type: [Object, Boolean],
+      default: false,
    }
 });
 
@@ -191,7 +196,7 @@ function positionDropdown() {
 
 // Add this computed property
 const dropdownContent = computed(() => {
-  return isOpenUpwards.value ? ['optionsList', 'searchBox'] : ['searchBox', 'optionsList'];
+  return isOpenUpwards.value ? ['optionsList', 'addNewButton', 'searchBox'] : ['searchBox', 'addNewButton', 'optionsList'];
 });
 
 const dropdownStyle = computed(() => {
@@ -230,114 +235,126 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div :class="`mt-${margins.top} mr-${margins.right} mb-${margins.bottom} ml-${margins.left}`">
-    <label v-if="label" class="block mb-1 text-sm">
-      {{ label }}
-      <span v-if="required" class="text-red-500 ml-1">*</span>
-      <AppHint v-if="hint" :text="hint" />
-    </label>
-    <div class="relative" ref="selectRef">
-      <div 
-        @click="toggleDropdown"
-        @focus="handleFocus"
-        @blur="handleBlur"
-        tabindex="0"
-        :class="[
-          'w-full px-1.5 py-1.5 border text-sm border-gray-300 rounded flex items-center justify-between',
-          isFocused ? 'outline-none ring-1 ring-main-500' : '',
-          !isFocused && props.error && !hasChanged ? 'border-red-500' : '',
-          props.disabled ? 'bg-gray-100 border-gray-300 cursor-not-allowed' : 'bg-white cursor-pointer'
-        ]"
-      >
-        <div 
-          class="flex flex-wrap items-center flex-grow mr-2"
-          :style="{
-            maxHeight: props.maxRows ? `${props.maxRows * 1.5}rem` : 'none',
-            overflowY: props.maxRows ? 'auto' : 'visible'
-          }"
-        >
-          <template v-if="multiple && selectedOptions.length">
-            <span 
-              v-for="option in selectedOptions" 
-              :key="option.value"
-              :class="['text-sm font-medium px-1.5 py-0.5 rounded mr-1 flex items-center', props.disabled ? 'cursor-not-allowed bg-gray-50 text-gray-600' : 'bg-main-100 text-main-800 ']"
-            >
-               <div class="flex flex-col">
-                  <span>{{ option.label }}</span>
-                  <span v-if="option.description" :class="['text-xs', props.disabled ? 'text-gray-400' : 'text-gray-500']">{{ option.description }}</span>
-               </div>
-               <button :disabled="props.disabled" @click.stop="removeOption(option.value)" :class="['ml-1', props.disabled ? 'text-gray-600 cursor-not-allowed' : 'text-main-600 hover:text-main-800']">&times;</button>
-            </span>
-          </template>
-          <div v-else-if="!multiple && selectedOptions" class="flex flex-col">
-            <span>{{ selectedOptions.label }}</span>
-            <span v-if="selectedOptions.description" class="text-gray-500 text-xs">{{ selectedOptions.description }}</span>
-          </div>
-          <span v-else class="text-gray-500 text-sm">{{ placeholder }}</span>
-        </div>
-        <div class="flex items-center">
-          <!-- Suffix slot for custom content like buttons -->
-          <button 
-            v-if="(multiple && selectedOptions.length) || (!multiple && selectedOptions)"
-            @click.stop="clearSelection"
-            :disabled="props.disabled"
-            class="text-gray-400 hover:text-gray-600 text-sm mr-1"
-            :class="{ 'cursor-not-allowed opacity-60': props.disabled }"
-          >
-            <XMarkIcon class="h-4 w-4" />
-          </button>
-          <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-          </svg>          
-          <slot name="suffix"></slot>
-        </div>
-      </div>
-    </div>
-    <Teleport to="body">
-      <div 
-        v-if="isOpen" 
-        ref="dropdownRef"
-        :class="[
-          'fixed bg-white shadow-lg rounded-md text-sm ring-1 ring-black ring-opacity-5 overflow-hidden focus:outline-none',
-          dropdownZIndexClass,
-          isOpenUpwards ? 'bottom-0' : 'top-0'
-        ]"
-        :style="dropdownStyle"
-      >
-        <template v-for="(content, index) in dropdownContent" :key="index">
-          <div v-if="content === 'searchBox'" class="border-gray-200">
-            <input
-              ref="searchInput"
-              v-model="searchTerm"
-              @input="handleSearchInput"
-              @click.stop
-              placeholder="Cari..."
-              :class="[
-               'w-full border-x-0 border-gray-200 py-1.5 focus:outline-none focus:ring-0 text-sm focus:border-gray-200',
-               isOpenUpwards ? 'rounded-b-md border-b-0 border-t' : 'rounded-t-md border-t-0 border-b'
-              ]"
-            />
-          </div>
-          <div v-else-if="content === 'optionsList'" class="max-h-60 overflow-auto">
-            <div 
-              v-for="option in filteredOptions" 
-              :key="option.value"
-              @click="toggleOption(option)"
-              :class="[
-                'px-2 py-1.5 cursor-pointer hover:bg-gray-100',
-                (multiple && selectValue.includes(option.value)) || (!multiple && selectValue == option.value) ? 'bg-main-50 text-main-900' : ''
-              ]"
-            >
-              <div class="flex flex-col">
-                <span>{{ option.label }}</span>
-                <span v-if="option.description" class="text-gray-500 text-xs">{{ option.description }}</span>
-              </div>
+   <div :class="`mt-${margins.top} mr-${margins.right} mb-${margins.bottom} ml-${margins.left}`">
+      <label v-if="label" class="block mb-1 text-sm">
+         {{ label }}
+         <span v-if="required" class="text-red-500 ml-1">*</span>
+         <AppHint v-if="hint" :text="hint" />
+      </label>
+      <div class="relative" ref="selectRef">
+         <div 
+         @click="toggleDropdown"
+         @focus="handleFocus"
+         @blur="handleBlur"
+         tabindex="0"
+         :class="[
+            'w-full px-1.5 py-1.5 border text-sm border-gray-300 rounded flex items-center justify-between',
+            isFocused ? 'outline-none ring-1 ring-main-500' : '',
+            !isFocused && props.error && !hasChanged ? 'border-red-500' : '',
+            props.disabled ? 'bg-gray-100 border-gray-300 cursor-not-allowed' : 'bg-white cursor-pointer'
+         ]"
+         >
+         <div 
+            class="flex flex-wrap items-center flex-grow mr-2"
+            :style="{
+               maxHeight: props.maxRows ? `${props.maxRows * 1.5}rem` : 'none',
+               overflowY: props.maxRows ? 'auto' : 'visible'
+            }"
+         >
+            <template v-if="multiple && selectedOptions.length">
+               <span 
+               v-for="option in selectedOptions" 
+               :key="option.value"
+               :class="['text-sm font-medium px-1.5 py-0.5 rounded mr-1 flex items-center', props.disabled ? 'cursor-not-allowed bg-gray-50 text-gray-600' : 'bg-main-100 text-main-800 ']"
+               >
+                  <div class="flex flex-col">
+                     <span>{{ option.label }}</span>
+                     <span v-if="option.description" :class="['text-xs', props.disabled ? 'text-gray-400' : 'text-gray-500']">{{ option.description }}</span>
+                  </div>
+                  <button :disabled="props.disabled" @click.stop="removeOption(option.value)" :class="['ml-1', props.disabled ? 'text-gray-600 cursor-not-allowed' : 'text-main-600 hover:text-main-800']">&times;</button>
+               </span>
+            </template>
+            <div v-else-if="!multiple && selectedOptions" class="flex flex-col">
+               <span>{{ selectedOptions.label }}</span>
+               <span v-if="selectedOptions.description" class="text-gray-500 text-xs">{{ selectedOptions.description }}</span>
             </div>
-          </div>
-        </template>
+            <span v-else class="text-gray-500 text-sm">{{ placeholder }}</span>
+         </div>
+         <div class="flex items-center">
+            <!-- Suffix slot for custom content like buttons -->
+            <button 
+               v-if="(multiple && selectedOptions.length) || (!multiple && selectedOptions)"
+               @click.stop="clearSelection"
+               :disabled="props.disabled"
+               class="flex items-center text-gray-400 hover:text-gray-600 text-sm mr-1"
+               :class="{ 'cursor-not-allowed opacity-60': props.disabled }"
+            >
+               <XMarkIcon class="h-4 w-4" />
+            </button>
+            <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+               <path fill-rule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>          
+            <slot name="suffix"></slot>
+         </div>
+         </div>
       </div>
-    </Teleport>
-    <div v-if="props.error && !isFocused && !hasChanged" class="text-red-500 mt-2 text-sm">{{ props.error }}</div>
-    <slot name="help"></slot>
-  </div>
+      <Teleport to="body">
+         <div 
+            v-if="isOpen" 
+            ref="dropdownRef"
+            :class="[
+               'fixed bg-white shadow-lg rounded-md text-sm ring-1 ring-black ring-opacity-5 overflow-hidden focus:outline-none',
+               dropdownZIndexClass,
+               isOpenUpwards ? 'bottom-0' : 'top-0'
+            ]"
+            :style="dropdownStyle"
+         >
+            <template v-for="(content, index) in dropdownContent" :key="index">
+               <div v-if="content === 'searchBox'" class="border-gray-200">
+                  <input
+                  ref="searchInput"
+                  v-model="searchTerm"
+                  @input="handleSearchInput"
+                  @click.stop
+                  placeholder="Cari..."
+                  :class="[
+                     'w-full border-x-0 border-gray-200 py-1.5 focus:outline-none focus:ring-0 text-sm focus:border-gray-200',
+                     isOpenUpwards ? 'rounded-b-md border-b-0 border-t' : 'rounded-t-md border-t-0 border-b'
+                  ]"
+                  />
+               </div>
+               <div v-if="addNewButton && content === 'addNewButton'" class="border-gray-200">
+                  <button
+                     @click="addNewButton.action"
+                     :class="[
+                        'w-full flex items-center border-x-0 border-gray-200 py-1.5 px-2 focus:outline-none focus:ring-0 text-xs font-bold text-main-600 hover:text-main-800 focus:border-gray-200',
+                        isOpenUpwards ? 'rounded-b-md border-b-0 border-t' : 'rounded-t-md border-t-0 border-b'
+                     ]"
+                  >
+                     <PlusIcon class="w-4 h-4 mr-1" />
+                     {{ addNewButton.label }}
+                  </button>
+               </div>
+               <div v-else-if="content === 'optionsList'" class="max-h-60 overflow-auto">
+                  <div 
+                  v-for="option in filteredOptions" 
+                  :key="option.value"
+                  @click="toggleOption(option)"
+                  :class="[
+                     'px-2 py-1.5 cursor-pointer hover:bg-gray-100',
+                     (multiple && selectValue.includes(option.value)) || (!multiple && selectValue == option.value) ? 'bg-main-50 text-main-900' : ''
+                  ]"
+                  >
+                     <div class="flex flex-col">
+                        <span>{{ option.label }}</span>
+                        <span v-if="option.description" class="text-gray-500 text-xs">{{ option.description }}</span>
+                     </div>
+                  </div>
+               </div>
+            </template>
+         </div>
+      </Teleport>
+      <div v-if="props.error && !isFocused && !hasChanged" class="text-red-500 mt-2 text-sm">{{ props.error }}</div>
+      <slot name="help"></slot>
+   </div>
 </template>

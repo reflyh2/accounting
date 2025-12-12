@@ -27,7 +27,7 @@ export default {
 
     safelist: [
         {
-            pattern: /bg-purple-(50|100|200|300|400|500|600|700|800|900)/,
+            pattern: /bg-purple-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
@@ -35,7 +35,15 @@ export default {
             variants: ['hover', 'focus'],
         },
         {
-            pattern: /text-purple-(50|100|200|300|400|500|600|700|800|900)/,
+            pattern: /text-purple-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
+            pattern: /bg-amber-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
+            pattern: /bg-sky-(.*)/,
             variants: ['hover', 'focus'],
         },
         {

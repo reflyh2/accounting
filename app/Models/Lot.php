@@ -17,6 +17,11 @@ class Lot extends Model
     {
         return $this->belongsTo(ProductVariant::class);
     }
+
+    public function goodsReceiptLines()
+    {
+        return $this->hasMany(GoodsReceiptLine::class);
+    }
 }
 
 

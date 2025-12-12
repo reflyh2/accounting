@@ -5,20 +5,25 @@ namespace App\Http\Controllers;
 use App\Enums\Documents\GoodsReceiptStatus;
 use App\Enums\Documents\PurchaseOrderStatus;
 use App\Exceptions\PurchaseOrderException;
+use App\Exports\GoodsReceiptsExport;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\GoodsReceipt;
 use App\Models\Location;
+use App\Models\Lot;
 use App\Models\Partner;
 use App\Models\PurchaseOrder;
+use App\Models\Serial;
 use App\Services\Purchasing\PurchaseService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class GoodsReceiptController extends Controller
 {
@@ -183,15 +188,20 @@ class GoodsReceiptController extends Controller
 
     public function show(GoodsReceipt $goodsReceipt): Response
     {
-        $goodsReceipt->load([
+        $goodsReceipt->loadMissing([
+            'purchaseOrder',
             'purchaseOrder.partner',
             'purchaseOrder.branch.branchGroup.company',
             'purchaseOrder.currency',
+            'purchaseOrder:*',
             'purchaseOrders.partner',
             'purchaseOrders.branch.branchGroup.company',
+            'lines:*',
             'lines.variant.product',
             'lines.uom',
             'lines.baseUom',
+            'lines.lot',
+            'lines.serial',
             'lines.purchaseOrderLine',
             'location',
             'currency',
@@ -248,10 +258,12 @@ class GoodsReceiptController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.purchase_order_line_id' => ['required', 'exists:purchase_order_lines,id'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.lot_id' => ['nullable', 'exists:lots,id'],
+            'lines.*.serial_id' => ['nullable', 'exists:serials,id'],
         ]);
 
         try {
-            $goodsReceipt = $purchaseService->updateGoodsReceipt($goodsReceipt, $data);
+            $goodsReceipt = $purchaseService->updateGoodsReceipt($goodsReceipt, $data, $request->user());
         } catch (PurchaseOrderException $exception) {
             return Redirect::back()
                 ->withInput()
@@ -363,6 +375,15 @@ class GoodsReceiptController extends Controller
                         'id' => $line->variant->id,
                         'sku' => $line->variant->sku,
                         'product_name' => $line->variant->product?->name,
+                    ] : null,
+                    'lot' => $line->lot ? [
+                        'id' => $line->lot->id,
+                        'lot_code' => $line->lot->lot_code,
+                        'expiry_date' => $line->lot->expiry_date,
+                    ] : null,
+                    'serial' => $line->serial ? [
+                        'id' => $line->serial->id,
+                        'serial_no' => $line->serial->serial_no,
                     ] : null,
                 ];
             })->values();
@@ -695,6 +716,182 @@ class GoodsReceiptController extends Controller
         $query->orderBy($sort, $order);
 
         return $query->paginate($request->input('per_page', 10))->withQueryString();
+    }
+
+    public function destroy(GoodsReceipt $goodsReceipt, PurchaseService $purchaseService): RedirectResponse
+    {
+        try {
+            $purchaseService->deleteGoodsReceipt($goodsReceipt);
+        } catch (PurchaseOrderException $exception) {
+            return Redirect::back()->with('error', $exception->getMessage());
+        }
+
+        return Redirect::route('goods-receipts.index')
+            ->with('success', 'Penerimaan Barang berhasil dihapus.');
+    }
+
+    public function bulkDelete(Request $request, PurchaseService $purchaseService): RedirectResponse
+    {
+        $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'exists:goods_receipts,id'],
+        ]);
+
+        DB::transaction(function () use ($request, $purchaseService) {
+            foreach ($request->ids as $id) {
+                $goodsReceipt = GoodsReceipt::find($id);
+                if ($goodsReceipt) {
+                    $purchaseService->deleteGoodsReceipt($goodsReceipt);
+                }
+            }
+        });
+
+        if ($request->has('preserveState')) {
+            $currentQuery = $request->input('currentQuery', '');
+            $redirectUrl = route('goods-receipts.index') . ($currentQuery ? '?' . $currentQuery : '');
+            
+            return Redirect::to($redirectUrl)
+                ->with('success', 'Penerimaan Barang berhasil dihapus.');
+        }
+
+        return Redirect::route('goods-receipts.index')
+            ->with('success', 'Penerimaan Barang berhasil dihapus.');
+    }
+
+    public function exportXLSX(Request $request)
+    {
+        $goodsReceipts = $this->getFilteredGoodsReceipts($request);
+        return Excel::download(new GoodsReceiptsExport($goodsReceipts), 'goods-receipts.xlsx');
+    }
+
+    public function exportCSV(Request $request)
+    {
+        $goodsReceipts = $this->getFilteredGoodsReceipts($request);
+        return Excel::download(new GoodsReceiptsExport($goodsReceipts), 'goods-receipts.csv', \Maatwebsite\Excel\Excel::CSV);
+    }
+
+    public function exportPDF(Request $request)
+    {
+        $goodsReceipts = $this->getFilteredGoodsReceipts($request);
+        return Excel::download(new GoodsReceiptsExport($goodsReceipts), 'goods-receipts.pdf', \Maatwebsite\Excel\Excel::DOMPDF);
+    }
+
+    private function getFilteredGoodsReceipts(Request $request)
+    {
+        $filters = $request->all() ?: Session::get('goods_receipts.index_filters', []);
+
+        $query = GoodsReceipt::query()
+            ->with(['supplier', 'location', 'branch']);
+
+        if ($filters['search'] ?? null) {
+            $search = strtolower($filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('lower(receipt_number) like ?', ["%{$search}%"])
+                    ->orWhereHas('supplier', fn ($sq) => $sq->whereRaw('lower(name) like ?', ["%{$search}%"]));
+            });
+        }
+
+        if ($companyIds = Arr::wrap($filters['company_id'] ?? [])) {
+            $query->whereIn('company_id', array_filter($companyIds));
+        }
+
+        if ($branchIds = Arr::wrap($filters['branch_id'] ?? [])) {
+            $query->whereIn('branch_id', array_filter($branchIds));
+        }
+
+        if ($statuses = Arr::wrap($filters['status'] ?? [])) {
+            $query->whereIn('status', array_filter($statuses));
+        }
+
+        if ($filters['from_date'] ?? null) {
+            $query->whereDate('receipt_date', '>=', $filters['from_date']);
+        }
+
+        if ($filters['to_date'] ?? null) {
+            $query->whereDate('receipt_date', '<=', $filters['to_date']);
+        }
+
+        $sort = $filters['sort'] ?? 'receipt_date';
+        $order = $filters['order'] ?? 'desc';
+
+        return $query->orderBy($sort, $order)->get();
+    }
+
+    /**
+     * API: Get lots for a product variant (filter: expiry not reached)
+     */
+    public function apiLots(Request $request)
+    {
+        $query = Lot::query();
+
+        if ($request->product_variant_id) {
+            $query->where('product_variant_id', $request->product_variant_id);
+        }
+
+        // Filter lots where expiry_date is null or >= receipt_date
+        $receiptDate = $request->input('receipt_date', now()->toDateString());
+        $query->where(function ($q) use ($receiptDate) {
+            $q->whereNull('expiry_date')
+              ->orWhere('expiry_date', '>=', $receiptDate);
+        });
+
+        if ($request->search) {
+            $search = strtolower($request->search);
+            $query->whereRaw('lower(lot_code) like ?', ["%{$search}%"]);
+        }
+
+        return $query->orderBy('lot_code')->get(['id', 'lot_code', 'mfg_date', 'expiry_date']);
+    }
+
+    /**
+     * API: Create a new lot
+     */
+    public function apiStoreLot(Request $request)
+    {
+        $data = $request->validate([
+            'product_variant_id' => ['required', 'exists:product_variants,id'],
+            'lot_code' => ['required', 'string', 'max:100'],
+            'mfg_date' => ['nullable', 'date'],
+            'expiry_date' => ['nullable', 'date'],
+        ]);
+
+        $lot = Lot::create($data);
+
+        return response()->json($lot, 201);
+    }
+
+    /**
+     * API: Get serials for a product variant
+     */
+    public function apiSerials(Request $request)
+    {
+        $query = Serial::query();
+
+        if ($request->product_variant_id) {
+            $query->where('product_variant_id', $request->product_variant_id);
+        }
+
+        if ($request->search) {
+            $search = strtolower($request->search);
+            $query->whereRaw('lower(serial_no) like ?', ["%{$search}%"]);
+        }
+
+        return $query->orderBy('serial_no')->get(['id', 'serial_no']);
+    }
+
+    /**
+     * API: Create a new serial
+     */
+    public function apiStoreSerial(Request $request)
+    {
+        $data = $request->validate([
+            'product_variant_id' => ['required', 'exists:product_variants,id'],
+            'serial_no' => ['required', 'string', 'max:100'],
+        ]);
+
+        $serial = Serial::create($data);
+
+        return response()->json($serial, 201);
     }
 }
 

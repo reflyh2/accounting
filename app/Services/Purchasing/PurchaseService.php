@@ -446,6 +446,8 @@ class PurchaseService
                     'unit_cost_base' => $plan['unit_cost_base'],
                     'line_total' => $plan['line_total'],
                     'line_total_base' => $plan['line_total_base'],
+                    'lot_id' => $plan['lot_id'] ?? null,
+                    'serial_id' => $plan['serial_id'] ?? null,
                 ]);
 
                 // Update PO line received quantity
@@ -575,6 +577,10 @@ class PurchaseService
                     }
                 }
 
+                // Set the inventory transaction foreign key on goods receipt to null
+                $goodsReceipt->inventory_transaction_id = null;
+                $goodsReceipt->save();
+
                 // Delete the inventory transaction (reverses inventory)
                 $this->inventoryService->deleteTransaction($goodsReceipt->inventoryTransaction);
             }
@@ -626,6 +632,8 @@ class PurchaseService
                     'unit_cost_base' => $plan['unit_cost_base'],
                     'line_total' => $plan['line_total'],
                     'line_total_base' => $plan['line_total_base'],
+                    'lot_id' => $plan['lot_id'],
+                    'serial_id' => $plan['serial_id'],
                 ]);
 
                 // Update PO line received quantity
@@ -699,6 +707,138 @@ class PurchaseService
 
             return $goodsReceipt;
         });
+    }
+
+    /**
+     * Delete a goods receipt, reversing inventory and accounting entries.
+     */
+    public function deleteGoodsReceipt(GoodsReceipt $goodsReceipt, ?Authenticatable $actor = null): void
+    {
+        $actor ??= Auth::user();
+
+        $goodsReceipt->loadMissing([
+            'lines.purchaseOrderLine',
+            'purchaseOrders',
+            'inventoryTransaction',
+            'location.branch.branchGroup.company',
+        ]);
+
+        DB::transaction(function () use ($goodsReceipt, $actor) {
+            // If posted, reverse inventory and accounting
+            if ($goodsReceipt->status === GoodsReceiptStatus::POSTED->value) {
+                // Reverse inventory transaction
+                if ($goodsReceipt->inventory_transaction_id) {
+                    $this->inventoryService->deleteTransaction($goodsReceipt->inventory_transaction_id);
+                }
+
+                // Reverse accounting entries
+                $this->dispatchGoodsReceiptReversalEvent($goodsReceipt, $actor);
+            }
+
+            // Restore PO line received quantities
+            foreach ($goodsReceipt->lines as $grLine) {
+                if ($grLine->purchaseOrderLine) {
+                    $poLine = $grLine->purchaseOrderLine;
+                    $poLine->quantity_received = $this->roundQuantity(
+                        max(0, (float) $poLine->quantity_received - (float) $grLine->quantity)
+                    );
+                    $poLine->quantity_received_base = $this->roundQuantity(
+                        max(0, (float) $poLine->quantity_received_base - (float) $grLine->quantity_base)
+                    );
+                    $poLine->save();
+                }
+            }
+
+            // Update PO statuses
+            foreach ($goodsReceipt->purchaseOrders as $po) {
+                $po->loadMissing('lines');
+                $this->updatePurchaseOrderStatus($po);
+            }
+
+            // Detach from pivot table
+            $goodsReceipt->purchaseOrders()->detach();
+
+            // Delete lines
+            $goodsReceipt->lines()->delete();
+
+            // Delete the goods receipt
+            $goodsReceipt->delete();
+        });
+    }
+
+    /**
+     * Dispatch accounting reversal event for goods receipt deletion.
+     */
+    private function dispatchGoodsReceiptReversalEvent(GoodsReceipt $goodsReceipt, ?Authenticatable $actor = null): void
+    {
+        $amountBase = (float) $goodsReceipt->total_value_base;
+
+        if ($amountBase <= 0) {
+            return;
+        }
+
+        $currencyCode = $goodsReceipt->currency?->code ?? 'IDR';
+        $purchaseOrderNumbers = $goodsReceipt->purchaseOrders->pluck('order_number')->toArray();
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::PURCHASE_GRN_REVERSED,
+            $goodsReceipt->company_id,
+            $goodsReceipt->branch_id,
+            'goods_receipt',
+            $goodsReceipt->id,
+            $goodsReceipt->receipt_number,
+            $currencyCode,
+            (float) $goodsReceipt->exchange_rate,
+            CarbonImmutable::parse($goodsReceipt->receipt_date ?? now()),
+            $actor?->getAuthIdentifier(),
+            [
+                'purchase_order_numbers' => $purchaseOrderNumbers,
+                'reversal' => true,
+            ],
+        );
+
+        $normalizedAmount = $this->roundCost($amountBase);
+
+        // Reverse the original entries: credit inventory, debit GRNI
+        $payload->setLines([
+            AccountingEntry::debit('goods_received_not_invoiced', $normalizedAmount),
+            AccountingEntry::credit('inventory', $normalizedAmount),
+        ]);
+
+        rescue(function () use ($payload) {
+            $this->accountingEventBus->dispatch($payload);
+        }, static function (Throwable $throwable) {
+            report($throwable);
+        });
+    }
+
+    /**
+     * Update PO status based on received quantities.
+     */
+    private function updatePurchaseOrderStatus(PurchaseOrder $purchaseOrder): void
+    {
+        $totalReceived = $purchaseOrder->lines->sum('quantity_received');
+        $totalOrdered = $purchaseOrder->lines->sum('quantity');
+
+        if ($totalReceived <= 0) {
+            // No received quantity, reset to SENT
+            if ($purchaseOrder->status !== PurchaseOrderStatus::SENT->value) {
+                $purchaseOrder->status = PurchaseOrderStatus::SENT->value;
+                $purchaseOrder->save();
+            }
+        } elseif ($totalReceived >= $totalOrdered) {
+            // Fully received
+            if ($purchaseOrder->status !== PurchaseOrderStatus::RECEIVED->value) {
+                $purchaseOrder->status = PurchaseOrderStatus::RECEIVED->value;
+                $purchaseOrder->save();
+            }
+        } else {
+            // Partially received
+            if ($purchaseOrder->status !== PurchaseOrderStatus::PARTIALLY_RECEIVED->value) {
+                $purchaseOrder->status = PurchaseOrderStatus::PARTIALLY_RECEIVED->value;
+                $purchaseOrder->save();
+            }
+        }
     }
 
     public function approve(PurchaseOrder $purchaseOrder, ?Authenticatable $actor = null): PurchaseOrder
@@ -1025,6 +1165,8 @@ class PurchaseService
                 'unit_cost_base' => $unitCostBase,
                 'line_total' => $lineTotal,
                 'line_total_base' => $lineTotalBase,
+                'lot_id' => $payloadLine['lot_id'] ?? null,
+                'serial_id' => $payloadLine['serial_id'] ?? null,
             ];
         }
 

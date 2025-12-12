@@ -16,12 +16,12 @@ enum PurchaseOrderStatus: string
     {
         return match ($this) {
             self::DRAFT => 'Draft',
-            self::APPROVED => 'Approved',
-            self::SENT => 'Sent',
-            self::PARTIALLY_RECEIVED => 'Partially Received',
-            self::RECEIVED => 'Received',
-            self::CLOSED => 'Closed',
-            self::CANCELED => 'Canceled',
+            self::APPROVED => 'Disetujui',
+            self::SENT => 'Dikirim',
+            self::PARTIALLY_RECEIVED => 'Diterima Sebagian',
+            self::RECEIVED => 'Diterima',
+            self::CLOSED => 'Ditutup',
+            self::CANCELED => 'Dibatalkan',
         };
     }
 }

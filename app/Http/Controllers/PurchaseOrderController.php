@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\Documents\PurchaseOrderStatus;
 use App\Exceptions\PurchaseOrderException;
+use App\Exports\PurchaseOrdersExport;
 use App\Http\Requests\PurchaseOrderRequest;
 use App\Models\Branch;
 use App\Models\Company;
@@ -16,10 +17,12 @@ use App\Services\Purchasing\PurchaseService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PurchaseOrderController extends Controller
 {
@@ -339,5 +342,96 @@ class PurchaseOrderController extends Controller
                 $status->value => $status->label(),
             ])
             ->toArray();
+    }
+
+    public function bulkDelete(Request $request, PurchaseService $service): RedirectResponse
+    {
+        $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'exists:purchase_orders,id'],
+        ]);
+
+        DB::transaction(function () use ($request, $service) {
+            foreach ($request->ids as $id) {
+                $purchaseOrder = PurchaseOrder::find($id);
+                if ($purchaseOrder) {
+                    $service->delete($purchaseOrder);
+                }
+            }
+        });
+
+        if ($request->has('preserveState')) {
+            $currentQuery = $request->input('currentQuery', '');
+            $redirectUrl = route('purchase-orders.index') . ($currentQuery ? '?' . $currentQuery : '');
+            
+            return Redirect::to($redirectUrl)
+                ->with('success', 'Purchase Orders berhasil dihapus.');
+        }
+
+        return Redirect::route('purchase-orders.index')
+            ->with('success', 'Purchase Orders berhasil dihapus.');
+    }
+
+    public function exportXLSX(Request $request)
+    {
+        $purchaseOrders = $this->getFilteredPurchaseOrders($request);
+        return Excel::download(new PurchaseOrdersExport($purchaseOrders), 'purchase-orders.xlsx');
+    }
+
+    public function exportCSV(Request $request)
+    {
+        $purchaseOrders = $this->getFilteredPurchaseOrders($request);
+        return Excel::download(new PurchaseOrdersExport($purchaseOrders), 'purchase-orders.csv', \Maatwebsite\Excel\Excel::CSV);
+    }
+
+    public function exportPDF(Request $request)
+    {
+        $purchaseOrders = $this->getFilteredPurchaseOrders($request);
+        return Excel::download(new PurchaseOrdersExport($purchaseOrders), 'purchase-orders.pdf', \Maatwebsite\Excel\Excel::DOMPDF);
+    }
+
+    private function getFilteredPurchaseOrders(Request $request)
+    {
+        $filters = $request->all() ?: Session::get('purchase_orders.index_filters', []);
+
+        $query = PurchaseOrder::query()
+            ->with(['partner', 'branch', 'currency']);
+
+        if ($filters['search'] ?? null) {
+            $search = strtolower($filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('lower(order_number) like ?', ["%{$search}%"])
+                    ->orWhereHas('partner', fn ($pq) => $pq->whereRaw('lower(name) like ?', ["%{$search}%"]));
+            });
+        }
+
+        if ($companyIds = Arr::wrap($filters['company_id'] ?? [])) {
+            $query->whereIn('company_id', array_filter($companyIds));
+        }
+
+        if ($branchIds = Arr::wrap($filters['branch_id'] ?? [])) {
+            $query->whereIn('branch_id', array_filter($branchIds));
+        }
+
+        if ($partnerIds = Arr::wrap($filters['partner_id'] ?? [])) {
+            $query->whereIn('partner_id', array_filter($partnerIds));
+        }
+
+        if ($statuses = Arr::wrap($filters['status'] ?? [])) {
+            $query->whereIn('status', array_filter($statuses));
+        }
+
+        if ($filters['from_date'] ?? null) {
+            $query->whereDate('order_date', '>=', $filters['from_date']);
+        }
+
+        if ($filters['to_date'] ?? null) {
+            $query->whereDate('order_date', '<=', $filters['to_date']);
+        }
+
+        $sort = $filters['sort'] ?? 'order_date';
+        $order = $filters['order'] ?? 'desc';
+
+        return $query->orderBy($sort, $order)->get();
     }
 }
