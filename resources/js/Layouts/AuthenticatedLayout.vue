@@ -76,6 +76,7 @@ const isSettingsActive = computed(() => {
         || route().current('tax-components.*')
         || route().current('tax-categories.*')
         || route().current('tax-rules.*')
+        || route().current('gl-event-configurations.*');
 });
 
 const isAccountingActive = computed(() => {
@@ -153,8 +154,7 @@ const isProduksiActive = computed(() => {
         || route().current('work-orders.*')
         || route().current('component-issues.*')
         || route().current('component-scraps.*')
-        || route().current('finished-goods-receipts.*')
-        || route().current('gl-event-configurations.*');
+        || route().current('finished-goods-receipts.*');
 });
 
 const sidebarWidth = computed(() => {
@@ -574,6 +574,13 @@ function toggleSidebar() {
                             >
                                 Hak Akses Pengguna
                             </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('gl-event-configurations.index')"
+                                :active="route().current('gl-event-configurations.*')"
+                                class="pl-11"
+                            >
+                                Konfigurasi GL Event
+                            </ResponsiveNavLink>
                             <ResponsiveNavLink 
                                 :href="route('tax-jurisdictions.index')" 
                                 :active="
@@ -841,13 +848,6 @@ function toggleSidebar() {
                                         >
                                             Pembuangan Bahan Baku
                                         </NavLink>
-                                        <NavLink
-                                            :href="route('gl-event-configurations.index')"
-                                            :active="route().current('gl-event-configurations.*')"
-                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
-                                        >
-                                            Konfigurasi GL Event
-                                        </NavLink>
                                     </div>
                                 </div>
 
@@ -899,13 +899,6 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Pembuangan Bahan Baku
-                                        </NavLink>
-                                        <NavLink
-                                            :href="route('gl-event-configurations.index')"
-                                            :active="route().current('gl-event-configurations.*')"
-                                            class="flex items-center"
-                                        >
-                                            Konfigurasi GL Event
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
@@ -1383,6 +1376,13 @@ function toggleSidebar() {
                                         >
                                             Hak Akses Pengguna
                                         </NavLink>
+                                        <NavLink
+                                            :href="route('gl-event-configurations.index')"
+                                            :active="route().current('gl-event-configurations.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Konfigurasi GL Event
+                                        </NavLink>
                                         <NavLink 
                                             :href="route('tax-jurisdictions.index')" 
                                             :active="
@@ -1443,6 +1443,13 @@ function toggleSidebar() {
                                         >
                                             Hak Akses Pengguna
                                         </NavLink>
+                                        <NavLink
+                                            :href="route('gl-event-configurations.index')"
+                                            :active="route().current('gl-event-configurations.*')"
+                                            class="flex items-center"
+                                        >
+                                            Konfigurasi GL Event
+                                        </NavLink>
                                         <NavLink 
                                             :href="route('tax-jurisdictions.index')" 
                                             :active="
@@ -1500,7 +1507,7 @@ function toggleSidebar() {
                 />
 
                 <!-- Page Content -->
-                <main class="px-10">
+                <main class="px-0 md:px-10">
                     <slot />
                 </main>
             </div>
