@@ -76,6 +76,7 @@ const downloadOptions = [
 ];
 
 const columnFormatters = {
+    event_code: (value) => props.eventCodes.find(eventCode => eventCode.value === value)?.label,
     is_active: (value) => value ? 'Aktif' : 'Tidak Aktif',
 };
 

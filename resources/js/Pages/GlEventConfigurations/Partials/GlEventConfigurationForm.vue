@@ -115,6 +115,7 @@ watch(() => form.event_code, (newEventCode) => {
 }, { immediate: false });
 
 watch(selectedCompany, (newCompanyId) => {
+   form.company_id = newCompanyId;
    if (!props.configuration && newCompanyId) {
       router.reload({ only: ['branches', 'accounts'], data: { company_id: newCompanyId } });
    }
@@ -215,7 +216,7 @@ function submitForm(createAnother = false) {
                   required
                />
                
-               <div class="flex items-end">
+               <div class="flex items-center">
                   <AppCheckbox
                      v-model="form.is_active"
                      label="Aktif"

@@ -141,6 +141,7 @@ class GlEventConfigurationController extends Controller
         }
 
         $configuration = DB::transaction(function () use ($validated) {
+            dd($validated);
             $configuration = GlEventConfiguration::create([
                 'company_id' => $validated['company_id'] ?? null,
                 'branch_id' => $validated['branch_id'] ?? null,
