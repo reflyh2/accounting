@@ -581,6 +581,11 @@ class PurchaseService
                 $goodsReceipt->inventory_transaction_id = null;
                 $goodsReceipt->save();
 
+                // Reverse accounting entries if previously posted
+                if ($goodsReceipt->status === GoodsReceiptStatus::POSTED->value) {
+                    $this->dispatchGoodsReceiptReversalEvent($goodsReceipt, $actor);
+                }
+
                 // Delete the inventory transaction (reverses inventory)
                 $this->inventoryService->deleteTransaction($goodsReceipt->inventoryTransaction);
             }
@@ -705,6 +710,9 @@ class PurchaseService
                 'inventoryTransaction',
             ]);
 
+            // Dispatch accounting event for the updated receipt
+            $this->dispatchGoodsReceiptEventMultiPO($goodsReceipt, $totalValueBase, $actor);
+
             return $goodsReceipt;
         });
     }
@@ -727,8 +735,13 @@ class PurchaseService
             // If posted, reverse inventory and accounting
             if ($goodsReceipt->status === GoodsReceiptStatus::POSTED->value) {
                 // Reverse inventory transaction
-                if ($goodsReceipt->inventory_transaction_id) {
-                    $this->inventoryService->deleteTransaction($goodsReceipt->inventory_transaction_id);
+                // Reverse inventory transaction
+                if ($goodsReceipt->inventoryTransaction) {
+                    $transaction = $goodsReceipt->inventoryTransaction;
+                    $goodsReceipt->inventory_transaction_id = null;
+                    $goodsReceipt->save();
+                    
+                    $this->inventoryService->deleteTransaction($transaction);
                 }
 
                 // Reverse accounting entries

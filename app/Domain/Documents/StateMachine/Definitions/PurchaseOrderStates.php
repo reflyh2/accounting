@@ -24,6 +24,7 @@ final class PurchaseOrderStates
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::SENT, PurchaseOrderStatus::RECEIVED))
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::PARTIALLY_RECEIVED, PurchaseOrderStatus::RECEIVED))
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::PARTIALLY_RECEIVED, PurchaseOrderStatus::CLOSED))
+            ->allow(DocumentStateTransition::make(PurchaseOrderStatus::RECEIVED, PurchaseOrderStatus::PARTIALLY_RECEIVED))
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::RECEIVED, PurchaseOrderStatus::CLOSED))
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::DRAFT, PurchaseOrderStatus::CANCELED))
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::APPROVED, PurchaseOrderStatus::CANCELED))

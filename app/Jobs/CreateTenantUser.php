@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use Schema;
+use Illuminate\Support\Facades\Schema;
 use App\Models\Tenant;
 use App\Models\CentralUser;
 use Illuminate\Bus\Queueable;

@@ -1,8 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { router, Head } from '@inertiajs/vue3';
+import { router, Head, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
+import AppPrintButton from '@/Components/AppPrintButton.vue';
 
 const props = defineProps({
     goodsReceipts: Object,
@@ -93,6 +94,35 @@ const customFilters = computed(() => [
     },
 ]);
 
+function handleDelete(id) {
+    const page = usePage();
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+
+    router.delete(route('goods-receipts.destroy', id), {
+        preserveScroll: true,
+        preserveState: true,
+        data: {
+            preserveState: true,
+            currentQuery: currentQuery
+        },
+    });
+}
+
+function handleBulkDelete(ids) {
+    const page = usePage();
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+
+    router.delete(route('goods-receipts.bulk-delete'), {
+        preserveScroll: true,
+        preserveState: true,
+        data: {
+            preserveState: true,
+            currentQuery: currentQuery,
+            ids: ids,
+        },
+    });
+}
+
 function handleSort(newSort) {
     currentSort.value = newSort;
     router.get(route('goods-receipts.index'), {
@@ -153,9 +183,17 @@ function handleFilter(newFilters) {
                         :enableBulkActions="true"
                         :bulkDeleteRoute="{ name: 'goods-receipts.bulk-delete' }"
                         routeName="goods-receipts.index"
+                        @delete="handleDelete"
+                        @bulkDelete="handleBulkDelete"
                         @sort="handleSort"
                         @filter="handleFilter"
-                    />
+                    >
+                        <template #custom_actions="{ item }">
+                            <a :href="route('goods-receipts.print', item.id)" target="_blank">
+                                <AppPrintButton />
+                            </a>
+                        </template>
+                    </AppDataTable>
                 </div>
             </div>
         </div>

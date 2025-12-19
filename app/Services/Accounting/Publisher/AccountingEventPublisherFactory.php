@@ -12,14 +12,20 @@ class AccountingEventPublisherFactory
 
     public function make(?string $driver = null): AccountingEventPublisher
     {
-        $driver ??= $this->config['driver'] ?? 'log';
+        // By default, or explicitly, we now want to use a Composite strategy that includes both Logging and Journaling.
+        // We can make this configurable, but for now we'll hardcode the requirement: "Both logging and journaling".
 
-        return match ($driver) {
-            'log' => new LogAccountingEventPublisher(
-                $this->config['log_channel'] ?? 'stack'
-            ),
-            default => throw new InvalidArgumentException("Unsupported accounting event driver [{$driver}]."),
-        };
+        $publishers = [];
+
+        // 1. Log Publisher (Always enabled or configurable)
+        $publishers[] = new LogAccountingEventPublisher(
+            $this->config['log_channel'] ?? 'stack'
+        );
+
+        // 2. Journal Publisher (Always enabled or configurable)
+        $publishers[] = new JournalAccountingEventPublisher();
+
+        return new CompositeAccountingEventPublisher($publishers);
     }
 }
 

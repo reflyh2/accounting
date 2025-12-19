@@ -1,19 +1,25 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import AppBackLink from '@/Components/AppBackLink.vue';
 import AppEditButton from '@/Components/AppEditButton.vue';
 import DocumentStatusPill from '@/Components/DocumentStatusPill.vue';
 import { DocumentStatusKind } from '@/constants/documentStatuses';
 import { formatNumber } from '@/utils/numberFormat';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppPrintButton from '@/Components/AppPrintButton.vue';
+import AppDeleteButton from '@/Components/AppDeleteButton.vue';
+import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
 
 const props = defineProps({
    goodsReceipt: Object,
    filters: Object,
 });
+
+const form = useForm({});
+
+const showDeleteConfirmation = ref(false);
 
 const canCreateReturn = computed(() => Number(props.goodsReceipt?.returnable_quantity || 0) > 0);
 
@@ -31,6 +37,14 @@ const supplierName = computed(() => {
    }
    return props.goodsReceipt?.purchase_order?.partner?.name || '—';
 });
+
+const deleteGoodsReceipt = () => {
+    form.delete(route('goods-receipts.destroy', props.goodsReceipt.id), {
+        onSuccess: () => {
+            showDeleteConfirmation.value = false;
+        },
+    });
+};
 </script>
 
 <template>
@@ -59,13 +73,14 @@ const supplierName = computed(() => {
                   <div class="space-y-6">
                      <div class="flex justify-between items-center mb-4">
                         <AppBackLink :href="route('goods-receipts.index', filters)" text="Kembali ke Daftar Penerimaan" />
-                        <div class="flex flex-wrap">
+                        <div class="flex items-center">
                            <a :href="route('goods-receipts.print', goodsReceipt.id)" target="_blank">
                               <AppPrintButton title="Print" />
                            </a>
                            <Link :href="route('goods-receipts.edit', goodsReceipt.id)">
                               <AppEditButton title="Edit" />
                            </Link>
+                           <AppDeleteButton @click="showDeleteConfirmation = true" title="Delete" />
                            <Link
                               v-if="canCreateReturn"
                               :href="route('purchase-returns.create', { goods_receipt_id: goodsReceipt.id })"
@@ -171,5 +186,12 @@ const supplierName = computed(() => {
             </div>
          </div>
       </div>
+
+      <DeleteConfirmationModal
+            :show="showDeleteConfirmation"
+            title="Hapus Penerimaan"
+            @close="showDeleteConfirmation = false"
+            @confirm="deleteGoodsReceipt"
+        />
    </AuthenticatedLayout>
 </template>
