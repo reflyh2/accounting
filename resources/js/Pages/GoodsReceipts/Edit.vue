@@ -32,6 +32,8 @@ defineProps({
                   </div>
                   <GoodsReceiptForm
                      :goodsReceipt="goodsReceipt"
+                     :companies="companies"
+                     :branches="branches"
                      :purchaseOrders="purchaseOrders"
                      :selectedPurchaseOrders="selectedPurchaseOrders"
                      :selectedPartnerId="selectedPartnerId"

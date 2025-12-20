@@ -127,6 +127,8 @@ class GoodsReceiptController extends Controller
 
     public function create(Request $request): Response
     {
+        $selectedCompanyId = $request->integer('company_id') ?: null;
+        $selectedBranchId = $request->integer('branch_id') ?: null;
         $selectedPartnerId = $request->integer('partner_id') ?: null;
         $selectedIds = $request->input('purchase_order_ids', []);
         if (!is_array($selectedIds)) {
@@ -134,12 +136,34 @@ class GoodsReceiptController extends Controller
         }
         $selectedIds = array_filter(array_map('intval', $selectedIds));
 
+        // Get companies
+        $companies = Company::orderBy('name')->get()->map(fn ($c) => [
+            'value' => $c->id,
+            'label' => $c->name,
+        ]);
+
+        // Get branches filtered by company
+        $branchQuery = Branch::with('branchGroup.company')->orderBy('name');
+        if ($selectedCompanyId) {
+            $branchQuery->whereHas('branchGroup', fn ($q) => $q->where('company_id', $selectedCompanyId));
+        }
+        $branches = $branchQuery->get()->map(fn ($b) => [
+            'value' => $b->id,
+            'label' => $b->name,
+        ]);
+
         $selectedPurchaseOrders = [];
         $locations = [];
 
+        // Get locations for selected branch
+        if ($selectedBranchId) {
+            $locations = $this->locationOptions($selectedBranchId);
+        }
+
         if (!empty($selectedIds)) {
             $selectedPurchaseOrders = $this->purchaseOrdersDetail($selectedIds);
-            if (!empty($selectedPurchaseOrders)) {
+            // Update locations from PO branch if not already set
+            if (empty($locations) && !empty($selectedPurchaseOrders)) {
                 $branchId = $selectedPurchaseOrders[0]['branch']['id'] ?? null;
                 if ($branchId) {
                     $locations = $this->locationOptions($branchId);
@@ -148,10 +172,14 @@ class GoodsReceiptController extends Controller
         }
 
         return Inertia::render('GoodsReceipts/Create', [
-            'purchaseOrders' => $this->availablePurchaseOrders($selectedIds, $selectedPartnerId),
+            'companies' => $companies,
+            'branches' => $branches,
+            'purchaseOrders' => $this->availablePurchaseOrders($selectedIds, $selectedPartnerId, $selectedCompanyId, $selectedBranchId),
             'selectedPurchaseOrders' => $selectedPurchaseOrders,
+            'selectedCompanyId' => $selectedCompanyId,
+            'selectedBranchId' => $selectedBranchId,
             'selectedPartnerId' => $selectedPartnerId,
-            'suppliers' => $this->supplierOptions(),
+            'suppliers' => $this->supplierOptionsFiltered($selectedCompanyId),
             'locations' => $locations,
             'filters' => Session::get('goods_receipts.index_filters', []),
         ]);
@@ -392,7 +420,7 @@ class GoodsReceiptController extends Controller
         return $data;
     }
 
-    private function availablePurchaseOrders(array $selectedIds = [], ?int $partnerId = null)
+    private function availablePurchaseOrders(array $selectedIds = [], ?int $partnerId = null, ?int $companyId = null, ?int $branchId = null)
     {
         $query = PurchaseOrder::query()
             ->with(['partner', 'branch.branchGroup.company', 'lines'])
@@ -405,6 +433,14 @@ class GoodsReceiptController extends Controller
 
         if ($partnerId) {
             $query->where('partner_id', $partnerId);
+        }
+
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        }
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
         }
 
         $purchaseOrders = $query->get();
@@ -645,6 +681,30 @@ class GoodsReceiptController extends Controller
             })
             ->orderBy('name')
             ->get()
+            ->map(fn ($partner) => [
+                'value' => $partner->id,
+                'label' => $partner->name,
+            ])
+            ->values()
+            ->toArray();
+    }
+
+    private function supplierOptionsFiltered(?int $companyId): array
+    {
+        $query = Partner::query()
+            ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
+            ->whereHas('purchaseOrders', function ($q) use ($companyId) {
+                $q->whereIn('status', [
+                    PurchaseOrderStatus::SENT->value,
+                    PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
+                ]);
+                if ($companyId) {
+                    $q->where('company_id', $companyId);
+                }
+            })
+            ->orderBy('name');
+
+        return $query->get()
             ->map(fn ($partner) => [
                 'value' => $partner->id,
                 'label' => $partner->name,

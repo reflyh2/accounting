@@ -1,6 +1,6 @@
 <script setup>
 import { useForm, router } from '@inertiajs/vue3';
-import { computed, watch, ref } from 'vue';
+import { computed, watch, ref, onMounted } from 'vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppInput from '@/Components/AppInput.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
@@ -16,8 +16,18 @@ import axios from 'axios';
 
 const props = defineProps({
     goodsReceipt: Object,
+    companies: {
+        type: Array,
+        default: () => [],
+    },
+    branches: {
+        type: Array,
+        default: () => [],
+    },
     purchaseOrders: Array,
     selectedPurchaseOrders: Array,
+    selectedCompanyId: Number,
+    selectedBranchId: Number,
     selectedPartnerId: Number,
     suppliers: Array,
     locations: Array,
@@ -26,6 +36,20 @@ const props = defineProps({
 
 const isEditMode = computed(() => !!props.goodsReceipt);
 const today = new Date().toISOString().split('T')[0];
+
+// Selected company (separate ref for chained loading)
+const selectedCompany = ref(
+    props.selectedCompanyId || 
+    props.goodsReceipt?.company_id ||
+    (props.companies.length > 1 ? null : props.companies[0]?.value)
+);
+
+// Selected branch
+const selectedBranch = ref(
+    props.selectedBranchId || 
+    props.goodsReceipt?.branch_id ||
+    (props.branches.length === 1 ? props.branches[0]?.value : null)
+);
 
 // Selected supplier for filtering POs
 const selectedSupplierId = ref(props.selectedPartnerId || null);
@@ -78,6 +102,8 @@ function buildInitialLines() {
 const selectedPoIds = ref((props.selectedPurchaseOrders || []).map(po => po.id));
 
 const form = useForm({
+    company_id: selectedCompany.value,
+    branch_id: selectedBranch.value,
     supplier_id: selectedSupplierId.value,
     purchase_order_ids: selectedPoIds.value,
     receipt_date: props.goodsReceipt?.receipt_date ?? today,
@@ -261,13 +287,65 @@ function clearAllQuantities() {
     }
 }
 
+// Watch for company selection changes
+watch(selectedCompany, (newCompanyId) => {
+    form.company_id = newCompanyId;
+    if (!isEditMode.value) {
+        // Reset downstream selections
+        selectedBranch.value = null;
+        selectedSupplierId.value = null;
+        selectedSupplierName.value = '';
+        selectedPoIds.value = [];
+        form.lines = [];
+        
+        router.reload({
+            only: ['branches', 'suppliers', 'purchaseOrders', 'selectedPurchaseOrders', 'locations'],
+            data: { company_id: newCompanyId },
+        });
+    }
+}, { immediate: true });
+
+// Watch for branches prop changes - auto-select if only one
+watch(
+    () => props.branches,
+    (newBranches) => {
+        if (!isEditMode.value && newBranches.length === 1) {
+            selectedBranch.value = newBranches[0].value;
+        }
+    },
+    { immediate: true }
+);
+
+// Watch for branch selection changes
+watch(selectedBranch, (newBranchId) => {
+    form.branch_id = newBranchId;
+    if (!isEditMode.value && newBranchId) {
+        // Reset downstream selections
+        selectedSupplierId.value = null;
+        selectedSupplierName.value = '';
+        selectedPoIds.value = [];
+        form.lines = [];
+        
+        router.reload({
+            only: ['suppliers', 'purchaseOrders', 'selectedPurchaseOrders', 'locations'],
+            data: { 
+                company_id: selectedCompany.value,
+                branch_id: newBranchId,
+            },
+        });
+    }
+}, { immediate: true });
+
 // Watch for supplier selection changes
 watch(selectedSupplierId, (newId) => {
     form.supplier_id = newId;
     if (!isEditMode.value) {
         // Clear selected POs when supplier changes
         selectedPoIds.value = [];
+        form.lines = [];
         router.get(route('goods-receipts.create'), {
+            company_id: selectedCompany.value,
+            branch_id: selectedBranch.value,
             partner_id: newId,
         }, {
             preserveState: true,
@@ -275,13 +353,15 @@ watch(selectedSupplierId, (newId) => {
             only: ['purchaseOrders', 'selectedPurchaseOrders', 'locations', 'selectedPartnerId'],
         });
     }
-});
+}, { immediate: true });
 
 // Watch for PO selection changes
 watch(selectedPoIds, (newIds) => {
     form.purchase_order_ids = newIds;
     if (!isEditMode.value && newIds.length > 0) {
         router.get(route('goods-receipts.create'), {
+            company_id: selectedCompany.value,
+            branch_id: selectedBranch.value,
             partner_id: selectedSupplierId.value,
             purchase_order_ids: newIds,
         }, {
@@ -290,7 +370,54 @@ watch(selectedPoIds, (newIds) => {
             only: ['selectedPurchaseOrders', 'locations'],
         });
     }
-}, { deep: true });
+}, { deep: true, immediate: true });
+
+// Watch for selectedPurchaseOrders prop changes to populate lines
+watch(
+    () => props.selectedPurchaseOrders,
+    (newPOs) => {
+        if (!isEditMode.value && newPOs && newPOs.length > 0) {
+            repopulateLinesFromPOs();
+        }
+    },
+    { immediate: true }
+);
+
+function repopulateLinesFromPOs() {
+    if (isEditMode.value) return;
+    
+    if (!props.selectedPurchaseOrders || props.selectedPurchaseOrders.length === 0) {
+        form.lines = [];
+        return;
+    }
+
+    const newLines = [];
+    for (const po of props.selectedPurchaseOrders) {
+        for (const line of (po.lines || [])) {
+            if (line.remaining_quantity > 0) {
+                newLines.push({
+                    purchase_order_line_id: line.id,
+                    quantity: line.remaining_quantity,
+                    lot_id: null,
+                    serial_id: null,
+                });
+            }
+        }
+    }
+    form.lines = newLines;
+}
+
+// Auto-select on mount
+onMounted(() => {
+    // Auto-select company if only one
+    if (!isEditMode.value && props.companies.length === 1) {
+        selectedCompany.value = props.companies[0].value;
+    }
+    // Auto-select branch if only one
+    if (!isEditMode.value && props.branches.length === 1) {
+        selectedBranch.value = props.branches[0].value;
+    }
+});
 
 const purchaseOrderOptions = computed(() => {
     return (props.purchaseOrders || []).map(po => ({
@@ -374,6 +501,30 @@ const serialOptions = computed(() => {
     <form @submit.prevent="submitForm" class="space-y-4">
         <div class="flex justify-between">
             <div class="w-2/3 max-w-2xl mr-8">
+                <!-- Company & Branch -->
+                <div class="grid grid-cols-2 gap-4">
+                    <AppSelect
+                        v-model="selectedCompany"
+                        :options="companies"
+                        label="Perusahaan:"
+                        placeholder="Pilih Perusahaan"
+                        :error="form.errors.company_id"
+                        :disabled="isEditMode"
+                        required
+                    />
+                    
+                    <AppSelect
+                        v-model="selectedBranch"
+                        :options="branches"
+                        label="Cabang:"
+                        placeholder="Pilih Cabang"
+                        :error="form.errors.branch_id"
+                        :disabled="isEditMode || !selectedCompany"
+                        required
+                    />
+                </div>
+
+                <!-- Supplier -->
                 <div class="grid grid-cols-1">
                     <AppPopoverSearch
                         v-model="selectedSupplierId"
@@ -384,12 +535,13 @@ const serialOptions = computed(() => {
                         label="Supplier:"
                         placeholder="Pilih Supplier"
                         modalTitle="Pilih Supplier"
-                        :disabled="isEditMode"
+                        :disabled="isEditMode || !selectedBranch"
                         :error="form.errors.supplier_id"
                         required
                     />
                 </div>
 
+                <!-- Purchase Orders -->
                 <div class="grid grid-cols-1">
                     <AppSelect
                         v-model="selectedPoIds"
@@ -403,6 +555,7 @@ const serialOptions = computed(() => {
                     />
                 </div>
 
+                <!-- Date & Location -->
                 <div class="grid grid-cols-2 gap-4">
                     <AppInput
                         v-model="form.receipt_date"
@@ -433,10 +586,11 @@ const serialOptions = computed(() => {
                 <h3 class="text-lg font-semibold mb-2">Informasi Penerimaan</h3>
                 <p class="mb-2">Penerimaan pembelian adalah dokumen yang mencatat barang yang diterima dari supplier berdasarkan Purchase Order.</p>
                 <ul class="list-disc list-inside">
-                <li>Pilih supplier terlebih dahulu</li>
-                <li>Pilih satu atau lebih Purchase Order</li>
-                <li>Pilih Lot atau Serial jika diperlukan</li>
-                <li>Metode penilaian akan otomatis mengikuti pengaturan perusahaan</li>
+                    <li>Pilih perusahaan dan cabang terlebih dahulu</li>
+                    <li>Pilih supplier yang akan menerima barang</li>
+                    <li>Pilih satu atau lebih Purchase Order</li>
+                    <li>Pilih Lot atau Serial jika diperlukan</li>
+                    <li>Metode penilaian akan otomatis mengikuti pengaturan perusahaan</li>
                 </ul>
             </div>
         </div>

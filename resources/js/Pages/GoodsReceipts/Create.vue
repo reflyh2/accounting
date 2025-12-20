@@ -5,6 +5,8 @@ import GoodsReceiptForm from './Partials/GoodsReceiptForm.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 
 defineProps({
+   companies: Array,
+   branches: Array,
    purchaseOrders: Array,
    selectedPurchaseOrders: Array,
    selectedPartnerId: Number,
@@ -30,6 +32,8 @@ defineProps({
                      <AppBackLink :href="route('goods-receipts.index', filters)" text="Kembali ke Daftar Penerimaan" />
                   </div>
                   <GoodsReceiptForm
+                     :companies="companies"
+                     :branches="branches"
                      :purchaseOrders="purchaseOrders"
                      :selectedPurchaseOrders="selectedPurchaseOrders"
                      :selectedPartnerId="selectedPartnerId"
