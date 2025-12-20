@@ -36,5 +36,15 @@ class PurchaseInvoiceLine extends Model
     {
         return $this->belongsTo(GoodsReceiptLine::class);
     }
+
+    public function productVariant()
+    {
+        return $this->belongsTo(ProductVariant::class);
+    }
+
+    public function uom()
+    {
+        return $this->belongsTo(Uom::class);
+    }
 }
 

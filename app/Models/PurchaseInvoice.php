@@ -27,6 +27,7 @@ class PurchaseInvoice extends Model
         'exchange_rate' => 'decimal:6',
         'grn_value_base' => 'decimal:4',
         'ppv_amount' => 'decimal:2',
+        'payment_method' => \App\Enums\PaymentMethod::class,
     ];
 
     protected static function booted(): void
@@ -46,9 +47,9 @@ class PurchaseInvoice extends Model
         return InvoiceStatus::from($this->status);
     }
 
-    public function purchaseOrder()
+    public function purchaseOrders()
     {
-        return $this->belongsTo(PurchaseOrder::class);
+        return $this->belongsToMany(PurchaseOrder::class, 'purchase_invoice_purchase_order');
     }
 
     public function company()
@@ -71,6 +72,16 @@ class PurchaseInvoice extends Model
         return $this->belongsTo(Currency::class);
     }
 
+    public function bankAccount()
+    {
+        return $this->belongsTo(PartnerBankAccount::class, 'partner_bank_account_id');
+    }
+
+    public function inventoryTransaction()
+    {
+        return $this->belongsTo(InventoryTransaction::class);
+    }
+
     public function lines()
     {
         return $this->hasMany(PurchaseInvoiceLine::class)->orderBy('line_number');
@@ -91,4 +102,3 @@ class PurchaseInvoice extends Model
         return $this->belongsTo(User::class, 'posted_by', 'global_id');
     }
 }
-

@@ -14,6 +14,7 @@ const props = defineProps({
     filters: Object,
     primaryCurrency: Object,
     statusOptions: Object,
+    paymentMethods: Array,
     canPost: Boolean,
     canEdit: Boolean,
     canDelete: Boolean,
@@ -90,30 +91,50 @@ function postInvoice() {
                                 <span class="font-semibold text-main-600">{{ statusLabel }}</span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-500">Tanggal</span>
+                                <span class="text-gray-500">Tanggal Faktur</span>
                                 <span>{{ invoice.invoice_date }}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-500">Jatuh Tempo</span>
                                 <span>{{ invoice.due_date || '-' }}</span>
                             </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">No. Dokumen Vendor</span>
+                                <span>{{ invoice.vendor_invoice_number || '-' }}</span>
+                            </div>
                         </div>
                         <div class="bg-gray-50 rounded-lg border border-gray-200 p-4 space-y-2 text-sm">
                             <div class="flex justify-between">
                                 <span class="text-gray-500">Supplier</span>
-                                <span>{{ invoice.purchase_order?.partner?.name }}</span>
+                                <span class="font-medium">{{ invoice.partner?.name }}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-500">Cabang</span>
-                                <span>{{ invoice.purchase_order?.branch?.name }}</span>
+                                <span>{{ invoice.branch?.name }}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-500">PO Referensi</span>
-                                <span>{{ invoice.purchase_order?.order_number }}</span>
+                                <span class="text-right">
+                                    <template v-if="invoice.purchase_orders && invoice.purchase_orders.length">
+                                        <span v-for="(po, idx) in invoice.purchase_orders" :key="po.id">
+                                            <a :href="route('purchase-orders.show', po.id)" class="text-main-600 hover:underline">{{ po.order_number }}</a><span v-if="idx < invoice.purchase_orders.length - 1">, </span>
+                                        </span>
+                                    </template>
+                                    <span v-else class="text-gray-400">Direct Invoice</span>
+                                </span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-500">Mata Uang</span>
-                                <span>{{ invoice.currency?.code }}</span>
+                                <span class="text-gray-500">Metode Pembayaran</span>
+                                <span>{{ invoice.payment_method || '-' }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Rekening Supplier</span>
+                                <span class="text-right">
+                                    <template v-if="invoice.bank_account">
+                                        {{ invoice.bank_account.bank_name }} - {{ invoice.bank_account.account_number }}
+                                    </template>
+                                    <span v-else>-</span>
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -134,7 +155,7 @@ function postInvoice() {
                                     Konversi:
                                     {{ primaryCurrency?.symbol }} {{ formatNumber(baseTotal) }}
                                 </p>
-                                <p>PPV: {{ primaryCurrency?.symbol }} {{ formatNumber(invoice.ppv_amount || 0) }}</p>
+                                <p v-if="invoice.ppv_amount">PPV: {{ primaryCurrency?.symbol }} {{ formatNumber(invoice.ppv_amount) }}</p>
                             </div>
                         </div>
                     </div>
@@ -143,33 +164,40 @@ function postInvoice() {
                         <table class="min-w-full border border-gray-200 text-sm">
                             <thead class="bg-gray-100">
                                 <tr>
-                                    <th class="border border-gray-200 px-3 py-2 text-left">GRN</th>
+                                    <th class="border border-gray-200 px-3 py-2 text-left w-32">Referensi</th>
                                     <th class="border border-gray-200 px-3 py-2 text-left">Deskripsi</th>
-                                    <th class="border border-gray-200 px-3 py-2 text-right">Qty</th>
-                                    <th class="border border-gray-200 px-3 py-2 text-right">Harga</th>
-                                    <th class="border border-gray-200 px-3 py-2 text-right">Pajak</th>
-                                    <th class="border border-gray-200 px-3 py-2 text-right">Subtotal</th>
+                                    <th class="border border-gray-200 px-3 py-2 text-right w-24">Qty</th>
+                                    <th class="border border-gray-200 px-3 py-2 text-right w-32">Harga</th>
+                                    <th class="border border-gray-200 px-3 py-2 text-right w-32">Pajak</th>
+                                    <th class="border border-gray-200 px-3 py-2 text-right w-32">Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-for="line in invoice.lines" :key="line.id" class="border-b border-gray-100">
-                                    <td class="px-3 py-2 border border-gray-100">
-                                        {{ line.goods_receipt_line?.goods_receipt?.receipt_number || '-' }}
+                                    <td class="px-3 py-2 border border-gray-100 align-top text-xs text-gray-500">
+                                        <div v-if="line.purchase_order_line">PO: {{ line.purchase_order_line.purchase_order?.order_number }}</div>
+                                        <div v-if="line.goods_receipt_line">GRN: {{ line.goods_receipt_line.goods_receipt?.receipt_number }}</div>
+                                        <div v-if="!line.purchase_order_line && !line.goods_receipt_line">-</div>
                                     </td>
-                                    <td class="px-3 py-2 border border-gray-100">
-                                        <p class="font-medium text-gray-800">{{ line.description }}</p>
-                                        <p class="text-xs text-gray-500">UOM: {{ line.uom_label }}</p>
+                                    <td class="px-3 py-2 border border-gray-100 align-top">
+                                        <div v-if="line.product_variant" class="font-medium text-gray-800">
+                                            {{ line.product_variant.product?.name }} - {{ line.product_variant.sku }}
+                                        </div>
+                                        <p :class="{'text-gray-500 text-xs': line.product_variant, 'font-medium text-gray-800': !line.product_variant}">
+                                            {{ line.description }}
+                                        </p>
+                                        <p class="text-xs text-gray-500 mt-0.5">UOM: {{ line.uom?.code }}</p>
                                     </td>
-                                    <td class="px-3 py-2 border border-gray-100 text-right">
+                                    <td class="px-3 py-2 border border-gray-100 text-right align-top">
                                         {{ formatNumber(line.quantity) }}
                                     </td>
-                                    <td class="px-3 py-2 border border-gray-100 text-right">
+                                    <td class="px-3 py-2 border border-gray-100 text-right align-top">
                                         {{ formatNumber(line.unit_price) }}
                                     </td>
-                                    <td class="px-3 py-2 border border-gray-100 text-right">
+                                    <td class="px-3 py-2 border border-gray-100 text-right align-top">
                                         {{ formatNumber(line.tax_amount) }}
                                     </td>
-                                    <td class="px-3 py-2 border border-gray-100 text-right">
+                                    <td class="px-3 py-2 border border-gray-100 text-right align-top font-medium">
                                         {{ formatNumber(line.line_total) }}
                                     </td>
                                 </tr>

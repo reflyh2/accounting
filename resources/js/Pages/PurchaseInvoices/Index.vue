@@ -27,7 +27,7 @@ const currentFilters = ref({ ...props.filters });
 const tableHeaders = [
     { key: 'invoice_date', label: 'Tanggal' },
     { key: 'invoice_number', label: 'Nomor Faktur' },
-    { key: 'purchase_order.order_number', label: 'Nomor PO' },
+    { key: 'purchase_orders', label: 'Nomor PO' },
     { key: 'partner.name', label: 'Supplier' },
     { key: 'status', label: 'Status' },
     { key: 'total_amount', label: 'Total' },
@@ -43,6 +43,7 @@ const columnFormatters = {
     total_amount: (value) => formatNumber(value ?? 0),
     ppv_amount: (value) => formatNumber(value ?? 0),
     status: (value) => props.statusOptions?.[value] || value,
+    purchase_orders: (value) => Array.isArray(value) && value.length ? value.map(po => po.order_number).join(', ') : '-',
 };
 
 const customFilters = computed(() => [

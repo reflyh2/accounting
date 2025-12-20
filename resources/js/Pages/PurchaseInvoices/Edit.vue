@@ -7,11 +7,18 @@ import PurchaseInvoiceForm from './Partials/PurchaseInvoiceForm.vue';
 const props = defineProps({
     invoice: Object,
     filters: Object,
-    purchaseOrder: Object,
-    defaultLines: Array,
-    selectedPurchaseOrderLabel: String,
-    purchaseOrderSearchUrl: String,
+    purchaseOrders: Array,
+    selectedPurchaseOrders: Array,
+    selectedPartnerId: Number,
+    suppliers: Array,
+    paymentMethods: Array,
+    partnerBankAccounts: Array,
     primaryCurrency: Object,
+    products: Array,
+    uoms: Array,
+    companies: Array,
+    branches: Array,
+    currencies: Array,
 });
 </script>
 
@@ -30,11 +37,18 @@ const props = defineProps({
 
                     <PurchaseInvoiceForm
                         :invoice="invoice"
-                        :purchaseOrder="purchaseOrder"
-                        :defaultLines="defaultLines"
-                        :selectedPurchaseOrderLabel="selectedPurchaseOrderLabel"
-                        :purchaseOrderSearchUrl="purchaseOrderSearchUrl"
+                        :purchaseOrders="purchaseOrders"
+                        :selectedPurchaseOrders="selectedPurchaseOrders"
+                        :selectedPartnerId="selectedPartnerId"
+                        :suppliers="suppliers"
+                        :paymentMethods="paymentMethods"
+                        :partnerBankAccounts="partnerBankAccounts"
                         :primaryCurrency="primaryCurrency"
+                        :products="products"
+                        :uoms="uoms"
+                        :companies="companies"
+                        :branches="branches"
+                        :currencies="currencies"
                     />
                 </div>
             </div>
