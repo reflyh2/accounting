@@ -43,9 +43,10 @@ class PurchaseReturnService
         return DB::transaction(function () use ($payload, $actor) {
             /** @var GoodsReceipt $goodsReceipt */
             $goodsReceipt = GoodsReceipt::with([
-                'purchaseOrder.branch.branchGroup.company',
-                'purchaseOrder.partner',
-                'purchaseOrder.currency',
+                'purchaseOrders.branch.branchGroup.company',
+                'purchaseOrders.partner',
+                'purchaseOrders.currency',
+                'supplier',
                 'currency',
                 'location',
                 'lines.purchaseOrderLine',
@@ -60,14 +61,16 @@ class PurchaseReturnService
             }
 
             $returnDate = Carbon::parse($payload['return_date']);
-            $purchaseOrder = $goodsReceipt->purchaseOrder;
+            
+            // Get the first purchase order for exchange rate (they should all have the same currency/rate)
+            $firstPurchaseOrder = $goodsReceipt->purchaseOrders->first();
 
             $purchaseReturn = PurchaseReturn::create([
-                'purchase_order_id' => $purchaseOrder->id,
+                'purchase_order_id' => $firstPurchaseOrder?->id,
                 'goods_receipt_id' => $goodsReceipt->id,
                 'company_id' => $goodsReceipt->company_id,
                 'branch_id' => $goodsReceipt->branch_id,
-                'partner_id' => $purchaseOrder->partner_id,
+                'partner_id' => $goodsReceipt->supplier_id,
                 'location_id' => $goodsReceipt->location_id,
                 'currency_id' => $goodsReceipt->currency_id,
                 'return_number' => $this->generateReturnNumber(
@@ -79,7 +82,7 @@ class PurchaseReturnService
                 'return_date' => $returnDate,
                 'reason_code' => $payload['reason_code'] ?? null,
                 'notes' => $payload['notes'] ?? null,
-                'exchange_rate' => $purchaseOrder->exchange_rate ?? 1,
+                'exchange_rate' => $firstPurchaseOrder?->exchange_rate ?? 1,
                 'created_by' => $actor?->getAuthIdentifier(),
             ]);
 
@@ -169,10 +172,13 @@ class PurchaseReturnService
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 
-            $purchaseOrder->load('lines');
-            $this->syncPurchaseOrderReceiptStatus($purchaseOrder, $actor);
+            // Sync receipt status for all related purchase orders
+            foreach ($goodsReceipt->purchaseOrders as $purchaseOrder) {
+                $purchaseOrder->load('lines');
+                $this->syncPurchaseOrderReceiptStatus($purchaseOrder, $actor);
+            }
 
-            $this->dispatchReturnEvent($purchaseReturn, $purchaseOrder, $totalValueBase, $actor);
+            $this->dispatchReturnEvent($purchaseReturn, $goodsReceipt, $totalValueBase, $actor);
 
             return $purchaseReturn->fresh([
                 'purchaseOrder.partner',
@@ -325,13 +331,15 @@ class PurchaseReturnService
 
     private function dispatchReturnEvent(
         PurchaseReturn $purchaseReturn,
-        PurchaseOrder $purchaseOrder,
+        GoodsReceipt $goodsReceipt,
         float $amountBase,
         ?Authenticatable $actor = null
     ): void {
         if ($amountBase <= 0) {
             return;
         }
+
+        $firstPurchaseOrder = $goodsReceipt->purchaseOrders->first();
 
         $payload = new AccountingEventPayload(
             AccountingEventCode::PURCHASE_RETURN_POSTED,
@@ -340,13 +348,13 @@ class PurchaseReturnService
             'purchase_return',
             $purchaseReturn->id,
             $purchaseReturn->return_number,
-            $purchaseOrder->currency?->code ?? 'IDR',
-            (float) $purchaseOrder->exchange_rate,
+            $goodsReceipt->currency?->code ?? 'IDR',
+            (float) ($firstPurchaseOrder?->exchange_rate ?? 1),
             CarbonImmutable::parse($purchaseReturn->return_date),
             $actor?->getAuthIdentifier(),
             [
-                'purchase_order_id' => $purchaseOrder->id,
-                'purchase_order_number' => $purchaseOrder->order_number,
+                'purchase_order_id' => $firstPurchaseOrder?->id,
+                'purchase_order_number' => $firstPurchaseOrder?->order_number,
                 'goods_receipt_id' => $purchaseReturn->goods_receipt_id,
                 'inventory_transaction_id' => $purchaseReturn->inventory_transaction_id,
             ]
@@ -381,5 +389,3 @@ class PurchaseReturnService
         return round($value, self::COST_SCALE);
     }
 }
-
-

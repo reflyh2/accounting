@@ -257,6 +257,26 @@ class PurchaseInvoiceController extends Controller
             ->with('success', 'Faktur pembelian berhasil diposting.');
     }
 
+    /**
+     * Display the print view for Invoice.
+     */
+    public function print(PurchaseInvoice $purchaseInvoice): Response
+    {
+        $purchaseInvoice->load([
+            'partner',
+            'branch.branchGroup.company',
+            'currency',
+            'purchaseOrders',
+            'lines.productVariant.product',
+            'lines.uom',
+            'creator:global_id,name',
+        ]);
+
+        return Inertia::render('PurchaseInvoices/Print', [
+            'purchaseInvoice' => $purchaseInvoice,
+        ]);
+    }
+
     public function exportXLSX(Request $request)
     {
         $invoices = $this->getFilteredInvoices($request->all());
@@ -297,7 +317,7 @@ class PurchaseInvoiceController extends Controller
             'lines.*.description' => 'nullable|string',
             'lines.*.quantity' => 'required|numeric|min:0.0001',
             'lines.*.unit_price' => 'required|numeric|min:0',
-            'lines.*.tax_amount' => 'nullable|numeric|min:0',
+            'lines.*.tax_rate' => 'nullable|numeric|min:0',
         ];
 
         if (!$isDirect) {
@@ -524,6 +544,7 @@ class PurchaseInvoiceController extends Controller
             ->whereIn('status', [
                 PurchaseOrderStatus::SENT->value,
                 PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
+                PurchaseOrderStatus::RECEIVED->value,
             ])
             ->orderByDesc('order_date')
             ->limit(50);

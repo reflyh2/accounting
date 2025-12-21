@@ -128,11 +128,39 @@ class PurchaseReturnController extends Controller
 
     public function create(Request $request)
     {
-        $selectedId = $request->integer('goods_receipt_id');
+        $selectedCompanyId = $request->integer('company_id') ?: null;
+        $selectedBranchId = $request->integer('branch_id') ?: null;
+        $selectedSupplierId = $request->integer('supplier_id') ?: null;
+        $selectedId = $request->integer('goods_receipt_id') ?: null;
+
+        // Get companies
+        $companies = Company::orderBy('name')->get()->map(fn ($c) => [
+            'value' => $c->id,
+            'label' => $c->name,
+        ]);
+
+        // Get branches filtered by company
+        $branchQuery = Branch::with('branchGroup.company')->orderBy('name');
+        if ($selectedCompanyId) {
+            $branchQuery->whereHas('branchGroup', fn ($q) => $q->where('company_id', $selectedCompanyId));
+        }
+        $branches = $branchQuery->get()->map(fn ($b) => [
+            'value' => $b->id,
+            'label' => $b->name,
+        ]);
+
+        // Get suppliers filtered by company/branch (suppliers with returnable GRNs)
+        $suppliers = $this->supplierOptionsFiltered($selectedCompanyId, $selectedBranchId);
 
         return Inertia::render('PurchaseReturns/Create', [
             'filters' => Session::get('purchase_returns.index_filters', []),
-            'goodsReceipts' => fn () => $this->availableGoodsReceipts($selectedId),
+            'companies' => $companies,
+            'branches' => $branches,
+            'suppliers' => $suppliers,
+            'selectedCompanyId' => $selectedCompanyId,
+            'selectedBranchId' => $selectedBranchId,
+            'selectedSupplierId' => $selectedSupplierId,
+            'goodsReceipts' => fn () => $this->availableGoodsReceiptsFiltered($selectedId, $selectedCompanyId, $selectedBranchId, $selectedSupplierId),
             'selectedGoodsReceipt' => fn () => $selectedId ? $this->goodsReceiptDetail($selectedId) : null,
             'reasonOptions' => $this->reasonOptions(),
         ]);
@@ -180,6 +208,36 @@ class PurchaseReturnController extends Controller
             'filters' => Session::get('purchase_returns.index_filters', []),
             'reasonOptions' => $this->reasonOptions(),
         ]);
+    }
+
+    /**
+     * API endpoint for suppliers with returnable GRNs.
+     * Used by AppPopoverSearch component.
+     */
+    public function apiSuppliersWithGRNs(Request $request)
+    {
+        $query = Partner::query()
+            ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
+            ->whereHas('goodsReceipts', function ($q) {
+                $q->where('status', 'posted')
+                    ->whereHas('lines', function ($lineQ) {
+                        $lineQ->whereRaw('(quantity - quantity_invoiced - quantity_returned) > ?', [self::QTY_TOLERANCE]);
+                    });
+            });
+
+        if ($request->search) {
+            $search = strtolower($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('lower(name) like ?', ["%{$search}%"])
+                  ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
+            });
+        }
+
+        $sort = $request->input('sort', 'name');
+        $order = $request->input('order', 'asc');
+        $query->orderBy($sort, $order);
+
+        return $query->paginate($request->input('per_page', 10))->withQueryString();
     }
 
     public function exportXLSX(Request $request)
@@ -321,6 +379,34 @@ class PurchaseReturnController extends Controller
             ->values();
     }
 
+    private function supplierOptionsFiltered(?int $companyId = null, ?int $branchId = null): array
+    {
+        $query = Partner::query()
+            ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
+            ->whereHas('goodsReceipts', function ($q) use ($companyId, $branchId) {
+                $q->where('status', 'posted')
+                    ->whereHas('lines', function ($lineQ) {
+                        $lineQ->whereRaw('(quantity - quantity_invoiced - quantity_returned) > ?', [self::QTY_TOLERANCE]);
+                    });
+
+                if ($companyId) {
+                    $q->where('company_id', $companyId);
+                }
+                if ($branchId) {
+                    $q->where('branch_id', $branchId);
+                }
+            })
+            ->orderBy('name');
+
+        return $query->get()
+            ->map(fn ($partner) => [
+                'value' => $partner->id,
+                'label' => $partner->name,
+            ])
+            ->values()
+            ->toArray();
+    }
+
     private function availableGoodsReceipts(?int $selectedId = null)
     {
         $query = GoodsReceipt::query()
@@ -358,10 +444,60 @@ class PurchaseReturnController extends Controller
         })->values();
     }
 
+    private function availableGoodsReceiptsFiltered(?int $selectedId = null, ?int $companyId = null, ?int $branchId = null, ?int $supplierId = null)
+    {
+        $query = GoodsReceipt::query()
+            ->with(['purchaseOrders.partner', 'branch.branchGroup.company', 'lines'])
+            ->where('status', 'posted')
+            ->whereHas('lines', function ($builder) {
+                $builder->whereRaw('(quantity - quantity_invoiced - quantity_returned) > ?', [self::QTY_TOLERANCE]);
+            })
+            ->orderByDesc('receipt_date')
+            ->limit(50);
+
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        }
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        if ($supplierId) {
+            $query->where('supplier_id', $supplierId);
+        }
+
+        $goodsReceipts = $query->get();
+
+        if ($selectedId && !$goodsReceipts->firstWhere('id', $selectedId)) {
+            $selected = GoodsReceipt::with(['purchaseOrders.partner', 'branch.branchGroup.company', 'lines'])
+                ->find($selectedId);
+
+            if ($selected) {
+                $goodsReceipts->push($selected);
+            }
+        }
+
+        return $goodsReceipts->map(function (GoodsReceipt $receipt) {
+            $availableQty = $receipt->lines->sum(function ($line) {
+                return max(0, (float) $line->quantity - (float) $line->quantity_invoiced - (float) $line->quantity_returned);
+            });
+
+            return [
+                'id' => $receipt->id,
+                'receipt_number' => $receipt->receipt_number,
+                'branch' => $receipt->branch?->name,
+                'company' => $receipt->branch?->branchGroup?->company?->name,
+                'available_quantity' => $availableQty,
+            ];
+        })->values();
+    }
+
     private function goodsReceiptDetail(int $goodsReceiptId): ?array
     {
         $goodsReceipt = GoodsReceipt::with([
-            'purchaseOrder.partner',
+            'purchaseOrders.partner',
+            'supplier',
             'branch.branchGroup.company',
             'currency',
             'location',
@@ -403,14 +539,20 @@ class PurchaseReturnController extends Controller
             return null;
         }
 
+        // Get purchase order numbers from the many-to-many relationship
+        $purchaseOrders = $goodsReceipt->purchaseOrders->map(fn ($po) => [
+            'id' => $po->id,
+            'order_number' => $po->order_number,
+        ])->values();
+
         return [
             'id' => $goodsReceipt->id,
             'receipt_number' => $goodsReceipt->receipt_number,
             'receipt_date' => optional($goodsReceipt->receipt_date)?->toDateString(),
-            'purchase_order' => $goodsReceipt->purchaseOrder ? [
-                'id' => $goodsReceipt->purchaseOrder->id,
-                'order_number' => $goodsReceipt->purchaseOrder->order_number,
-                'partner' => $goodsReceipt->purchaseOrder->partner?->name,
+            'purchase_orders' => $purchaseOrders,
+            'supplier' => $goodsReceipt->supplier ? [
+                'id' => $goodsReceipt->supplier->id,
+                'name' => $goodsReceipt->supplier->name,
             ] : null,
             'branch' => $goodsReceipt->branch ? [
                 'id' => $goodsReceipt->branch->id,

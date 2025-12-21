@@ -5,6 +5,7 @@ import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
 import { formatNumber } from '@/utils/numberFormat';
+import AppPrintButton from '@/Components/AppPrintButton.vue';
 
 const props = defineProps({
     invoices: Object,
@@ -168,7 +169,13 @@ function deleteInvoice(id) {
                         @sort="handleSort"
                         @filter="handleFilter"
                         @delete="deleteInvoice"
-                    />
+                    >
+                        <template #custom_actions="{ item }">
+                            <a :href="route('purchase-invoices.print', item.id)" target="_blank">
+                                <AppPrintButton title="Print" />
+                            </a>
+                        </template>
+                    </AppDataTable>
                 </div>
             </div>
         </div>

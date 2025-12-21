@@ -3,6 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
+import AppPrintButton from '@/Components/AppPrintButton.vue';
 import AppEditButton from '@/Components/AppEditButton.vue';
 import AppDeleteButton from '@/Components/AppDeleteButton.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
@@ -65,16 +66,19 @@ function postInvoice() {
                 <div class="p-6 text-gray-900 space-y-6">
                     <div class="flex items-center justify-between">
                         <AppBackLink :href="route('purchase-invoices.index', filters)" text="Kembali ke Daftar Faktur" />
-                        <div class="flex gap-2">
+                        <div class="flex items-center">
                             <AppPrimaryButton v-if="canPost" @click="postInvoice" :disabled="actionForm.processing">
                                 Posting Faktur
                             </AppPrimaryButton>
+                            <a :href="route('purchase-invoices.print', invoice.id)" target="_blank">
+                                <AppPrintButton title="Print" />
+                            </a>
                             <Link v-if="canEdit" :href="route('purchase-invoices.edit', invoice.id)">
                                 <AppEditButton title="Edit" />
                             </Link>
                             <AppDeleteButton
                                 v-if="canDelete"
-                                title="Hapus"
+                                title="Delete"
                                 @click="showDeleteModal = true"
                             />
                         </div>

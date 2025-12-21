@@ -511,6 +511,7 @@ Route::middleware([
         Route::get('goods-receipts/{goods_receipt}/print', [GoodsReceiptController::class, 'print'])->name('goods-receipts.print');
         Route::resource('goods-receipts', GoodsReceiptController::class);
 
+        Route::get('api/suppliers-with-grns', [PurchaseReturnController::class, 'apiSuppliersWithGRNs'])->name('api.suppliers-with-grns');
         Route::get('purchase-returns/export-xlsx', [PurchaseReturnController::class, 'exportXLSX'])->name('purchase-returns.export-xlsx');
         Route::get('purchase-returns/export-csv', [PurchaseReturnController::class, 'exportCSV'])->name('purchase-returns.export-csv');
         Route::get('purchase-returns/export-pdf', [PurchaseReturnController::class, 'exportPDF'])->name('purchase-returns.export-pdf');
@@ -555,6 +556,8 @@ Route::middleware([
         Route::get('purchase-invoices/export-pdf', [PurchaseInvoiceController::class, 'exportPDF'])->name('purchase-invoices.export-pdf');
         Route::post('purchase-invoices/{purchase_invoice}/post', [PurchaseInvoiceController::class, 'post'])
             ->name('purchase-invoices.post');
+        Route::get('purchase-invoices/{purchase_invoice}/print', [PurchaseInvoiceController::class, 'print'])
+            ->name('purchase-invoices.print');
         Route::resource('purchase-invoices', PurchaseInvoiceController::class);
 
         Route::get('sales-invoices/export-xlsx', [SalesInvoiceController::class, 'exportXLSX'])->name('sales-invoices.export-xlsx');

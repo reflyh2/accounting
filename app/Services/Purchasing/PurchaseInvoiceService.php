@@ -453,7 +453,10 @@ class PurchaseInvoiceService
             $goodsReceiptLineId = (int) ($payloadLine['goods_receipt_line_id'] ?? 0);
             $quantity = (float) ($payloadLine['quantity'] ?? 0);
             $unitPrice = (float) ($payloadLine['unit_price'] ?? 0);
-            $taxAmount = (float) ($payloadLine['tax_amount'] ?? 0);
+            $taxRate = (float) ($payloadLine['tax_rate'] ?? 0);
+            // Calculate tax_amount from tax_rate: subtotal * (taxRate / 100)
+            $lineSubtotal = $quantity * $unitPrice;
+            $taxAmount = $lineSubtotal * ($taxRate / 100);
 
             if ($quantity <= 0) throw new PurchaseInvoiceException('Jumlah faktur harus lebih dari nol.');
             if ($unitPrice < 0) throw new PurchaseInvoiceException('Harga satuan tidak boleh bernilai negatif.');
@@ -517,7 +520,10 @@ class PurchaseInvoiceService
         foreach ($lines as $payloadLine) {
             $quantity = (float) ($payloadLine['quantity'] ?? 0);
             $unitPrice = (float) ($payloadLine['unit_price'] ?? 0);
-            $taxAmount = (float) ($payloadLine['tax_amount'] ?? 0);
+            $taxRate = (float) ($payloadLine['tax_rate'] ?? 0);
+            // Calculate tax_amount from tax_rate: subtotal * (taxRate / 100)
+            $lineSubtotal = $quantity * $unitPrice;
+            $taxAmount = $lineSubtotal * ($taxRate / 100);
             $variantId = $payloadLine['product_variant_id'] ?? null;
             $uomId = $payloadLine['uom_id'] ?? null;
 
