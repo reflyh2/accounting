@@ -14,22 +14,46 @@ class UserDiscountLimitController extends Controller
 {
     public function index(Request $request)
     {
-        $limits = UserDiscountLimit::with(['user', 'product', 'productCategory'])
-            ->orderByDesc('id')
-            ->paginate(15)
-            ->withQueryString();
+        $query = UserDiscountLimit::with(['user', 'product', 'productCategory']);
+
+        // Apply filters
+        if ($request->filled('user_global_id')) {
+            $userIds = is_array($request->user_global_id) ? $request->user_global_id : [$request->user_global_id];
+            $query->whereIn('user_global_id', $userIds);
+        }
+
+        if ($request->filled('product_category_id')) {
+            $categoryIds = is_array($request->product_category_id) ? $request->product_category_id : [$request->product_category_id];
+            $query->whereIn('product_category_id', $categoryIds);
+        }
+
+        if ($request->filled('is_active')) {
+            $query->where('is_active', $request->is_active === '1');
+        }
+
+        // Sorting
+        $sortField = $request->get('sort', 'id');
+        $sortOrder = $request->get('order', 'desc');
+        $query->orderBy($sortField, $sortOrder);
+
+        $limits = $query->paginate($request->get('per_page', 15))->withQueryString();
 
         return Inertia::render('Catalog/UserDiscountLimits/Index', [
             'limits' => $limits,
             'filters' => $request->all(),
+            'perPage' => $request->get('per_page', 15),
+            'sort' => $sortField,
+            'order' => $sortOrder,
+            'users' => $this->userOptions(),
+            'products' => $this->productOptions(),
+            'categories' => $this->categoryOptions(),
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        return Inertia::render('Catalog/UserDiscountLimits/Form', [
-            'mode' => 'create',
-            'limit' => null,
+        return Inertia::render('Catalog/UserDiscountLimits/Create', [
+            'filters' => $request->all(),
             'users' => $this->userOptions(),
             'products' => $this->productOptions(),
             'categories' => $this->categoryOptions(),
@@ -44,16 +68,16 @@ class UserDiscountLimitController extends Controller
         UserDiscountLimit::create($data);
 
         return redirect()->route('catalog.user-discount-limits.index')
-            ->with('success', 'Discount limit created.');
+            ->with('success', 'Batas diskon berhasil dibuat.');
     }
 
-    public function edit(UserDiscountLimit $userDiscountLimit)
+    public function edit(Request $request, UserDiscountLimit $userDiscountLimit)
     {
         $userDiscountLimit->load(['user', 'product', 'productCategory']);
 
-        return Inertia::render('Catalog/UserDiscountLimits/Form', [
-            'mode' => 'edit',
+        return Inertia::render('Catalog/UserDiscountLimits/Edit', [
             'limit' => $userDiscountLimit,
+            'filters' => $request->all(),
             'users' => $this->userOptions(),
             'products' => $this->productOptions(),
             'categories' => $this->categoryOptions(),
@@ -68,7 +92,7 @@ class UserDiscountLimitController extends Controller
         $userDiscountLimit->update($data);
 
         return redirect()->route('catalog.user-discount-limits.index')
-            ->with('success', 'Discount limit updated.');
+            ->with('success', 'Batas diskon berhasil diperbarui.');
     }
 
     public function destroy(UserDiscountLimit $userDiscountLimit)
@@ -76,7 +100,7 @@ class UserDiscountLimitController extends Controller
         $userDiscountLimit->delete();
 
         return redirect()->route('catalog.user-discount-limits.index')
-            ->with('success', 'Discount limit deleted.');
+            ->with('success', 'Batas diskon berhasil dihapus.');
     }
 
     private function validatePayload(Request $request): array
@@ -91,7 +115,7 @@ class UserDiscountLimitController extends Controller
 
         // Ensure only one of product or category is set (or neither for global)
         if (!empty($data['product_id']) && !empty($data['product_category_id'])) {
-            abort(422, 'Cannot set both product and category. Choose one scope type.');
+            abort(422, 'Tidak dapat mengatur produk dan kategori sekaligus. Pilih satu tipe cakupan.');
         }
 
         $data['is_active'] = $data['is_active'] ?? true;
@@ -102,32 +126,19 @@ class UserDiscountLimitController extends Controller
     private function userOptions()
     {
         return User::orderBy('name')
-            ->get(['global_id', 'name', 'email'])
-            ->map(fn ($user) => [
-                'value' => $user->global_id,
-                'label' => $user->name,
-                'email' => $user->email,
-            ]);
+            ->get(['global_id', 'name', 'email']);
     }
 
     private function productOptions()
     {
         return Product::where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'code', 'name'])
-            ->map(fn ($product) => [
-                'value' => $product->id,
-                'label' => "{$product->name} ({$product->code})",
-            ]);
+            ->get(['id', 'code', 'name']);
     }
 
     private function categoryOptions()
     {
         return ProductCategory::orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn ($cat) => [
-                'value' => $cat->id,
-                'label' => $cat->name,
-            ]);
+            ->get(['id', 'name']);
     }
 }
