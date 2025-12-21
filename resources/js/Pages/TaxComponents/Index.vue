@@ -42,7 +42,7 @@ const customFilters = computed(() => [
     {
         name: 'kind',
         type: 'select',
-        options: props.kinds.map(kind => ({ value: kind, label: kind })),
+        options: Object.entries(props.kinds).map(([value, label]) => ({ value, label })),
         multiple: true,
         placeholder: 'Pilih jenis',
         label: 'Jenis'
