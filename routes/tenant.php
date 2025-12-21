@@ -496,6 +496,8 @@ Route::middleware([
             Route::resource('packages', \App\Http\Controllers\Catalog\PackageProductController::class);
             Route::resource('price-list-targets', \App\Http\Controllers\Catalog\PriceListTargetController::class);
             Route::resource('user-discount-limits', \App\Http\Controllers\Catalog\UserDiscountLimitController::class);
+            Route::delete('price-lists/bulk-delete', [\App\Http\Controllers\Catalog\PriceListController::class, 'bulkDelete'])->name('price-lists.bulk-delete');
+            Route::resource('price-lists', \App\Http\Controllers\Catalog\PriceListController::class);
         });
 
         Route::prefix('inventory')->name('inventory.')->group(function () {

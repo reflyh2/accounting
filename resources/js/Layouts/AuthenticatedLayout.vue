@@ -126,7 +126,8 @@ const isProductsActive = computed(() => {
         || route().current('catalog.accommodation.*')
         || route().current('catalog.rental.*')
         || route().current('catalog.packages.*')
-        || route().current('catalog.user-discount-limits.*');
+        || route().current('catalog.user-discount-limits.*')
+        || route().current('catalog.price-lists.*');
 });
 
 const isInventoryActive = computed(() => {
@@ -392,6 +393,12 @@ function toggleSidebar() {
                                 :active="route().current('catalog.user-discount-limits.*')" 
                                 class="pl-11">
                                 Batas Diskon
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink 
+                                :href="route('catalog.price-lists.index')" 
+                                :active="route().current('catalog.price-lists.*')" 
+                                class="pl-11">
+                                Daftar Harga
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -950,6 +957,13 @@ function toggleSidebar() {
                                         >
                                             Batas Diskon
                                         </NavLink>
+                                        <NavLink 
+                                            :href="route('catalog.price-lists.index')" 
+                                            :active="route().current('catalog.price-lists.*')" 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Daftar Harga
+                                        </NavLink>
                                     </div>
                                 </div>
                                 
@@ -988,6 +1002,13 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Batas Diskon
+                                        </NavLink>
+                                        <NavLink 
+                                            :href="route('catalog.price-lists.index')" 
+                                            :active="route().current('catalog.price-lists.*')" 
+                                            class="flex items-center"
+                                        >
+                                            Daftar Harga
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
