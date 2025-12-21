@@ -92,4 +92,9 @@ class User extends Model implements Syncable
     {
         return $this->hasMany(Journal::class, 'user_global_id', 'global_id');
     }
+
+    public function discountLimits(): HasMany
+    {
+        return $this->hasMany(UserDiscountLimit::class, 'user_global_id', 'global_id');
+    }
 }

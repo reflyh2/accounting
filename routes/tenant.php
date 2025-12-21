@@ -495,6 +495,7 @@ Route::middleware([
             Route::resource('rental', \App\Http\Controllers\Catalog\RentalProductController::class);
             Route::resource('packages', \App\Http\Controllers\Catalog\PackageProductController::class);
             Route::resource('price-list-targets', \App\Http\Controllers\Catalog\PriceListTargetController::class);
+            Route::resource('user-discount-limits', \App\Http\Controllers\Catalog\UserDiscountLimitController::class);
         });
 
         Route::prefix('inventory')->name('inventory.')->group(function () {
