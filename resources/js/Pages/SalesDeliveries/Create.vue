@@ -1,16 +1,26 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import AppBackLink from '@/Components/AppBackLink.vue';
-import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
-import DeliveryForm from './Partials/DeliveryForm.vue';
+import SalesDeliveryForm from './Partials/SalesDeliveryForm.vue';
 
 const props = defineProps({
-    salesOrder: Object,
-    formOptions: {
-        type: Object,
-        default: () => ({}),
+    companies: {
+        type: Array,
+        default: () => [],
     },
+    branches: {
+        type: Array,
+        default: () => [],
+    },
+    salesOrders: Array,
+    selectedSalesOrders: Array,
+    selectedCompanyId: Number,
+    selectedBranchId: Number,
+    selectedPartnerId: Number,
+    customers: Array,
+    locations: Array,
+    filters: Object,
 });
 </script>
 
@@ -23,24 +33,21 @@ const props = defineProps({
 
         <div class="mx-auto">
             <div class="bg-white shadow-sm sm:rounded border border-gray-200 p-6 space-y-6">
-                <AppBackLink :href="route('sales-deliveries.index')" text="Kembali ke daftar pengiriman" />
+                <AppBackLink :href="route('sales-deliveries.index', filters)" text="Kembali ke daftar pengiriman" />
 
-                <div v-if="!salesOrder" class="border border-dashed border-gray-300 rounded-lg p-8 text-center space-y-4">
-                    <p class="text-gray-600">
-                        Pilih Sales Order yang sudah dikonfirmasi untuk membuat pengiriman.
-                    </p>
-                    <Link :href="route('sales-orders.index')">
-                        <AppPrimaryButton>Lihat Sales Order</AppPrimaryButton>
-                    </Link>
-                </div>
-
-                <DeliveryForm
-                    v-else
-                    :sales-order="salesOrder"
-                    :locations="formOptions.locations"
+                <SalesDeliveryForm
+                    :companies="companies"
+                    :branches="branches"
+                    :salesOrders="salesOrders"
+                    :selectedSalesOrders="selectedSalesOrders"
+                    :selectedCompanyId="selectedCompanyId"
+                    :selectedBranchId="selectedBranchId"
+                    :selectedPartnerId="selectedPartnerId"
+                    :customers="customers"
+                    :locations="locations"
+                    :filters="filters"
                 />
             </div>
         </div>
     </AuthenticatedLayout>
 </template>
-

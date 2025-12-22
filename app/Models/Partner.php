@@ -86,6 +86,11 @@ class Partner extends Model
         return $this->hasMany(PurchaseOrder::class);
     }
 
+    public function salesOrders()
+    {
+        return $this->hasMany(SalesOrder::class);
+    }
+
     public function goodsReceipts()
     {
         return $this->hasMany(GoodsReceipt::class, 'supplier_id');

@@ -4,6 +4,8 @@ import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
 import { formatNumber } from '@/utils/numberFormat';
+import { renderStatusPillHtml } from '@/utils/statusPillHtml';
+import { DocumentStatusKind } from '@/constants/documentStatuses';
 
 const props = defineProps({
     deliveries: Object,
@@ -14,6 +16,7 @@ const props = defineProps({
     companies: Array,
     branches: Array,
     customers: Array,
+    statusOptions: Object,
     perPage: [Number, String],
     sort: String,
     order: String,
@@ -25,9 +28,10 @@ const currentSort = ref({ key: props.sort || 'delivery_date', order: props.order
 const tableHeaders = [
     { key: 'delivery_date', label: 'Tanggal' },
     { key: 'delivery_number', label: 'Nomor Delivery' },
-    { key: 'sales_order_number', label: 'Nomor SO' },
+    { key: 'sales_orders', label: 'Sales Orders' },
     { key: 'customer_name', label: 'Pelanggan' },
     { key: 'branch_name', label: 'Cabang' },
+    { key: 'status', label: 'Status' },
     { key: 'total_quantity', label: 'Total Qty' },
     { key: 'total_cogs', label: 'Total COGS' },
     { key: 'actions', label: '' },
@@ -37,6 +41,15 @@ const columnFormatters = {
     delivery_date: (value) => (value ? new Date(value).toLocaleDateString('id-ID') : '-'),
     total_quantity: (value) => formatNumber(value ?? 0),
     total_cogs: (value) => formatNumber(value ?? 0),
+};
+
+const columnRenderers = {
+    status: (value) => renderStatusPillHtml(DocumentStatusKind.DELIVERY, value, 'sm'),
+    sales_orders: (value) => value && value.length
+        ? '<ul class="list-disc">' + value.map(so => 
+            `<li class="mb-1"><a href="${route('sales-orders.show', so.id)}" target="_blank" class="bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-800 text-xs px-2 py-1 rounded-full">${so.order_number}</a></li>`
+          ).join('') + '</ul>'
+        : '-',
 };
 
 const customFilters = computed(() => [
@@ -122,6 +135,10 @@ function handleFilter(newFilters) {
         }
     );
 }
+
+function deleteSalesDelivery(id) {
+    router.delete(route('sales-deliveries.destroy', id));
+}
 </script>
 
 <template>
@@ -140,10 +157,13 @@ function handleFilter(newFilters) {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'sales-deliveries.create' }"
                         :viewRoute="{ name: 'sales-deliveries.show' }"
                         :indexRoute="{ name: 'sales-deliveries.index' }"
+                        :editRoute="{ name: 'sales-deliveries.edit' }"
+                        :deleteRoute="{ name: 'sales-deliveries.destroy' }"
                         :sortable="sortableColumns"
                         :defaultSort="defaultSort"
                         :currentSort="currentSort"
@@ -153,6 +173,7 @@ function handleFilter(newFilters) {
                         searchPlaceholder="Cari nomor delivery atau SO..."
                         @sort="handleSort"
                         @filter="handleFilter"
+                        @delete="deleteSalesDelivery"
                     />
                 </div>
             </div>

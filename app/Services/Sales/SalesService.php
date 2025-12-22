@@ -577,6 +577,628 @@ class SalesService
         });
     }
 
+    /**
+     * Create a delivery from multiple Sales Orders.
+     */
+    public function postDeliveryFromMultipleSOs(array $payload, ?Authenticatable $actor = null): SalesDelivery
+    {
+        $actor ??= Auth::user();
+
+        $salesOrderIds = $payload['sales_order_ids'] ?? [];
+        if (empty($salesOrderIds)) {
+            throw new SalesOrderException('Minimal satu Sales Order harus dipilih.');
+        }
+
+        $salesOrders = SalesOrder::with([
+            'lines.variant.product',
+            'lines.uom',
+            'lines.baseUom',
+            'lines.reservationLocation',
+            'partner',
+            'branch.branchGroup.company',
+            'currency',
+        ])->whereIn('id', $salesOrderIds)->get();
+
+        if ($salesOrders->isEmpty()) {
+            throw new SalesOrderException('Sales Order tidak ditemukan.');
+        }
+
+        // Validate all SOs belong to same customer, company, branch, and currency
+        $partnerId = $salesOrders->first()->partner_id;
+        $companyId = $salesOrders->first()->company_id;
+        $branchId = $salesOrders->first()->branch_id;
+        $currencyId = $salesOrders->first()->currency_id;
+        $exchangeRate = $salesOrders->first()->exchange_rate;
+
+        foreach ($salesOrders as $so) {
+            if ($so->partner_id !== $partnerId) {
+                throw new SalesOrderException('Semua Sales Order harus memiliki customer yang sama.');
+            }
+            if ($so->company_id !== $companyId) {
+                throw new SalesOrderException('Semua Sales Order harus memiliki perusahaan yang sama.');
+            }
+            if ($so->branch_id !== $branchId) {
+                throw new SalesOrderException('Semua Sales Order harus memiliki cabang yang sama.');
+            }
+            if (!in_array($so->status, [
+                SalesOrderStatus::CONFIRMED->value,
+                SalesOrderStatus::PARTIALLY_DELIVERED->value,
+            ], true)) {
+                throw new SalesOrderException("Sales Order {$so->order_number} belum siap untuk dikirim.");
+            }
+        }
+
+        if (empty($payload['lines']) || !is_array($payload['lines'])) {
+            throw new SalesOrderException('Minimal satu baris pengiriman harus dipilih.');
+        }
+
+        if (!isset($payload['delivery_date'])) {
+            throw new SalesOrderException('Tanggal pengiriman wajib diisi.');
+        }
+
+        if (!isset($payload['location_id'])) {
+            throw new SalesOrderException('Lokasi pengiriman wajib dipilih.');
+        }
+
+        $deliveryDate = Carbon::parse($payload['delivery_date']);
+
+        /** @var Location $location */
+        $location = Location::with('branch.branchGroup.company')->findOrFail($payload['location_id']);
+
+        if ((int) $location->branch_id !== (int) $branchId) {
+            throw new SalesOrderException('Lokasi pengiriman harus berasal dari cabang yang sama.');
+        }
+
+        // Build SO lines indexed by ID for quick lookup
+        $allSOLines = collect();
+        foreach ($salesOrders as $so) {
+            foreach ($so->lines as $line) {
+                $allSOLines[$line->id] = $line;
+            }
+        }
+
+        // Prepare delivery lines
+        $preparedLines = [];
+        foreach ($payload['lines'] as $lineData) {
+            $soLineId = $lineData['sales_order_line_id'] ?? null;
+            $quantity = (float) ($lineData['quantity'] ?? 0);
+
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            /** @var SalesOrderLine|null $soLine */
+            $soLine = $allSOLines[$soLineId] ?? null;
+            if (!$soLine) {
+                throw new SalesOrderException("Baris Sales Order (ID: {$soLineId}) tidak ditemukan.");
+            }
+
+            $remaining = max(0, (float) $soLine->quantity - (float) $soLine->quantity_delivered);
+            if ($quantity > $remaining + self::QTY_TOLERANCE) {
+                throw new SalesOrderException("Jumlah pengiriman untuk {$soLine->description} melebihi sisa.");
+            }
+
+            try {
+                $quantityBase = $this->roundQuantity(
+                    $this->uomConverter->convert($quantity, $soLine->uom_id, $soLine->base_uom_id)
+                );
+            } catch (RuntimeException $exception) {
+                throw new SalesOrderException($exception->getMessage(), previous: $exception);
+            }
+
+            $lineTotal = $this->roundMoney($quantity * (float) $soLine->unit_price);
+
+            $preparedLines[] = [
+                'order_line' => $soLine,
+                'quantity' => $this->roundQuantity($quantity),
+                'quantity_base' => $this->roundQuantity($quantityBase),
+                'unit_price' => (float) $soLine->unit_price,
+                'line_total' => $lineTotal,
+            ];
+        }
+
+        if (empty($preparedLines)) {
+            throw new SalesOrderException('Jumlah pengiriman tidak valid.');
+        }
+
+        $valuationMethod = $payload['valuation_method'] ?? null;
+
+        return DB::transaction(function () use (
+            $salesOrders,
+            $preparedLines,
+            $location,
+            $deliveryDate,
+            $payload,
+            $valuationMethod,
+            $actor,
+            $partnerId,
+            $companyId,
+            $branchId,
+            $currencyId,
+            $exchangeRate
+        ) {
+            $issueDto = new IssueDTO(
+                $deliveryDate,
+                $location->id,
+                array_map(
+                    fn (array $plan) => new IssueLineDTO(
+                        $plan['order_line']->product_variant_id,
+                        $plan['order_line']->base_uom_id,
+                        $plan['quantity_base'],
+                    ),
+                    $preparedLines
+                ),
+                sourceType: SalesDelivery::class,
+                sourceId: 0, // Will update after creation
+                notes: $payload['notes'] ?? null,
+                valuationMethod: $valuationMethod,
+            );
+
+            $result = $this->inventoryService->issue($issueDto);
+
+            $deliveryNumber = $this->generateDeliveryNumber($companyId, $branchId, $deliveryDate);
+
+            $delivery = SalesDelivery::create([
+                'company_id' => $companyId,
+                'branch_id' => $branchId,
+                'partner_id' => $partnerId,
+                'currency_id' => $currencyId,
+                'location_id' => $location->id,
+                'delivery_number' => $deliveryNumber,
+                'status' => SalesDeliveryStatus::DRAFT->value,
+                'delivery_date' => $deliveryDate,
+                'exchange_rate' => $exchangeRate,
+                'notes' => $payload['notes'] ?? null,
+                'created_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            // Attach all related SOs
+            $delivery->salesOrders()->attach($salesOrders->pluck('id')->toArray());
+
+            $totalQuantityBase = 0.0;
+            $totalAmount = 0.0;
+            $totalCogs = 0.0;
+
+            foreach ($preparedLines as $index => $plan) {
+                $transactionLine = $result->transaction->lines[$index] ?? null;
+                $unitCostBase = $transactionLine?->unit_cost !== null
+                    ? (float) $transactionLine->unit_cost
+                    : 0.0;
+
+                $cogsTotal = $this->roundCost($unitCostBase * $plan['quantity_base']);
+
+                $delivery->lines()->create([
+                    'sales_order_line_id' => $plan['order_line']->id,
+                    'product_id' => $plan['order_line']->product_id,
+                    'product_variant_id' => $plan['order_line']->product_variant_id,
+                    'description' => $plan['order_line']->description,
+                    'uom_id' => $plan['order_line']->uom_id,
+                    'base_uom_id' => $plan['order_line']->base_uom_id,
+                    'quantity' => $plan['quantity'],
+                    'quantity_base' => $plan['quantity_base'],
+                    'unit_price' => $plan['unit_price'],
+                    'unit_cost_base' => $unitCostBase,
+                    'line_total' => $plan['line_total'],
+                    'cogs_total' => $cogsTotal,
+                ]);
+
+                $orderLine = $plan['order_line'];
+                $orderLine->quantity_delivered = $this->roundQuantity(
+                    (float) $orderLine->quantity_delivered + $plan['quantity']
+                );
+                $orderLine->quantity_delivered_base = $this->roundQuantity(
+                    (float) $orderLine->quantity_delivered_base + $plan['quantity_base']
+                );
+
+                if ($orderLine->quantity_reserved_base > 0) {
+                    $orderLine->quantity_reserved_base = $this->roundQuantity(
+                        max(0, (float) $orderLine->quantity_reserved_base - $plan['quantity_base'])
+                    );
+                    $orderLine->quantity_reserved = $orderLine->quantity_reserved_base > 0
+                        ? $this->convertBaseToOrdered($orderLine, (float) $orderLine->quantity_reserved_base)
+                        : 0;
+                    $this->consumeReservation($orderLine, $plan['quantity_base']);
+                }
+
+                $orderLine->save();
+
+                $totalQuantityBase += $plan['quantity_base'];
+                $totalAmount += $plan['line_total'];
+                $totalCogs += $cogsTotal;
+            }
+
+            $delivery->update([
+                'inventory_transaction_id' => $result->transaction->id,
+                'status' => SalesDeliveryStatus::POSTED->value,
+                'posted_at' => now(),
+                'posted_by' => $actor?->getAuthIdentifier(),
+                'total_quantity' => $this->roundQuantity($totalQuantityBase),
+                'total_amount' => $this->roundMoney($totalAmount),
+                'total_cogs' => $this->roundCost($totalCogs),
+                'updated_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            $result->transaction->update([
+                'source_type' => SalesDelivery::class,
+                'source_id' => $delivery->id,
+            ]);
+
+            // Sync status for all affected SOs
+            foreach ($salesOrders as $so) {
+                $so->load('lines');
+                $this->syncSalesOrderDeliveryStatus($so, $actor);
+            }
+
+            $delivery->load([
+                'salesOrders.partner',
+                'salesOrders.branch.branchGroup.company',
+                'partner',
+                'lines.variant',
+                'lines.uom',
+                'lines.baseUom',
+                'currency',
+                'location',
+            ]);
+
+            // Dispatch accounting event for first SO (for backwards compat)
+            $firstSO = $salesOrders->first();
+            $this->dispatchDeliveryEvent($delivery, $firstSO, $totalCogs, $actor);
+
+            return $delivery;
+        });
+    }
+
+    /**
+     * Check if a sales delivery can be modified (not invoiced).
+     */
+    public function canModifyDelivery(SalesDelivery $delivery): bool
+    {
+        return $delivery->lines->every(fn ($line) => (float) $line->quantity_invoiced <= 0);
+    }
+
+    /**
+     * Update an existing sales delivery.
+     */
+    public function updateSalesDelivery(SalesDelivery $delivery, array $payload, ?Authenticatable $actor = null): SalesDelivery
+    {
+        $actor ??= Auth::user();
+
+        $delivery->loadMissing([
+            'lines.salesOrderLine',
+            'salesOrders.lines',
+            'inventoryTransaction',
+            'location.branch.branchGroup.company',
+        ]);
+
+        if (!$this->canModifyDelivery($delivery)) {
+            throw new SalesOrderException('Pengiriman tidak dapat diubah karena sudah digunakan pada invoice.');
+        }
+
+        if (!isset($payload['location_id'])) {
+            throw new SalesOrderException('Lokasi pengiriman wajib dipilih.');
+        }
+
+        if (!isset($payload['delivery_date'])) {
+            throw new SalesOrderException('Tanggal pengiriman wajib diisi.');
+        }
+
+        $deliveryDate = Carbon::parse($payload['delivery_date']);
+
+        /** @var Location $location */
+        $location = Location::with('branch.branchGroup.company')->findOrFail($payload['location_id']);
+
+        if ((int) $location->branch_id !== (int) $delivery->branch_id) {
+            throw new SalesOrderException('Lokasi pengiriman harus berasal dari cabang yang sama.');
+        }
+
+        return DB::transaction(function () use (
+            $delivery,
+            $location,
+            $deliveryDate,
+            $payload,
+            $actor
+        ) {
+            // Reverse existing inventory transaction if posted
+            if ($delivery->inventory_transaction_id && $delivery->inventoryTransaction) {
+                // First, reverse the SO line delivered quantities
+                foreach ($delivery->lines as $sdLine) {
+                    if ($sdLine->salesOrderLine) {
+                        $soLine = $sdLine->salesOrderLine;
+                        $soLine->quantity_delivered = $this->roundQuantity(
+                            max(0, (float) $soLine->quantity_delivered - (float) $sdLine->quantity)
+                        );
+                        $soLine->quantity_delivered_base = $this->roundQuantity(
+                            max(0, (float) $soLine->quantity_delivered_base - (float) $sdLine->quantity_base)
+                        );
+                        $soLine->save();
+                    }
+                }
+
+                // Clear transaction reference
+                $transaction = $delivery->inventoryTransaction;
+                $delivery->inventory_transaction_id = null;
+                $delivery->save();
+
+                // Dispatch reversal accounting event
+                $this->dispatchDeliveryReversalEvent($delivery, $actor);
+
+                // Delete the inventory transaction (reverses inventory)
+                $this->inventoryService->deleteTransaction($transaction);
+            }
+
+            // Delete existing lines
+            $delivery->lines()->delete();
+
+            // Get all related SOs
+            $salesOrders = $delivery->salesOrders()->with([
+                'lines.variant.product',
+                'lines.uom',
+                'lines.baseUom',
+                'lines.reservationLocation',
+            ])->get();
+
+            // Build SO lines indexed by ID
+            $allSOLines = collect();
+            foreach ($salesOrders as $so) {
+                foreach ($so->lines as $line) {
+                    $allSOLines[$line->id] = $line;
+                }
+            }
+
+            // Prepare new lines
+            $preparedLines = [];
+            foreach ($payload['lines'] ?? [] as $lineData) {
+                $soLineId = $lineData['sales_order_line_id'] ?? null;
+                $quantity = (float) ($lineData['quantity'] ?? 0);
+
+                if ($quantity <= 0) {
+                    continue;
+                }
+
+                $soLine = $allSOLines[$soLineId] ?? null;
+                if (!$soLine) {
+                    throw new SalesOrderException("Baris Sales Order (ID: {$soLineId}) tidak ditemukan.");
+                }
+
+                $remaining = max(0, (float) $soLine->quantity - (float) $soLine->quantity_delivered);
+                if ($quantity > $remaining + self::QTY_TOLERANCE) {
+                    throw new SalesOrderException("Jumlah pengiriman untuk {$soLine->description} melebihi sisa.");
+                }
+
+                try {
+                    $quantityBase = $this->roundQuantity(
+                        $this->uomConverter->convert($quantity, $soLine->uom_id, $soLine->base_uom_id)
+                    );
+                } catch (RuntimeException $exception) {
+                    throw new SalesOrderException($exception->getMessage(), previous: $exception);
+                }
+
+                $lineTotal = $this->roundMoney($quantity * (float) $soLine->unit_price);
+
+                $preparedLines[] = [
+                    'order_line' => $soLine,
+                    'quantity' => $this->roundQuantity($quantity),
+                    'quantity_base' => $this->roundQuantity($quantityBase),
+                    'unit_price' => (float) $soLine->unit_price,
+                    'line_total' => $lineTotal,
+                ];
+            }
+
+            if (empty($preparedLines)) {
+                throw new SalesOrderException('Jumlah pengiriman tidak valid.');
+            }
+
+            // Create new inventory issue
+            $issueDto = new IssueDTO(
+                $deliveryDate,
+                $location->id,
+                array_map(
+                    fn (array $plan) => new IssueLineDTO(
+                        $plan['order_line']->product_variant_id,
+                        $plan['order_line']->base_uom_id,
+                        $plan['quantity_base'],
+                    ),
+                    $preparedLines
+                ),
+                sourceType: SalesDelivery::class,
+                sourceId: $delivery->id,
+                notes: $payload['notes'] ?? null,
+            );
+
+            $result = $this->inventoryService->issue($issueDto);
+
+            $totalQuantityBase = 0.0;
+            $totalAmount = 0.0;
+            $totalCogs = 0.0;
+
+            foreach ($preparedLines as $index => $plan) {
+                $transactionLine = $result->transaction->lines[$index] ?? null;
+                $unitCostBase = $transactionLine?->unit_cost !== null
+                    ? (float) $transactionLine->unit_cost
+                    : 0.0;
+
+                $cogsTotal = $this->roundCost($unitCostBase * $plan['quantity_base']);
+
+                $delivery->lines()->create([
+                    'sales_order_line_id' => $plan['order_line']->id,
+                    'product_id' => $plan['order_line']->product_id,
+                    'product_variant_id' => $plan['order_line']->product_variant_id,
+                    'description' => $plan['order_line']->description,
+                    'uom_id' => $plan['order_line']->uom_id,
+                    'base_uom_id' => $plan['order_line']->base_uom_id,
+                    'quantity' => $plan['quantity'],
+                    'quantity_base' => $plan['quantity_base'],
+                    'unit_price' => $plan['unit_price'],
+                    'unit_cost_base' => $unitCostBase,
+                    'line_total' => $plan['line_total'],
+                    'cogs_total' => $cogsTotal,
+                ]);
+
+                // Update SO line delivered quantity
+                $orderLine = $plan['order_line'];
+                $orderLine->quantity_delivered = $this->roundQuantity(
+                    (float) $orderLine->quantity_delivered + $plan['quantity']
+                );
+                $orderLine->quantity_delivered_base = $this->roundQuantity(
+                    (float) $orderLine->quantity_delivered_base + $plan['quantity_base']
+                );
+                $orderLine->save();
+
+                $totalQuantityBase += $plan['quantity_base'];
+                $totalAmount += $plan['line_total'];
+                $totalCogs += $cogsTotal;
+            }
+
+            $delivery->update([
+                'location_id' => $location->id,
+                'delivery_date' => $deliveryDate,
+                'notes' => $payload['notes'] ?? null,
+                'inventory_transaction_id' => $result->transaction->id,
+                'status' => SalesDeliveryStatus::POSTED->value,
+                'posted_at' => now(),
+                'posted_by' => $actor?->getAuthIdentifier(),
+                'total_quantity' => $this->roundQuantity($totalQuantityBase),
+                'total_amount' => $this->roundMoney($totalAmount),
+                'total_cogs' => $this->roundCost($totalCogs),
+                'updated_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            // Sync all SO statuses
+            foreach ($salesOrders as $so) {
+                $so->load('lines');
+                $this->syncSalesOrderDeliveryStatus($so, $actor);
+            }
+
+            $delivery->load([
+                'salesOrders.partner',
+                'salesOrders.branch.branchGroup.company',
+                'partner',
+                'lines.variant',
+                'lines.uom',
+                'lines.baseUom',
+                'currency',
+                'location',
+            ]);
+
+            // Dispatch accounting event
+            $firstSO = $salesOrders->first();
+            $this->dispatchDeliveryEvent($delivery, $firstSO, $totalCogs, $actor);
+
+            return $delivery;
+        });
+    }
+
+    /**
+     * Delete a sales delivery, reversing inventory and accounting entries.
+     */
+    public function deleteSalesDelivery(SalesDelivery $delivery, ?Authenticatable $actor = null): void
+    {
+        $actor ??= Auth::user();
+
+        $delivery->loadMissing([
+            'lines.salesOrderLine',
+            'salesOrders',
+            'inventoryTransaction',
+            'location.branch.branchGroup.company',
+        ]);
+
+        if (!$this->canModifyDelivery($delivery)) {
+            throw new SalesOrderException('Pengiriman tidak dapat dihapus karena sudah digunakan pada invoice.');
+        }
+
+        DB::transaction(function () use ($delivery, $actor) {
+            // If posted, reverse inventory and accounting
+            if ($delivery->status === SalesDeliveryStatus::POSTED->value) {
+                // Reverse inventory transaction
+                if ($delivery->inventoryTransaction) {
+                    $transaction = $delivery->inventoryTransaction;
+                    $delivery->inventory_transaction_id = null;
+                    $delivery->save();
+
+                    $this->inventoryService->deleteTransaction($transaction);
+                }
+
+                // Dispatch accounting reversal event
+                $this->dispatchDeliveryReversalEvent($delivery, $actor);
+            }
+
+            // Restore SO line delivered quantities
+            foreach ($delivery->lines as $sdLine) {
+                if ($sdLine->salesOrderLine) {
+                    $soLine = $sdLine->salesOrderLine;
+                    $soLine->quantity_delivered = $this->roundQuantity(
+                        max(0, (float) $soLine->quantity_delivered - (float) $sdLine->quantity)
+                    );
+                    $soLine->quantity_delivered_base = $this->roundQuantity(
+                        max(0, (float) $soLine->quantity_delivered_base - (float) $sdLine->quantity_base)
+                    );
+                    $soLine->save();
+                }
+            }
+
+            // Update SO statuses
+            foreach ($delivery->salesOrders as $so) {
+                $so->loadMissing('lines');
+                $this->syncSalesOrderDeliveryStatus($so, $actor);
+            }
+
+            // Detach from pivot table
+            $delivery->salesOrders()->detach();
+
+            // Delete lines
+            $delivery->lines()->delete();
+
+            // Delete the delivery
+            $delivery->delete();
+        });
+    }
+
+    /**
+     * Dispatch accounting reversal event for sales delivery deletion.
+     */
+    private function dispatchDeliveryReversalEvent(SalesDelivery $delivery, ?Authenticatable $actor = null): void
+    {
+        $cogsAmount = (float) $delivery->total_cogs;
+
+        if ($cogsAmount <= 0) {
+            return;
+        }
+
+        $currencyCode = $delivery->currency?->code ?? 'IDR';
+        $salesOrderNumbers = $delivery->salesOrders->pluck('order_number')->toArray();
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::SALES_DELIVERY_REVERSED,
+            $delivery->company_id,
+            $delivery->branch_id,
+            'sales_delivery',
+            $delivery->id,
+            $delivery->delivery_number,
+            $currencyCode,
+            (float) $delivery->exchange_rate,
+            CarbonImmutable::parse($delivery->delivery_date ?? now()),
+            $actor?->getAuthIdentifier(),
+            [
+                'sales_order_numbers' => $salesOrderNumbers,
+                'reversal' => true,
+            ],
+        );
+
+        $normalizedAmount = $this->roundCost($cogsAmount);
+
+        // Reverse the original entries: credit COGS, debit inventory
+        $payload->setLines([
+            AccountingEntry::debit('inventory', $normalizedAmount),
+            AccountingEntry::credit('cost_of_goods_sold', $normalizedAmount),
+        ]);
+
+        rescue(function () use ($payload) {
+            $this->accountingEventBus->dispatch($payload);
+        }, static function (Throwable $throwable) {
+            report($throwable);
+        });
+    }
+
     public function allowedStatuses(SalesOrder $salesOrder, ?Authenticatable $actor = null): array
     {
         $actor ??= Auth::user();

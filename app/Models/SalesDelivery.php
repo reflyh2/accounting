@@ -22,9 +22,10 @@ class SalesDelivery extends Model
         'exchange_rate' => 'decimal:6',
     ];
 
-    public function salesOrder()
+    public function salesOrders()
     {
-        return $this->belongsTo(SalesOrder::class);
+        return $this->belongsToMany(SalesOrder::class, 'sales_delivery_sales_order')
+            ->withTimestamps();
     }
 
     public function company()

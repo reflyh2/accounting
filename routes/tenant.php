@@ -140,6 +140,7 @@ Route::middleware([
         Route::get('api/partners/{partner}', [ApiController::class, 'getPartner'])->name('api.partners.show');
         Route::get('api/price-list-items/variants', [\App\Http\Controllers\Catalog\PriceListItemController::class, 'getVariants'])->name('api.price-list-items.variants');
         Route::get('api/suppliers-with-pos', [GoodsReceiptController::class, 'apiSuppliersWithPOs'])->name('api.suppliers-with-pos');
+        Route::get('api/customers-with-sos', [SalesDeliveryController::class, 'apiCustomersWithSOs'])->name('api.customers-with-sos');
         Route::get('api/lots', [GoodsReceiptController::class, 'apiLots'])->name('api.lots');
         Route::post('api/lots', [GoodsReceiptController::class, 'apiStoreLot'])->name('api.lots.store');
         Route::get('api/serials', [GoodsReceiptController::class, 'apiSerials'])->name('api.serials');
@@ -556,12 +557,7 @@ Route::middleware([
         Route::get('sales-orders/{sales_order}/print', [SalesOrderController::class, 'print'])
             ->name('sales-orders.print');
         Route::resource('sales-orders', SalesOrderController::class);
-        Route::resource('sales-deliveries', SalesDeliveryController::class)->only([
-            'index',
-            'create',
-            'store',
-            'show',
-        ]);
+        Route::resource('sales-deliveries', SalesDeliveryController::class);
         Route::get('purchase-invoices/export-xlsx', [PurchaseInvoiceController::class, 'exportXLSX'])->name('purchase-invoices.export-xlsx');
         Route::get('purchase-invoices/export-csv', [PurchaseInvoiceController::class, 'exportCSV'])->name('purchase-invoices.export-csv');
         Route::get('purchase-invoices/export-pdf', [PurchaseInvoiceController::class, 'exportPDF'])->name('purchase-invoices.export-pdf');
