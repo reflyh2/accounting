@@ -4,6 +4,9 @@ import { router, Head, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
 import AppPrintButton from '@/Components/AppPrintButton.vue';
+import { renderStatusPillHtml } from '@/utils/statusPillHtml';
+import { DocumentStatusKind } from '@/constants/documentStatuses';
+import DocumentStatusPill from '@/Components/DocumentStatusPill.vue';
 
 const props = defineProps({
     goodsReceipts: Object,
@@ -41,7 +44,10 @@ const columnFormatters = {
     purchase_orders: (value) => value ? '<ul class="list-disc">' + value.map(po => `<li class="mb-1"><a href="${route('purchase-orders.show', po.id)}" target="_blank" class="bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-800 text-xs px-2 py-1 rounded-full">${po.order_number}</a></li>`).join('') + '</ul>' : '-',
     receipt_date: (value) => value ? new Date(value).toLocaleDateString('id-ID') : '-',
     total_quantity: (value) => (value ?? 0).toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 3 }),
-    status: (value) => props.statusOptions?.[value] || value,
+};
+
+const columnRenderers = {
+    status: (value) => renderStatusPillHtml(DocumentStatusKind.GOODS_RECEIPT, value, 'sm'),
 };
 
 const downloadOptions = [
@@ -168,6 +174,7 @@ function handleFilter(newFilters) {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'goods-receipts.create' }"
                         :editRoute="{ name: 'goods-receipts.edit' }"

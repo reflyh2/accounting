@@ -6,6 +6,7 @@ import AppDataTable from '@/Components/AppDataTable.vue';
 import { formatNumber } from '@/utils/numberFormat';
 import DocumentStatusPill from '@/Components/DocumentStatusPill.vue';
 import { DocumentStatusKind } from '@/constants/documentStatuses';
+import { renderStatusPillHtml } from '@/utils/statusPillHtml';
 
 const props = defineProps({
     purchaseOrders: Object,
@@ -36,6 +37,10 @@ const columnFormatters = {
     expected_date: (value) => (value ? new Date(value).toLocaleDateString('id-ID') : '-'),
     total_amount: (value) => formatNumber(value),
     status: (value) => props.statusOptions?.[value] || value,
+};
+
+const columnRenderers = {
+    status: (value) => renderStatusPillHtml(DocumentStatusKind.PURCHASE_ORDER, value, 'sm'),
 };
 
 const downloadOptions = [
@@ -162,6 +167,7 @@ function handleFilter(newFilters) {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'purchase-orders.create' }"
                         :editRoute="{ name: 'purchase-orders.edit' }"
@@ -180,13 +186,6 @@ function handleFilter(newFilters) {
                         @sort="handleSort"
                         @filter="handleFilter"
                     >
-                        <template #status="{ item }">
-                            <DocumentStatusPill
-                                :documentKind="DocumentStatusKind.PURCHASE_ORDER"
-                                :status="item.status"
-                                size="sm"
-                            />
-                        </template>
                     </AppDataTable>
                 </div>
             </div>

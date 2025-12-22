@@ -6,6 +6,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
 import { formatNumber } from '@/utils/numberFormat';
 import AppPrintButton from '@/Components/AppPrintButton.vue';
+import { renderStatusPillHtml } from '@/utils/statusPillHtml';
+import { DocumentStatusKind } from '@/constants/documentStatuses';
+import DocumentStatusPill from '@/Components/DocumentStatusPill.vue';
 
 const props = defineProps({
     invoices: Object,
@@ -43,8 +46,11 @@ const columnFormatters = {
     invoice_date: (value) => value ? new Date(value).toLocaleDateString('id-ID') : '-',
     total_amount: (value) => formatNumber(value ?? 0),
     ppv_amount: (value) => formatNumber(value ?? 0),
-    status: (value) => props.statusOptions?.[value] || value,
     purchase_orders: (value) => Array.isArray(value) && value.length ? value.map(po => po.order_number).join(', ') : '-',
+};
+
+const columnRenderers = {
+    status: (value) => renderStatusPillHtml(DocumentStatusKind.PURCHASE_INVOICE, value, 'sm'),
 };
 
 const customFilters = computed(() => [
@@ -146,6 +152,7 @@ function deleteInvoice(id) {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'purchase-invoices.create' }"
                         :editRoute="{ name: 'purchase-invoices.edit' }"
