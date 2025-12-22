@@ -656,7 +656,10 @@ class SalesService
                 $line['tax_rate'] ?? null
             );
 
-            $lineSubtotal = $this->roundMoney($quantity * $unitPrice);
+            $discountRate = (float) ($line['discount_rate'] ?? 0);
+            $lineGross = $this->roundMoney($quantity * $unitPrice);
+            $discountAmount = $this->roundMoney($lineGross * ($discountRate / 100));
+            $lineSubtotal = $this->roundMoney($lineGross - $discountAmount);
             $lineTax = $this->roundMoney($lineSubtotal * ($taxRate / 100));
             $lineTotal = $this->roundMoney($lineSubtotal + $lineTax);
 
@@ -676,6 +679,8 @@ class SalesService
                 'quantity' => $quantity,
                 'quantity_base' => $quantityBase,
                 'unit_price' => $unitPrice,
+                'discount_rate' => $discountRate,
+                'discount_amount' => $discountAmount,
                 'tax_rate' => $taxRate,
                 'tax_amount' => $lineTax,
                 'line_total' => $lineTotal,

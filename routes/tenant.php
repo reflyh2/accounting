@@ -161,6 +161,8 @@ Route::middleware([
                 ->name('inventory.availability');
             Route::get('tax-quote', TaxQuoteController::class)
                 ->name('tax-quote');
+            Route::get('price-quote', \App\Http\Controllers\Api\PriceQuoteController::class)
+                ->name('price-quote');
             Route::get('lots/by-product-variant/{productVariantId}', function ($productVariantId) {
                 $lots = \App\Models\Lot::where('product_variant_id', $productVariantId)
                     ->where('status', 'active')
@@ -551,6 +553,8 @@ Route::middleware([
             ->name('sales-orders.reserve');
         Route::post('sales-orders/{sales_order}/release-reservation', [SalesOrderController::class, 'releaseReservation'])
             ->name('sales-orders.release-reservation');
+        Route::get('sales-orders/{sales_order}/print', [SalesOrderController::class, 'print'])
+            ->name('sales-orders.print');
         Route::resource('sales-orders', SalesOrderController::class);
         Route::resource('sales-deliveries', SalesDeliveryController::class)->only([
             'index',

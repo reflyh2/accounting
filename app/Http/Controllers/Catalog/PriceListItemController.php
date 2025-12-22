@@ -103,7 +103,7 @@ class PriceListItemController extends Controller
         if ($priceListItem->product_id) {
             $variants = ProductVariant::where('product_id', $priceListItem->product_id)
                 ->orderBy('sku')
-                ->get(['id', 'sku', 'name']);
+                ->get(['id', 'sku', 'barcode']);
         }
 
         return Inertia::render('Catalog/PriceListItems/Edit', [

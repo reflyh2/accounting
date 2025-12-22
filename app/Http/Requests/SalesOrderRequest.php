@@ -33,6 +33,7 @@ class SalesOrderRequest extends FormRequest
             'lines.*.uom_id' => ['required', 'exists:uoms,id'],
             'lines.*.quantity' => ['required', 'numeric', 'min:0.0001'],
             'lines.*.unit_price' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.discount_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.description' => ['nullable', 'string'],
             'lines.*.requested_delivery_date' => ['nullable', 'date'],

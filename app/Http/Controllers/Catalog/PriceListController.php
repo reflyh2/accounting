@@ -186,11 +186,6 @@ class PriceListController extends Controller
 
     public static function getChannels(): array
     {
-        return [
-            'web' => 'Web',
-            'pos' => 'POS',
-            'marketplace' => 'Marketplace',
-            'b2b' => 'B2B',
-        ];
+        return \App\Enums\SalesChannel::options();
     }
 }

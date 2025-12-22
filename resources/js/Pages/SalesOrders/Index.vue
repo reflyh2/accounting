@@ -3,9 +3,9 @@ import { ref, computed } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
-import DocumentStatusPill from '@/Components/DocumentStatusPill.vue';
 import { DocumentStatusKind } from '@/constants/documentStatuses';
 import { formatNumber } from '@/utils/numberFormat';
+import { renderStatusPillHtml } from '@/utils/statusPillHtml';
 
 const props = defineProps({
     salesOrders: Object,
@@ -35,6 +35,10 @@ const columnFormatters = {
     order_date: (value) => new Date(value).toLocaleDateString('id-ID'),
     total_amount: (value) => formatNumber(value),
     reserve_stock: (value) => (value ? 'Ya' : 'Tidak'),
+};
+
+const columnRenderers = {
+    status: (value) => renderStatusPillHtml(DocumentStatusKind.SALES_ORDER, value, 'sm'),
 };
 
 const currentSort = ref({ key: props.sort || 'order_date', order: props.order || 'desc' });
@@ -158,6 +162,13 @@ function handleFilter(newFilters) {
         }
     );
 }
+
+function deleteSalesOrder(id) {
+    router.delete(route('sales-orders.destroy', id), {
+        preserveScroll: true,
+        preserveState: true,
+    });
+}
 </script>
 
 <template>
@@ -176,6 +187,7 @@ function handleFilter(newFilters) {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'sales-orders.create' }"
                         :editRoute="{ name: 'sales-orders.edit' }"
@@ -190,14 +202,8 @@ function handleFilter(newFilters) {
                         :enableBulkActions="false"
                         @sort="handleSort"
                         @filter="handleFilter"
+                        @delete="deleteSalesOrder"
                     >
-                        <template #status="{ item }">
-                            <DocumentStatusPill
-                                :documentKind="DocumentStatusKind.SALES_ORDER"
-                                :status="item.status"
-                                size="sm"
-                            />
-                        </template>
                         <template #reserve_stock="{ item }">
                             <span
                                 :class="item.reserve_stock ? 'text-emerald-600 font-medium' : 'text-gray-500'"

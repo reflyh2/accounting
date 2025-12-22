@@ -1,5 +1,5 @@
 <script setup>
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 import SalesOrderForm from './Partials/SalesOrderForm.vue';
@@ -10,48 +10,21 @@ const props = defineProps({
     formOptions: Object,
 });
 
-const initialLine = () => ({
-    product_variant_id: '',
-    uom_id: '',
-    quantity: 1,
-    unit_price: '',
-    tax_rate: '',
-    description: '',
-    requested_delivery_date: '',
-    reservation_location_id: '',
-});
-
-const mapLine = (line) => ({
-    product_variant_id: line.product_variant_id,
-    uom_id: line.uom_id,
-    quantity: line.quantity,
-    unit_price: line.unit_price ?? '',
-    tax_rate: line.tax_rate ?? '',
-    description: line.description || '',
-    requested_delivery_date: line.requested_delivery_date || '',
-    reservation_location_id: line.reservation_location_id || '',
-});
-
-const form = useForm({
-    company_id: props.salesOrder.company_id,
-    branch_id: props.salesOrder.branch_id,
-    partner_id: props.salesOrder.partner_id,
-    price_list_id: props.salesOrder.price_list_id || '',
-    currency_id: props.salesOrder.currency_id,
-    order_date: props.salesOrder.order_date,
-    expected_delivery_date: props.salesOrder.expected_delivery_date || '',
-    quote_valid_until: props.salesOrder.quote_valid_until || '',
-    customer_reference: props.salesOrder.customer_reference || '',
-    sales_channel: props.salesOrder.sales_channel || '',
-    payment_terms: props.salesOrder.payment_terms || '',
-    exchange_rate: props.salesOrder.exchange_rate || 1,
-    reserve_stock: props.salesOrder.reserve_stock,
-    notes: props.salesOrder.notes || '',
-    lines: props.salesOrder.lines?.length ? props.salesOrder.lines.map(mapLine) : [initialLine()],
-});
-
-const submit = () => {
-    form.put(route('sales-orders.update', props.salesOrder.id));
+// Map salesOrder lines to include product_id from variant
+const mappedSalesOrder = {
+    ...props.salesOrder,
+    lines: props.salesOrder.lines?.map(line => ({
+        ...line,
+        product_id: line.variant?.product_id || null,
+        product_variant_id: line.product_variant_id,
+        uom_id: line.uom_id,
+        quantity: line.quantity,
+        unit_price: line.unit_price ?? 0,
+        tax_rate: line.tax_rate ?? 0,
+        description: line.description || '',
+        requested_delivery_date: line.requested_delivery_date || '',
+        reservation_location_id: line.reservation_location_id || null,
+    })) || [],
 };
 </script>
 
@@ -70,14 +43,20 @@ const submit = () => {
                 </div>
 
                 <SalesOrderForm
-                    :form="form"
-                    :form-options="formOptions"
+                    :sales-order="mappedSalesOrder"
+                    :companies="formOptions.companies"
+                    :branches="formOptions.branches"
+                    :currencies="formOptions.currencies"
+                    :customers="formOptions.customers"
+                    :products="formOptions.products"
+                    :uoms="formOptions.uoms"
+                    :locations="formOptions.locations"
+                    :channels="formOptions.channels"
+                    :filters="filters"
                     mode="edit"
                     submit-label="Perbarui Sales Order"
-                    :on-submit="submit"
                 />
             </div>
         </div>
     </AuthenticatedLayout>
 </template>
-

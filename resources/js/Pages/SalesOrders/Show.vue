@@ -8,6 +8,7 @@ import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppDangerButton from '@/Components/AppDangerButton.vue';
 import AppEditButton from '@/Components/AppEditButton.vue';
 import DocumentStatusPill from '@/Components/DocumentStatusPill.vue';
+import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import { DocumentStatusKind } from '@/constants/documentStatuses';
 import { formatNumber } from '@/utils/numberFormat';
 
@@ -112,6 +113,9 @@ const amountSummary = computed(() => ({
                         <AppDangerButton v-if="canCancel" @click="cancelOrder">
                             Batalkan
                         </AppDangerButton>
+                        <Link :href="route('sales-orders.print', salesOrder.id)" target="_blank">
+                            <AppUtilityButton>Cetak</AppUtilityButton>
+                        </Link>
                     </div>
                 </div>
 
@@ -143,10 +147,6 @@ const amountSummary = computed(() => ({
                         </div>
                     </div>
                     <div class="space-y-2 text-sm">
-                        <div>
-                            <p class="text-gray-500">Daftar Harga</p>
-                            <p class="font-semibold">{{ salesOrder.price_list?.name || '-' }}</p>
-                        </div>
                         <div>
                             <p class="text-gray-500">Referensi Pelanggan</p>
                             <p class="font-semibold">{{ salesOrder.customer_reference || '-' }}</p>

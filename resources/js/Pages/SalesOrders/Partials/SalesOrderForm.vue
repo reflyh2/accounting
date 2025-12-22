@@ -1,23 +1,55 @@
 <script setup>
-import { computed, reactive, watch } from 'vue';
+import { computed, watch, ref, onMounted } from 'vue';
+import { router, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
+import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
-import AppDangerButton from '@/Components/AppDangerButton.vue';
 import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
-import AppHint from '@/Components/AppHint.vue';
 import AppCheckbox from '@/Components/AppCheckbox.vue';
+import AppHint from '@/Components/AppHint.vue';
+import { PlusCircleIcon, TrashIcon } from '@heroicons/vue/24/solid';
 import { formatNumber } from '@/utils/numberFormat';
 
+const page = usePage();
+
 const props = defineProps({
-    form: {
+    salesOrder: {
         type: Object,
+        default: null,
+    },
+    companies: {
+        type: Array,
         required: true,
     },
-    formOptions: {
+    branches: {
+        type: Array,
+        required: true,
+    },
+    currencies: {
+        type: Array,
+        required: true,
+    },
+    customers: {
+        type: Array,
+        required: true,
+    },
+    products: {
+        type: Array,
+        required: true,
+    },
+    uoms: {
+        type: Array,
+        required: true,
+    },
+    locations: {
+        type: Array,
+        required: true,
+    },
+    channels: {
         type: Object,
         required: true,
     },
@@ -29,81 +61,83 @@ const props = defineProps({
         type: String,
         default: 'Simpan',
     },
-    onSubmit: {
-        type: Function,
-        required: true,
+    filters: {
+        type: Object,
+        default: () => ({}),
     },
 });
 
-const form = props.form;
-const availabilityState = reactive({});
+const form = useForm({
+    company_id: props.salesOrder?.company_id || null,
+    branch_id: props.salesOrder?.branch_id || null,
+    partner_id: props.salesOrder?.partner_id || null,
+    currency_id: props.salesOrder?.currency_id || (page.props.primaryCurrency?.id || null),
+    order_date: props.salesOrder?.order_date ? new Date(props.salesOrder?.order_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    expected_delivery_date: props.salesOrder?.expected_delivery_date || '',
+    quote_valid_until: props.salesOrder?.quote_valid_until || '',
+    customer_reference: props.salesOrder?.customer_reference || '',
+    sales_channel: props.salesOrder?.sales_channel || null,
+    payment_terms: props.salesOrder?.payment_terms || '',
+    exchange_rate: props.salesOrder?.exchange_rate || 1,
+    reserve_stock: props.salesOrder?.reserve_stock ?? false,
+    notes: props.salesOrder?.notes || '',
+    lines: props.salesOrder?.lines || [createEmptyLine()],
+    create_another: false,
+});
 
-const customerSearchUrl = computed(() =>
-    route('api.partners', {
-        company_id: form.company_id || undefined,
-        roles: ['customer'],
-    })
+const selectedCompany = ref(
+    form.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id)
 );
 
+const availabilityState = ref({});
+
+const customerTableHeaders = [
+    { key: 'code', label: 'Kode' },
+    { key: 'name', label: 'Nama Pelanggan' },
+    { key: 'actions', label: '' }
+];
+
+const customerSearchUrl = computed(() => route('api.partners', {
+    company_id: form.company_id,
+    roles: ['customer'],
+}));
+
 const selectedCustomerLabel = computed(() => {
-    const customer = props.formOptions.customers.find((candidate) => candidate.id === form.partner_id);
+    const customer = props.customers.find((candidate) => candidate.id === form.partner_id);
     if (!customer) {
         return '';
     }
-
     return `${customer.code} — ${customer.name}`;
-});
-
-const filteredBranches = computed(() => {
-    if (!form.company_id) {
-        return props.formOptions.branches;
-    }
-
-    return props.formOptions.branches.filter((branch) => branch.company_id === form.company_id);
 });
 
 const filteredCustomers = computed(() => {
     if (!form.company_id) {
-        return props.formOptions.customers;
+        return props.customers;
     }
-
-    return props.formOptions.customers.filter((customer) =>
+    return props.customers.filter((customer) =>
         Array.isArray(customer.company_ids) && customer.company_ids.includes(form.company_id)
     );
 });
 
 const filteredProducts = computed(() => {
     if (!form.company_id) {
-        return props.formOptions.products;
+        return props.products;
     }
-
-    return props.formOptions.products.filter((product) =>
+    return props.products.filter((product) =>
         Array.isArray(product.company_ids) && product.company_ids.includes(form.company_id)
-    );
-});
-
-const filteredPriceLists = computed(() => {
-    if (!form.company_id) {
-        return props.formOptions.priceLists;
-    }
-
-    return props.formOptions.priceLists.filter(
-        (priceList) => !priceList.company_id || priceList.company_id === form.company_id
     );
 });
 
 const filteredLocations = computed(() => {
     if (!form.branch_id) {
-        return props.formOptions.locations;
+        return props.locations;
     }
-
-    return props.formOptions.locations.filter((location) => location.branch_id === form.branch_id);
+    return props.locations.filter((location) => location.branch_id === form.branch_id);
 });
 
 const variantLookup = computed(() => {
     const lookup = {};
-
-    props.formOptions.products.forEach((product) => {
+    props.products.forEach((product) => {
         product.variants.forEach((variant) => {
             lookup[variant.id] = {
                 ...variant,
@@ -112,26 +146,41 @@ const variantLookup = computed(() => {
             };
         });
     });
-
     return lookup;
 });
 
-const variantOptions = computed(() =>
-    filteredProducts.value.flatMap((product) =>
-        product.variants.map((variant) => ({
-            value: variant.id,
-            label: `${product.name} — ${variant.sku}`,
-            uom: variant.uom,
-        }))
-    )
+const productOptions = computed(() =>
+    filteredProducts.value.map((product) => ({
+        value: product.id,
+        label: product.name,
+    }))
 );
+
+const channelOptions = computed(() => [
+    { value: null, label: 'Pilih channel' },
+    ...Object.entries(props.channels).map(([value, label]) => ({ value, label }))
+]);
+
+function getVariantsForProduct(productId) {
+    if (!productId) {
+        return [];
+    }
+    const product = filteredProducts.value.find((p) => p.id === productId);
+    if (!product || !product.variants || product.variants.length === 0) {
+        return [];
+    }
+    return product.variants.map((variant) => ({
+        value: variant.id,
+        label: variant.sku,
+        description: variant.barcode,
+    }));
+}
 
 const uomOptions = computed(() => {
     if (!form.company_id) {
-        return props.formOptions.uoms;
+        return props.uoms;
     }
-
-    return props.formOptions.uoms.filter((uom) => uom.company_id === form.company_id);
+    return props.uoms.filter((uom) => uom.company_id === form.company_id);
 });
 
 const totals = computed(() => {
@@ -139,103 +188,104 @@ const totals = computed(() => {
         (carry, line) => {
             const quantity = Number(line.quantity) || 0;
             const price = Number(line.unit_price) || 0;
+            const discountRate = Number(line.discount_rate) || 0;
             const taxRate = Number(line.tax_rate) || 0;
-
-            const lineSubtotal = quantity * price;
+            const lineGross = quantity * price;
+            const lineDiscountAmt = lineGross * (discountRate / 100);
+            const lineSubtotal = lineGross - lineDiscountAmt;
             const lineTax = lineSubtotal * (taxRate / 100);
-
             carry.subtotal += lineSubtotal;
+            carry.discount += lineDiscountAmt;
             carry.tax += lineTax;
-
             return carry;
         },
-        { subtotal: 0, tax: 0 }
+        { subtotal: 0, discount: 0, tax: 0 }
     );
 });
 
 const grandTotal = computed(() => totals.value.subtotal + totals.value.tax);
 
-watch(
-    () => form.branch_id,
-    (branchId) => {
-        if (!branchId) {
-            return;
-        }
-
-        const branch = props.formOptions.branches.find((candidate) => candidate.id === branchId);
-        if (branch?.company_id) {
-            form.company_id = branch.company_id;
-        }
-
-        form.lines.forEach((line, index) => {
-            if (line.product_variant_id) {
-                fetchAvailability(index);
-            }
-        });
+watch(selectedCompany, (newCompanyId) => {
+    if (props.mode === 'create') {
+        form.company_id = newCompanyId;
+        router.reload({ only: ['branches'], data: { company_id: newCompanyId } });
     }
+}, { immediate: true });
+
+watch(
+    () => props.branches,
+    (newBranches) => {
+        if (props.mode === 'create' && newBranches.length === 1) {
+            form.branch_id = newBranches[0].id;
+        }
+    },
+    { immediate: true }
 );
 
 watch(
     () => form.company_id,
     () => {
-        if (form.branch_id && !filteredBranches.value.some((branch) => branch.id === form.branch_id)) {
+        if (form.branch_id && !props.branches.some((branch) => branch.id === form.branch_id)) {
             form.branch_id = '';
         }
-
         if (form.partner_id && !filteredCustomers.value.some((customer) => customer.id === form.partner_id)) {
             form.partner_id = '';
         }
-
-        if (form.price_list_id && !filteredPriceLists.value.some((priceList) => priceList.id === form.price_list_id)) {
-            form.price_list_id = '';
-        }
-
         form.lines.forEach((line, index) => {
-            if (!line.product_variant_id) {
+            if (!line.product_id) {
                 return;
             }
-
-            if (!variantOptions.value.some((option) => option.value === line.product_variant_id)) {
+            const product = filteredProducts.value.find((p) => p.id === line.product_id);
+            if (!product) {
                 resetLine(line);
-                availabilityState[index] = null;
+                availabilityState.value[index] = null;
+                return;
+            }
+            if (line.product_variant_id) {
+                const variant = product.variants.find((v) => v.id === line.product_variant_id);
+                if (!variant) {
+                    line.product_variant_id = null;
+                    line.uom_id = null;
+                }
             }
         });
     }
 );
 
-watch(
-    () => form.price_list_id,
-    (priceListId) => {
-        if (!priceListId) {
-            return;
-        }
-
-        const priceList = props.formOptions.priceLists.find((candidate) => candidate.id === priceListId);
-        if (priceList?.currency?.id) {
-            form.currency_id = priceList.currency.id;
-        }
+onMounted(() => {
+    selectedCompany.value = form.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id);
+    if (props.mode === 'create' && props.branches.length === 1) {
+        form.branch_id = props.branches[0].id;
     }
-);
+});
 
 function lineUomOptions(line) {
-    const variant = variantLookup.value[line.product_variant_id];
+    if (!line.product_id || !line.product_variant_id) {
+        return uomOptions.value;
+    }
+    const product = filteredProducts.value.find((p) => p.id === line.product_id);
+    if (!product) {
+        return uomOptions.value;
+    }
+    const variant = product.variants.find((v) => v.id === line.product_variant_id);
     if (!variant?.uom?.kind) {
         return uomOptions.value;
     }
-
     return uomOptions.value.filter((uom) => uom.kind === variant.uom.kind);
 }
 
 function createEmptyLine() {
     return {
-        product_variant_id: '',
-        uom_id: '',
+        product_id: null,
+        product_variant_id: null,
+        uom_id: null,
         quantity: 1,
-        unit_price: '',
-        tax_rate: '',
+        unit_price: 0,
+        discount_rate: 0,
+        tax_rate: 0,
         description: '',
         requested_delivery_date: '',
-        reservation_location_id: '',
+        reservation_location_id: null,
     };
 }
 
@@ -247,47 +297,60 @@ function removeLine(index) {
     if (form.lines.length === 1) {
         return;
     }
-
     form.lines.splice(index, 1);
-    delete availabilityState[index];
+    delete availabilityState.value[index];
 }
 
 function resetLine(line) {
-    line.product_variant_id = '';
-    line.uom_id = '';
+    line.product_id = null;
+    line.product_variant_id = null;
+    line.uom_id = null;
     line.quantity = 1;
-    line.unit_price = '';
-    line.tax_rate = '';
+    line.unit_price = 0;
+    line.tax_rate = 0;
     line.description = '';
     line.requested_delivery_date = '';
-    line.reservation_location_id = '';
+    line.reservation_location_id = null;
 }
 
-function syncVariant(index) {
-    const line = form.lines[index];
-    const variant = variantLookup.value[line.product_variant_id];
+function handleProductChange(line, index) {
+    line.product_variant_id = null;
+    line.uom_id = null;
+    if (!line.description) {
+        const product = filteredProducts.value.find((p) => p.id === line.product_id);
+        if (product) {
+            line.description = product.name;
+        }
+    }
+}
 
-    if (!variant) {
-        availabilityState[index] = null;
+function syncVariant(line, index) {
+    if (!line.product_id || !line.product_variant_id) {
         return;
     }
-
-    line.uom_id = variant.uom?.id || line.uom_id;
-
-    if (!line.description) {
-        line.description = variant.product_name;
+    const product = filteredProducts.value.find((p) => p.id === line.product_id);
+    if (!product) {
+        return;
     }
-
+    const variant = product.variants.find((v) => v.id === line.product_variant_id);
+    if (!variant) {
+        return;
+    }
+    line.uom_id = variant.uom?.id || line.uom_id;
+    if (!line.description) {
+        line.description = product.name;
+    }
     fetchAvailability(index);
+    fetchPriceQuote(line, index);
+    fetchTaxQuote(line, index);
 }
 
 async function fetchAvailability(index) {
     const line = form.lines[index];
     if (!line.product_variant_id || !form.branch_id) {
-        availabilityState[index] = null;
+        availabilityState.value[index] = null;
         return;
     }
-
     try {
         const { data } = await axios.get(route('api.inventory.availability'), {
             params: {
@@ -295,282 +358,430 @@ async function fetchAvailability(index) {
                 branch_id: form.branch_id,
             },
         });
-        availabilityState[index] = data;
+        availabilityState.value[index] = data;
     } catch (error) {
-        availabilityState[index] = null;
+        availabilityState.value[index] = null;
+    }
+}
+
+async function fetchPriceQuote(line, index) {
+    if (!line.product_variant_id || !line.uom_id) {
+        return;
+    }
+    if (line.unit_price && Number(line.unit_price) > 0) {
+        return;
+    }
+    try {
+        const params = {
+            product_variant_id: line.product_variant_id,
+            uom_id: line.uom_id,
+            quantity: line.quantity || 1,
+        };
+        if (form.partner_id) params.partner_id = form.partner_id;
+        if (form.company_id) params.company_id = form.company_id;
+        if (form.currency_id) params.currency_id = form.currency_id;
+        if (form.sales_channel) params.channel = form.sales_channel;
+        if (form.order_date) params.date = form.order_date;
+
+        const response = await axios.get(route('api.price-quote'), { params });
+        if (response.data?.success && response.data?.data?.price !== undefined) {
+            line.unit_price = response.data.data.price;
+        }
+    } catch (error) {
+        console.warn('Failed to fetch price quote:', error);
+    }
+}
+
+async function fetchTaxQuote(line, index) {
+    if (!line.product_variant_id) {
+        return;
+    }
+    if (line.tax_rate && Number(line.tax_rate) > 0) {
+        return;
+    }
+    try {
+        const params = { product_variant_id: line.product_variant_id };
+        if (form.partner_id) params.partner_id = form.partner_id;
+        if (form.company_id) params.company_id = form.company_id;
+        if (form.order_date) params.date = form.order_date;
+
+        const response = await axios.get(route('api.tax-quote'), { params });
+        if (response.data?.success && response.data?.data?.rate !== undefined) {
+            line.tax_rate = response.data.data.rate;
+        }
+    } catch (error) {
+        console.warn('Failed to fetch tax quote:', error);
     }
 }
 
 function availabilityLabel(index) {
-    const snapshot = availabilityState[index];
-    if (!snapshot) {
-        return '—';
-    }
-
+    const snapshot = availabilityState.value[index];
+    if (!snapshot) return '—';
     return `On hand: ${formatNumber(snapshot.on_hand)} • Reserved: ${formatNumber(snapshot.reserved)} • Tersedia: ${formatNumber(snapshot.available)}`;
+}
+
+function lineSubtotal(line) {
+    const quantity = Number(line.quantity) || 0;
+    const price = Number(line.unit_price) || 0;
+    const discountRate = Number(line.discount_rate) || 0;
+    const gross = quantity * price;
+    const discount = gross * (discountRate / 100);
+    return gross - discount;
+}
+
+function lineDiscount(line) {
+    const quantity = Number(line.quantity) || 0;
+    const price = Number(line.unit_price) || 0;
+    const discountRate = Number(line.discount_rate) || 0;
+    return (quantity * price) * (discountRate / 100);
+}
+
+function lineTax(line) {
+    const subtotal = lineSubtotal(line);
+    const taxRate = Number(line.tax_rate) || 0;
+    return subtotal * (taxRate / 100);
+}
+
+const submitted = ref(false);
+function submitForm(createAnother = false) {
+    submitted.value = true;
+    form.create_another = createAnother;
+    if (props.salesOrder) {
+        form.put(route('sales-orders.update', props.salesOrder.id), {
+            preserveScroll: true,
+            onSuccess: () => { submitted.value = false; },
+            onError: () => { submitted.value = false; }
+        });
+    } else {
+        form.post(route('sales-orders.store'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                submitted.value = false;
+                if (createAnother) {
+                    form.reset();
+                    form.clearErrors();
+                }
+            },
+            onError: () => { submitted.value = false; }
+        });
+    }
 }
 </script>
 
 <template>
-    <form @submit.prevent="onSubmit" class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-4">
-                <AppSelect
-                    v-model="form.company_id"
-                    :options="formOptions.companies.map((company) => ({ value: company.id, label: company.name }))"
-                    label="Perusahaan"
-                    required
-                    placeholder="Pilih Perusahaan"
-                />
+    <form @submit.prevent="submitForm(false)" class="space-y-4">
+        <div class="flex justify-between">
+            <div class="w-2/3 max-w-2xl mr-8">
+                <div class="grid grid-cols-2 gap-4">
+                    <AppSelect
+                        v-model="selectedCompany"
+                        :options="companies.map((company) => ({ value: company.id, label: company.name }))"
+                        label="Perusahaan:"
+                        placeholder="Pilih Perusahaan"
+                        :error="form.errors?.company_id"
+                        :disabled="mode === 'edit'"
+                        required
+                    />
 
-                <AppSelect
-                    v-model="form.branch_id"
-                    :options="filteredBranches.map((branch) => ({ value: branch.id, label: branch.name }))"
-                    label="Cabang"
-                    required
-                    placeholder="Pilih Cabang"
-                />
+                    <AppSelect
+                        v-model="form.branch_id"
+                        :options="branches.map((branch) => ({ value: branch.id, label: branch.name }))"
+                        label="Cabang:"
+                        placeholder="Pilih Cabang"
+                        :error="form.errors?.branch_id"
+                        :disabled="mode === 'edit' || !form.company_id"
+                        required
+                    />
+                </div>
 
-                <AppPopoverSearch
-                    v-model="form.partner_id"
-                    label="Pelanggan"
-                    placeholder="Pilih Pelanggan"
-                    hint="Gunakan pencarian untuk menemukan pelanggan lintas perusahaan."
-                    :url="customerSearchUrl"
-                    :tableHeaders="[
-                        { key: 'code', label: 'Kode' },
-                        { key: 'name', label: 'Nama' },
-                        { key: 'actions', label: '' },
-                    ]"
-                    :displayKeys="['code', 'name']"
-                    :initialDisplayValue="selectedCustomerLabel"
-                    :disabled="!form.company_id"
-                    modalTitle="Pilih Pelanggan"
-                    required
-                    :error="form.errors?.partner_id"
-                />
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <AppInput
+                        v-model="form.order_date"
+                        type="date"
+                        label="Tanggal SO:"
+                        required
+                        :error="form.errors?.order_date"
+                    />
 
-                <AppSelect
-                    v-model="form.price_list_id"
-                    :options="filteredPriceLists.map((priceList) => ({
-                        value: priceList.id,
-                        label: priceList.currency?.code ? `${priceList.name} — ${priceList.currency.code}` : priceList.name,
-                    }))"
-                    label="Daftar Harga"
-                    placeholder="Pilih Daftar Harga"
-                />
+                    <div>
+                        <AppPopoverSearch
+                            v-model="form.partner_id"
+                            label="Pelanggan:"
+                            placeholder="Pilih Pelanggan"
+                            hint="Gunakan pencarian untuk menemukan pelanggan berdasarkan perusahaan yang dipilih."
+                            :url="customerSearchUrl"
+                            :tableHeaders="customerTableHeaders"
+                            :displayKeys="['code', 'name']"
+                            :initialDisplayValue="selectedCustomerLabel"
+                            :disabled="!form.company_id"
+                            modalTitle="Pilih Pelanggan"
+                            required
+                            :error="form.errors?.partner_id"
+                        />
+                    </div>
+                </div>
 
-                <AppSelect
-                    v-model="form.currency_id"
-                    :options="formOptions.currencies.map((currency) => ({ value: currency.id, label: `${currency.code} — ${currency.name}` }))"
-                    label="Mata Uang"
-                    required
-                />
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <AppSelect
+                        v-model="form.currency_id"
+                        :options="currencies.map((currency) => ({ value: currency.id, label: `${currency.code} — ${currency.name}` }))"
+                        label="Mata Uang:"
+                        required
+                        :error="form.errors?.currency_id"
+                    />
 
-                <AppInput
-                    v-model="form.exchange_rate"
-                    type="number"
-                    step="0.0001"
-                    label="Kurs"
-                    required
-                    min="0.0001"
-                />
+                    <AppInput
+                        v-model="form.exchange_rate"
+                        type="number"
+                        step="0.0001"
+                        label="Kurs:"
+                        required
+                        min="0.0001"
+                        :error="form.errors?.exchange_rate"
+                    />
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <AppInput
+                        v-model="form.expected_delivery_date"
+                        type="date"
+                        label="Estimasi Kirim:"
+                        :error="form.errors?.expected_delivery_date"
+                    />
+
+                    <AppSelect
+                        v-model="form.sales_channel"
+                        :options="channelOptions"
+                        label="Channel Penjualan:"
+                        :error="form.errors?.sales_channel"
+                    />
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <AppInput
+                        v-model="form.quote_valid_until"
+                        type="date"
+                        label="Berlaku Sampai:"
+                        :error="form.errors?.quote_valid_until"
+                    />
+
+                    <AppInput
+                        v-model="form.customer_reference"
+                        label="Referensi Pelanggan:"
+                        placeholder="Nomor referensi (opsional)"
+                        :error="form.errors?.customer_reference"
+                    />
+                </div>
+
+                <div class="mt-4">
+                    <AppInput
+                        v-model="form.payment_terms"
+                        label="Syarat Pembayaran:"
+                        placeholder="Net 30, COD, dll"
+                        :error="form.errors?.payment_terms"
+                    />
+                </div>
+
+                <div class="mt-4 bg-gray-50 border border-gray-200 p-3 rounded">
+                    <AppCheckbox v-model:checked="form.reserve_stock" label="Reservasi stok ketika order dikonfirmasi" />
+                    <p class="text-xs text-gray-500 mt-1">
+                        Saat diaktifkan, stok akan otomatis disisihkan setelah Sales Order dikonfirmasi.
+                    </p>
+                </div>
+
+                <div class="mt-4">
+                    <AppTextarea
+                        v-model="form.notes"
+                        label="Catatan:"
+                        rows="3"
+                        placeholder="Instruksi tambahan untuk tim fulfillment atau pelanggan."
+                        :error="form.errors?.notes"
+                    />
+                </div>
             </div>
 
-            <div class="space-y-4">
-                <AppInput
-                    v-model="form.order_date"
-                    type="date"
-                    label="Tanggal Order"
-                    required
-                />
-
-                <AppInput
-                    v-model="form.expected_delivery_date"
-                    type="date"
-                    label="Estimasi Kirim"
-                />
-
-                <AppInput
-                    v-model="form.quote_valid_until"
-                    type="date"
-                    label="Berlaku Sampai"
-                />
-
-                <AppInput
-                    v-model="form.customer_reference"
-                    label="Referensi Pelanggan"
-                    placeholder="Nomor referensi (opsional)"
-                />
-
-                <AppInput
-                    v-model="form.sales_channel"
-                    label="Channel Penjualan"
-                    placeholder="Online, Direct, dsb"
-                />
-
-                <AppInput
-                    v-model="form.payment_terms"
-                    label="Syarat Pembayaran"
-                    placeholder="Net 30, COD, dll"
-                />
+            <div class="w-1/3 bg-gray-100 p-4 rounded-lg text-sm">
+                <h3 class="text-lg font-semibold mb-2">Informasi Sales Order</h3>
+                <p class="mb-2">Sales Order adalah dokumen yang digunakan untuk mencatat pesanan pelanggan. Pastikan informasi yang dimasukkan akurat.</p>
+                <ul class="list-disc list-inside">
+                    <li>Pilih perusahaan yang sesuai</li>
+                    <li>Pilih cabang yang sesuai</li>
+                    <li>Pilih pelanggan yang akan menerima SO</li>
+                    <li>Pilih mata uang dan kurs yang sesuai</li>
+                    <li>Tanggal SO adalah tanggal pembuatan sales order</li>
+                    <li>Estimasi kirim adalah perkiraan kapan barang akan dikirim</li>
+                    <li>Channel menentukan harga yang digunakan dari daftar harga</li>
+                    <li>Tambahkan baris untuk setiap item yang dipesan</li>
+                </ul>
             </div>
         </div>
 
-        <div class="bg-gray-50 border border-gray-200 p-4 rounded-lg">
-            <AppCheckbox v-model="form.reserve_stock" label="Reservasi stok ketika order dikonfirmasi" />
-            <p class="text-sm text-gray-500 mt-1">
-                Saat diaktifkan, stok akan otomatis disisihkan setelah Sales Order dikonfirmasi.
-            </p>
-        </div>
+        <div class="overflow-x-auto">
+            <h2 class="text-lg font-semibold">Baris Sales Order</h2>
+            <p class="text-sm text-gray-500 mb-4">Lengkapi detail item termasuk kuantitas, satuan, harga, dan pajak.</p>
 
-        <div class="space-y-2">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold">Baris Sales Order</h3>
-                <AppSecondaryButton type="button" @click="addLine">
-                    Tambah Baris
-                </AppSecondaryButton>
-            </div>
-            <p class="text-sm text-gray-500">Isi detail produk, kuantitas, harga, pajak, dan lokasi pengiriman.</p>
-        </div>
-
-        <div class="overflow-auto border border-gray-200 rounded">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Produk / Varian</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Satuan</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Qty</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Harga Satuan</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Pajak (%)</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Tgl Kirim</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Lokasi & Reservasi</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Subtotal</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-600">Aksi</th>
+            <table class="min-w-full bg-white border border-gray-300">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border border-gray-300 text-sm min-w-48 lg:min-w-48 px-1.5 py-1.5">Produk</th>
+                        <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Satuan</th>
+                        <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty</th>
+                        <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Harga Satuan</th>
+                        <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Diskon (%)</th>
+                        <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Pajak (%)</th>
+                        <th class="border border-gray-300 text-sm min-w-32 px-1.5 py-1.5">Tgl Kirim</th>
+                        <th class="border border-gray-300 text-sm min-w-32 px-1.5 py-1.5">Lokasi</th>
+                        <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Subtotal</th>
+                        <th class="border border-gray-300 px-1.5 py-1.5"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 bg-white">
+                <tbody>
                     <tr v-for="(line, index) in form.lines" :key="index">
-                        <td class="px-4 py-3 min-w-[220px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                            <AppSelect
+                                v-model="line.product_id"
+                                :options="productOptions"
+                                placeholder="Pilih produk"
+                                :error="form.errors?.[`lines.${index}.product_id`]"
+                                required
+                                @update:modelValue="handleProductChange(line, index)"
+                                :margins="{ top: 0, right: 0, bottom: 2, left: 0 }"
+                            />
+
                             <AppSelect
                                 v-model="line.product_variant_id"
-                                :options="variantOptions"
-                                placeholder="Pilih produk"
-                                required
-                                @update:modelValue="() => syncVariant(index)"
+                                :options="getVariantsForProduct(line.product_id)"
+                                :placeholder="!line.product_id ? 'Pilih produk terlebih dahulu' : getVariantsForProduct(line.product_id).length === 0 ? 'Produk tidak memiliki varian' : 'Pilih varian'"
+                                :error="form.errors?.[`lines.${index}.product_variant_id`]"
+                                :disabled="!line.product_id || getVariantsForProduct(line.product_id).length === 0"
+                                :required="line.product_id && getVariantsForProduct(line.product_id).length > 0"
+                                @update:modelValue="syncVariant(line, index)"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
-                            <AppInput
-                                v-model="line.description"
-                                placeholder="Deskripsi baris"
-                                class="mt-2"
-                            />
-                            <p class="text-xs text-gray-500 mt-1">
-                                {{ availabilityLabel(index) }}
-                            </p>
+                            <p class="text-xs text-gray-500 mt-1">{{ availabilityLabel(index) }}</p>
                         </td>
-                        <td class="px-4 py-3 min-w-[140px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppSelect
                                 v-model="line.uom_id"
-                                :options="lineUomOptions(line).map((uom) => ({ value: uom.id, label: `${uom.code} — ${uom.name}` }))"
+                                :options="lineUomOptions(line).map((uom) => ({ value: uom.id, label: `${uom.code}`, description: `${uom.name}` }))"
                                 placeholder="Satuan"
+                                :error="form.errors?.[`lines.${index}.uom_id`]"
                                 required
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="px-4 py-3 min-w-[120px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppInput
                                 v-model="line.quantity"
-                                type="number"
-                                min="0.0001"
-                                step="0.0001"
+                                :numberFormat="true"
                                 required
+                                :error="form.errors?.[`lines.${index}.quantity`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="px-4 py-3 min-w-[140px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppInput
                                 v-model="line.unit_price"
+                                :numberFormat="true"
+                                required
+                                :error="form.errors?.[`lines.${index}.unit_price`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                            <AppInput
+                                v-model="line.discount_rate"
                                 type="number"
                                 min="0"
+                                max="100"
                                 step="0.01"
-                                placeholder="Kosongkan untuk otomatis"
+                                placeholder="0"
+                                :error="form.errors?.[`lines.${index}.discount_rate`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
-                            <AppHint text="Biarkan kosong untuk menggunakan harga dari daftar harga." />
                         </td>
-                        <td class="px-4 py-3 min-w-[120px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppInput
                                 v-model="line.tax_rate"
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 placeholder="0"
+                                :error="form.errors?.[`lines.${index}.tax_rate`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="px-4 py-3 min-w-[150px]">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppInput
                                 v-model="line.requested_delivery_date"
                                 type="date"
+                                :error="form.errors?.[`lines.${index}.requested_delivery_date`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="px-4 py-3 min-w-[180px] space-y-2">
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppSelect
                                 v-model="line.reservation_location_id"
-                                :options="filteredLocations.map((location) => ({ value: location.id, label: `${location.code} — ${location.name}` }))"
+                                :options="filteredLocations.map((loc) => ({ value: loc.id, label: `${loc.code} — ${loc.name}` }))"
                                 placeholder="Pilih lokasi"
+                                :error="form.errors?.[`lines.${index}.reservation_location_id`]"
                                 :required="form.reserve_stock"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
-                            <span v-if="form.reserve_stock" class="text-xs text-gray-500">
-                                Lokasi wajib diisi saat reservasi stok aktif.
-                            </span>
                         </td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap min-w-[140px]">
-                            <div>Subtotal: {{ formatNumber((Number(line.quantity) || 0) * (Number(line.unit_price) || 0)) }}</div>
-                            <div>Pajak: {{ formatNumber((Number(line.quantity) || 0) * (Number(line.unit_price) || 0) * ((Number(line.tax_rate) || 0) / 100)) }}</div>
+                        <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-right whitespace-nowrap align-top">
+                            <div class="flex justify-between">
+                                <div>Subtotal:</div>
+                                <div>{{ formatNumber(lineSubtotal(line)) }}</div>
+                            </div>
+                            <div class="flex justify-between">
+                                <div>Pajak:</div>
+                                <div>{{ formatNumber(lineTax(line)) }}</div>
+                            </div>
                         </td>
-                        <td class="px-4 py-3">
-                            <AppDangerButton
-                                type="button"
-                                @click="removeLine(index)"
-                                :disabled="form.lines.length === 1"
-                            >
-                                Hapus
-                            </AppDangerButton>
+                        <td class="border border-gray-300 px-1.5 py-1.5 text-center align-top">
+                            <button type="button" @click="removeLine(index)" :disabled="form.lines.length === 1" class="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <TrashIcon class="w-5 h-5" />
+                            </button>
                         </td>
                     </tr>
                 </tbody>
+
+                <tfoot>
+                    <tr class="text-sm">
+                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="7">Total</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.subtotal) }}</th>
+                        <th class="border border-gray-300 px-4 py-2"></th>
+                    </tr>
+                    <tr class="text-sm">
+                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="7">Total Pajak</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.tax) }}</th>
+                        <th class="border border-gray-300 px-4 py-2"></th>
+                    </tr>
+                    <tr class="text-sm font-semibold">
+                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="7">Grand Total</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(grandTotal) }}</th>
+                        <th class="border border-gray-300 px-4 py-2"></th>
+                    </tr>
+                </tfoot>
             </table>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AppTextarea
-                v-model="form.notes"
-                label="Catatan"
-                rows="5"
-                placeholder="Instruksi tambahan untuk tim fulfillment atau pelanggan."
-            />
-
-            <div class="border border-gray-200 rounded p-4 space-y-2 bg-gray-50">
-                <div class="flex items-center justify-between text-sm">
-                    <span>Subtotal</span>
-                    <span>{{ formatNumber(totals.subtotal) }}</span>
-                </div>
-                <div class="flex items-center justify-between text-sm">
-                    <span>Total Pajak</span>
-                    <span>{{ formatNumber(totals.tax) }}</span>
-                </div>
-                <div class="flex items-center justify-between text-base font-semibold">
-                    <span>Grand Total</span>
-                    <span>{{ formatNumber(grandTotal) }}</span>
-                </div>
+            <div class="flex mt-2 mb-4">
+                <button type="button" @click="addLine" class="flex items-center text-main-500 hover:text-main-700">
+                    <PlusCircleIcon class="w-6 h-6 mr-2" /> Tambah Baris
+                </button>
             </div>
         </div>
 
-        <div class="flex items-center justify-end gap-3">
-            <AppSecondaryButton type="button" @click="$inertia.visit(route('sales-orders.index'))">
-                Batal
-            </AppSecondaryButton>
-            <AppPrimaryButton type="submit" :disabled="form.processing">
+        <div class="mt-4 flex items-center">
+            <AppPrimaryButton type="submit" class="mr-2" :disabled="form.processing">
                 {{ submitLabel }}
             </AppPrimaryButton>
+            <AppUtilityButton v-if="!props.salesOrder" type="button" @click="submitForm(true)" class="mr-2">
+                Tambah & Buat Lagi
+            </AppUtilityButton>
+            <AppSecondaryButton @click="$inertia.visit(route('sales-orders.index', filters))">
+                Batal
+            </AppSecondaryButton>
         </div>
     </form>
 </template>
-

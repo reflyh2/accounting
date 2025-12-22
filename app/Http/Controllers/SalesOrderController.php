@@ -10,7 +10,6 @@ use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Location;
 use App\Models\Partner;
-use App\Models\PriceList;
 use App\Models\Product;
 use App\Models\SalesOrder;
 use App\Models\Uom;
@@ -148,7 +147,6 @@ class SalesOrderController extends Controller
             'partner',
             'branch.branchGroup.company',
             'currency',
-            'priceList',
             'lines.variant.product',
             'lines.uom',
             'lines.baseUom',
@@ -342,20 +340,8 @@ class SalesOrderController extends Controller
                     ];
                 }),
             'uoms' => Uom::orderBy('code')->get(['id', 'code', 'name', 'company_id', 'kind']),
-            'priceLists' => PriceList::with('currency:id,code,name')
-                ->orderBy('name')
-                ->get()
-                ->map(fn (PriceList $priceList) => [
-                    'id' => $priceList->id,
-                    'name' => $priceList->name,
-                    'company_id' => $priceList->company_id,
-                    'currency' => $priceList->currency ? [
-                        'id' => $priceList->currency->id,
-                        'code' => $priceList->currency->code,
-                        'name' => $priceList->currency->name,
-                    ] : null,
-                ]),
             'locations' => $this->locationOptions(),
+            'channels' => \App\Enums\SalesChannel::options(),
         ];
     }
 
@@ -366,6 +352,25 @@ class SalesOrderController extends Controller
                 $status->value => $status->label(),
             ])
             ->toArray();
+    }
+
+    /**
+     * Display the print view for SO.
+     */
+    public function print(SalesOrder $salesOrder): Response
+    {
+        $salesOrder->load([
+            'partner',
+            'branch.branchGroup.company',
+            'currency',
+            'lines.variant.product',
+            'lines.uom',
+            'creator',
+        ]);
+
+        return Inertia::render('SalesOrders/Print', [
+            'salesOrder' => $salesOrder,
+        ]);
     }
 }
 

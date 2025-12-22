@@ -15,6 +15,8 @@ class SalesOrderLine extends Model
         'quantity' => 'decimal:3',
         'quantity_base' => 'decimal:3',
         'unit_price' => 'decimal:4',
+        'discount_rate' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
         'tax_rate' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'line_total' => 'decimal:2',

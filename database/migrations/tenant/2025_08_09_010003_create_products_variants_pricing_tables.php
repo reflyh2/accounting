@@ -140,8 +140,6 @@ return new class extends Migration
             $table->foreign('created_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
             $table->foreign('updated_by')->references('global_id')->on('users')->onUpdate('cascade')->onDelete('restrict');
         });
-
-        DB::statement("ALTER TABLE price_list_items ADD CONSTRAINT chk_price_item_one_ref CHECK ((product_id IS NOT NULL AND product_variant_id IS NULL) OR (product_id IS NULL AND product_variant_id IS NOT NULL))");
     }
 
     public function down(): void
