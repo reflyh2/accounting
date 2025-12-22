@@ -138,6 +138,7 @@ Route::middleware([
         Route::get('api/financing-schedule', [ApiController::class, 'getFinancingSchedule'])->name('api.financing-schedule');
         Route::get('api/partners', [ApiController::class, 'getPartners'])->name('api.partners');
         Route::get('api/partners/{partner}', [ApiController::class, 'getPartner'])->name('api.partners.show');
+        Route::get('api/price-list-items/variants', [\App\Http\Controllers\Catalog\PriceListItemController::class, 'getVariants'])->name('api.price-list-items.variants');
         Route::get('api/suppliers-with-pos', [GoodsReceiptController::class, 'apiSuppliersWithPOs'])->name('api.suppliers-with-pos');
         Route::get('api/lots', [GoodsReceiptController::class, 'apiLots'])->name('api.lots');
         Route::post('api/lots', [GoodsReceiptController::class, 'apiStoreLot'])->name('api.lots.store');
@@ -495,9 +496,12 @@ Route::middleware([
             Route::resource('rental', \App\Http\Controllers\Catalog\RentalProductController::class);
             Route::resource('packages', \App\Http\Controllers\Catalog\PackageProductController::class);
             Route::resource('price-list-targets', \App\Http\Controllers\Catalog\PriceListTargetController::class);
+            Route::delete('price-list-targets/bulk-delete', [\App\Http\Controllers\Catalog\PriceListTargetController::class, 'bulkDelete'])->name('price-list-targets.bulk-delete');
             Route::resource('user-discount-limits', \App\Http\Controllers\Catalog\UserDiscountLimitController::class);
             Route::delete('price-lists/bulk-delete', [\App\Http\Controllers\Catalog\PriceListController::class, 'bulkDelete'])->name('price-lists.bulk-delete');
             Route::resource('price-lists', \App\Http\Controllers\Catalog\PriceListController::class);
+            Route::delete('price-list-items/bulk-delete', [\App\Http\Controllers\Catalog\PriceListItemController::class, 'bulkDelete'])->name('price-list-items.bulk-delete');
+            Route::resource('price-list-items', \App\Http\Controllers\Catalog\PriceListItemController::class);
         });
 
         Route::prefix('inventory')->name('inventory.')->group(function () {

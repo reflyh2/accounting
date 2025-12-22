@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import AppDataTable from '@/Components/AppDataTable.vue';
+import PriceConfigTabs from '@/Tabs/PriceConfigTabs.vue';
 
 const props = defineProps({
     priceLists: Object,
@@ -137,14 +138,16 @@ function handleFilter(newFilters) {
 </script>
 
 <template>
-    <Head title="Daftar Harga" />
+    <Head title="Kelompok Harga" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Daftar Harga</h2>
+            <h2>Kelompok Harga</h2>
         </template>
 
         <div class="mx-auto">
+            <PriceConfigTabs activeTab="catalog.price-lists.index" />
+
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">
                     <AppDataTable

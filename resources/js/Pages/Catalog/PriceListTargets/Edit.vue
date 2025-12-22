@@ -1,25 +1,26 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import PriceListForm from './Partials/PriceListForm.vue';
+import PriceListTargetForm from './Partials/PriceListTargetForm.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 
 defineProps({
-    priceList: Object,
+    target: Object,
     filters: Object,
+    priceLists: Array,
     companies: Array,
-    currencies: Array,
     partnerGroups: Array,
+    partnerDisplay: String,
     channels: Object,
 });
 </script>
 
 <template>
-    <Head title="Ubah Kelompok Harga" />
+    <Head title="Ubah Target Pelanggan" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Ubah Kelompok Harga</h2>
+            <h2>Ubah Target Pelanggan</h2>
         </template>
 
         <div>
@@ -27,13 +28,14 @@ defineProps({
                 <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
                     <div class="p-6 text-gray-900">
                         <div class="mb-6">
-                            <AppBackLink :href="route('catalog.price-lists.index', filters)" text="Kembali ke Kelompok Harga" />
+                            <AppBackLink :href="route('catalog.price-list-targets.index', filters)" text="Kembali ke Target Pelanggan" />
                         </div>
-                        <PriceListForm 
-                            :priceList="priceList"
+                        <PriceListTargetForm 
+                            :target="target"
+                            :priceLists="priceLists" 
                             :companies="companies" 
-                            :currencies="currencies" 
                             :partnerGroups="partnerGroups"
+                            :partnerDisplay="partnerDisplay"
                             :channels="channels"
                             :filters="filters" 
                         />

@@ -14,11 +14,11 @@ defineProps({
 </script>
 
 <template>
-    <Head title="Buat Daftar Harga" />
+    <Head title="Buat Kelompok Harga" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Buat Daftar Harga Baru</h2>
+            <h2>Buat Kelompok Harga Baru</h2>
         </template>
 
         <div>
@@ -26,7 +26,7 @@ defineProps({
                 <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
                     <div class="p-6 text-gray-900">
                         <div class="mb-6">
-                            <AppBackLink :href="route('catalog.price-lists.index', filters)" text="Kembali ke Daftar Harga" />
+                            <AppBackLink :href="route('catalog.price-lists.index', filters)" text="Kembali ke Kelompok Harga" />
                         </div>
                         <PriceListForm 
                             :companies="companies" 

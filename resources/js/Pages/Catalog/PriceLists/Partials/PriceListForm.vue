@@ -156,7 +156,7 @@ function submitForm() {
         
         <div class="mt-4 flex items-center">
             <AppPrimaryButton type="submit" class="mr-2">
-                {{ props.priceList ? 'Simpan Perubahan' : 'Buat Daftar Harga' }}
+                {{ props.priceList ? 'Simpan Perubahan' : 'Buat Kelompok Harga' }}
             </AppPrimaryButton>
             <AppSecondaryButton @click="$inertia.visit(route('catalog.price-lists.index', filters))">
                 Batal

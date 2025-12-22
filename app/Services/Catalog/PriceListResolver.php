@@ -15,19 +15,20 @@ class PriceListResolver
         $channel = $ctx['channel'] ?? null;
         $companyId = $ctx['company_id'] ?? null;
         $partnerId = $ctx['partner_id'] ?? null;
+        $currencyId = $ctx['currency_id'] ?? null;
 
         $groupIds = $this->resolvePartnerGroupIds($ctx, $date);
 
         $levels = $this->buildPrecedenceLevels($partnerId, $groupIds, $companyId);
 
         foreach ($levels as $level) {
-            $target = $this->matchTarget($level, $channel, $date);
+            $target = $this->matchTarget($level, $channel, $currencyId, $date);
             if ($target) {
                 return $target->priceList;
             }
         }
 
-        return $this->fallbackPriceList($companyId, $date);
+        return $this->fallbackPriceList($companyId, $currencyId, $date);
     }
 
     private function resolveDate(array $ctx): Carbon
@@ -98,7 +99,7 @@ class PriceListResolver
         return $levels;
     }
 
-    private function matchTarget(array $criteria, ?string $channel, Carbon $date): ?PriceListTarget
+    private function matchTarget(array $criteria, ?string $channel, ?int $currencyId, Carbon $date): ?PriceListTarget
     {
         $query = PriceListTarget::query()
             ->with('priceList')
@@ -111,7 +112,7 @@ class PriceListResolver
                 $q->whereNull('valid_to')
                     ->orWhere('valid_to', '>=', $date);
             })
-            ->whereHas('priceList', function ($q) use ($date) {
+            ->whereHas('priceList', function ($q) use ($date, $currencyId) {
                 $q->where('is_active', true)
                     ->where(function ($query) use ($date) {
                         $query->whereNull('valid_from')
@@ -121,6 +122,11 @@ class PriceListResolver
                         $query->whereNull('valid_to')
                             ->orWhere('valid_to', '>=', $date);
                     });
+
+                // Filter by currency if provided
+                if ($currencyId) {
+                    $q->where('currency_id', $currencyId);
+                }
             });
 
         $this->applyDimensionFilter($query, 'partner_id', $criteria);
@@ -152,7 +158,7 @@ class PriceListResolver
         }
     }
 
-    private function fallbackPriceList(?int $companyId, Carbon $date): ?PriceList
+    private function fallbackPriceList(?int $companyId, ?int $currencyId, Carbon $date): ?PriceList
     {
         $query = PriceList::query()
             ->where('is_active', true)
@@ -166,6 +172,11 @@ class PriceListResolver
             })
             ->orderBy('id');
 
+        // Apply currency filter if provided
+        if ($currencyId) {
+            $query->where('currency_id', $currencyId);
+        }
+
         if ($companyId) {
             $companyScoped = (clone $query)->where('company_id', $companyId)->first();
             if ($companyScoped) {
@@ -176,4 +187,3 @@ class PriceListResolver
         return $query->first();
     }
 }
-

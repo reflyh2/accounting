@@ -1,25 +1,25 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import PriceListForm from './Partials/PriceListForm.vue';
+import PriceListItemForm from './Partials/PriceListItemForm.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 
 defineProps({
-    priceList: Object,
+    item: Object,
     filters: Object,
-    companies: Array,
-    currencies: Array,
-    partnerGroups: Array,
-    channels: Object,
+    priceLists: Array,
+    products: Array,
+    variants: Array,
+    uoms: Array,
 });
 </script>
 
 <template>
-    <Head title="Ubah Kelompok Harga" />
+    <Head title="Ubah Harga" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Ubah Kelompok Harga</h2>
+            <h2>Ubah Harga</h2>
         </template>
 
         <div>
@@ -27,14 +27,14 @@ defineProps({
                 <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
                     <div class="p-6 text-gray-900">
                         <div class="mb-6">
-                            <AppBackLink :href="route('catalog.price-lists.index', filters)" text="Kembali ke Kelompok Harga" />
+                            <AppBackLink :href="route('catalog.price-list-items.index', filters)" text="Kembali ke Harga" />
                         </div>
-                        <PriceListForm 
-                            :priceList="priceList"
-                            :companies="companies" 
-                            :currencies="currencies" 
-                            :partnerGroups="partnerGroups"
-                            :channels="channels"
+                        <PriceListItemForm 
+                            :item="item"
+                            :priceLists="priceLists" 
+                            :products="products"
+                            :variants="variants"
+                            :uoms="uoms"
                             :filters="filters" 
                         />
                     </div>

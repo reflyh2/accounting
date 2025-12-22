@@ -12,6 +12,22 @@ class PricingService
     ) {
     }
 
+    /**
+     * Get a price quote for a product.
+     *
+     * @param int $productId
+     * @param int|null $variantId
+     * @param int $uomId
+     * @param float $qty
+     * @param array $ctx Context array with keys:
+     *   - partner_id: Customer ID
+     *   - company_id: Selling company ID
+     *   - channel: Sales channel (web, pos, etc.)
+     *   - currency_id: Target currency ID
+     *   - date: Quote date
+     *   - price_list_id: Override to use specific price list
+     * @return array
+     */
     public function quote(int $productId, ?int $variantId, int $uomId, float $qty, array $ctx): array
     {
         $priceList = $this->resolvePriceList($ctx);
@@ -20,7 +36,9 @@ class PricingService
                 'price' => 0.0,
                 'tax' => 0.0,
                 'currency' => null,
+                'currency_id' => null,
                 'rule_id' => null,
+                'price_list_id' => null,
             ];
         }
 
@@ -45,7 +63,10 @@ class PricingService
             'price' => $price,
             'tax' => 0.0,
             'currency' => $priceList->currency?->code,
+            'currency_id' => $priceList->currency_id,
             'rule_id' => $item?->id,
+            'price_list_id' => $priceList->id,
+            'tax_included' => $item?->tax_included ?? false,
         ];
     }
 
@@ -58,5 +79,3 @@ class PricingService
         return $this->priceListResolver->resolve($ctx);
     }
 }
-
-

@@ -16,7 +16,7 @@ function formatDate(date) {
 </script>
 
 <template>
-    <Head :title="`Daftar Harga: ${priceList.name}`" />
+    <Head :title="`Kelompok Harga: ${priceList.name}`" />
 
     <AuthenticatedLayout>
         <template #header>
@@ -30,7 +30,7 @@ function formatDate(date) {
 
         <div class="mx-auto">
             <div class="mb-4">
-                <AppBackLink :href="route('catalog.price-lists.index', filters)" text="Kembali ke Daftar Harga" />
+                <AppBackLink :href="route('catalog.price-lists.index', filters)" text="Kembali ke Kelompok Harga" />
             </div>
 
             <div class="bg-white shadow-sm sm:rounded border border-gray-200 p-6">

@@ -127,7 +127,9 @@ const isProductsActive = computed(() => {
         || route().current('catalog.rental.*')
         || route().current('catalog.packages.*')
         || route().current('catalog.user-discount-limits.*')
-        || route().current('catalog.price-lists.*');
+        || route().current('catalog.price-lists.*')
+        || route().current('catalog.price-list-targets.*')
+        || route().current('catalog.price-list-items.*');
 });
 
 const isInventoryActive = computed(() => {
@@ -396,7 +398,11 @@ function toggleSidebar() {
                             </ResponsiveNavLink>
                             <ResponsiveNavLink 
                                 :href="route('catalog.price-lists.index')" 
-                                :active="route().current('catalog.price-lists.*')" 
+                                :active="
+                                    route().current('catalog.price-lists.*')
+                                    || route().current('catalog.price-list-targets.*')
+                                    || route().current('catalog.price-list-items.*')
+                                " 
                                 class="pl-11">
                                 Daftar Harga
                             </ResponsiveNavLink>
@@ -959,7 +965,11 @@ function toggleSidebar() {
                                         </NavLink>
                                         <NavLink 
                                             :href="route('catalog.price-lists.index')" 
-                                            :active="route().current('catalog.price-lists.*')" 
+                                            :active="
+                                                route().current('catalog.price-lists.*')
+                                                || route().current('catalog.price-list-targets.*')
+                                                || route().current('catalog.price-list-items.*')
+                                            " 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Daftar Harga
@@ -1005,7 +1015,11 @@ function toggleSidebar() {
                                         </NavLink>
                                         <NavLink 
                                             :href="route('catalog.price-lists.index')" 
-                                            :active="route().current('catalog.price-lists.*')" 
+                                            :active="
+                                                route().current('catalog.price-lists.*')
+                                                || route().current('catalog.price-list-targets.*')
+                                                || route().current('catalog.price-list-items.*')
+                                            " 
                                             class="flex items-center"
                                         >
                                             Daftar Harga
