@@ -53,6 +53,14 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    companyBankAccounts: {
+        type: Array,
+        default: () => [],
+    },
+    paymentMethods: {
+        type: Array,
+        default: () => [],
+    },
     mode: {
         type: String,
         default: 'create',
@@ -81,6 +89,8 @@ const form = useForm({
     exchange_rate: props.salesOrder?.exchange_rate || 1,
     reserve_stock: props.salesOrder?.reserve_stock ?? false,
     notes: props.salesOrder?.notes || '',
+    payment_method: props.salesOrder?.payment_method || null,
+    company_bank_account_id: props.salesOrder?.company_bank_account_id || null,
     lines: props.salesOrder?.lines || [createEmptyLine()],
     create_another: false,
 });
@@ -160,6 +170,16 @@ const channelOptions = computed(() => [
     { value: null, label: 'Pilih channel' },
     ...Object.entries(props.channels).map(([value, label]) => ({ value, label }))
 ]);
+
+const paymentMethodOptions = computed(() => [
+    { value: null, label: 'Pilih Metode Pembayaran' },
+    ...props.paymentMethods
+]);
+
+const filteredBankAccounts = computed(() => {
+    if (!form.company_id) return [];
+    return props.companyBankAccounts.filter(ba => ba.company_id === form.company_id);
+});
 
 function getVariantsForProduct(productId) {
     if (!productId) {
@@ -579,6 +599,24 @@ function submitForm(createAnother = false) {
                         label="Syarat Pembayaran:"
                         placeholder="Net 30, COD, dll"
                         :error="form.errors?.payment_terms"
+                    />
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <AppSelect
+                        v-model="form.payment_method"
+                        :options="paymentMethodOptions"
+                        label="Metode Pembayaran:"
+                        :error="form.errors?.payment_method"
+                    />
+
+                    <AppSelect
+                        v-if="form.payment_method === 'transfer'"
+                        v-model="form.company_bank_account_id"
+                        :options="filteredBankAccounts"
+                        label="Rekening Bank Perusahaan:"
+                        :error="form.errors?.company_bank_account_id"
+                        placeholder="Pilih Rekening Bank"
                     />
                 </div>
 

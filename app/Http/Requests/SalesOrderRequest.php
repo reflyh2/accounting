@@ -28,6 +28,8 @@ class SalesOrderRequest extends FormRequest
             'exchange_rate' => ['nullable', 'numeric', 'min:0.0001'],
             'reserve_stock' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
+            'payment_method' => ['nullable', 'string', 'in:cash,transfer,cek,giro'],
+            'company_bank_account_id' => ['nullable', 'exists:company_bank_accounts,id', 'required_if:payment_method,transfer'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_variant_id' => ['required', 'exists:product_variants,id'],
             'lines.*.uom_id' => ['required', 'exists:uoms,id'],

@@ -47,6 +47,22 @@ export default {
             variants: ['hover', 'focus'],
         },
         {
+            pattern: /bg-emerald-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
+            pattern: /text-emerald-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
+            pattern: /bg-gray-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
+            pattern: /text-gray-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
             pattern: /ml-(.*)/,
             variants: ['xs', 'sm', 'md', 'lg', 'xl', '2xl'],
         },

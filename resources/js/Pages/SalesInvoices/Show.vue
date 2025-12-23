@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link, usePage } from '@inertiajs/vue3';
+import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppPrintButton from '@/Components/AppPrintButton.vue';
 import AppEditButton from '@/Components/AppEditButton.vue';
 import AppDeleteButton from '@/Components/AppDeleteButton.vue';
@@ -59,14 +60,14 @@ const postInvoice = () => {
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-bold">{{ invoice.invoice_number }}</h3>
                             <div class="flex items-center">
+                              <Link v-if="canPost" :href="route('sales-invoices.post', invoice.id)" method="post" as="button">
+                                 <AppPrimaryButton>Posting Faktur</AppPrimaryButton>
+                              </Link>
                               <a :href="route('sales-invoices.print', invoice.id)" target="_blank">
                                  <AppPrintButton title="Print" />
                               </a>
                               <Link v-if="canEdit" :href="route('sales-invoices.edit', invoice.id)">
                                  <AppEditButton title="Edit" />
-                              </Link>
-                              <Link v-if="canPost" :href="route('sales-invoices.post', invoice.id)" method="post" as="button">
-                                 <AppEditButton title="Post" />
                               </Link>
                               <AppDeleteButton v-if="canDelete" @click="showDeleteConfirmation = true" title="Delete" />
                             </div>
@@ -81,16 +82,17 @@ const postInvoice = () => {
                                 <p>{{ invoice.due_date || '-' }}</p>
                             </div>
                             <div>
-                                <p class="font-semibold">Nomor SO:</p>
-                                <p>{{ invoice.sales_order?.order_number }}</p>
+                                <p class="font-semibold">Sales Order(s):</p>
+                                <div v-if="invoice.is_direct_invoice" class="mt-1">
+                                    <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">Direct Invoice</span>
+                                </div>
+                                <div v-else class="flex flex-wrap gap-2 mt-1">
+                                    <Link v-for="so in invoice.sales_orders" :key="so.id" :href="route('sales-orders.show', so.id)" class="bg-blue-100 text-blue-600 hover:bg-blue-200 text-sm px-2 py-0.5 rounded">{{ so.order_number }}</Link>
+                                </div>
                             </div>
                             <div>
                                 <p class="font-semibold">Customer:</p>
-                                <p>{{ invoice.sales_order?.partner?.name }}</p>
-                            </div>
-                            <div>
-                                <p class="font-semibold">Cabang:</p>
-                                <p>{{ invoice.sales_order?.branch?.name }}</p>
+                                <p>{{ invoice.partner?.name }}</p>
                             </div>
                             <div>
                                 <p class="font-semibold">Status:</p>
@@ -110,35 +112,43 @@ const postInvoice = () => {
                             <table class="w-full border-collapse border border-gray-300 text-sm">
                                 <thead>
                                     <tr>
-                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">No. SO Line</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">No</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Deskripsi</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">Satuan</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Qty</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Harga</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">Diskon (%)</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">Pajak (%)</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Total</th>
-                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">Pajak</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2" v-if="hasOtherCurrency">Total ({{ page.props.primaryCurrency.code }})</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-for="line in invoice.lines" :key="line.id" class="group">
-                                        <td class="border border-gray-300 px-4 py-2">{{ line.line_number }}</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-center">{{ line.line_number }}</td>
                                         <td class="border border-gray-300 px-4 py-2">{{ line.description }}</td>
+                                        <td class="border border-gray-300 px-4 py-2">{{ line.uom_label }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.quantity) }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.unit_price) }}</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.discount_rate) }}%</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.tax_rate) }}%</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.line_total) }}</td>
-                                        <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.tax_amount) }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">{{ formatNumber(line.line_total_base) }}</td>
                                     </tr>
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="4" class="border border-gray-300 px-4 py-2 font-semibold text-right">Subtotal</td>
+                                        <td colspan="7" class="border border-gray-300 px-4 py-2 font-semibold text-right">Subtotal</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right font-semibold">{{ formatNumber(invoice.subtotal) }}</td>
-                                        <td class="border border-gray-300 px-4 py-2 text-right font-semibold">{{ formatNumber(invoice.tax_total) }}</td>
-                                        <td class="border border-gray-300 px-4 py-2 text-right font-semibold" v-if="hasOtherCurrency">-</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">-</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="5" class="border border-gray-300 px-4 py-2 font-semibold text-right">Total</td>
+                                        <td colspan="7" class="border border-gray-300 px-4 py-2 font-semibold text-right">Total Pajak</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right font-semibold">{{ formatNumber(invoice.tax_total) }}</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="7" class="border border-gray-300 px-4 py-2 font-semibold text-right">Total</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right font-semibold" :colspan="hasOtherCurrency ? 2 : 1">{{ formatNumber(invoice.total_amount) }}</td>
                                     </tr>
                                 </tfoot>

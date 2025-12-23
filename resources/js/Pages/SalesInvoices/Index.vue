@@ -1,10 +1,13 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, h } from 'vue';
 import { router, usePage, Link } from '@inertiajs/vue3';
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
+import DocumentStatusPill from '@/Components/DocumentStatusPill.vue';
+import { DocumentStatusKind } from '@/constants/documentStatuses';
 import { formatNumber } from '@/utils/numberFormat';
+import { renderStatusPillHtml } from '@/utils/statusPillHtml';
 
 const props = defineProps({
     invoices: Object,
@@ -27,11 +30,10 @@ const currentFilters = ref({ ...props.filters });
 const tableHeaders = [
     { key: 'invoice_date', label: 'Tanggal' },
     { key: 'invoice_number', label: 'Nomor Faktur' },
-    { key: 'sales_order.order_number', label: 'Nomor SO' },
-    { key: 'partner.name', label: 'Customer' },
+    { key: 'sales_orders', label: 'Sales Order(s)' },
+    { key: 'customer_name', label: 'Customer' },
     { key: 'status', label: 'Status' },
     { key: 'total_amount', label: 'Total' },
-    { key: 'revenue_variance', label: 'Revenue Variance' },
     { key: 'actions', label: '' },
 ];
 
@@ -41,8 +43,11 @@ const defaultSort = { key: 'invoice_date', order: 'desc' };
 const columnFormatters = {
     invoice_date: (value) => value ? new Date(value).toLocaleDateString('id-ID') : '-',
     total_amount: (value) => formatNumber(value ?? 0),
-    revenue_variance: (value) => formatNumber(value ?? 0),
-    status: (value) => props.statusOptions?.[value] || value,
+    sales_orders: (value) => value ? '<ul class="list-disc">' + value.map(so => `<li class="mb-1"><a href="${route('sales-orders.show', so.id)}" target="_blank" class="bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-800 text-xs px-2 py-1 rounded-full">${so.order_number}</a></li>`).join('') + '</ul>' : '-',
+};
+
+const columnRenderers = {
+    status: (value) => renderStatusPillHtml(DocumentStatusKind.SALES_INVOICE, value, 'sm'),
 };
 
 const customFilters = computed(() => [
@@ -179,6 +184,7 @@ function handleFilter(newFilters) {
                         :filters="currentFilters"
                         :tableHeaders="tableHeaders"
                         :columnFormatters="columnFormatters"
+                        :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'sales-invoices.create' }"
                         :editRoute="{ name: 'sales-invoices.edit' }"

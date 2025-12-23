@@ -5,34 +5,55 @@ import SalesInvoiceForm from './Partials/SalesInvoiceForm.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 
 defineProps({
-   filters: Object,
-   salesOrder: Object,
-   defaultLines: Array,
-   selectedSalesOrderLabel: String,
-   salesOrderSearchUrl: String,
-   primaryCurrency: Object,
+    filters: Object,
+    salesOrders: Array,
+    selectedSalesOrders: Array,
+    selectedPartnerId: Number,
+    customers: Array,
+    primaryCurrency: Object,
+    products: Array,
+    uoms: Array,
+    companies: Array,
+    branches: Array,
+    currencies: Array,
+    paymentMethods: Array,
+    companyBankAccounts: Array,
 });
 </script>
 
 <template>
-   <Head title="Buat Faktur Penjualan" />
+    <Head title="Buat Faktur Penjualan" />
 
-   <AuthenticatedLayout>
-      <template #header>
-         <h2>Buat Faktur Penjualan Baru</h2>
-      </template>
+    <AuthenticatedLayout>
+        <template #header>
+            <h2>Buat Faktur Penjualan Baru</h2>
+        </template>
 
-      <div>
-         <div class="mx-auto">
-            <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
-               <div class="p-6 text-gray-900">
-                  <div class="mb-6">
-                     <AppBackLink :href="route('sales-invoices.index', filters)" text="Kembali ke Daftar Faktur Penjualan" />
-                  </div>
-                  <SalesInvoiceForm :salesOrder="salesOrder" :defaultLines="defaultLines" :filters="filters" :selectedSalesOrderLabel="selectedSalesOrderLabel" :salesOrderSearchUrl="salesOrderSearchUrl" :primaryCurrency="primaryCurrency" />
-               </div>
+        <div>
+            <div class="mx-auto">
+                <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
+                    <div class="p-6 text-gray-900">
+                        <div class="mb-6">
+                            <AppBackLink :href="route('sales-invoices.index', filters)" text="Kembali ke Daftar Faktur Penjualan" />
+                        </div>
+                        <SalesInvoiceForm
+                            :salesOrders="salesOrders"
+                            :selectedSalesOrders="selectedSalesOrders"
+                            :selectedPartnerId="selectedPartnerId"
+                            :customers="customers"
+                            :primaryCurrency="primaryCurrency"
+                            :products="products"
+                            :uoms="uoms"
+                            :companies="companies"
+                            :branches="branches"
+                            :currencies="currencies"
+                            :paymentMethods="paymentMethods"
+                            :companyBankAccounts="companyBankAccounts"
+                            :filters="filters"
+                        />
+                    </div>
+                </div>
             </div>
-         </div>
-      </div>
-   </AuthenticatedLayout>
+        </div>
+    </AuthenticatedLayout>
 </template>

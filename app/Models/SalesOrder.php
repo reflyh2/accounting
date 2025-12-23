@@ -74,6 +74,11 @@ class SalesOrder extends Model
         return $this->belongsTo(PriceList::class);
     }
 
+    public function companyBankAccount()
+    {
+        return $this->belongsTo(CompanyBankAccount::class);
+    }
+
     public function lines()
     {
         return $this->hasMany(SalesOrderLine::class)->orderBy('line_number');

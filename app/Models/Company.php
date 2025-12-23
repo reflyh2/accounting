@@ -91,6 +91,11 @@ class Company extends Model
         return $this->belongsToManyThrough(Currency::class, CompanyCurrencyRate::class);
     }
 
+    public function bankAccounts()
+    {
+        return $this->hasMany(CompanyBankAccount::class);
+    }
+
     public function assetCategories()
     {
         return $this->belongsToMany(AssetCategory::class, 'asset_category_company')

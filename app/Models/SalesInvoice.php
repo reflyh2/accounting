@@ -46,9 +46,17 @@ class SalesInvoice extends Model
         return InvoiceStatus::from($this->status);
     }
 
-    public function salesOrder()
+    public function salesOrders()
     {
-        return $this->belongsTo(SalesOrder::class);
+        return $this->belongsToMany(SalesOrder::class, 'sales_invoice_sales_order');
+    }
+
+    /**
+     * Check if this is a direct invoice (no linked Sales Orders).
+     */
+    public function isDirectInvoice(): bool
+    {
+        return $this->salesOrders()->count() === 0;
     }
 
     public function company()
@@ -69,6 +77,11 @@ class SalesInvoice extends Model
     public function currency()
     {
         return $this->belongsTo(Currency::class);
+    }
+
+    public function companyBankAccount()
+    {
+        return $this->belongsTo(CompanyBankAccount::class);
     }
 
     public function lines()

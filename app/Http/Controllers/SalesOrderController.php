@@ -342,6 +342,22 @@ class SalesOrderController extends Controller
             'uoms' => Uom::orderBy('code')->get(['id', 'code', 'name', 'company_id', 'kind']),
             'locations' => $this->locationOptions(),
             'channels' => \App\Enums\SalesChannel::options(),
+            'companyBankAccounts' => \App\Models\CompanyBankAccount::with('company:id,name')
+                ->active()
+                ->orderBy('bank_name')
+                ->get()
+                ->map(fn ($ba) => [
+                    'value' => $ba->id,
+                    'label' => "{$ba->bank_name} - {$ba->account_number} ({$ba->account_holder_name})",
+                    'company_id' => $ba->company_id,
+                ]),
+            'paymentMethods' => collect(\App\Enums\PaymentMethod::cases())
+                ->map(fn (\App\Enums\PaymentMethod $method) => [
+                    'value' => $method->value,
+                    'label' => $method->label(),
+                ])
+                ->values()
+                ->toArray(),
         ];
     }
 

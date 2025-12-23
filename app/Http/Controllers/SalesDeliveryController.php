@@ -592,6 +592,7 @@ class SalesDeliveryController extends Controller
                 $q->whereIn('status', [
                     SalesOrderStatus::CONFIRMED->value,
                     SalesOrderStatus::PARTIALLY_DELIVERED->value,
+                    SalesOrderStatus::DELIVERED->value,
                 ]);
             });
 

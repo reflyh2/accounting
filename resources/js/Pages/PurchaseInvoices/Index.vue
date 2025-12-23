@@ -46,7 +46,7 @@ const columnFormatters = {
     invoice_date: (value) => value ? new Date(value).toLocaleDateString('id-ID') : '-',
     total_amount: (value) => formatNumber(value ?? 0),
     ppv_amount: (value) => formatNumber(value ?? 0),
-    purchase_orders: (value) => Array.isArray(value) && value.length ? value.map(po => po.order_number).join(', ') : '-',
+    purchase_orders: (value) => value ? '<ul class="list-disc">' + value.map(po => `<li class="mb-1"><a href="${route('purchase-orders.show', po.id)}" target="_blank" class="bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-800 text-xs px-2 py-1 rounded-full">${po.order_number}</a></li>`).join('') + '</ul>' : '-',
 };
 
 const columnRenderers = {

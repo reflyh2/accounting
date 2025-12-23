@@ -92,6 +92,8 @@ class SalesService
                 'exchange_rate' => $payload['exchange_rate'] ?? 1,
                 'reserve_stock' => (bool) ($payload['reserve_stock'] ?? false),
                 'notes' => $payload['notes'] ?? null,
+                'payment_method' => $payload['payment_method'] ?? null,
+                'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'created_by' => $actor?->getAuthIdentifier(),
             ]);
 
@@ -180,6 +182,8 @@ class SalesService
                 'exchange_rate' => $payload['exchange_rate'] ?? 1,
                 'reserve_stock' => (bool) ($payload['reserve_stock'] ?? false),
                 'notes' => $payload['notes'] ?? null,
+                'payment_method' => $payload['payment_method'] ?? null,
+                'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 

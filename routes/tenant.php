@@ -278,6 +278,9 @@ Route::middleware([
         Route::get('partners/export-pdf', [PartnerController::class, 'exportPDF'])->name('partners.export-pdf');
         Route::resource('partners', PartnerController::class);
 
+        // Company Bank Accounts
+        Route::resource('company-bank-accounts', \App\Http\Controllers\CompanyBankAccountController::class);
+
         Route::delete('cash-receipt-journals/bulk-delete', [CashReceiptJournalController::class, 'bulkDelete'])->name('cash-receipt-journals.bulk-delete');
         Route::get('cash-receipt-journals/export-xlsx', [CashReceiptJournalController::class, 'exportXLSX'])->name('cash-receipt-journals.export-xlsx');
         Route::get('cash-receipt-journals/export-csv', [CashReceiptJournalController::class, 'exportCSV'])->name('cash-receipt-journals.export-csv');
@@ -572,6 +575,8 @@ Route::middleware([
         Route::get('sales-invoices/export-pdf', [SalesInvoiceController::class, 'exportPDF'])->name('sales-invoices.export-pdf');
         Route::post('sales-invoices/{sales_invoice}/post', [SalesInvoiceController::class, 'post'])
             ->name('sales-invoices.post');
+        Route::get('sales-invoices/{sales_invoice}/print', [SalesInvoiceController::class, 'print'])
+            ->name('sales-invoices.print');
         Route::resource('sales-invoices', SalesInvoiceController::class);
 
         Route::delete('sales-returns/bulk-delete', [SalesReturnController::class, 'bulkDelete'])->name('sales-returns.bulk-delete');

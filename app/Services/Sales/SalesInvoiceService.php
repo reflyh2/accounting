@@ -8,12 +8,17 @@ use App\Enums\AccountingEventCode;
 use App\Enums\Documents\InvoiceStatus;
 use App\Enums\Documents\SalesOrderStatus;
 use App\Exceptions\SalesInvoiceException;
+use App\Models\Currency;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\SalesDeliveryLine;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceLine;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
+use App\Models\Uom;
 use App\Services\Accounting\AccountingEventBus;
+use App\Services\Catalog\UserDiscountLimitResolver;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -29,41 +34,80 @@ class SalesInvoiceService
 
     public function __construct(
         private readonly AccountingEventBus $accountingEventBus,
+        private readonly UserDiscountLimitResolver $discountLimitResolver,
     ) {
     }
 
+    /**
+     * Create a sales invoice from multiple Sales Orders or as a direct invoice.
+     */
     public function create(array $payload, ?Authenticatable $actor = null): SalesInvoice
     {
         $actor ??= Auth::user();
 
         return DB::transaction(function () use ($payload, $actor) {
-            /** @var SalesOrder $salesOrder */
-            $salesOrder = SalesOrder::with(['branch.branchGroup', 'currency', 'partner'])
-                ->findOrFail($payload['sales_order_id']);
+            $soIds = $payload['sales_order_ids'] ?? [];
+            if (!is_array($soIds)) {
+                $soIds = $soIds ? [$soIds] : [];
+            }
+            $soIds = array_unique(array_filter(array_map('intval', $soIds)));
 
-            $this->assertSalesOrderInvoiceable($salesOrder);
+            $salesOrders = collect();
+            if (!empty($soIds)) {
+                $salesOrders = SalesOrder::with(['branch.branchGroup', 'currency', 'partner'])
+                    ->whereIn('id', $soIds)
+                    ->get();
+
+                if ($salesOrders->count() !== count($soIds)) {
+                    throw new SalesInvoiceException('Beberapa Sales Order tidak ditemukan.');
+                }
+
+                $this->validateSalesOrdersConsistency($salesOrders);
+                foreach ($salesOrders as $so) {
+                    $this->assertSalesOrderInvoiceable($so);
+                }
+            }
+
+            // Determine header data from first SO or payload
+            $firstSo = $salesOrders->first();
+            $companyId = $firstSo?->company_id ?? $payload['company_id'] ?? null;
+            $branchId = $firstSo?->branch_id ?? $payload['branch_id'] ?? null;
+            $partnerId = $firstSo?->partner_id ?? $payload['partner_id'] ?? null;
+            $currencyId = $firstSo?->currency_id ?? $payload['currency_id'] ?? null;
+
+            if (!$companyId || !$branchId || !$partnerId || !$currencyId) {
+                throw new SalesInvoiceException('Data perusahaan, cabang, pelanggan, dan mata uang wajib diisi.');
+            }
 
             $invoiceDate = Carbon::parse($payload['invoice_date']);
-            $exchangeRate = (float) ($payload['exchange_rate'] ?? $salesOrder->exchange_rate ?? 1);
-            $preparedLines = $this->prepareLines(
-                $salesOrder,
-                $payload['lines'] ?? [],
-                $exchangeRate
-            );
+            $exchangeRate = (float) ($payload['exchange_rate'] ?? $firstSo?->exchange_rate ?? 1);
+
+            if ($salesOrders->isNotEmpty()) {
+                $preparedLines = $this->prepareLines(
+                    $salesOrders,
+                    $payload['lines'] ?? [],
+                    $exchangeRate
+                );
+            } else {
+                $preparedLines = $this->prepareDirectLines(
+                    $payload['lines'] ?? [],
+                    $exchangeRate
+                );
+            }
 
             if (empty($preparedLines)) {
                 throw new SalesInvoiceException('Minimal satu baris faktur wajib diisi.');
             }
 
+            // Create Invoice
             $invoice = SalesInvoice::create([
-                'sales_order_id' => $salesOrder->id,
-                'company_id' => $salesOrder->company_id,
-                'branch_id' => $salesOrder->branch_id,
-                'partner_id' => $salesOrder->partner_id,
-                'currency_id' => $salesOrder->currency_id,
+                'company_id' => $companyId,
+                'branch_id' => $branchId,
+                'partner_id' => $partnerId,
+                'currency_id' => $currencyId,
                 'invoice_number' => $this->generateInvoiceNumber(
-                    $salesOrder->company_id,
-                    $salesOrder->branch_id,
+                    $companyId,
+                    $branchId,
                     $invoiceDate
                 ),
                 'invoice_date' => $invoiceDate,
@@ -71,8 +115,14 @@ class SalesInvoiceService
                 'customer_invoice_number' => $payload['customer_invoice_number'] ?? null,
                 'exchange_rate' => $exchangeRate,
                 'notes' => $payload['notes'] ?? null,
+                'payment_method' => $payload['payment_method'] ?? null,
+                'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'created_by' => $actor?->getAuthIdentifier(),
             ]);
+
+            if ($salesOrders->isNotEmpty()) {
+                $invoice->salesOrders()->attach($salesOrders->pluck('id'));
+            }
 
             $totals = $this->persistInvoiceLines($invoice, $preparedLines);
 
@@ -84,38 +134,44 @@ class SalesInvoiceService
             ]);
 
             return $invoice->fresh([
-                'salesOrder.partner',
-                'salesOrder.branch',
-                'lines.salesOrderLine',
-                'lines.salesDeliveryLine.salesDelivery',
+                'salesOrders.partner',
+                'salesOrders.branch',
                 'currency',
+                'lines.salesDeliveryLine.salesDelivery',
+                'lines.salesOrderLine',
             ]);
         });
     }
 
+    /**
+     * Update an existing sales invoice.
+     */
     public function update(SalesInvoice $invoice, array $payload, ?Authenticatable $actor = null): SalesInvoice
     {
         $this->assertDraft($invoice);
-
-        if ((int) $invoice->sales_order_id !== (int) $payload['sales_order_id']) {
-            throw new SalesInvoiceException('Sales Order tidak dapat diubah setelah faktur dibuat.');
-        }
-
         $actor ??= Auth::user();
 
         return DB::transaction(function () use ($invoice, $payload, $actor) {
-            $invoice->load('salesOrder.branch.branchGroup', 'salesOrder.currency');
+            $invoice->load('salesOrders.branch.branchGroup', 'salesOrders.currency');
 
-            $salesOrder = $invoice->salesOrder;
+            $salesOrders = $invoice->salesOrders;
+            $isDirectInvoice = $salesOrders->isEmpty();
 
             $invoiceDate = Carbon::parse($payload['invoice_date']);
             $exchangeRate = (float) ($payload['exchange_rate'] ?? $invoice->exchange_rate ?? 1);
 
-            $preparedLines = $this->prepareLines(
-                $salesOrder,
-                $payload['lines'] ?? [],
-                $exchangeRate
-            );
+            if ($isDirectInvoice) {
+                $preparedLines = $this->prepareDirectLines(
+                    $payload['lines'] ?? [],
+                    $exchangeRate
+                );
+            } else {
+                $preparedLines = $this->prepareLines(
+                    $salesOrders,
+                    $payload['lines'] ?? [],
+                    $exchangeRate
+                );
+            }
 
             if (empty($preparedLines)) {
                 throw new SalesInvoiceException('Minimal satu baris faktur wajib diisi.');
@@ -130,6 +186,8 @@ class SalesInvoiceService
                 'customer_invoice_number' => $payload['customer_invoice_number'] ?? null,
                 'exchange_rate' => $exchangeRate,
                 'notes' => $payload['notes'] ?? null,
+                'payment_method' => $payload['payment_method'] ?? null,
+                'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'subtotal' => $totals['subtotal'],
                 'tax_total' => $totals['tax_total'],
                 'total_amount' => $totals['total_amount'],
@@ -137,37 +195,61 @@ class SalesInvoiceService
             ]);
 
             return $invoice->fresh([
-                'salesOrder.partner',
+                'salesOrders.partner',
                 'lines.salesOrderLine',
                 'lines.salesDeliveryLine.salesDelivery',
             ]);
         });
     }
 
+    /**
+     * Delete a draft sales invoice.
+     */
     public function delete(SalesInvoice $invoice): void
     {
         $this->assertDraft($invoice);
 
         DB::transaction(function () use ($invoice) {
+            $invoice->salesOrders()->detach();
             $invoice->lines()->delete();
             $invoice->delete();
         });
     }
 
+    /**
+     * Post a sales invoice, updating SO/SD line invoiced quantities.
+     */
     public function post(SalesInvoice $invoice, ?Authenticatable $actor = null): SalesInvoice
     {
         $this->assertDraft($invoice);
         $actor ??= Auth::user();
 
-        return DB::transaction(function () use ($invoice, $actor) {
-            $invoice->load([
-                'salesOrder.branch.branchGroup.company',
-                'salesOrder.lines',
-                'lines.salesOrderLine',
-                'lines.salesDeliveryLine.salesDelivery',
-                'currency',
-            ]);
+        $invoice->loadMissing([
+            'salesOrders.lines',
+            'salesOrders.branch.branchGroup.company',
+            'lines.salesOrderLine.product',
+            'lines.salesDeliveryLine.salesDelivery',
+            'currency',
+        ]);
 
+        // Validate discount authorization
+        $this->validateDiscountAuthorization($invoice, $actor);
+
+        $isDirectInvoice = $invoice->salesOrders->isEmpty();
+
+        if ($isDirectInvoice) {
+            return $this->postDirectInvoice($invoice, $actor);
+        }
+
+        return $this->postSoInvoice($invoice, $actor);
+    }
+
+    /**
+     * Post an invoice linked to Sales Orders.
+     */
+    private function postSoInvoice(SalesInvoice $invoice, ?Authenticatable $actor): SalesInvoice
+    {
+        return DB::transaction(function () use ($invoice, $actor) {
             $prepared = $this->preparePostingLines($invoice);
 
             $soLineIds = collect($prepared)->pluck('sales_order_line_id')->unique()->values();
@@ -250,22 +332,144 @@ class SalesInvoiceService
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 
-            $invoice->salesOrder->refresh();
-            $invoice->salesOrder->loadMissing('lines');
+            // Sync all SO statuses
+            foreach ($invoice->salesOrders as $so) {
+                $so->refresh();
+                $so->loadMissing('lines');
+                $this->syncSalesOrderBillingStatus($so, $actor);
+            }
 
-            $this->syncSalesOrderBillingStatus($invoice->salesOrder, $actor);
             $this->dispatchArPostedEvent($invoice->fresh('currency'), $totals, $actor);
 
             return $invoice->fresh([
-                'salesOrder.partner',
+                'salesOrders.partner',
                 'lines.salesOrderLine',
                 'lines.salesDeliveryLine.salesDelivery',
             ]);
         });
     }
 
+    /**
+     * Post a direct invoice (no Sales Order).
+     */
+    private function postDirectInvoice(SalesInvoice $invoice, ?Authenticatable $actor): SalesInvoice
+    {
+        return DB::transaction(function () use ($invoice, $actor) {
+            $subtotal = 0.0;
+            $taxTotal = 0.0;
+
+            foreach ($invoice->lines as $line) {
+                $subtotal += (float) $line->line_total;
+                $taxTotal += (float) $line->tax_amount;
+            }
+
+            $totals = [
+                'subtotal' => $this->roundMoney($subtotal),
+                'tax_total' => $this->roundMoney($taxTotal),
+                'total_amount' => $this->roundMoney($subtotal + $taxTotal),
+                'delivery_value_base' => 0.0,
+                'revenue_variance' => 0.0,
+            ];
+
+            $invoice->update([
+                'subtotal' => $totals['subtotal'],
+                'tax_total' => $totals['tax_total'],
+                'total_amount' => $totals['total_amount'],
+                'status' => InvoiceStatus::POSTED->value,
+                'posted_at' => now(),
+                'posted_by' => $actor?->getAuthIdentifier(),
+                'updated_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            $this->dispatchDirectArPostedEvent($invoice, $actor);
+
+            return $invoice->fresh(['lines', 'currency']);
+        });
+    }
+
+    /**
+     * Validate that all Sales Orders belong to same customer/company/branch/currency.
+     */
+    private function validateSalesOrdersConsistency(Collection $salesOrders): void
+    {
+        if ($salesOrders->count() <= 1) {
+            return;
+        }
+
+        $partnerIds = $salesOrders->pluck('partner_id')->unique();
+        $currencyIds = $salesOrders->pluck('currency_id')->unique();
+        $companyIds = $salesOrders->pluck('company_id')->unique();
+        $branchIds = $salesOrders->pluck('branch_id')->unique();
+
+        if ($partnerIds->count() > 1) {
+            throw new SalesInvoiceException('Semua Sales Order harus memiliki customer yang sama.');
+        }
+
+        if ($currencyIds->count() > 1) {
+            throw new SalesInvoiceException('Semua Sales Order harus memiliki mata uang yang sama.');
+        }
+
+        if ($companyIds->count() > 1) {
+            throw new SalesInvoiceException('Semua Sales Order harus berasal dari perusahaan yang sama.');
+        }
+
+        if ($branchIds->count() > 1) {
+            throw new SalesInvoiceException('Semua Sales Order harus berasal dari cabang yang sama.');
+        }
+    }
+
+    /**
+     * Validate that the posting user has authorization for all discount rates in the invoice.
+     *
+     * @throws SalesInvoiceException if the user is not authorized
+     */
+    private function validateDiscountAuthorization(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        if (!$actor) {
+            throw new SalesInvoiceException('User harus login untuk posting faktur.');
+        }
+
+        $userGlobalId = $actor->global_id ?? $actor->getAuthIdentifier();
+
+        foreach ($invoice->lines as $line) {
+            $discountRate = (float) $line->discount_rate;
+
+            // If no discount, skip validation
+            if ($discountRate <= 0) {
+                continue;
+            }
+
+            // Get product ID from invoice line or from SO line
+            $productId = $line->product_id;
+            if (!$productId && $line->salesOrderLine) {
+                $productId = $line->salesOrderLine->product_id;
+            }
+
+            // Get category ID from product if available
+            $categoryId = null;
+            if ($productId && $line->salesOrderLine?->product) {
+                $categoryId = $line->salesOrderLine->product->product_category_id;
+            }
+
+            // Check if user is authorized for this discount
+            if (!$this->discountLimitResolver->validateDiscount($userGlobalId, $productId, $categoryId, $discountRate)) {
+                $limit = $this->discountLimitResolver->resolve($userGlobalId, $productId, $categoryId);
+                $limitText = $limit !== null ? "{$limit}%" : '0%';
+                $productName = $line->description ?? ($line->salesOrderLine?->product?->name ?? 'item');
+                
+                throw new SalesInvoiceException(
+                    "Diskon {$discountRate}% pada \"{$productName}\" melebihi batas otoritas Anda ({$limitText}). " .
+                    "Minta user dengan otoritas lebih tinggi untuk posting faktur ini."
+                );
+            }
+        }
+    }
+
+    /**
+     * Prepare invoice lines from multiple Sales Orders.
+     */
     private function prepareLines(
-        SalesOrder $salesOrder,
+        Collection $salesOrders,
         array $lines,
         float $exchangeRate
     ): array {
@@ -273,10 +477,13 @@ class SalesInvoiceService
             return [];
         }
 
-        $soLines = $salesOrder->lines()
-            ->with(['uom', 'baseUom'])
-            ->get()
-            ->keyBy('id');
+        // Build combined lookup of all SO lines
+        $soLines = collect();
+        foreach ($salesOrders as $so) {
+            foreach ($so->lines()->with(['uom', 'baseUom'])->get() as $line) {
+                $soLines[$line->id] = $line;
+            }
+        }
 
         $deliveryLines = SalesDeliveryLine::query()
             ->with('salesDelivery')
@@ -292,10 +499,11 @@ class SalesInvoiceService
             $salesDeliveryLineId = (int) ($payloadLine['sales_delivery_line_id'] ?? 0);
             $quantity = (float) ($payloadLine['quantity'] ?? 0);
             $unitPrice = (float) ($payloadLine['unit_price'] ?? 0);
-            $taxAmount = (float) ($payloadLine['tax_amount'] ?? 0);
+            $discountRate = (float) ($payloadLine['discount_rate'] ?? 0);
+            $taxRate = (float) ($payloadLine['tax_rate'] ?? 0);
 
             if ($quantity <= 0) {
-                throw new SalesInvoiceException('Jumlah faktur harus lebih dari nol.');
+                continue;
             }
 
             if ($unitPrice < 0) {
@@ -339,7 +547,10 @@ class SalesInvoiceService
             }
 
             $quantityBase = $this->deriveBaseQuantity($quantity, $deliveryLine, $soLine);
-            $lineTotal = $this->roundMoney($quantity * $unitPrice);
+            $grossTotal = $this->roundMoney($quantity * $unitPrice);
+            $discountAmount = $this->roundMoney($grossTotal * ($discountRate / 100));
+            $lineTotal = $this->roundMoney($grossTotal - $discountAmount);
+            $taxAmount = $this->roundMoney($lineTotal * ($taxRate / 100));
             $lineTotalBase = $this->roundCost($lineTotal * $exchangeRate);
             $deliveryValueBase = $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base);
             $revenueVariance = $this->roundMoney(($lineTotalBase + ($taxAmount * $exchangeRate)) - $deliveryValueBase);
@@ -353,11 +564,71 @@ class SalesInvoiceService
                 'quantity' => $this->roundQuantity($quantity),
                 'quantity_base' => $quantityBase,
                 'unit_price' => $unitPrice,
+                'discount_rate' => $discountRate,
+                'discount_amount' => $discountAmount,
+                'tax_rate' => $taxRate,
+                'tax_amount' => $this->roundMoney($taxAmount),
                 'line_total' => $lineTotal,
                 'line_total_base' => $lineTotalBase,
                 'delivery_value_base' => $deliveryValueBase,
                 'revenue_variance' => $revenueVariance,
+            ];
+        }
+
+        return $prepared;
+    }
+
+    /**
+     * Prepare direct invoice lines (no Sales Order).
+     */
+    private function prepareDirectLines(array $lines, float $exchangeRate): array
+    {
+        if (empty($lines)) {
+            return [];
+        }
+
+        $prepared = [];
+        $lineNumber = 1;
+
+        foreach ($lines as $payloadLine) {
+            $quantity = (float) ($payloadLine['quantity'] ?? 0);
+            $unitPrice = (float) ($payloadLine['unit_price'] ?? 0);
+            $discountRate = (float) ($payloadLine['discount_rate'] ?? 0);
+            $taxRate = (float) ($payloadLine['tax_rate'] ?? 0);
+
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            if ($unitPrice < 0) {
+                throw new SalesInvoiceException('Harga satuan tidak boleh negatif.');
+            }
+
+            $grossTotal = $this->roundMoney($quantity * $unitPrice);
+            $discountAmount = $this->roundMoney($grossTotal * ($discountRate / 100));
+            $lineTotal = $this->roundMoney($grossTotal - $discountAmount);
+            $taxAmount = $this->roundMoney($lineTotal * ($taxRate / 100));
+            $lineTotalBase = $this->roundCost($lineTotal * $exchangeRate);
+
+            $prepared[] = [
+                'line_number' => $lineNumber++,
+                'sales_order_line_id' => null,
+                'sales_delivery_line_id' => null,
+                'product_id' => $payloadLine['product_id'] ?? null,
+                'product_variant_id' => $payloadLine['product_variant_id'] ?? null,
+                'description' => $payloadLine['description'] ?? '',
+                'uom_label' => $payloadLine['uom_label'] ?? null,
+                'quantity' => $this->roundQuantity($quantity),
+                'quantity_base' => $this->roundQuantity($quantity),
+                'unit_price' => $unitPrice,
+                'discount_rate' => $discountRate,
+                'discount_amount' => $discountAmount,
+                'tax_rate' => $taxRate,
                 'tax_amount' => $this->roundMoney($taxAmount),
+                'line_total' => $lineTotal,
+                'line_total_base' => $lineTotalBase,
+                'delivery_value_base' => 0.0,
+                'revenue_variance' => 0.0,
             ];
         }
 
@@ -376,17 +647,22 @@ class SalesInvoiceService
             $invoice->lines()->create([
                 'sales_order_line_id' => $line['sales_order_line_id'],
                 'sales_delivery_line_id' => $line['sales_delivery_line_id'],
+                'product_id' => $line['product_id'] ?? null,
+                'product_variant_id' => $line['product_variant_id'] ?? null,
                 'line_number' => $line['line_number'],
                 'description' => $line['description'],
                 'uom_label' => $line['uom_label'],
                 'quantity' => $line['quantity'],
                 'quantity_base' => $line['quantity_base'],
                 'unit_price' => $line['unit_price'],
+                'discount_rate' => $line['discount_rate'] ?? 0,
+                'discount_amount' => $line['discount_amount'] ?? 0,
+                'tax_rate' => $line['tax_rate'] ?? 0,
+                'tax_amount' => $line['tax_amount'],
                 'line_total' => $line['line_total'],
                 'line_total_base' => $line['line_total_base'],
                 'delivery_value_base' => $line['delivery_value_base'],
                 'revenue_variance' => $line['revenue_variance'],
-                'tax_amount' => $line['tax_amount'],
             ]);
         }
 
@@ -497,9 +773,10 @@ class SalesInvoiceService
         $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
         $exchangeRate = (float) $invoice->exchange_rate;
 
+        $soNumbers = $invoice->salesOrders->pluck('order_number')->toArray();
+
         $meta = [
-            'sales_order_id' => $invoice->sales_order_id,
-            'sales_order_number' => $invoice->salesOrder?->order_number,
+            'sales_order_numbers' => $soNumbers,
         ];
 
         $payload = new AccountingEventPayload(
@@ -529,6 +806,51 @@ class SalesInvoiceService
                     : null,
             ])
         );
+
+        rescue(function () use ($payload) {
+            $this->accountingEventBus->dispatch($payload);
+        }, static function (Throwable $throwable) {
+            report($throwable);
+        });
+    }
+
+    /**
+     * Dispatch accounting event for direct invoice (no COGS/variance).
+     */
+    private function dispatchDirectArPostedEvent(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $totalAmount = (float) $invoice->total_amount;
+        if ($totalAmount <= 0) {
+            return;
+        }
+
+        $currencyCode = $invoice->currency?->code ?? 'IDR';
+        $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
+        $exchangeRate = (float) ($invoice->exchange_rate ?: 1);
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::SALES_AR_POSTED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'sales_invoice',
+            $invoice->id,
+            $invoice->invoice_number,
+            $currencyCode,
+            $exchangeRate,
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+            ['direct_invoice' => true]
+        );
+
+        $baseAmount = $this->roundCost($totalAmount * $exchangeRate);
+        $taxBase = $this->roundCost((float) $invoice->tax_total * $exchangeRate);
+        $revenueBase = $this->roundCost((float) $invoice->subtotal * $exchangeRate);
+
+        $payload->setLines(array_filter([
+            AccountingEntry::debit('accounts_receivable', $baseAmount),
+            AccountingEntry::credit('sales_revenue', $revenueBase),
+            $taxBase > 0 ? AccountingEntry::credit('tax_payable', $taxBase) : null,
+        ]));
 
         rescue(function () use ($payload) {
             $this->accountingEventBus->dispatch($payload);
