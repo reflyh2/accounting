@@ -96,6 +96,11 @@ class Partner extends Model
         return $this->hasMany(GoodsReceipt::class, 'supplier_id');
     }
 
+    public function salesDeliveries()
+    {
+        return $this->hasMany(SalesDelivery::class);
+    }
+
     // Helper methods to check roles
     public function isSupplier()
     {

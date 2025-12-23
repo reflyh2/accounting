@@ -579,6 +579,7 @@ Route::middleware([
             ->name('sales-invoices.print');
         Route::resource('sales-invoices', SalesInvoiceController::class);
 
+        Route::get('api/customers-with-deliveries', [SalesReturnController::class, 'apiCustomersWithDeliveries'])->name('api.customers-with-deliveries');
         Route::delete('sales-returns/bulk-delete', [SalesReturnController::class, 'bulkDelete'])->name('sales-returns.bulk-delete');
         Route::get('sales-returns/export-xlsx', [SalesReturnController::class, 'exportXLSX'])->name('sales-returns.export-xlsx');
         Route::get('sales-returns/export-csv', [SalesReturnController::class, 'exportCSV'])->name('sales-returns.export-csv');

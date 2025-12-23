@@ -6,7 +6,13 @@ import AppBackLink from '@/Components/AppBackLink.vue';
 
 defineProps({
    filters: Object,
+   companies: Array,
+   branches: Array,
+   customers: Array,
    salesDeliveries: Array,
+   selectedCompanyId: Number,
+   selectedBranchId: Number,
+   selectedCustomerId: Number,
    selectedSalesDelivery: Object,
    reasonOptions: Array,
 });
@@ -27,7 +33,18 @@ defineProps({
                   <div class="mb-6">
                      <AppBackLink :href="route('sales-returns.index', filters)" text="Kembali ke Daftar Retur Penjualan" />
                   </div>
-                  <SalesReturnForm :salesDeliveries="salesDeliveries" :selectedSalesDelivery="selectedSalesDelivery" :filters="filters" :reasonOptions="reasonOptions" />
+                  <SalesReturnForm 
+                     :filters="filters" 
+                     :companies="companies" 
+                     :branches="branches" 
+                     :customers="customers" 
+                     :salesDeliveries="salesDeliveries" 
+                     :selectedCompanyId="selectedCompanyId" 
+                     :selectedBranchId="selectedBranchId" 
+                     :selectedCustomerId="selectedCustomerId"
+                     :selectedSalesDelivery="selectedSalesDelivery" 
+                     :reasonOptions="reasonOptions" 
+                  />
                </div>
             </div>
          </div>

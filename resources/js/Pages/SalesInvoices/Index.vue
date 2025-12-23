@@ -4,7 +4,7 @@ import { router, usePage, Link } from '@inertiajs/vue3';
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
-import DocumentStatusPill from '@/Components/DocumentStatusPill.vue';
+import AppPrintButton from '@/Components/AppPrintButton.vue';
 import { DocumentStatusKind } from '@/constants/documentStatuses';
 import { formatNumber } from '@/utils/numberFormat';
 import { renderStatusPillHtml } from '@/utils/statusPillHtml';
@@ -204,15 +204,9 @@ function handleFilter(newFilters) {
                         @filter="handleFilter"
                     >
                         <template #custom_actions="{ item }">
-                            <Link
-                                v-if="item.status === 'draft'"
-                                :href="route('sales-invoices.post', item.id)"
-                                method="post"
-                                as="button"
-                                class="text-blue-600 hover:text-blue-900 text-sm"
-                            >
-                                Post
-                            </Link>
+                            <a :href="route('sales-invoices.print', item.id)" target="_blank">
+                                <AppPrintButton title="Print" />
+                            </a>
                         </template>
                     </AppDataTable>
                 </div>

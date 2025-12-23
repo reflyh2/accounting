@@ -129,11 +129,39 @@ class SalesReturnController extends Controller
 
     public function create(Request $request)
     {
-        $selectedId = $request->integer('sales_delivery_id');
+        $selectedCompanyId = $request->integer('company_id') ?: null;
+        $selectedBranchId = $request->integer('branch_id') ?: null;
+        $selectedCustomerId = $request->integer('customer_id') ?: null;
+        $selectedId = $request->integer('sales_delivery_id') ?: null;
+
+        // Get companies
+        $companies = Company::orderBy('name')->get()->map(fn ($c) => [
+            'value' => $c->id,
+            'label' => $c->name,
+        ]);
+
+        // Get branches filtered by company
+        $branchQuery = Branch::with('branchGroup.company')->orderBy('name');
+        if ($selectedCompanyId) {
+            $branchQuery->whereHas('branchGroup', fn ($q) => $q->where('company_id', $selectedCompanyId));
+        }
+        $branches = $branchQuery->get()->map(fn ($b) => [
+            'value' => $b->id,
+            'label' => $b->name,
+        ]);
+
+        // Get customers filtered by company/branch (customers with returnable deliveries)
+        $customers = $this->customerOptionsFiltered($selectedCompanyId, $selectedBranchId);
 
         return Inertia::render('SalesReturns/Create', [
             'filters' => Session::get('sales_returns.index_filters', []),
-            'salesDeliveries' => fn () => $this->availableSalesDeliveries($selectedId),
+            'companies' => $companies,
+            'branches' => $branches,
+            'customers' => $customers,
+            'selectedCompanyId' => $selectedCompanyId,
+            'selectedBranchId' => $selectedBranchId,
+            'selectedCustomerId' => $selectedCustomerId,
+            'salesDeliveries' => fn () => $this->availableSalesDeliveriesFiltered($selectedId, $selectedCompanyId, $selectedBranchId, $selectedCustomerId),
             'selectedSalesDelivery' => fn () => $selectedId ? $this->salesDeliveryDetail($selectedId) : null,
             'reasonOptions' => $this->reasonOptions(),
         ]);
@@ -322,10 +350,118 @@ class SalesReturnController extends Controller
             ->values();
     }
 
+    /**
+     * API endpoint for customers with returnable deliveries.
+     * Used by AppPopoverSearch component.
+     */
+    public function apiCustomersWithDeliveries(Request $request)
+    {
+        $query = Partner::query()
+            ->whereHas('roles', fn ($q) => $q->where('role', 'customer'))
+            ->whereHas('salesDeliveries', function ($q) {
+                $q->where('status', 'posted')
+                    ->whereHas('lines', function ($lineQ) {
+                        $lineQ->whereRaw('(quantity - quantity_invoiced - quantity_returned) > ?', [self::QTY_TOLERANCE]);
+                    });
+            });
+
+        if ($request->search) {
+            $search = strtolower($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('lower(name) like ?', ["%{$search}%"])
+                  ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
+            });
+        }
+
+        $sort = $request->input('sort', 'name');
+        $order = $request->input('order', 'asc');
+        $query->orderBy($sort, $order);
+
+        return $query->paginate($request->input('per_page', 10))->withQueryString();
+    }
+
+    private function customerOptionsFiltered(?int $companyId = null, ?int $branchId = null): array
+    {
+        $query = Partner::query()
+            ->whereHas('roles', fn ($q) => $q->where('role', 'customer'))
+            ->whereHas('salesDeliveries', function ($q) use ($companyId, $branchId) {
+                $q->where('status', 'posted')
+                    ->whereHas('lines', function ($lineQ) {
+                        $lineQ->whereRaw('(quantity - quantity_invoiced - quantity_returned) > ?', [self::QTY_TOLERANCE]);
+                    });
+
+                if ($companyId) {
+                    $q->where('company_id', $companyId);
+                }
+                if ($branchId) {
+                    $q->where('branch_id', $branchId);
+                }
+            })
+            ->orderBy('name');
+
+        return $query->get()
+            ->map(fn ($partner) => [
+                'value' => $partner->id,
+                'label' => $partner->name,
+            ])
+            ->values()
+            ->toArray();
+    }
+
+    private function availableSalesDeliveriesFiltered(?int $selectedId = null, ?int $companyId = null, ?int $branchId = null, ?int $customerId = null)
+    {
+        $query = SalesDelivery::query()
+            ->with(['salesOrders.partner', 'partner', 'branch.branchGroup.company', 'lines'])
+            ->where('status', 'posted')
+            ->whereHas('lines', function ($builder) {
+                $builder->whereRaw('(quantity - quantity_invoiced - quantity_returned) > ?', [self::QTY_TOLERANCE]);
+            })
+            ->orderByDesc('delivery_date')
+            ->limit(50);
+
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        }
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        if ($customerId) {
+            $query->where('partner_id', $customerId);
+        }
+
+        $deliveries = $query->get();
+
+        // Include selected if not in list
+        if ($selectedId && !$deliveries->firstWhere('id', $selectedId)) {
+            $selected = SalesDelivery::with(['salesOrders.partner', 'partner', 'branch.branchGroup.company', 'lines'])
+                ->find($selectedId);
+
+            if ($selected) {
+                $deliveries->push($selected);
+            }
+        }
+
+        return $deliveries->map(function (SalesDelivery $delivery) {
+            $availableQty = $delivery->lines->sum(function ($line) {
+                return max(0, (float) $line->quantity - (float) $line->quantity_invoiced - (float) $line->quantity_returned);
+            });
+
+            return [
+                'id' => $delivery->id,
+                'delivery_number' => $delivery->delivery_number,
+                'branch' => $delivery->branch?->name,
+                'company' => $delivery->branch?->branchGroup?->company?->name,
+                'available_quantity' => $availableQty,
+            ];
+        })->values();
+    }
+
     private function availableSalesDeliveries(?int $selectedId = null)
     {
         $query = SalesDelivery::query()
-            ->with(['salesOrder.partner', 'branch', 'lines'])
+            ->with(['salesOrders.partner', 'partner', 'branch', 'lines'])
             ->where('status', 'posted')
             ->whereHas('lines', function ($builder) {
                 $builder->whereRaw('(quantity - quantity_invoiced - quantity_returned) > ?', [self::QTY_TOLERANCE]);
@@ -336,7 +472,7 @@ class SalesReturnController extends Controller
         $salesDeliveries = $query->get();
 
         if ($selectedId && !$salesDeliveries->firstWhere('id', $selectedId)) {
-            $selected = SalesDelivery::with(['salesOrder.partner', 'branch', 'lines'])
+            $selected = SalesDelivery::with(['salesOrders.partner', 'partner', 'branch', 'lines'])
                 ->find($selectedId);
 
             if ($selected) {
@@ -352,7 +488,7 @@ class SalesReturnController extends Controller
             return [
                 'id' => $delivery->id,
                 'delivery_number' => $delivery->delivery_number,
-                'partner' => $delivery->salesOrder?->partner?->name,
+                'partner' => $delivery->partner?->name,
                 'branch' => $delivery->branch?->name,
                 'available_quantity' => $availableQty,
             ];
@@ -362,7 +498,8 @@ class SalesReturnController extends Controller
     private function salesDeliveryDetail(int $salesDeliveryId): ?array
     {
         $salesDelivery = SalesDelivery::with([
-            'salesOrder.partner',
+            'salesOrders.partner',
+            'partner',
             'branch.branchGroup.company',
             'currency',
             'location',
@@ -404,14 +541,17 @@ class SalesReturnController extends Controller
             return null;
         }
 
+        // Get first sales order for display or null
+        $firstSalesOrder = $salesDelivery->salesOrders->first();
+
         return [
             'id' => $salesDelivery->id,
             'delivery_number' => $salesDelivery->delivery_number,
             'delivery_date' => optional($salesDelivery->delivery_date)?->toDateString(),
-            'sales_order' => $salesDelivery->salesOrder ? [
-                'id' => $salesDelivery->salesOrder->id,
-                'order_number' => $salesDelivery->salesOrder->order_number,
-                'partner' => $salesDelivery->salesOrder->partner?->name,
+            'sales_order' => $firstSalesOrder ? [
+                'id' => $firstSalesOrder->id,
+                'order_number' => $firstSalesOrder->order_number,
+                'partner' => $firstSalesOrder->partner?->name,
             ] : null,
             'branch' => $salesDelivery->branch ? [
                 'id' => $salesDelivery->branch->id,
