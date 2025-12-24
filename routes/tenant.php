@@ -72,6 +72,7 @@ use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseInvoiceController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\PurchaseReportController;
 use App\Http\Controllers\PurchaseReturnController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SalesDeliveryController;
@@ -308,6 +309,13 @@ Route::middleware([
         Route::get('balance-sheet/download', [BalanceSheetController::class, 'download'])->name('balance-sheet.download');
 
         Route::get('operational-reconciliation', [OperationalReconciliationController::class, 'index'])->name('operational-reconciliation.index');
+
+        // Purchasing Reports
+        Route::get('purchasing-reports', [PurchaseReportController::class, 'index'])->name('purchasing-reports.index');
+        Route::get('purchasing-reports/orders', [PurchaseReportController::class, 'purchaseOrders'])->name('purchasing-reports.orders');
+        Route::get('purchasing-reports/receipts', [PurchaseReportController::class, 'goodsReceipts'])->name('purchasing-reports.receipts');
+        Route::get('purchasing-reports/invoices', [PurchaseReportController::class, 'purchaseInvoices'])->name('purchasing-reports.invoices');
+        Route::get('purchasing-reports/returns', [PurchaseReportController::class, 'purchaseReturns'])->name('purchasing-reports.returns');
 
         Route::get('external-payable-aging', [ExternalPayableAgingController::class, 'index'])->name('external-payable-aging.index');
         Route::get('external-payable-aging/download', [ExternalPayableAgingController::class, 'download'])->name('external-payable-aging.download');

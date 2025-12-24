@@ -144,7 +144,8 @@ const isPurchasingActive = computed(() => {
     return route().current('purchase-orders.*')
         || route().current('goods-receipts.*')
         || route().current('purchase-invoices.*')
-        || route().current('purchase-returns.*');
+        || route().current('purchase-returns.*')
+        || route().current('purchasing-reports.*');
 });
 
 const isSalesActive = computed(() => {
@@ -270,6 +271,13 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Retur Pembelian
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('purchasing-reports.index')"
+                                :active="route().current('purchasing-reports.*')"
+                                class="pl-11"
+                            >
+                                Laporan Pembelian
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -699,6 +707,13 @@ function toggleSidebar() {
                                         >
                                             Retur Pembelian
                                         </NavLink>
+                                        <NavLink
+                                            :href="route('purchasing-reports.index')"
+                                            :active="route().current('purchasing-reports.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Laporan Pembelian
+                                        </NavLink>
                                     </div>
                                 </div>
 
@@ -743,6 +758,13 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Retur Pembelian
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('purchasing-reports.index')"
+                                            :active="route().current('purchasing-reports.*')"
+                                            class="flex items-center"
+                                        >
+                                            Laporan Pembelian
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
