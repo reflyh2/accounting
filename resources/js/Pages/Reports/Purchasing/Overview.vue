@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import AppSelect from '@/Components/AppSelect.vue';
@@ -7,12 +7,40 @@ import AppInput from '@/Components/AppInput.vue';
 import PurchasingReportTabs from '@/Tabs/PurchasingReportTabs.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import { ShoppingCartIcon, TruckIcon, DocumentTextIcon, ArrowUturnLeftIcon } from '@heroicons/vue/24/outline';
+import { Bar, Doughnut, Line } from 'vue-chartjs';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    PointElement,
+    LineElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+} from 'chart.js';
+
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    PointElement,
+    LineElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+);
 
 const props = defineProps({
     companies: Array,
     branches: Array,
     filters: Object,
     summaryData: Object,
+    chartData: Object,
 });
 
 const form = ref({
@@ -41,6 +69,180 @@ function formatCurrency(number) {
         maximumFractionDigits: 0,
     }).format(number ?? 0);
 }
+
+// Chart configurations
+const topSuppliersChartData = computed(() => ({
+    labels: props.chartData?.topSuppliers?.labels || [],
+    datasets: [{
+        label: 'Total Pembelian',
+        data: props.chartData?.topSuppliers?.data || [],
+        backgroundColor: [
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(139, 92, 246, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(239, 68, 68, 0.8)',
+        ],
+        borderColor: [
+            'rgb(59, 130, 246)',
+            'rgb(16, 185, 129)',
+            'rgb(139, 92, 246)',
+            'rgb(245, 158, 11)',
+            'rgb(239, 68, 68)',
+        ],
+        borderWidth: 1,
+        borderRadius: 4,
+    }],
+}));
+
+const topSuppliersChartOptions = {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { display: false },
+        tooltip: {
+            callbacks: {
+                label: (context) => formatCurrency(context.raw),
+            },
+        },
+    },
+    scales: {
+        x: {
+            ticks: {
+                callback: (value) => formatCurrency(value),
+            },
+        },
+    },
+};
+
+const poStatusChartData = computed(() => ({
+    labels: props.chartData?.statusDistribution?.po?.labels?.map(l => l.charAt(0).toUpperCase() + l.slice(1)) || [],
+    datasets: [{
+        data: props.chartData?.statusDistribution?.po?.data || [],
+        backgroundColor: [
+            'rgba(156, 163, 175, 0.8)',
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(99, 102, 241, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(139, 92, 246, 0.8)',
+            'rgba(239, 68, 68, 0.8)',
+        ],
+        borderWidth: 0,
+    }],
+}));
+
+const invoiceStatusChartData = computed(() => ({
+    labels: props.chartData?.statusDistribution?.invoice?.labels?.map(l => l.charAt(0).toUpperCase() + l.slice(1)) || [],
+    datasets: [{
+        data: props.chartData?.statusDistribution?.invoice?.data || [],
+        backgroundColor: [
+            'rgba(156, 163, 175, 0.8)',
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(239, 68, 68, 0.8)',
+        ],
+        borderWidth: 0,
+    }],
+}));
+
+const statusChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '60%',
+    plugins: {
+        legend: {
+            position: 'bottom',
+            labels: {
+                usePointStyle: true,
+                padding: 15,
+                font: { size: 11 },
+            },
+        },
+    },
+};
+
+const monthlyTrendChartData = computed(() => ({
+    labels: props.chartData?.monthlyTrend?.labels || [],
+    datasets: [
+        {
+            label: props.chartData?.monthlyTrend?.datasets?.[0]?.label || 'Purchase Orders',
+            data: props.chartData?.monthlyTrend?.datasets?.[0]?.data || [],
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.4,
+        },
+        {
+            label: props.chartData?.monthlyTrend?.datasets?.[1]?.label || 'Goods Receipts',
+            data: props.chartData?.monthlyTrend?.datasets?.[1]?.data || [],
+            borderColor: 'rgb(16, 185, 129)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.4,
+        },
+    ],
+}));
+
+const monthlyTrendChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: {
+            position: 'top',
+            labels: {
+                usePointStyle: true,
+                padding: 15,
+            },
+        },
+        tooltip: {
+            callbacks: {
+                label: (context) => `${context.dataset.label}: ${formatCurrency(context.raw)}`,
+            },
+        },
+    },
+    scales: {
+        y: {
+            ticks: {
+                callback: (value) => formatCurrency(value),
+            },
+        },
+    },
+};
+
+const byBranchChartData = computed(() => ({
+    labels: props.chartData?.byBranch?.labels || [],
+    datasets: [{
+        label: 'Total Pembelian',
+        data: props.chartData?.byBranch?.data || [],
+        backgroundColor: 'rgba(139, 92, 246, 0.8)',
+        borderColor: 'rgb(139, 92, 246)',
+        borderWidth: 1,
+        borderRadius: 4,
+    }],
+}));
+
+const byBranchChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { display: false },
+        tooltip: {
+            callbacks: {
+                label: (context) => formatCurrency(context.raw),
+            },
+        },
+    },
+    scales: {
+        y: {
+            ticks: {
+                callback: (value) => formatCurrency(value),
+            },
+        },
+    },
+};
 </script>
 
 <template>
@@ -93,7 +295,7 @@ function formatCurrency(number) {
                     </div>
 
                     <!-- Summary Cards -->
-                    <div v-if="summaryData" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div v-if="summaryData" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         <!-- Purchase Orders Card -->
                         <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200 shadow-sm">
                             <div class="flex items-center justify-between mb-4">
@@ -223,8 +425,86 @@ function formatCurrency(number) {
                         </div>
                     </div>
 
+                    <!-- Charts Section -->
+                    <div v-if="chartData" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Monthly Trend Chart -->
+                        <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm lg:col-span-2">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Tren Pembelian Bulanan</h3>
+                            <div class="h-72">
+                                <Line 
+                                    v-if="monthlyTrendChartData.labels.length > 0"
+                                    :data="monthlyTrendChartData" 
+                                    :options="monthlyTrendChartOptions" 
+                                />
+                                <div v-else class="h-full flex items-center justify-center text-gray-400">
+                                    Tidak ada data untuk periode ini
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Top Suppliers Chart -->
+                        <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Top 5 Supplier</h3>
+                            <div class="h-64">
+                                <Bar 
+                                    v-if="topSuppliersChartData.labels.length > 0"
+                                    :data="topSuppliersChartData" 
+                                    :options="topSuppliersChartOptions" 
+                                />
+                                <div v-else class="h-full flex items-center justify-center text-gray-400">
+                                    Tidak ada data untuk periode ini
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- By Branch Chart -->
+                        <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Pembelian per Cabang</h3>
+                            <div class="h-64">
+                                <Bar 
+                                    v-if="byBranchChartData.labels.length > 0"
+                                    :data="byBranchChartData" 
+                                    :options="byBranchChartOptions" 
+                                />
+                                <div v-else class="h-full flex items-center justify-center text-gray-400">
+                                    Tidak ada data untuk periode ini
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PO Status Distribution Chart -->
+                        <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Status Purchase Order</h3>
+                            <div class="h-64">
+                                <Doughnut 
+                                    v-if="poStatusChartData.labels.length > 0"
+                                    :data="poStatusChartData" 
+                                    :options="statusChartOptions" 
+                                />
+                                <div v-else class="h-full flex items-center justify-center text-gray-400">
+                                    Tidak ada data untuk periode ini
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Invoice Status Distribution Chart -->
+                        <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Status Faktur Pembelian</h3>
+                            <div class="h-64">
+                                <Doughnut 
+                                    v-if="invoiceStatusChartData.labels.length > 0"
+                                    :data="invoiceStatusChartData" 
+                                    :options="statusChartOptions" 
+                                />
+                                <div v-else class="h-full flex items-center justify-center text-gray-400">
+                                    Tidak ada data untuk periode ini
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Empty State -->
-                    <div v-else class="text-center py-12 text-gray-500">
+                    <div v-if="!summaryData" class="text-center py-12 text-gray-500">
                         <ShoppingCartIcon class="w-16 h-16 mx-auto mb-4 text-gray-300" />
                         <p>Pilih filter dan klik "Tampilkan Laporan" untuk melihat ringkasan pembelian.</p>
                     </div>

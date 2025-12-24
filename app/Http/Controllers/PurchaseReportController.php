@@ -35,13 +35,180 @@ class PurchaseReportController extends Controller
         $companies = Company::orderBy('name', 'asc')->get();
         $branches = $this->getBranches($filters);
         $summaryData = $this->getSummaryData($filters);
+        $chartData = $this->getChartData($filters);
 
         return Inertia::render('Reports/Purchasing/Overview', [
             'companies' => $companies,
             'branches' => $branches,
             'filters' => $filters,
             'summaryData' => $summaryData,
+            'chartData' => $chartData,
         ]);
+    }
+
+    private function getChartData($filters)
+    {
+        $startDate = $filters['start_date'];
+        $endDate = $filters['end_date'];
+
+        return [
+            'topSuppliers' => $this->getTopSuppliersData($filters),
+            'statusDistribution' => $this->getStatusDistributionData($filters),
+            'monthlyTrend' => $this->getMonthlyTrendData($filters),
+            'byBranch' => $this->getByBranchData($filters),
+        ];
+    }
+
+    private function getTopSuppliersData($filters)
+    {
+        $startDate = $filters['start_date'];
+        $endDate = $filters['end_date'];
+
+        $query = PurchaseOrder::query()
+            ->selectRaw('partner_id, SUM(total_amount) as total_value')
+            ->with('partner:id,name')
+            ->whereBetween('order_date', [$startDate, $endDate]);
+
+        if (!empty($filters['company_id'])) {
+            $query->whereIn('company_id', (array) $filters['company_id']);
+        }
+        if (!empty($filters['branch_id'])) {
+            $query->whereIn('branch_id', (array) $filters['branch_id']);
+        }
+
+        $results = $query->groupBy('partner_id')
+            ->orderByDesc('total_value')
+            ->limit(5)
+            ->get();
+
+        return [
+            'labels' => $results->map(fn($r) => $r->partner?->name ?? 'Unknown')->toArray(),
+            'data' => $results->pluck('total_value')->map(fn($v) => (float) $v)->toArray(),
+        ];
+    }
+
+    private function getStatusDistributionData($filters)
+    {
+        $startDate = $filters['start_date'];
+        $endDate = $filters['end_date'];
+
+        $applyFilters = function ($query) use ($filters) {
+            if (!empty($filters['company_id'])) {
+                $query->whereIn('company_id', (array) $filters['company_id']);
+            }
+            if (!empty($filters['branch_id'])) {
+                $query->whereIn('branch_id', (array) $filters['branch_id']);
+            }
+            return $query;
+        };
+
+        // PO Status
+        $poQuery = PurchaseOrder::query()->whereBetween('order_date', [$startDate, $endDate]);
+        $applyFilters($poQuery);
+        $poStatus = $poQuery->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+
+        // Invoice Status
+        $piQuery = PurchaseInvoice::query()->whereBetween('invoice_date', [$startDate, $endDate]);
+        $applyFilters($piQuery);
+        $piStatus = $piQuery->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+
+        return [
+            'po' => [
+                'labels' => array_keys($poStatus),
+                'data' => array_values($poStatus),
+            ],
+            'invoice' => [
+                'labels' => array_keys($piStatus),
+                'data' => array_values($piStatus),
+            ],
+        ];
+    }
+
+    private function getMonthlyTrendData($filters)
+    {
+        $startDate = $filters['start_date'];
+        $endDate = $filters['end_date'];
+
+        $applyFilters = function ($query) use ($filters) {
+            if (!empty($filters['company_id'])) {
+                $query->whereIn('company_id', (array) $filters['company_id']);
+            }
+            if (!empty($filters['branch_id'])) {
+                $query->whereIn('branch_id', (array) $filters['branch_id']);
+            }
+            return $query;
+        };
+
+        // Get monthly PO data
+        $poQuery = PurchaseOrder::query()
+            ->selectRaw("TO_CHAR(order_date, 'YYYY-MM') as month, SUM(total_amount) as total_value")
+            ->whereBetween('order_date', [$startDate, $endDate]);
+        $applyFilters($poQuery);
+        $poMonthly = $poQuery->groupBy('month')
+            ->orderBy('month')
+            ->pluck('total_value', 'month')
+            ->toArray();
+
+        // Get monthly GRN data
+        $grQuery = GoodsReceipt::query()
+            ->selectRaw("TO_CHAR(receipt_date, 'YYYY-MM') as month, SUM(total_value) as total_value")
+            ->whereBetween('receipt_date', [$startDate, $endDate]);
+        $applyFilters($grQuery);
+        $grMonthly = $grQuery->groupBy('month')
+            ->orderBy('month')
+            ->pluck('total_value', 'month')
+            ->toArray();
+
+        // Merge months
+        $allMonths = array_unique(array_merge(array_keys($poMonthly), array_keys($grMonthly)));
+        sort($allMonths);
+
+        return [
+            'labels' => $allMonths,
+            'datasets' => [
+                [
+                    'label' => 'Purchase Orders',
+                    'data' => array_map(fn($m) => (float) ($poMonthly[$m] ?? 0), $allMonths),
+                ],
+                [
+                    'label' => 'Goods Receipts',
+                    'data' => array_map(fn($m) => (float) ($grMonthly[$m] ?? 0), $allMonths),
+                ],
+            ],
+        ];
+    }
+
+    private function getByBranchData($filters)
+    {
+        $startDate = $filters['start_date'];
+        $endDate = $filters['end_date'];
+
+        $query = PurchaseOrder::query()
+            ->selectRaw('branch_id, SUM(total_amount) as total_value')
+            ->with('branch:id,name')
+            ->whereBetween('order_date', [$startDate, $endDate]);
+
+        if (!empty($filters['company_id'])) {
+            $query->whereIn('company_id', (array) $filters['company_id']);
+        }
+        if (!empty($filters['branch_id'])) {
+            $query->whereIn('branch_id', (array) $filters['branch_id']);
+        }
+
+        $results = $query->groupBy('branch_id')
+            ->orderByDesc('total_value')
+            ->get();
+
+        return [
+            'labels' => $results->map(fn($r) => $r->branch?->name ?? 'Unknown')->toArray(),
+            'data' => $results->pluck('total_value')->map(fn($v) => (float) $v)->toArray(),
+        ];
     }
 
     private function getSummaryData($filters)
