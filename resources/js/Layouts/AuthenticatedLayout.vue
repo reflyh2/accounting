@@ -152,7 +152,8 @@ const isSalesActive = computed(() => {
     return route().current('sales-orders.*')
         || route().current('sales-deliveries.*')
         || route().current('sales-invoices.*')
-        || route().current('sales-returns.*');
+        || route().current('sales-returns.*')
+        || route().current('sales-reports.*');
 });
 
 const isProduksiActive = computed(() => {
@@ -320,6 +321,13 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Retur Penjualan
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('sales-reports.index')"
+                                :active="route().current('sales-reports.*')"
+                                class="pl-11"
+                            >
+                                Laporan Penjualan
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -801,6 +809,18 @@ function toggleSidebar() {
                                         >
                                             Faktur Penjualan
                                         </NavLink>
+                                        <NavLink :href="route('sales-returns.index')"
+                                            :active="route().current('sales-returns.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Retur Penjualan
+                                        </NavLink>
+                                        <NavLink :href="route('sales-reports.index')"
+                                            :active="route().current('sales-reports.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Laporan Penjualan
+                                        </NavLink>
                                     </div>
                                 </div>
 
@@ -843,6 +863,12 @@ function toggleSidebar() {
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Retur Penjualan
+                                        </NavLink>
+                                        <NavLink :href="route('sales-reports.index')"
+                                            :active="route().current('sales-reports.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Laporan Penjualan
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>

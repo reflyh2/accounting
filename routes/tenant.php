@@ -78,6 +78,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SalesDeliveryController;
 use App\Http\Controllers\SalesInvoiceController;
 use App\Http\Controllers\SalesOrderController;
+use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\SalesReturnController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkOrderController;
@@ -316,6 +317,13 @@ Route::middleware([
         Route::get('purchasing-reports/receipts', [PurchaseReportController::class, 'goodsReceipts'])->name('purchasing-reports.receipts');
         Route::get('purchasing-reports/invoices', [PurchaseReportController::class, 'purchaseInvoices'])->name('purchasing-reports.invoices');
         Route::get('purchasing-reports/returns', [PurchaseReportController::class, 'purchaseReturns'])->name('purchasing-reports.returns');
+
+        // Sales Reports
+        Route::get('sales-reports', [SalesReportController::class, 'index'])->name('sales-reports.index');
+        Route::get('sales-reports/orders', [SalesReportController::class, 'salesOrders'])->name('sales-reports.orders');
+        Route::get('sales-reports/deliveries', [SalesReportController::class, 'salesDeliveries'])->name('sales-reports.deliveries');
+        Route::get('sales-reports/invoices', [SalesReportController::class, 'salesInvoices'])->name('sales-reports.invoices');
+        Route::get('sales-reports/returns', [SalesReportController::class, 'salesReturns'])->name('sales-reports.returns');
 
         Route::get('external-payable-aging', [ExternalPayableAgingController::class, 'index'])->name('external-payable-aging.index');
         Route::get('external-payable-aging/download', [ExternalPayableAgingController::class, 'download'])->name('external-payable-aging.download');
