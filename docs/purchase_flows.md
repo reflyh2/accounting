@@ -2,7 +2,7 @@
 
 ## Purchase Flow – End-to-End (with Purchase Planning)
 
-This document defines the **complete purchase lifecycle** in the ERP, from demand planning to supplier payment, and how it integrates with inventory, products, assets, and accounting.
+This document defines the **complete purchase lifecycle** in the ERP, from demand planning to supplier payment, and how it integrates with inventory, products, and accounting.
 
 ---
 
@@ -14,7 +14,6 @@ This document defines the **complete purchase lifecycle** in the ERP, from deman
 - One flow supports:
   - inventory goods
   - non-stock goods
-  - assets
   - services
 
 ---
@@ -28,7 +27,6 @@ Identify *what* needs to be purchased and *why*, before committing to suppliers.
 - Inventory replenishment (reorder point / MRP)
 - Sales orders (make-to-order / drop-ship)
 - Manufacturing requirements (raw materials)
-- Asset acquisition plans
 - Manual planning
 
 ### Core Tables (Conceptual)
@@ -37,10 +35,12 @@ Identify *what* needs to be purchased and *why*, before committing to suppliers.
 
 ### Key Fields
 - product_id
+- product_variant_id
 - planned_qty
+- uom_id
 - required_date
 - branch_id
-- source_type (inventory | sales | manufacturing | asset | manual)
+- source_type (inventory | sales | manufacturing | manual)
 - source_ref_id
 
 ### Outcome
@@ -81,6 +81,7 @@ Formal commitment to a supplier.
 
 Line-level:
 - product_id
+- product_variant_id
 - ordered_qty
 - uom_id
 - unit_price
@@ -103,11 +104,10 @@ Record physical receipt of goods or confirmation of services.
 
 ### Behavior by Product Kind
 - Inventory goods → increase stock
-- Assets → create asset instance
 - Services / non-stock → informational only
 
 ### Accounting
-- Dr Inventory / Asset / Expense clearing
+- Dr Inventory / Expense clearing
 - Cr GRNI (if accrual-based)
 
 ---
@@ -126,8 +126,7 @@ Record the financial obligation to the supplier.
 - 3-way match: PO ↔ Receipt ↔ Invoice
 
 ### Accounting
-- Dr Inventory / Asset / Expense
-- Cr Accounts Payable
+We create external debt, and the AP accounting journal will be handled by the external debt module.
 
 ---
 
@@ -136,25 +135,11 @@ Record the financial obligation to the supplier.
 ### Purpose
 Settle AP invoices.
 
-### Core Tables
-- payment (type = outbound)
-- payment_allocation
-
-### Characteristics
-- One payment can settle multiple invoices
-- Partial payments allowed
-
-### Accounting
-- Dr Accounts Payable
-- Cr Cash / Bank
+Supplier payment is handled by the external debt payment module. We just need to sync the external debt payment to the AP Invoice status.
 
 ---
 
 ## 8. Special Cases
-
-### Asset Purchases
-- Receiving creates asset record
-- Depreciation handled in Asset module
 
 ### Non-Stock / Drop-Ship
 - No inventory impact
@@ -165,6 +150,10 @@ Settle AP invoices.
 ## 9. Summary Flow
 
 Purchase Planning → PO → Receiving → AP Invoice → Payment
+
+- POs might belongs to multiple Purchase Plannings
+- Goods Receipts might belongs to multiple POs
+- AP Invoices might belongs to multiple Goods Receipts & POs
 
 Planning ensures purchases are **intentional**, auditable, and scalable.
 
