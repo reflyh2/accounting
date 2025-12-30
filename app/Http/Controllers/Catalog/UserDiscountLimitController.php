@@ -63,7 +63,7 @@ class UserDiscountLimitController extends Controller
     public function store(Request $request)
     {
         $data = $this->validatePayload($request);
-        $data['created_by'] = auth()->user()->global_id;
+        $data['created_by'] = auth()->user->global_id;
 
         UserDiscountLimit::create($data);
 
@@ -87,7 +87,7 @@ class UserDiscountLimitController extends Controller
     public function update(Request $request, UserDiscountLimit $userDiscountLimit)
     {
         $data = $this->validatePayload($request);
-        $data['updated_by'] = auth()->user()->global_id;
+        $data['updated_by'] = auth()->user->global_id;
 
         $userDiscountLimit->update($data);
 

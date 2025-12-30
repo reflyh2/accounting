@@ -122,11 +122,7 @@ const isAssetActive = computed(() => {
 
 const isProductsActive = computed(() => {   
     return route().current('catalog.product-categories.*')
-        || route().current('catalog.goods.*')
-        || route().current('catalog.services.*')
-        || route().current('catalog.accommodation.*')
-        || route().current('catalog.rental.*')
-        || route().current('catalog.packages.*')
+        || route().current('catalog.products.*')
         || route().current('catalog.user-discount-limits.*')
         || route().current('catalog.price-lists.*')
         || route().current('catalog.price-list-targets.*')
@@ -396,14 +392,8 @@ function toggleSidebar() {
                                 Kategori Produk
                             </ResponsiveNavLink>
                             <ResponsiveNavLink 
-                                :href="route('catalog.goods.index')" 
-                                :active="
-                                    route().current('catalog.goods.*')
-                                    || route().current('catalog.services.*')
-                                    || route().current('catalog.accommodation.*')
-                                    || route().current('catalog.rental.*')
-                                    || route().current('catalog.packages.*')
-                                " 
+                                :href="route('catalog.products.index', 'trade')" 
+                                :active="route().current('catalog.products.*')" 
                                 class="pl-11">
                                 Katalog Produk
                             </ResponsiveNavLink>
@@ -996,14 +986,8 @@ function toggleSidebar() {
                                             Kategori Produk
                                         </NavLink>
                                         <NavLink 
-                                            :href="route('catalog.goods.index')" 
-                                            :active="
-                                                route().current('catalog.goods.*')
-                                                || route().current('catalog.services.*')
-                                                || route().current('catalog.accommodation.*')
-                                                || route().current('catalog.rental.*')
-                                                || route().current('catalog.packages.*')
-                                            " 
+                                            :href="route('catalog.products.index')" 
+                                            :active="route().current('catalog.products.*', 'trade')" 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Katalog Produk
@@ -1048,12 +1032,8 @@ function toggleSidebar() {
                                             Kategori Produk
                                         </NavLink>
                                         <NavLink 
-                                            :href="route('catalog.goods.index')" 
-                                            :active="route().current('catalog.goods.*')
-                                                || route().current('catalog.services.*')
-                                                || route().current('catalog.accommodation.*')
-                                                || route().current('catalog.rental.*')
-                                                || route().current('catalog.packages.*')
+                                            :href="route('catalog.products.index', 'trade')" 
+                                            :active="route().current('catalog.products.*')
                                             " 
                                             class="flex items-center">
                                             Katalog Produk

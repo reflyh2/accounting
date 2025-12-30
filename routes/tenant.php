@@ -512,11 +512,38 @@ Route::middleware([
             Route::get('product-categories/export-csv', [ProductCategoryController::class, 'exportCSV'])->name('product-categories.export-csv');
             Route::get('product-categories/export-pdf', [ProductCategoryController::class, 'exportPDF'])->name('product-categories.export-pdf');
             Route::resource('product-categories', ProductCategoryController::class);
+
+            // Unified Product Routes (v2)
+            Route::get('products/{group?}', [\App\Http\Controllers\Catalog\ProductController::class, 'index'])
+                ->name('products.index')
+                ->where('group', 'trade|service|booking|rental|travel|other');
+            Route::get('products/{group}/create', [\App\Http\Controllers\Catalog\ProductController::class, 'create'])
+                ->name('products.create')
+                ->where('group', 'trade|service|booking|rental|travel|other');
+            Route::get('products/template/{templateCode}', [\App\Http\Controllers\Catalog\ProductController::class, 'createWithTemplate'])
+                ->name('products.create-with-template');
+            Route::post('products', [\App\Http\Controllers\Catalog\ProductController::class, 'store'])
+                ->name('products.store');
+            Route::get('products/{id}/edit', [\App\Http\Controllers\Catalog\ProductController::class, 'edit'])
+                ->name('products.edit')
+                ->where('id', '[0-9]+');
+            Route::get('products/{id}', [\App\Http\Controllers\Catalog\ProductController::class, 'show'])
+                ->name('products.show')
+                ->where('id', '[0-9]+');
+            Route::put('products/{id}', [\App\Http\Controllers\Catalog\ProductController::class, 'update'])
+                ->name('products.update')
+                ->where('id', '[0-9]+');
+            Route::delete('products/{id}', [\App\Http\Controllers\Catalog\ProductController::class, 'destroy'])
+                ->name('products.destroy')
+                ->where('id', '[0-9]+');
+
+            // Legacy routes (kept for backward compatibility, can be removed later)
             Route::resource('goods', \App\Http\Controllers\Catalog\GoodsProductController::class);
             Route::resource('services', \App\Http\Controllers\Catalog\ServiceProductController::class);
             Route::resource('accommodation', \App\Http\Controllers\Catalog\AccommodationProductController::class);
             Route::resource('rental', \App\Http\Controllers\Catalog\RentalProductController::class);
             Route::resource('packages', \App\Http\Controllers\Catalog\PackageProductController::class);
+
             Route::resource('price-list-targets', \App\Http\Controllers\Catalog\PriceListTargetController::class);
             Route::delete('price-list-targets/bulk-delete', [\App\Http\Controllers\Catalog\PriceListTargetController::class, 'bulkDelete'])->name('price-list-targets.bulk-delete');
             Route::resource('user-discount-limits', \App\Http\Controllers\Catalog\UserDiscountLimitController::class);
@@ -533,10 +560,11 @@ Route::middleware([
             Route::resource('transfers', TransferController::class);
         });
 
+        
+        Route::delete('goods-receipts/bulk-delete', [GoodsReceiptController::class, 'bulkDelete'])->name('goods-receipts.bulk-delete');
         Route::get('goods-receipts/export-xlsx', [GoodsReceiptController::class, 'exportXLSX'])->name('goods-receipts.export-xlsx');
         Route::get('goods-receipts/export-csv', [GoodsReceiptController::class, 'exportCSV'])->name('goods-receipts.export-csv');
         Route::get('goods-receipts/export-pdf', [GoodsReceiptController::class, 'exportPDF'])->name('goods-receipts.export-pdf');
-        Route::post('goods-receipts/bulk-delete', [GoodsReceiptController::class, 'bulkDelete'])->name('goods-receipts.bulk-delete');
         Route::get('goods-receipts/{goods_receipt}/print', [GoodsReceiptController::class, 'print'])->name('goods-receipts.print');
         Route::resource('goods-receipts', GoodsReceiptController::class);
 
@@ -551,10 +579,10 @@ Route::middleware([
             'show',
         ]);
 
+        Route::delete('purchase-orders/bulk-delete', [PurchaseOrderController::class, 'bulkDelete'])->name('purchase-orders.bulk-delete');
         Route::get('purchase-orders/export-xlsx', [PurchaseOrderController::class, 'exportXLSX'])->name('purchase-orders.export-xlsx');
         Route::get('purchase-orders/export-csv', [PurchaseOrderController::class, 'exportCSV'])->name('purchase-orders.export-csv');
         Route::get('purchase-orders/export-pdf', [PurchaseOrderController::class, 'exportPDF'])->name('purchase-orders.export-pdf');
-        Route::post('purchase-orders/bulk-delete', [PurchaseOrderController::class, 'bulkDelete'])->name('purchase-orders.bulk-delete');
         Route::post('purchase-orders/{purchase_order}/approve', [PurchaseOrderController::class, 'approve'])
             ->name('purchase-orders.approve');
         Route::post('purchase-orders/{purchase_order}/send', [PurchaseOrderController::class, 'send'])
@@ -563,6 +591,7 @@ Route::middleware([
             ->name('purchase-orders.cancel');
         Route::get('purchase-orders/{purchase_order}/print', [PurchaseOrderController::class, 'print'])->name('purchase-orders.print');
         Route::resource('purchase-orders', PurchaseOrderController::class);
+
         Route::post('sales-orders/{sales_order}/quote', [SalesOrderController::class, 'quote'])
             ->name('sales-orders.quote');
         Route::post('sales-orders/{sales_order}/confirm', [SalesOrderController::class, 'confirm'])

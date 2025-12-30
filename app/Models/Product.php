@@ -48,6 +48,11 @@ class Product extends Model
         return $this->belongsTo(Account::class, 'inventory_account_id');
     }
 
+    public function prepaidAccount()
+    {
+        return $this->belongsTo(Account::class, 'prepaid_account_id');
+    }
+
     public function companies()
     {
         return $this->belongsToMany(Company::class, 'company_product');

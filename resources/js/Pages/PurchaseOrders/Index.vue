@@ -1,10 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
 import { formatNumber } from '@/utils/numberFormat';
-import DocumentStatusPill from '@/Components/DocumentStatusPill.vue';
 import { DocumentStatusKind } from '@/constants/documentStatuses';
 import { renderStatusPillHtml } from '@/utils/statusPillHtml';
 
@@ -149,6 +148,21 @@ function handleFilter(newFilters) {
     });
 }
 
+function handleBulkDelete(ids) {
+    const page = usePage();
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+
+    router.delete(route('purchase-orders.bulk-delete'), {
+        preserveScroll: true,
+        preserveState: true,
+        data: {
+            preserveState: true,
+            currentQuery: currentQuery,
+            ids: ids,
+        },
+    });
+}
+
 </script>
 
 <template>
@@ -180,11 +194,11 @@ function handleFilter(newFilters) {
                         :perPage="perPage"
                         routeName="purchase-orders.index"
                         :enableBulkActions="true"
-                        :bulkDeleteRoute="{ name: 'purchase-orders.bulk-delete' }"
                         :downloadOptions="downloadOptions"
                         downloadBaseRoute="purchase-orders"
                         @sort="handleSort"
                         @filter="handleFilter"
+                        @bulkDelete="handleBulkDelete"
                     >
                     </AppDataTable>
                 </div>

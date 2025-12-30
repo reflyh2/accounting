@@ -1,77 +1,112 @@
 # DOCUMENTS.md
 
-## Business Documents & Workflows
+## Unified Document State Machine
 
-This document defines how purchase, sales, and manufacturing documents are structured.
+This document defines a **single, unified document model** used across purchasing, sales, manufacturing, inventory, booking, and accounting.
 
----
-
-## 1. Document Architecture
-
-### document (base)
-- doc_type, status, numbering
-- partner_id (supplier/customer)
-
-### document_line
-- product/variant, qty, uom, price
+The goal is to:
+- standardize document lifecycle behavior
+- reduce duplicated logic
+- enable consistent automation, auditability, and integrations
 
 ---
 
-## 2. Subtype Tables
+## 1. Core Principles
 
-| Process | Table |
-|------|------|
-| Purchase | purchase_order |
-| Sales | sales_order |
-| Manufacturing | work_order |
-
-Each subtype adds only process‑specific fields.
+1. **All business processes are documents**
+2. Documents express *intent*, *execution*, or *financial fact*
+3. State transitions are explicit and auditable
+4. Accounting is triggered by state transitions, not by CRUD
 
 ---
 
-## 3. Purchase Flow
+## 2. Core Document Types
 
-```
-PO → GRN → AP Invoice
-```
-
-- GRN posts inventory receipt
-- Invoice reconciles pricing
+| Category | Examples |
+|---|---|
+| Planning | purchase_plan, manufacturing_plan |
+| Commitment | purchase_order, sales_order, work_order |
+| Execution | goods_receipt, delivery, booking |
+| Financial | invoice, payment |
+| Adjustment | credit_note, debit_note |
 
 ---
 
-## 4. Sales Flow
+## 3. Universal Document States
 
-```
-SO → Delivery → AR Invoice
+All documents use the same **state machine**.
+
+```text
+DRAFT → CONFIRMED → IN_PROGRESS → COMPLETED → CLOSED
+           ↓
+        CANCELLED
 ```
 
-- Delivery posts inventory issue & COGS
+### State Definitions
+
+| State | Meaning |
+|---|---|
+| DRAFT | Editable, no impact |
+| CONFIRMED | Business commitment exists |
+| IN_PROGRESS | Execution underway |
+| COMPLETED | Execution finished |
+| CLOSED | Financially settled |
+| CANCELLED | Void, no further action |
 
 ---
 
-## 5. Manufacturing Flow
+## 4. State Transition Rules
 
-```
-BOM → Work Order → Issue → Receipt
-```
-
-- Issue moves inventory to WIP
-- Receipt moves FG to stock
-
----
-
-## 6. Status Enforcement
-
-- Status transitions are validated in services.
-- Closed documents are immutable.
+- Only forward transitions allowed (except CANCELLED)
+- Transitions may trigger:
+  - inventory movements
+  - booking allocations
+  - accounting journals
 
 ---
 
-## 7. Accounting Hooks
+## 5. Line-Level States
 
-- Each posting emits an accounting event.
-- GL mapping is external to document logic.
+Line items may have **independent progress**.
+
+Example:
+- PO partially received
+- SO partially delivered
+
+Line states mirror document states.
 
 ---
+
+## 6. Cross-Document Links
+
+Documents link explicitly:
+
+- purchase_plan → purchase_order
+- purchase_order → goods_receipt → invoice
+- sales_order → delivery → invoice
+- work_order → material_issue → production_receipt
+
+No implicit inference is allowed.
+
+---
+
+## 7. Accounting Triggers
+
+| Document | Trigger State | Action |
+|---|---|---|
+| Goods Receipt | COMPLETED | Accrual / GRNI |
+| Invoice | CONFIRMED | AR/AP posted |
+| Payment | CONFIRMED | Cash movement |
+
+---
+
+## 8. Benefits
+
+- One state machine for entire ERP
+- Predictable automation
+- Easy reporting and reconciliation
+
+---
+
+This document is the **backbone of all flows**.
 
