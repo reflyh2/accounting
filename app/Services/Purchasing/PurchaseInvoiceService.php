@@ -7,7 +7,11 @@ use App\Domain\Accounting\DTO\AccountingEventPayload;
 use App\Enums\AccountingEventCode;
 use App\Enums\Documents\InvoiceStatus;
 use App\Enums\Documents\PurchaseOrderStatus;
+use App\Events\Debt\ExternalDebtCreated;
 use App\Exceptions\PurchaseInvoiceException;
+use App\Models\Branch;
+use App\Models\Company;
+use App\Models\ExternalDebt;
 use App\Models\GoodsReceiptLine;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryTransactionLine;
@@ -350,10 +354,14 @@ class PurchaseInvoiceService
 
         $this->dispatchApPostedEvent($invoice, $totals, $actor);
 
+        // Create External Debt record for AP tracking
+        $this->createExternalDebt($invoice, $actor);
+
         return $invoice->fresh([
             'purchaseOrders.partner',
             'lines.goodsReceiptLine.goodsReceipt',
             'lines.purchaseOrderLine',
+            'externalDebt',
         ]);
     }
 
@@ -403,13 +411,12 @@ class PurchaseInvoiceService
         ]);
 
         // Dispatch Accounting Event (Direct)
-        // Re-using AP Posted but we need to signal it's Direct (Inventory Debit).
-        // The `dispatchApPostedEvent` handles GRNI vs PPV. 
-        // We need a specific logic here.
-        
         $this->dispatchDirectApPostedEvent($invoice, $actor);
 
-        return $invoice->fresh();
+        // Create External Debt record for AP tracking
+        $this->createExternalDebt($invoice, $actor);
+
+        return $invoice->fresh(['externalDebt']);
     }
 
     private function validatePurchaseOrdersConsistency(Collection $purchaseOrders): void
@@ -848,5 +855,63 @@ class PurchaseInvoiceService
     private function roundMoney(float $value): float { return round($value, 2); }
     private function roundQuantity(float $value): float { return round($value, 3); }
     private function roundCost(float $value): float { return round($value, self::COST_SCALE); }
+
+    /**
+     * Create an External Debt record for the posted Purchase Invoice.
+     * This integrates with the External Debt module for AP tracking.
+     */
+    private function createExternalDebt(PurchaseInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $invoice->loadMissing(['branch.branchGroup.company', 'partner', 'currency']);
+
+        $company = $invoice->branch?->branchGroup?->company;
+        if (!$company) {
+            return; // Cannot create external debt without company context
+        }
+
+        $debtAccountId = $company->default_payable_account_id;
+        if (!$debtAccountId) {
+            return; // Cannot create external debt without a default payable account
+        }
+
+        // For offset account, use GRNI or inventory account based on company config
+        // For simplicity, we'll use the same payable account or null
+        $offsetAccountId = $company->default_cogs_account_id ?? $debtAccountId;
+
+        $totalAmount = (float) $invoice->total_amount;
+        $exchangeRate = (float) ($invoice->exchange_rate ?? 1);
+
+        $externalDebt = ExternalDebt::create([
+            'type' => 'payable',
+            'branch_id' => $invoice->branch_id,
+            'partner_id' => $invoice->partner_id,
+            'currency_id' => $invoice->currency_id,
+            'exchange_rate' => $exchangeRate,
+            'issue_date' => $invoice->invoice_date,
+            'due_date' => $invoice->due_date,
+            'amount' => $totalAmount,
+            'primary_currency_amount' => $this->roundMoney($totalAmount * $exchangeRate),
+            'offset_account_id' => $offsetAccountId,
+            'debt_account_id' => $debtAccountId,
+            'status' => 'open',
+            'reference_number' => $invoice->vendor_invoice_number,
+            'notes' => $invoice->notes,
+            'source_type' => PurchaseInvoice::class,
+            'source_id' => $invoice->id,
+            'created_by' => $actor?->getAuthIdentifier(),
+        ]);
+
+        // Link the external debt back to the invoice
+        $invoice->update([
+            'external_debt_id' => $externalDebt->id,
+        ]);
+
+        // Dispatch event for journal creation
+        rescue(function () use ($externalDebt) {
+            ExternalDebtCreated::dispatch($externalDebt);
+        }, static function (Throwable $throwable) {
+            report($throwable);
+        });
+    }
 }
 

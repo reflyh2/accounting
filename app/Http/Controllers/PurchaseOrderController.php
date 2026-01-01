@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Documents\PurchaseOrderStatus;
+use App\Enums\Documents\PurchasePlanStatus;
 use App\Exceptions\PurchaseOrderException;
 use App\Exports\PurchaseOrdersExport;
 use App\Http\Requests\PurchaseOrderRequest;
@@ -12,6 +13,7 @@ use App\Models\Currency;
 use App\Models\Partner;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
+use App\Models\PurchasePlan;
 use App\Models\Uom;
 use App\Services\Purchasing\PurchaseService;
 use Illuminate\Http\RedirectResponse;
@@ -132,6 +134,7 @@ class PurchaseOrderController extends Controller
             'suppliers' => $formOptions['suppliers'],
             'products' => $formOptions['products'],
             'uoms' => $formOptions['uoms'],
+            'purchasePlans' => fn () => $this->getAvailablePurchasePlans($request->input('branch_id')),
         ]);
     }
 
@@ -200,6 +203,7 @@ class PurchaseOrderController extends Controller
             'suppliers' => $formOptions['suppliers'],
             'products' => $formOptions['products'],
             'uoms' => $formOptions['uoms'],
+            'purchasePlans' => $this->getAvailablePurchasePlans($purchaseOrder->branch_id),
         ]);
     }
 
@@ -342,6 +346,49 @@ class PurchaseOrderController extends Controller
                 $status->value => $status->label(),
             ])
             ->toArray();
+    }
+
+    /**
+     * Get available purchase plans for a branch that have remaining items to order.
+     */
+    private function getAvailablePurchasePlans(?int $branchId): array
+    {
+        if (!$branchId) {
+            return [];
+        }
+
+        return PurchasePlan::query()
+            ->where('branch_id', $branchId)
+            ->where('status', PurchasePlanStatus::CONFIRMED->value)
+            ->with(['lines' => function ($query) {
+                $query->whereRaw('planned_qty > ordered_qty')
+                    ->with(['product:id,name', 'variant:id,sku,barcode', 'uom:id,code,name']);
+            }])
+            ->orderBy('plan_date', 'desc')
+            ->get()
+            ->filter(fn ($plan) => $plan->lines->isNotEmpty())
+            ->map(function ($plan) {
+                return [
+                    'id' => $plan->id,
+                    'plan_number' => $plan->plan_number,
+                    'plan_date' => $plan->plan_date->format('Y-m-d'),
+                    'lines' => $plan->lines->map(fn ($line) => [
+                        'id' => $line->id,
+                        'product_id' => $line->product_id,
+                        'product_name' => $line->product?->name,
+                        'product_variant_id' => $line->product_variant_id,
+                        'variant_sku' => $line->variant?->sku,
+                        'uom_id' => $line->uom_id,
+                        'uom_code' => $line->uom?->code,
+                        'planned_qty' => (float) $line->planned_qty,
+                        'ordered_qty' => (float) $line->ordered_qty,
+                        'remaining_qty' => max(0, (float) $line->planned_qty - (float) $line->ordered_qty),
+                        'description' => $line->description,
+                    ])->values()->all(),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     public function bulkDelete(Request $request, PurchaseService $service): RedirectResponse

@@ -45,6 +45,10 @@ const props = defineProps({
         type: Array,
         required: true,
     },
+    purchasePlans: {
+        type: Array,
+        default: () => [],
+    },
     mode: {
         type: String,
         default: 'create',
@@ -80,10 +84,13 @@ const form = useForm({
             tax_rate: 0,
             description: '',
             expected_date: '',
+            source_plan_line_id: null,
         }
     ],
     create_another: false,
 });
+
+const selectedPlanId = ref(null);
 
 const selectedCompany = ref(
     form.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id)
@@ -295,8 +302,38 @@ function createEmptyLine() {
         tax_rate: 0,
         description: '',
         expected_date: '',
+        source_plan_line_id: null,
     };
 }
+
+/**
+ * Populate PO lines from a selected Purchase Plan.
+ */
+function populateFromPlan(planId) {
+    if (!planId) return;
+    
+    const plan = props.purchasePlans.find(p => p.id === planId);
+    if (!plan || !plan.lines || plan.lines.length === 0) return;
+    
+    // Clear existing lines and add new ones from the plan
+    form.lines = plan.lines.map(planLine => ({
+        product_id: planLine.product_id,
+        product_variant_id: planLine.product_variant_id,
+        uom_id: planLine.uom_id,
+        quantity: planLine.remaining_qty,
+        unit_price: 0,
+        tax_rate: 0,
+        description: planLine.description || planLine.product_name,
+        expected_date: '',
+        source_plan_line_id: planLine.id,
+    }));
+}
+
+watch(selectedPlanId, (newPlanId) => {
+    if (newPlanId && props.mode === 'create') {
+        populateFromPlan(newPlanId);
+    }
+});
 
 function resetLine(line) {
     line.product_id = null;
@@ -535,6 +572,17 @@ function submitForm(createAnother = false) {
                         placeholder="Instruksi tambahan yang ingin disampaikan ke supplier."
                         :error="form.errors?.notes"
                     />
+                </div>
+
+                <div v-if="purchasePlans && purchasePlans.length > 0" class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <label class="block text-sm font-medium text-blue-800 mb-2">Isi dari Rencana Pembelian:</label>
+                    <AppSelect
+                        v-model="selectedPlanId"
+                        :options="purchasePlans.map(plan => ({ value: plan.id, label: `${plan.plan_number} (${plan.plan_date})` }))"
+                        placeholder="Pilih Rencana Pembelian (opsional)"
+                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                    />
+                    <p class="text-xs text-blue-600 mt-1">Pilih rencana pembelian untuk mengisi baris PO secara otomatis.</p>
                 </div>
             </div>
 

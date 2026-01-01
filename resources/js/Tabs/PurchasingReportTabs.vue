@@ -7,6 +7,7 @@ const props = defineProps({
 
 const tabs = [
     { label: 'Ringkasan', route: 'purchasing-reports.index', active: props.activeTab === 'purchasing-reports.index' },
+    { label: 'Rencana Pembelian', route: 'purchasing-reports.plans', active: props.activeTab === 'purchasing-reports.plans' },
     { label: 'Purchase Order', route: 'purchasing-reports.orders', active: props.activeTab === 'purchasing-reports.orders' },
     { label: 'Penerimaan Barang', route: 'purchasing-reports.receipts', active: props.activeTab === 'purchasing-reports.receipts' },
     { label: 'Faktur Pembelian', route: 'purchasing-reports.invoices', active: props.activeTab === 'purchasing-reports.invoices' },

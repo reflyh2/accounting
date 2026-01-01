@@ -82,6 +82,9 @@ class PurchaseService
                 'total_amount' => $totals['total_amount'],
             ]);
 
+            // Update ordered_qty on purchase plan lines if source_plan_line_id is set
+            $this->updatePurchasePlanOrderedQuantities($purchaseOrder);
+
             return $purchaseOrder->fresh([
                 'partner',
                 'branch.branchGroup.company',
@@ -998,6 +1001,7 @@ class PurchaseService
 
             $purchaseOrder->lines()->create([
                 'line_number' => $lineNumber++,
+                'source_plan_line_id' => $line['source_plan_line_id'] ?? null,
                 'product_id' => $variant->product_id,
                 'product_variant_id' => $variant->id,
                 'description' => $line['description'] ?? $variant->product->name,
@@ -1436,6 +1440,36 @@ class PurchaseService
         );
 
         return round((float) ($quote['rate'] ?? 0), 2);
+    }
+
+    /**
+     * Update ordered_qty on purchase plan lines when PO lines are linked to plans.
+     *
+     * @param PurchaseOrder $purchaseOrder
+     * @return void
+     */
+    private function updatePurchasePlanOrderedQuantities(PurchaseOrder $purchaseOrder): void
+    {
+        $purchaseOrder->loadMissing('lines');
+
+        $planLineUpdates = [];
+
+        foreach ($purchaseOrder->lines as $poLine) {
+            if (!empty($poLine->source_plan_line_id)) {
+                $planLineId = $poLine->source_plan_line_id;
+                $quantity = (float) $poLine->quantity;
+
+                if (!isset($planLineUpdates[$planLineId])) {
+                    $planLineUpdates[$planLineId] = 0;
+                }
+                $planLineUpdates[$planLineId] += $quantity;
+            }
+        }
+
+        if (!empty($planLineUpdates)) {
+            $purchasePlanService = app(PurchasePlanService::class);
+            $purchasePlanService->updateOrderedQuantities($planLineUpdates);
+        }
     }
 }
 

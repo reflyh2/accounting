@@ -137,7 +137,8 @@ const isInventoryActive = computed(() => {
 });
 
 const isPurchasingActive = computed(() => {
-    return route().current('purchase-orders.*')
+    return route().current('purchase-plans.*')
+        || route().current('purchase-orders.*')
         || route().current('goods-receipts.*')
         || route().current('purchase-invoices.*')
         || route().current('purchase-returns.*')
@@ -241,6 +242,13 @@ function toggleSidebar() {
                             />
                         </DisclosureButton>
                         <DisclosurePanel class="mt-1 space-y-1 text-sm">
+                            <ResponsiveNavLink
+                                :href="route('purchase-plans.index')"
+                                :active="route().current('purchase-plans.*')"
+                                class="pl-11"
+                            >
+                                Rencana Pembelian
+                            </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 :href="route('purchase-orders.index')"
                                 :active="route().current('purchase-orders.*')"
@@ -678,6 +686,13 @@ function toggleSidebar() {
                                     <div class="p-2">
                                         <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Purchase Flow</div>
                                         <NavLink
+                                            :href="route('purchase-plans.index')"
+                                            :active="route().current('purchase-plans.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Rencana Pembelian
+                                        </NavLink>
+                                        <NavLink
                                             :href="route('purchase-orders.index')"
                                             :active="route().current('purchase-orders.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -729,6 +744,13 @@ function toggleSidebar() {
                                         />
                                     </DisclosureButton>
                                     <DisclosurePanel class="mt-2 space-y-2 pl-8">
+                                        <NavLink
+                                            :href="route('purchase-plans.index')"
+                                            :active="route().current('purchase-plans.*')"
+                                            class="flex items-center"
+                                        >
+                                            Rencana Pembelian
+                                        </NavLink>
                                         <NavLink
                                             :href="route('purchase-orders.index')"
                                             :active="route().current('purchase-orders.*')"

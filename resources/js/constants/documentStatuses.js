@@ -5,6 +5,7 @@ const pill = (label, classes, dotClass) => ({
 });
 
 export const DocumentStatusKind = Object.freeze({
+  PURCHASE_PLAN: 'purchasePlan',
   PURCHASE_ORDER: 'purchaseOrder',
   SALES_ORDER: 'salesOrder',
   WORK_ORDER: 'workOrder',
@@ -21,7 +22,7 @@ const tokens = {
   received: pill('Diterima', 'border border-emerald-200 bg-emerald-50 text-emerald-700', 'bg-emerald-500'),
   closed: pill('Ditutup', 'border border-zinc-200 bg-zinc-50 text-zinc-700', 'bg-zinc-500'),
   canceled: pill('Dibatalkan', 'border border-rose-200 bg-rose-50 text-rose-700', 'bg-rose-500'),
-  confirmed: pill('Disetujui', 'border border-blue-200 bg-blue-50 text-blue-700', 'bg-blue-500'),
+  confirmed: pill('Dikonfirmasi', 'border border-blue-200 bg-blue-50 text-blue-700', 'bg-blue-500'),
   partiallyDelivered: pill('Dikirim Sebagian', 'border border-amber-200 bg-amber-50 text-amber-700', 'bg-amber-500'),
   delivered: pill('Dikirim', 'border border-emerald-200 bg-emerald-50 text-emerald-700', 'bg-emerald-500'),
   released: pill('Dikeluarkan', 'border border-cyan-200 bg-cyan-50 text-cyan-700', 'bg-cyan-500'),
@@ -34,6 +35,12 @@ const tokens = {
 };
 
 export const documentStatusCatalog = {
+  [DocumentStatusKind.PURCHASE_PLAN]: {
+    draft: tokens.draft,
+    confirmed: tokens.confirmed,
+    closed: tokens.closed,
+    cancelled: tokens.canceled,
+  },
   [DocumentStatusKind.PURCHASE_ORDER]: {
     draft: tokens.draft,
     approved: tokens.approved,

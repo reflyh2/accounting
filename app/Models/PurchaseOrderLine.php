@@ -62,6 +62,11 @@ class PurchaseOrderLine extends Model
     {
         return $this->hasMany(PurchaseReturnLine::class);
     }
+
+    public function sourcePlanLine()
+    {
+        return $this->belongsTo(PurchasePlanLine::class, 'source_plan_line_id');
+    }
 }
 
 

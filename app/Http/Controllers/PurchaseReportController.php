@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\Documents\GoodsReceiptStatus;
 use App\Enums\Documents\InvoiceStatus;
 use App\Enums\Documents\PurchaseOrderStatus;
+use App\Enums\Documents\PurchasePlanStatus;
 use App\Enums\Documents\PurchaseReturnStatus;
 use App\Models\Branch;
 use App\Models\Company;
@@ -12,6 +13,7 @@ use App\Models\GoodsReceipt;
 use App\Models\Partner;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseOrder;
+use App\Models\PurchasePlan;
 use App\Models\PurchaseReturn;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -429,6 +431,43 @@ class PurchaseReportController extends Controller
             'data' => $data,
             'totals' => $totals,
             'statusLabels' => $this->getStatusLabels(PurchaseReturnStatus::class),
+        ]);
+    }
+
+    public function purchasePlans(Request $request)
+    {
+        $filters = $this->getDefaultFilters($request);
+        $companies = Company::orderBy('name', 'asc')->get();
+        $branches = $this->getBranches($filters);
+        $statusOptions = $this->getStatusOptions(PurchasePlanStatus::class);
+
+        $groupBy = $filters['group_by'] ?? 'document';
+
+        $query = PurchasePlan::with(['branch.branchGroup.company', 'lines.product', 'lines.variant', 'lines.uom'])
+            ->when(!empty($filters['company_id']), function ($q) use ($filters) {
+                $q->whereHas('branch.branchGroup', fn($sub) => $sub->whereIn('company_id', (array) $filters['company_id']));
+            })
+            ->when(!empty($filters['branch_id']), fn($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
+            ->when(!empty($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->whereBetween('plan_date', [$filters['start_date'], $filters['end_date']])
+            ->orderBy('plan_date', 'desc');
+
+        $data = $this->getGroupedData($query, $groupBy, 'purchase_plans', $filters);
+
+        $totals = [
+            'total_planned_qty' => (clone $query)->withCount('lines')->get()->sum('lines_count'),
+            'count' => (clone $query)->count(),
+        ];
+
+        return Inertia::render('Reports/Purchasing/PurchasePlanReport', [
+            'companies' => $companies,
+            'branches' => $branches,
+            'statusOptions' => $statusOptions,
+            'groupingOptions' => array_values(array_filter(self::GROUPING_OPTIONS, fn($opt) => !in_array($opt['value'], ['supplier']))),
+            'filters' => $filters,
+            'data' => $data,
+            'totals' => $totals,
+            'statusLabels' => $this->getStatusLabels(PurchasePlanStatus::class),
         ]);
     }
 

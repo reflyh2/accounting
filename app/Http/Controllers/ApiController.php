@@ -10,6 +10,9 @@ use App\Models\Partner;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
+use App\Models\Product;
+use App\Models\Uom;
+
 class ApiController extends Controller
 {
     public function getBranchesByCompany($companyId)
@@ -88,5 +91,138 @@ class ApiController extends Controller
     public function getPartner(Partner $partner)
     {
         return response()->json($partner);
+    }
+
+    public function getProducts(Request $request)
+    {
+        $query = Product::query()->with(['variants.uom:id,code,name', 'category:id,name', 'defaultUom:id,code,name']);
+
+        $companyId = $request->company_id ?? 0;
+
+        if ($companyId) {
+            $query->whereHas('companies', function ($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            });
+        }
+
+        if ($request->search) {
+            $search = strtolower($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where(DB::raw('lower(name)'), 'like', "%{$search}%")
+                    ->orWhere(DB::raw('lower(sku)'), 'like', "%{$search}%")
+                    ->orWhereHas('variants', function ($vq) use ($search) {
+                        $vq->where(DB::raw('lower(sku)'), 'like', "%{$search}%")
+                            ->orWhere(DB::raw('lower(barcode)'), 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $sort = $request->input('sort', 'name');
+        $order = $request->input('order', 'asc');
+        $query->orderBy($sort, $order);
+
+        $products = $query->paginate($request->input('per_page', 10))->withQueryString();
+
+        // Transform to include sku from first variant for display
+        $products->getCollection()->transform(function ($product) {
+            $firstVariant = $product->variants->first();
+            $product->sku = $firstVariant?->sku ?? $firstVariant?->barcode ?? '-';
+            $product->uom_code = $product->defaultUom?->code ?? '-';
+            return $product;
+        });
+
+        return $products;
+    }
+
+    public function getProduct(Product $product)
+    {
+        $product->load(['variants.uom:id,code,name']);
+        return response()->json($product);
+    }
+
+    /**
+     * Get UOMs that are convertible from a given base UOM.
+     * Returns the base UOM itself plus all UOMs that have conversion rules.
+     */
+    public function getConvertibleUoms(Request $request)
+    {
+        $baseUomId = $request->input('base_uom_id');
+        $productId = $request->input('product_id');
+        $companyId = $request->input('company_id');
+
+        if (!$baseUomId) {
+            return response()->json([]);
+        }
+
+        // Start with the base UOM itself (always included)
+        $convertibleUomIds = [(int) $baseUomId];
+
+        // Get UOMs from global uom_conversions table (from_uom_id -> to_uom_id)
+        $globalConversions = \App\Models\UomConversion::where('from_uom_id', $baseUomId)
+            ->pluck('to_uom_id')
+            ->toArray();
+        
+        $convertibleUomIds = array_merge($convertibleUomIds, $globalConversions);
+
+        // Also get reverse conversions (to_uom_id -> from_uom_id)
+        $reverseConversions = \App\Models\UomConversion::where('to_uom_id', $baseUomId)
+            ->pluck('from_uom_id')
+            ->toArray();
+        
+        $convertibleUomIds = array_merge($convertibleUomIds, $reverseConversions);
+
+        // Get UOMs from uom_conversion_rules (product/variant/company specific)
+        $rulesQuery = \App\Models\UomConversionRule::where('from_uom_id', $baseUomId)
+            ->where(function ($query) use ($productId, $companyId) {
+                $query->whereNull('product_id')
+                    ->orWhere('product_id', $productId);
+            })
+            ->where(function ($query) use ($companyId) {
+                $query->whereNull('company_id')
+                    ->orWhere('company_id', $companyId);
+            })
+            ->where(function ($query) {
+                $query->whereNull('effective_from')
+                    ->orWhere('effective_from', '<=', now());
+            })
+            ->where(function ($query) {
+                $query->whereNull('effective_to')
+                    ->orWhere('effective_to', '>=', now());
+            });
+
+        $ruleConversions = $rulesQuery->pluck('to_uom_id')->toArray();
+        $convertibleUomIds = array_merge($convertibleUomIds, $ruleConversions);
+
+        // Also get reverse rule conversions
+        $reverseRulesQuery = \App\Models\UomConversionRule::where('to_uom_id', $baseUomId)
+            ->where(function ($query) use ($productId, $companyId) {
+                $query->whereNull('product_id')
+                    ->orWhere('product_id', $productId);
+            })
+            ->where(function ($query) use ($companyId) {
+                $query->whereNull('company_id')
+                    ->orWhere('company_id', $companyId);
+            })
+            ->where(function ($query) {
+                $query->whereNull('effective_from')
+                    ->orWhere('effective_from', '<=', now());
+            })
+            ->where(function ($query) {
+                $query->whereNull('effective_to')
+                    ->orWhere('effective_to', '>=', now());
+            });
+
+        $reverseRuleConversions = $reverseRulesQuery->pluck('from_uom_id')->toArray();
+        $convertibleUomIds = array_merge($convertibleUomIds, $reverseRuleConversions);
+
+        // Remove duplicates
+        $convertibleUomIds = array_unique($convertibleUomIds);
+
+        // Fetch the UOM records
+        $uoms = Uom::whereIn('id', $convertibleUomIds)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name', 'kind']);
+
+        return response()->json($uoms);
     }
 }

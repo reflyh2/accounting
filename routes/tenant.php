@@ -72,14 +72,15 @@ use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseInvoiceController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\PurchasePlanController;
 use App\Http\Controllers\PurchaseReportController;
 use App\Http\Controllers\PurchaseReturnController;
-use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SalesDeliveryController;
 use App\Http\Controllers\SalesInvoiceController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\SalesReturnController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkOrderController;
 use App\Http\Controllers\TaxJurisdictionController;
@@ -140,6 +141,9 @@ Route::middleware([
         Route::get('api/financing-schedule', [ApiController::class, 'getFinancingSchedule'])->name('api.financing-schedule');
         Route::get('api/partners', [ApiController::class, 'getPartners'])->name('api.partners');
         Route::get('api/partners/{partner}', [ApiController::class, 'getPartner'])->name('api.partners.show');
+        Route::get('api/products', [ApiController::class, 'getProducts'])->name('api.products');
+        Route::get('api/products/{product}', [ApiController::class, 'getProduct'])->name('api.products.show');
+        Route::get('api/convertible-uoms', [ApiController::class, 'getConvertibleUoms'])->name('api.convertible-uoms');
         Route::get('api/price-list-items/variants', [\App\Http\Controllers\Catalog\PriceListItemController::class, 'getVariants'])->name('api.price-list-items.variants');
         Route::get('api/suppliers-with-pos', [GoodsReceiptController::class, 'apiSuppliersWithPOs'])->name('api.suppliers-with-pos');
         Route::get('api/customers-with-sos', [SalesDeliveryController::class, 'apiCustomersWithSOs'])->name('api.customers-with-sos');
@@ -317,6 +321,7 @@ Route::middleware([
         Route::get('purchasing-reports/receipts', [PurchaseReportController::class, 'goodsReceipts'])->name('purchasing-reports.receipts');
         Route::get('purchasing-reports/invoices', [PurchaseReportController::class, 'purchaseInvoices'])->name('purchasing-reports.invoices');
         Route::get('purchasing-reports/returns', [PurchaseReportController::class, 'purchaseReturns'])->name('purchasing-reports.returns');
+        Route::get('purchasing-reports/plans', [PurchaseReportController::class, 'purchasePlans'])->name('purchasing-reports.plans');
 
         // Sales Reports
         Route::get('sales-reports', [SalesReportController::class, 'index'])->name('sales-reports.index');
@@ -578,6 +583,15 @@ Route::middleware([
             'store',
             'show',
         ]);
+
+        // Purchase Plans Routes
+        Route::post('purchase-plans/{purchase_plan}/confirm', [PurchasePlanController::class, 'confirm'])
+            ->name('purchase-plans.confirm');
+        Route::post('purchase-plans/{purchase_plan}/close', [PurchasePlanController::class, 'close'])
+            ->name('purchase-plans.close');
+        Route::post('purchase-plans/{purchase_plan}/cancel', [PurchasePlanController::class, 'cancel'])
+            ->name('purchase-plans.cancel');
+        Route::resource('purchase-plans', PurchasePlanController::class);
 
         Route::delete('purchase-orders/bulk-delete', [PurchaseOrderController::class, 'bulkDelete'])->name('purchase-orders.bulk-delete');
         Route::get('purchase-orders/export-xlsx', [PurchaseOrderController::class, 'exportXLSX'])->name('purchase-orders.export-xlsx');
