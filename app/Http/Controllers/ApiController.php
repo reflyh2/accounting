@@ -10,7 +10,9 @@ use App\Models\Partner;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
+use App\Enums\Documents\PurchasePlanStatus;
 use App\Models\Product;
+use App\Models\PurchasePlan;
 use App\Models\Uom;
 
 class ApiController extends Controller
@@ -224,5 +226,49 @@ class ApiController extends Controller
             ->get(['id', 'code', 'name', 'kind']);
 
         return response()->json($uoms);
+    }
+
+    /**
+     * Get available purchase plans for a branch that have remaining items to order.
+     */
+    public function getPurchasePlans(Request $request)
+    {
+        $branchId = $request->input('branch_id');
+        
+        if (!$branchId) {
+            return response()->json([]);
+        }
+
+        $plans = PurchasePlan::query()
+            ->where('branch_id', $branchId)
+            ->where('status', PurchasePlanStatus::CONFIRMED->value)
+            ->with(['lines' => function ($query) {
+                $query->whereRaw('planned_qty > ordered_qty')
+                    ->with(['product:id,name', 'variant:id,sku,barcode', 'uom:id,code,name']);
+            }])
+            ->orderBy('plan_date', 'desc')
+            ->get()
+            ->filter(fn ($plan) => $plan->lines->isNotEmpty())
+            ->map(function ($plan) {
+                return [
+                    'id' => $plan->id,
+                    'plan_number' => $plan->plan_number,
+                    'plan_date' => $plan->plan_date->format('Y-m-d'),
+                    'lines' => $plan->lines->map(fn ($line) => [
+                        'id' => $line->id,
+                        'product_id' => $line->product_id,
+                        'product_name' => $line->product?->name,
+                        'product_variant_id' => $line->product_variant_id,
+                        'variant_sku' => $line->variant?->sku,
+                        'uom_id' => $line->uom_id,
+                        'uom_code' => $line->uom?->code,
+                        'remaining_qty' => max(0, (float) $line->planned_qty - (float) $line->ordered_qty),
+                        'description' => $line->description,
+                    ])->values()->all(),
+                ];
+            })
+            ->values();
+
+        return response()->json($plans);
     }
 }

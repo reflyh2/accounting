@@ -313,13 +313,14 @@ class PurchaseOrderController extends Controller
             'branches' => $this->branchOptions(),
             'suppliers' => $this->supplierOptions(),
             'currencies' => Currency::orderBy('code')->get(['id', 'code', 'name']),
-            'products' => Product::with(['variants.uom:id,code,name,company_id', 'companies:id'])
+            'products' => Product::with(['variants.uom:id,code,name,company_id,kind', 'companies:id', 'defaultUom:id,code,name'])
                 ->orderBy('name')
                 ->get()
                 ->map(function (Product $product) {
                     return [
                         'id' => $product->id,
                         'name' => $product->name,
+                        'default_uom_id' => $product->default_uom_id,
                         'company_ids' => $product->companies->pluck('id')->all(),
                         'variants' => $product->variants->map(fn ($variant) => [
                             'id' => $variant->id,

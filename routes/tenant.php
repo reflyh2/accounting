@@ -144,6 +144,7 @@ Route::middleware([
         Route::get('api/products', [ApiController::class, 'getProducts'])->name('api.products');
         Route::get('api/products/{product}', [ApiController::class, 'getProduct'])->name('api.products.show');
         Route::get('api/convertible-uoms', [ApiController::class, 'getConvertibleUoms'])->name('api.convertible-uoms');
+        Route::get('api/purchase-plans', [ApiController::class, 'getPurchasePlans'])->name('api.purchase-plans');
         Route::get('api/price-list-items/variants', [\App\Http\Controllers\Catalog\PriceListItemController::class, 'getVariants'])->name('api.price-list-items.variants');
         Route::get('api/suppliers-with-pos', [GoodsReceiptController::class, 'apiSuppliersWithPOs'])->name('api.suppliers-with-pos');
         Route::get('api/customers-with-sos', [SalesDeliveryController::class, 'apiCustomersWithSOs'])->name('api.customers-with-sos');
