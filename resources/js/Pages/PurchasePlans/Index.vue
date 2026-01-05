@@ -129,6 +129,20 @@ function handleFilter(newFilters) {
     });
 }
 
+function deletePurchasePlan(id) {
+    const page = usePage();
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+
+    router.delete(route('purchase-plans.destroy', id), {
+        preserveScroll: true,
+        preserveState: true,
+        data: {
+            preserveState: true,
+            currentQuery: currentQuery
+        },
+    });
+}
+
 function handleBulkDelete(ids) {
     const page = usePage();
     const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
@@ -179,6 +193,7 @@ function handleBulkDelete(ids) {
                         downloadBaseRoute="purchase-plans"
                         @sort="handleSort"
                         @filter="handleFilter"
+                        @delete="deletePurchasePlan"
                         @bulkDelete="handleBulkDelete"
                     >
                     </AppDataTable>

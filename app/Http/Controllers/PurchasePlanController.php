@@ -189,7 +189,11 @@ class PurchasePlanController extends Controller
 
     public function destroy(PurchasePlan $purchasePlan): RedirectResponse
     {
-        $this->service->delete($purchasePlan);
+        try {
+            $this->service->delete($purchasePlan);
+        } catch (\App\Exceptions\PurchaseOrderException $exception) {
+            return Redirect::back()->with('error', $exception->getMessage());
+        }
 
         return Redirect::route('purchase-plans.index')
             ->with('success', 'Rencana Pembelian berhasil dihapus.');
@@ -197,14 +201,22 @@ class PurchasePlanController extends Controller
 
     public function confirm(PurchasePlan $purchasePlan): RedirectResponse
     {
-        $this->service->confirm($purchasePlan);
+        try {
+            $this->service->confirm($purchasePlan);
+        } catch (\App\Exceptions\PurchaseOrderException $exception) {
+            return Redirect::back()->with('error', $exception->getMessage());
+        }
 
         return Redirect::back()->with('success', 'Rencana Pembelian dikonfirmasi.');
     }
 
     public function close(PurchasePlan $purchasePlan): RedirectResponse
     {
-        $this->service->close($purchasePlan);
+        try {
+            $this->service->close($purchasePlan);
+        } catch (\App\Exceptions\PurchaseOrderException $exception) {
+            return Redirect::back()->with('error', $exception->getMessage());
+        }
 
         return Redirect::back()->with('success', 'Rencana Pembelian ditutup.');
     }
@@ -215,7 +227,11 @@ class PurchasePlanController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $this->service->cancel($purchasePlan, null, $data['reason'] ?? null);
+        try {
+            $this->service->cancel($purchasePlan, null, $data['reason'] ?? null);
+        } catch (\App\Exceptions\PurchaseOrderException $exception) {
+            return Redirect::back()->with('error', $exception->getMessage());
+        }
 
         return Redirect::back()->with('success', 'Rencana Pembelian dibatalkan.');
     }
