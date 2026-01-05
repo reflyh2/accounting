@@ -113,8 +113,6 @@ watch(() => props.currentSort, (newSort) => {
 
 function formatColumnValue(item, key) {
   if (props.columnRenderers[key]) {
-    console.log(props.columnRenderers[key]);
-    console.log(props.columnRenderers[key](getNestedValue(item, key), item));
     return props.columnRenderers[key](getNestedValue(item, key), item);
   }
   if (props.columnFormatters[key]) {

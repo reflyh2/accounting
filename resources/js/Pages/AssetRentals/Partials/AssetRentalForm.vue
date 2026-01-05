@@ -136,7 +136,6 @@ watch(() => form.currency_id, () => {
 });
 
 watch(selectedCompany, (newCompanyId) => {
-    console.log('selectedCompany', newCompanyId);
     if (!props.assetRental) {
         form.currency_id = page.props.primaryCurrency?.id || null;
         form.exchange_rate = 1;
