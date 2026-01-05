@@ -148,6 +148,20 @@ function handleFilter(newFilters) {
     });
 }
 
+function handleDelete(id) {
+    const page = usePage();
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+
+    router.delete(route('purchase-orders.destroy', id), {
+        preserveScroll: true,
+        preserveState: true,
+        data: {
+            preserveState: true,
+            currentQuery: currentQuery
+        },
+    });
+}
+
 function handleBulkDelete(ids) {
     const page = usePage();
     const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
@@ -198,6 +212,7 @@ function handleBulkDelete(ids) {
                         downloadBaseRoute="purchase-orders"
                         @sort="handleSort"
                         @filter="handleFilter"
+                        @delete="handleDelete"
                         @bulkDelete="handleBulkDelete"
                     >
                     </AppDataTable>

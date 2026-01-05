@@ -11,6 +11,9 @@ import AppBackLink from '@/Components/AppBackLink.vue';
 import AppPrintButton from '@/Components/AppPrintButton.vue';
 import AppDeleteButton from '@/Components/AppDeleteButton.vue';
 import AppEditButton from '@/Components/AppEditButton.vue';
+import AppModal from '@/Components/AppModal.vue';
+import AppTextarea from '@/Components/AppTextarea.vue';
+import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
 import { formatNumber } from '@/utils/numberFormat';
 
 const props = defineProps({
@@ -20,7 +23,10 @@ const props = defineProps({
     makerCheckerEnforced: Boolean,
 });
 
+const showCancelModal = ref(false);
+const showDeleteConfirmation = ref(false);
 const cancelReason = ref('');
+const processing = ref(false);
 
 const canApprove = computed(() => props.allowedTransitions?.includes('approved'));
 const canSend = computed(() => props.allowedTransitions?.includes('sent'));
@@ -45,16 +51,30 @@ function markSent() {
     router.post(route('purchase-orders.send', props.purchaseOrder.id));
 }
 
-function cancelOrder() {
+function openCancelModal() {
+    showCancelModal.value = true;
+}
+
+function confirmCancel() {
+    processing.value = true;
     router.post(route('purchase-orders.cancel', props.purchaseOrder.id), {
-        reason: cancelReason.value || null,
+        reason: cancelReason.value,
+    }, {
+        preserveScroll: true,
+        onFinish: () => {
+            processing.value = false;
+            showCancelModal.value = false;
+            cancelReason.value = '';
+        },
     });
 }
 
 function deleteOrder() {
-    if (confirm('Hapus Purchase Order ini?')) {
-        router.delete(route('purchase-orders.destroy', props.purchaseOrder.id));
-    }
+    router.delete(route('purchase-orders.destroy', props.purchaseOrder.id), {
+        onFinish: () => {
+            showDeleteConfirmation.value = false;
+        },
+    });
 }
 </script>
 
@@ -83,7 +103,7 @@ function deleteOrder() {
                     <div class="space-y-6">
                         <div class="flex items-center justify-between">
                             <AppBackLink :href="route('purchase-orders.index', filters)" text="Kembali ke Daftar Purchase Order" />
-                            <div class="flex flex-wrap">
+                            <div class="flex flex-wrap items-center">
                                 <a :href="route('purchase-orders.print', purchaseOrder.id)" target="_blank">
                                     <AppPrintButton title="Print" />
                                 </a>
@@ -91,32 +111,24 @@ function deleteOrder() {
                                     <AppEditButton title="Edit" />
                                 </Link>
                                 <AppPrimaryButton v-if="canApprove" type="button" @click="approve" class="ml-3">
-                                    Approve
+                                    Konfirmasi
                                 </AppPrimaryButton>
                                 <AppPrimaryButton v-if="canSend" type="button" @click="markSent" class="ml-3">
                                     Tandai Terkirim
                                 </AppPrimaryButton>
                                 <Link
                                     v-if="canCreateGoodsReceipt"
-                                    :href="route('goods-receipts.create', { partner_id: purchaseOrder.partner_id, purchase_order_ids: [purchaseOrder.id] })"
+                                    :href="route('goods-receipts.create', { partner_id: purchaseOrder.partner_id, company_id: purchaseOrder.company_id, branch_id: purchaseOrder.branch_id, purchase_order_ids: [purchaseOrder.id] })"
                                     class="ml-3"
                                 >
                                     <AppPrimaryButton type="button">
                                         Buat Penerimaan Pembelian
                                     </AppPrimaryButton>
                                 </Link>
-                                <div v-if="canCancel" class="flex items-center gap-2">
-                                    <input
-                                        v-model="cancelReason"
-                                        type="text"
-                                        placeholder="Alasan pembatalan"
-                                        class="border border-gray-300 rounded px-2 py-1 text-sm"
-                                    />
-                                    <AppDangerButton type="button" @click="cancelOrder">
-                                        Batalkan
-                                    </AppDangerButton>
-                                </div>
-                                <AppDeleteButton v-if="isDraft && !canApprove" @click="deleteOrder" title="Delete" />
+                                <AppDangerButton v-if="canCancel" type="button" @click="openCancelModal" :disabled="processing" class="ml-3">
+                                    Batalkan
+                                </AppDangerButton>
+                                <AppDeleteButton v-if="isDraft" @click="showDeleteConfirmation = true" title="Delete" class="ml-3" />
                             </div>
                         </div>
 
@@ -203,6 +215,41 @@ function deleteOrder() {
                 </div>
             </div>
         </div>
+
+        <!-- Cancel Modal -->
+        <AppModal :show="showCancelModal" @close="showCancelModal = false">
+            <template #title>
+                Batalkan Purchase Order
+            </template>
+
+            <template #content>
+                <div class="mt-2">
+                    <p class="text-sm text-gray-500 mb-4">
+                        Apakah Anda yakin ingin membatalkan purchase order ini? Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                    <AppTextarea
+                        v-model="cancelReason"
+                        label="Alasan Pembatalan (opsional)"
+                        placeholder="Masukkan alasan pembatalan..."
+                        :rows="3"
+                    />
+                </div>
+            </template>
+
+            <template #footer>
+                <AppSecondaryButton @click="showCancelModal = false">Tidak</AppSecondaryButton>
+                <AppDangerButton class="ml-3" @click="confirmCancel" :disabled="processing">Ya, Batalkan</AppDangerButton>
+            </template>
+        </AppModal>
+
+        <!-- Delete Confirmation Modal -->
+        <DeleteConfirmationModal
+            :show="showDeleteConfirmation"
+            title="Hapus Purchase Order"
+            message="Apakah Anda yakin ingin menghapus purchase order ini? Tindakan ini tidak dapat dibatalkan."
+            @close="showDeleteConfirmation = false"
+            @confirm="deleteOrder"
+        />
     </AuthenticatedLayout>
 </template>
 
