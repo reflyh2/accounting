@@ -27,39 +27,35 @@ export default {
 
     safelist: [
         {
-            pattern: /bg-purple-(.*)/,
+            pattern: /(.*)-purple-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
-            pattern: /bg-slate-(.*)/,
+            pattern: /(.*)-slate-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
-            pattern: /text-purple-(.*)/,
+            pattern: /(.*)-amber-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
-            pattern: /bg-amber-(.*)/,
+            pattern: /(.*)-sky-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
-            pattern: /bg-sky-(.*)/,
+            pattern: /(.*)-emerald-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
-            pattern: /bg-emerald-(.*)/,
+            pattern: /(.*)-gray-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
-            pattern: /text-emerald-(.*)/,
+            pattern: /(.*)-zinc-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
-            pattern: /bg-gray-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /text-gray-(.*)/,
+            pattern: /(.*)-rose-(.*)/,
             variants: ['hover', 'focus'],
         },
         {

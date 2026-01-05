@@ -188,7 +188,7 @@ function handleBulkDelete(ids) {
                         :currentSort="currentSort"
                         :perPage="perPage"
                         routeName="purchase-plans.index"
-                        :enableBulkActions="false"
+                        :enableBulkActions="true"
                         :downloadOptions="downloadOptions"
                         downloadBaseRoute="purchase-plans"
                         @sort="handleSort"

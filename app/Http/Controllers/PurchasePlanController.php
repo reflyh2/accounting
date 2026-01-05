@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -234,6 +235,40 @@ class PurchasePlanController extends Controller
         }
 
         return Redirect::back()->with('success', 'Rencana Pembelian dibatalkan.');
+    }
+
+    public function bulkDelete(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'exists:purchase_plans,id'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($request) {
+                foreach ($request->ids as $id) {
+                    $purchasePlan = PurchasePlan::find($id);
+                    if ($purchasePlan) {
+                        $this->service->delete($purchasePlan);
+                    }
+                }
+            });
+        } catch (\App\Exceptions\PurchaseOrderException $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        } catch (\Exception $e) {
+             return Redirect::back()->with('error', 'Terjadi kesalahan saat menghapus data.');
+        }
+
+        if ($request->has('preserveState')) {
+            $currentQuery = $request->input('currentQuery', '');
+            $redirectUrl = route('purchase-plans.index') . ($currentQuery ? '?' . $currentQuery : '');
+            
+            return Redirect::to($redirectUrl)
+                ->with('success', 'Rencana Pembelian berhasil dihapus.');
+        }
+
+        return Redirect::route('purchase-plans.index')
+            ->with('success', 'Rencana Pembelian berhasil dihapus.');
     }
 
     private function companyOptions()

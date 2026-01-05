@@ -12,6 +12,7 @@ import AppDeleteButton from '@/Components/AppDeleteButton.vue';
 import AppEditButton from '@/Components/AppEditButton.vue';
 import AppModal from '@/Components/AppModal.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
+import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
 import { formatNumber } from '@/utils/numberFormat';
 
 const props = defineProps({
@@ -21,6 +22,7 @@ const props = defineProps({
 });
 
 const showCancelModal = ref(false);
+const showDeleteConfirmation = ref(false);
 const cancelReason = ref('');
 const processing = ref(false);
 
@@ -34,7 +36,7 @@ function formatDate(dateString) {
     return new Date(dateString).toLocaleDateString('id-ID');
 }
 
-function confirm() {
+function confirmPlan() {
     processing.value = true;
     router.post(route('purchase-plans.confirm', props.purchasePlan.id), {}, {
         preserveScroll: true,
@@ -69,9 +71,11 @@ function confirmCancel() {
 }
 
 function deletePlan() {
-    if (confirm('Hapus Rencana Pembelian ini?')) {
-        router.delete(route('purchase-plans.destroy', props.purchasePlan.id));
-    }
+    router.delete(route('purchase-plans.destroy', props.purchasePlan.id), {
+        onFinish: () => {
+            showDeleteConfirmation.value = false;
+        },
+    });
 }
 </script>
 
@@ -100,11 +104,11 @@ function deletePlan() {
                     <div class="space-y-6">
                         <div class="flex items-center justify-between">
                             <AppBackLink :href="route('purchase-plans.index', filters)" text="Kembali ke Daftar Rencana Pembelian" />
-                            <div class="flex flex-wrap">
+                            <div class="flex flex-wrap items-center">
                                 <Link v-if="isDraft" :href="route('purchase-plans.edit', purchasePlan.id)" class="ml-3">
                                     <AppEditButton title="Edit" />
                                 </Link>
-                                <AppPrimaryButton v-if="canConfirm" type="button" @click="confirm" :disabled="processing" class="ml-3">
+                                <AppPrimaryButton v-if="canConfirm" type="button" @click="confirmPlan" :disabled="processing" class="ml-3">
                                     Konfirmasi
                                 </AppPrimaryButton>
                                 <AppSecondaryButton v-if="canClose" type="button" @click="close" :disabled="processing" class="ml-3">
@@ -113,7 +117,7 @@ function deletePlan() {
                                 <AppDangerButton v-if="canCancel" type="button" @click="openCancelModal" :disabled="processing" class="ml-3">
                                     Batalkan
                                 </AppDangerButton>
-                                <AppDeleteButton v-if="isDraft" @click="deletePlan" title="Delete" class="ml-3" />
+                                <AppDeleteButton v-if="isDraft" @click="showDeleteConfirmation = true" title="Delete" class="ml-3" />
                             </div>
                         </div>
 
@@ -192,19 +196,37 @@ function deletePlan() {
 
         <!-- Cancel Modal -->
         <AppModal :show="showCancelModal" @close="showCancelModal = false">
-            <div class="p-6">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Batalkan Rencana Pembelian</h3>
-                <AppTextarea
-                    v-model="cancelReason"
-                    label="Alasan Pembatalan (opsional)"
-                    placeholder="Masukkan alasan pembatalan..."
-                    :rows="3"
-                />
-                <div class="mt-6 flex justify-end gap-3">
-                    <AppSecondaryButton @click="showCancelModal = false">Batal</AppSecondaryButton>
-                    <AppDangerButton @click="confirmCancel" :disabled="processing">Konfirmasi Pembatalan</AppDangerButton>
+            <template #title>
+                Batalkan Rencana Pembelian
+            </template>
+
+            <template #content>
+                <div class="mt-2">
+                    <p class="text-sm text-gray-500 mb-4">
+                        Apakah Anda yakin ingin membatalkan rencana pembelian ini? Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                    <AppTextarea
+                        v-model="cancelReason"
+                        label="Alasan Pembatalan (opsional)"
+                        placeholder="Masukkan alasan pembatalan..."
+                        :rows="3"
+                    />
                 </div>
-            </div>
+            </template>
+
+            <template #footer>
+                <AppSecondaryButton @click="showCancelModal = false">Tidak</AppSecondaryButton>
+                <AppDangerButton class="ml-3" @click="confirmCancel" :disabled="processing">Ya, Batalkan</AppDangerButton>
+            </template>
         </AppModal>
+
+        <!-- Delete Confirmation Modal -->
+        <DeleteConfirmationModal
+            :show="showDeleteConfirmation"
+            title="Hapus Rencana Pembelian"
+            message="Apakah Anda yakin ingin menghapus rencana pembelian ini? Tindakan ini tidak dapat dibatalkan."
+            @close="showDeleteConfirmation = false"
+            @confirm="deletePlan"
+        />
     </AuthenticatedLayout>
 </template>

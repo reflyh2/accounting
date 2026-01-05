@@ -592,6 +592,7 @@ Route::middleware([
             ->name('purchase-plans.close');
         Route::post('purchase-plans/{purchase_plan}/cancel', [PurchasePlanController::class, 'cancel'])
             ->name('purchase-plans.cancel');
+        Route::delete('purchase-plans/bulk-delete', [PurchasePlanController::class, 'bulkDelete'])->name('purchase-plans.bulk-delete');
         Route::resource('purchase-plans', PurchasePlanController::class);
 
         Route::delete('purchase-orders/bulk-delete', [PurchaseOrderController::class, 'bulkDelete'])->name('purchase-orders.bulk-delete');
