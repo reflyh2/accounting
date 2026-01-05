@@ -619,10 +619,10 @@ const serialOptions = computed(() => {
                             <th class="border border-gray-300 text-sm min-w-48 px-1.5 py-1.5">Produk</th>
                             <th class="border border-gray-300 text-sm px-1.5 py-1.5">PO #</th>
                             <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Sisa</th>
+                            <th class="border border-gray-300 text-sm px-1.5 py-1.5">UOM</th>
                             <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Qty Terima</th>
                             <th class="border border-gray-300 text-sm min-w-40 px-1.5 py-1.5">Lot</th>
                             <th class="border border-gray-300 text-sm min-w-40 px-1.5 py-1.5">Serial</th>
-                            <th class="border border-gray-300 text-sm px-1.5 py-1.5">UOM</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -638,6 +638,9 @@ const serialOptions = computed(() => {
                                 <span :class="line.remaining_quantity > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'">
                                     {{ formatNumber(line.remaining_quantity, 2) }}
                                 </span>
+                            </td>
+                            <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-gray-500">
+                                {{ line.uom?.code ?? '-' }}
                             </td>
                             <td class="border border-gray-300 px-1.5 py-1.5">
                                 <AppInput
@@ -688,9 +691,6 @@ const serialOptions = computed(() => {
                                        action: () => openSerialModal(line)
                                     }"
                                 />
-                            </td>
-                            <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-gray-500">
-                                {{ line.uom?.code ?? '-' }}
                             </td>
                         </tr>
                     </tbody>
