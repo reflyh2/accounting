@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Api\AvailabilityController;
-use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\BookingController as ApiBookingController;
 use App\Http\Controllers\Api\InventoryAvailabilityController;
 use App\Http\Controllers\Api\PurchaseInvoiceLookupController;
 use App\Http\Controllers\Api\SalesInvoiceLookupController;
@@ -155,12 +155,14 @@ Route::middleware([
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('availability/pool/{pool}', [AvailabilityController::class, 'pool'])->name('availability.pool');
             Route::get('availability/pool/{pool}/free-instances', [AvailabilityController::class, 'freeInstances'])->name('availability.pool.free-instances');
-            Route::post('bookings', [BookingController::class, 'store'])->name('bookings.store');
-            Route::post('bookings/{booking}/confirm', [BookingController::class, 'confirm'])->name('bookings.confirm');
-            Route::post('bookings/{booking}/check-in', [BookingController::class, 'checkIn'])->name('bookings.check-in');
-            Route::post('bookings/{booking}/check-out', [BookingController::class, 'checkOut'])->name('bookings.check-out');
-            Route::post('bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
-            Route::post('booking-lines/{bookingLine}/assign-instance', [BookingController::class, 'assignInstance'])->name('bookings.assign-instance');
+            Route::post('bookings', [ApiBookingController::class, 'store'])->name('bookings.store');
+            Route::post('bookings/{booking}/confirm', [ApiBookingController::class, 'confirm'])->name('bookings.confirm');
+            Route::post('bookings/{booking}/check-in', [ApiBookingController::class, 'checkIn'])->name('bookings.check-in');
+            Route::post('bookings/{booking}/check-out', [ApiBookingController::class, 'checkOut'])->name('bookings.check-out');
+            Route::post('bookings/{booking}/cancel', [ApiBookingController::class, 'cancel'])->name('bookings.cancel');
+            Route::post('booking-lines/{bookingLine}/assign-instance', [ApiBookingController::class, 'assignInstance'])->name('bookings.assign-instance');
+            Route::get('bookings/check-availability', [ApiBookingController::class, 'checkAvailability'])->name('bookings.check-availability');
+            Route::get('bookings/pools-for-product', [ApiBookingController::class, 'poolsForProduct'])->name('bookings.pools-for-product');
             Route::get('purchase-invoices/purchase-orders', [PurchaseInvoiceLookupController::class, 'purchaseOrders'])
                 ->name('purchase-invoices.purchase-orders');
             Route::get('sales-invoices/sales-orders', [SalesInvoiceLookupController::class, 'salesOrders'])
@@ -645,6 +647,23 @@ Route::middleware([
         Route::get('sales-returns/export-csv', [SalesReturnController::class, 'exportCSV'])->name('sales-returns.export-csv');
         Route::get('sales-returns/export-pdf', [SalesReturnController::class, 'exportPDF'])->name('sales-returns.export-pdf');
         Route::resource('sales-returns', SalesReturnController::class);
+
+        // Resource Pools Routes
+        Route::delete('resource-pools/bulk-delete', [\App\Http\Controllers\ResourcePoolController::class, 'bulkDelete'])->name('resource-pools.bulk-delete');
+        Route::resource('resource-pools', \App\Http\Controllers\ResourcePoolController::class);
+
+        // Resource Instances Routes
+        Route::delete('resource-instances/bulk-delete', [\App\Http\Controllers\ResourceInstanceController::class, 'bulkDelete'])->name('resource-instances.bulk-delete');
+        Route::resource('resource-instances', \App\Http\Controllers\ResourceInstanceController::class)->except(['show']);
+
+        // Bookings Routes
+        Route::delete('bookings/bulk-delete', [\App\Http\Controllers\BookingController::class, 'bulkDelete'])->name('bookings.bulk-delete');
+        Route::post('bookings/{booking}/confirm', [\App\Http\Controllers\BookingController::class, 'confirm'])->name('bookings.confirm');
+        Route::post('bookings/{booking}/check-in', [\App\Http\Controllers\BookingController::class, 'checkIn'])->name('bookings.check-in');
+        Route::post('bookings/{booking}/check-out', [\App\Http\Controllers\BookingController::class, 'checkOut'])->name('bookings.check-out');
+        Route::post('bookings/{booking}/cancel', [\App\Http\Controllers\BookingController::class, 'cancel'])->name('bookings.cancel');
+        Route::post('booking-lines/{bookingLine}/assign-instance', [\App\Http\Controllers\BookingController::class, 'assignInstance'])->name('bookings.assign-instance');
+        Route::resource('bookings', \App\Http\Controllers\BookingController::class);
 
         // Bill of Materials Routes
         Route::delete('bill-of-materials/bulk-delete', [BillOfMaterialController::class, 'bulkDelete'])->name('bill-of-materials.bulk-delete');

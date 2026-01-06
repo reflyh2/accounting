@@ -12,6 +12,7 @@ export const DocumentStatusKind = Object.freeze({
   GOODS_RECEIPT: 'goodsReceipt',
   DELIVERY: 'delivery',
   INVOICE: 'invoice',
+  BOOKING: 'booking',
 });
 
 const tokens = {
@@ -32,6 +33,10 @@ const tokens = {
   partiallyPaid: pill('Dibayar Sebagian', 'border border-amber-200 bg-amber-50 text-amber-700', 'bg-amber-500'),
   paid: pill('Dibayar', 'border border-green-200 bg-green-50 text-green-700', 'bg-green-500'),
   quote: pill('Tawaran', 'border border-violet-200 bg-violet-50 text-violet-700', 'bg-violet-500'),
+  hold: pill('Hold', 'border border-yellow-200 bg-yellow-50 text-yellow-700', 'bg-yellow-500'),
+  checkedIn: pill('Check-in', 'border border-teal-200 bg-teal-50 text-teal-700', 'bg-teal-500'),
+  checkedOut: pill('Check-out', 'border border-indigo-200 bg-indigo-50 text-indigo-700', 'bg-indigo-500'),
+  noShow: pill('No Show', 'border border-gray-200 bg-gray-50 text-gray-700', 'bg-gray-500'),
 };
 
 export const documentStatusCatalog = {
@@ -81,6 +86,15 @@ export const documentStatusCatalog = {
     partially_paid: tokens.partiallyPaid,
     paid: tokens.paid,
     canceled: tokens.canceled,
+  },
+  [DocumentStatusKind.BOOKING]: {
+    hold: tokens.hold,
+    confirmed: tokens.confirmed,
+    checked_in: tokens.checkedIn,
+    checked_out: tokens.checkedOut,
+    completed: tokens.completed,
+    canceled: tokens.canceled,
+    no_show: tokens.noShow,
   },
 };
 

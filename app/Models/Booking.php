@@ -24,6 +24,16 @@ class Booking extends Model
         return $this->belongsTo(Partner::class);
     }
 
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function currency()
     {
         return $this->belongsTo(Currency::class);

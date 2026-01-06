@@ -72,6 +72,11 @@ class SalesOrderLine extends Model
     {
         return $this->hasMany(SalesDeliveryLine::class);
     }
+
+    public function bookingLine()
+    {
+        return $this->belongsTo(BookingLine::class);
+    }
 }
 
 

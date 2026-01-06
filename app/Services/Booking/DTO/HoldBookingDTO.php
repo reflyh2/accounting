@@ -10,6 +10,8 @@ readonly class HoldBookingDTO
      * @param BookingLineDTO[] $lines
      */
     public function __construct(
+        public ?int $companyId,
+        public ?int $branchId,
         public int $partnerId,
         public int $currencyId,
         public string $bookingType,

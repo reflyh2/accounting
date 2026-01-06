@@ -34,6 +34,63 @@ class BookingController extends Controller
         return response()->json($booking, 201);
     }
 
+    /**
+     * Check pool availability for a given date range.
+     */
+    public function checkAvailability(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'resource_pool_id' => ['required', 'exists:resource_pools,id'],
+            'start_datetime' => ['required', 'date'],
+            'end_datetime' => ['required', 'date', 'after:start_datetime'],
+            'qty' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $availabilityService = app(\App\Services\Booking\AvailabilityService::class);
+
+        $result = $availabilityService->searchPoolAvailability(
+            (int) $data['resource_pool_id'],
+            Carbon::parse($data['start_datetime']),
+            Carbon::parse($data['end_datetime']),
+            (int) $data['qty']
+        );
+
+        return response()->json([
+            'available' => $result->availableQty >= $data['qty'],
+            'requested_qty' => $data['qty'],
+            'available_qty' => $result->availableQty,
+            'capacity' => $result->capacity,
+            'booked_qty' => $result->bookedQty,
+            'blocking_rules' => $result->blockingRules,
+        ]);
+    }
+
+    /**
+     * Get resource pools for a product, optionally filtered by branch.
+     */
+    public function poolsForProduct(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'product_id' => ['required', 'exists:products,id'],
+            'branch_id' => ['nullable', 'exists:branches,id'],
+        ]);
+
+        $query = \App\Models\ResourcePool::query()
+            ->where('product_id', $data['product_id'])
+            ->where('is_active', true);
+
+        if (!empty($data['branch_id'])) {
+            $query->where('branch_id', $data['branch_id']);
+        }
+
+        $pools = $query->get(['id', 'name', 'branch_id', 'default_capacity']);
+
+        return response()->json([
+            'pools' => $pools,
+            'auto_select' => $pools->count() === 1 ? $pools->first()->id : null,
+        ]);
+    }
+
     public function confirm(Booking $booking): JsonResponse
     {
         return $this->mutateBooking(fn () => $this->bookingService->confirm($booking->id));
@@ -91,6 +148,8 @@ class BookingController extends Controller
     private function validateStore(Request $request): array
     {
         return $request->validate([
+            'company_id' => ['nullable', 'exists:companies,id'],
+            'branch_id' => ['nullable', 'exists:branches,id'],
             'partner_id' => ['required', 'exists:partners,id'],
             'currency_id' => ['required', 'exists:currencies,id'],
             'booking_type' => ['required', 'in:accommodation,rental'],
@@ -116,6 +175,8 @@ class BookingController extends Controller
     private function makeHoldDto(array $data): HoldBookingDTO
     {
         return new HoldBookingDTO(
+            $data['company_id'] ?? null,
+            $data['branch_id'] ?? null,
             $data['partner_id'],
             $data['currency_id'],
             $data['booking_type'],

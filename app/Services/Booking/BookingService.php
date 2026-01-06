@@ -61,6 +61,8 @@ class BookingService
 
             $booking = Booking::create([
                 'booking_number' => $this->generateBookingNumber(),
+                'company_id' => $dto->companyId,
+                'branch_id' => $dto->branchId,
                 'partner_id' => $dto->partnerId,
                 'booking_type' => $dto->bookingType,
                 'status' => BookingStatus::HOLD->value,

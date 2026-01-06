@@ -298,12 +298,18 @@ class SalesService
             return;
         }
 
+        // Check availability for all booking lines before creating
+        $this->checkBookingAvailability($bookingLines);
+
         // Group by booking type
         $groupedLines = $bookingLines->groupBy(function (SalesOrderLine $line) {
-            return $line->product->rentalPolicy ? 'rental' : 'default'; // Or 'accommodation' if logic supports it
+            return $line->product->rentalPolicy ? 'rental' : 'accommodation';
         });
 
         foreach ($groupedLines as $type => $lines) {
+            // Collect the SO line IDs in order for later linking
+            $soLineIds = $lines->pluck('id')->values()->toArray();
+
             $linesDto = $lines->map(function (SalesOrderLine $line) {
                 return new BookingLineDTO(
                     productId: $line->product_id,
@@ -317,6 +323,8 @@ class SalesService
             })->values()->toArray();
 
             $dto = new HoldBookingDTO(
+                companyId: $salesOrder->company_id,
+                branchId: $salesOrder->branch_id,
                 partnerId: $salesOrder->partner_id,
                 currencyId: $salesOrder->currency_id,
                 bookingType: $type,
@@ -329,6 +337,52 @@ class SalesService
 
             $booking = $this->bookingService->hold($dto);
             $this->bookingService->confirm($booking->id);
+
+            // Link booking lines back to SO lines
+            $this->linkBookingLinesToOrder($booking, $soLineIds);
+        }
+    }
+
+    /**
+     * Check availability for all booking lines before creating bookings.
+     *
+     * @throws SalesOrderException
+     */
+    private function checkBookingAvailability(\Illuminate\Support\Collection $bookingLines): void
+    {
+        $availabilityService = app(\App\Services\Booking\AvailabilityService::class);
+
+        foreach ($bookingLines as $line) {
+            $result = $availabilityService->searchPoolAvailability(
+                $line->resource_pool_id,
+                $line->start_date,
+                $line->end_date,
+                (int) $line->quantity
+            );
+
+            if ($result->availableQty < $line->quantity) {
+                $productName = $line->product->name ?? 'Product';
+                throw new SalesOrderException(
+                    "Kapasitas tidak tersedia untuk {$productName}. " .
+                    "Tersedia: {$result->availableQty}, Dibutuhkan: {$line->quantity}"
+                );
+            }
+        }
+    }
+
+    /**
+     * Link created booking lines to SO lines.
+     */
+    private function linkBookingLinesToOrder(\App\Models\Booking $booking, array $soLineIds): void
+    {
+        $booking->loadMissing('lines');
+
+        // Match booking lines to SO lines by order
+        foreach ($booking->lines as $index => $bookingLine) {
+            if (isset($soLineIds[$index])) {
+                SalesOrderLine::where('id', $soLineIds[$index])
+                    ->update(['booking_line_id' => $bookingLine->id]);
+            }
         }
     }
 
