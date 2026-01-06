@@ -516,34 +516,51 @@ class SalesInvoiceService
                 throw new SalesInvoiceException('Baris Sales Order tidak ditemukan.');
             }
 
-            if (!$salesDeliveryLineId) {
-                throw new SalesInvoiceException('Baris pengiriman harus dipilih.');
-            }
-
             /** @var SalesDeliveryLine|null $deliveryLine */
-            $deliveryLine = $deliveryLines->get($salesDeliveryLineId);
-            if (!$deliveryLine || (int) $deliveryLine->sales_order_line_id !== $soLine->id) {
+            $deliveryLine = $salesDeliveryLineId ? $deliveryLines->get($salesDeliveryLineId) : null;
+
+            if (!$deliveryLine) {
+                if ($salesDeliveryLineId) {
+                    throw new SalesInvoiceException('Baris pengiriman tidak ditemukan referensinya.');
+                }
+                if (!$soLine->resource_pool_id) {
+                    throw new SalesInvoiceException('Baris pengiriman harus dipilih untuk item barang.');
+                }
+            } elseif ((int) $deliveryLine->sales_order_line_id !== $soLine->id) {
                 throw new SalesInvoiceException('Baris pengiriman tidak sah untuk SO tersebut.');
             }
 
-            $availableQuantity = max(
-                0.0,
-                (float) $deliveryLine->quantity
-                    - (float) $deliveryLine->quantity_invoiced
-            );
+            if ($deliveryLine) {
+                $availableQuantity = max(
+                    0.0,
+                    (float) $deliveryLine->quantity
+                        - (float) $deliveryLine->quantity_invoiced
+                );
 
-            if (($quantity - $availableQuantity) > self::QTY_TOLERANCE) {
-                throw new SalesInvoiceException('Jumlah faktur melebihi sisa pada delivery.');
+                if (($quantity - $availableQuantity) > self::QTY_TOLERANCE) {
+                    throw new SalesInvoiceException('Jumlah faktur melebihi sisa pada delivery.');
+                }
             }
 
-            $soAvailable = max(
-                0.0,
-                ((float) $soLine->quantity_delivered)
-                    - (float) $soLine->quantity_invoiced
-            );
+            if ($soLine->resource_pool_id) {
+                $soAvailable = max(
+                    0.0,
+                    (float) $soLine->quantity - (float) $soLine->quantity_invoiced
+                );
 
-            if (($quantity - $soAvailable) > self::QTY_TOLERANCE) {
-                throw new SalesInvoiceException('Jumlah faktur melebihi sisa pengiriman SO.');
+                if (($quantity - $soAvailable) > self::QTY_TOLERANCE) {
+                    throw new SalesInvoiceException('Jumlah faktur melebihi sisa pesanan (booking).');
+                }
+            } else {
+                $soAvailable = max(
+                    0.0,
+                    ((float) $soLine->quantity_delivered)
+                        - (float) $soLine->quantity_invoiced
+                );
+
+                if (($quantity - $soAvailable) > self::QTY_TOLERANCE) {
+                    throw new SalesInvoiceException('Jumlah faktur melebihi sisa pengiriman SO.');
+                }
             }
 
             $quantityBase = $this->deriveBaseQuantity($quantity, $deliveryLine, $soLine);
@@ -900,6 +917,7 @@ class SalesInvoiceService
     private function assertSalesOrderInvoiceable(SalesOrder $salesOrder): void
     {
         if (!in_array($salesOrder->status, [
+            SalesOrderStatus::CONFIRMED->value,
             SalesOrderStatus::PARTIALLY_DELIVERED->value,
             SalesOrderStatus::DELIVERED->value,
             SalesOrderStatus::CLOSED->value,

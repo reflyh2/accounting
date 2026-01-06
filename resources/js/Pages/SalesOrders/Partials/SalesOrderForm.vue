@@ -196,6 +196,14 @@ function getVariantsForProduct(productId) {
     }));
 }
 
+function getResourcePools(line) {
+    if (!line.product_id) {
+        return [];
+    }
+    const product = filteredProducts.value.find((p) => p.id === line.product_id);
+    return product?.resource_pools || [];
+}
+
 const uomOptions = computed(() => {
     if (!form.company_id) {
         return props.uoms;
@@ -224,6 +232,31 @@ const totals = computed(() => {
 });
 
 const grandTotal = computed(() => totals.value.subtotal + totals.value.tax);
+
+// Determine if we have stock-based or booking-based products in the lines
+const hasStockProducts = computed(() => {
+    return form.lines.some((line) => {
+        if (!line.product_id) return false;
+        const product = filteredProducts.value.find((p) => p.id === line.product_id);
+        return !product?.resource_pools || product.resource_pools.length === 0;
+    });
+});
+
+const hasBookingProducts = computed(() => {
+    return form.lines.some((line) => {
+        if (!line.product_id) return false;
+        const product = filteredProducts.value.find((p) => p.id === line.product_id);
+        return product?.resource_pools && product.resource_pools.length > 0;
+    });
+});
+
+// Check if product is a booking product
+function isBookingProduct(line) {
+    if (!line.product_id) return false;
+    const product = filteredProducts.value.find((p) => p.id === line.product_id);
+    return product?.resource_pools && product.resource_pools.length > 0;
+}
+
 
 watch(selectedCompany, (newCompanyId) => {
     if (props.mode === 'create') {
@@ -306,6 +339,9 @@ function createEmptyLine() {
         description: '',
         requested_delivery_date: '',
         reservation_location_id: null,
+        start_date: '',
+        end_date: '',
+        resource_pool_id: null,
     };
 }
 
@@ -331,6 +367,9 @@ function resetLine(line) {
     line.description = '';
     line.requested_delivery_date = '';
     line.reservation_location_id = null;
+    line.start_date = '';
+    line.end_date = '';
+    line.resource_pool_id = null;
 }
 
 function handleProductChange(line, index) {
@@ -563,6 +602,7 @@ function submitForm(createAnother = false) {
 
                 <div class="grid grid-cols-2 gap-4 mt-4">
                     <AppInput
+                        v-if="hasStockProducts"
                         v-model="form.expected_delivery_date"
                         type="date"
                         label="Estimasi Kirim:"
@@ -620,7 +660,7 @@ function submitForm(createAnother = false) {
                     />
                 </div>
 
-                <div class="mt-4 bg-gray-50 border border-gray-200 p-3 rounded">
+                <div v-if="hasStockProducts" class="mt-4 bg-gray-50 border border-gray-200 p-3 rounded">
                     <AppCheckbox v-model:checked="form.reserve_stock" label="Reservasi stok ketika order dikonfirmasi" />
                     <p class="text-xs text-gray-500 mt-1">
                         Saat diaktifkan, stok akan otomatis disisihkan setelah Sales Order dikonfirmasi.
@@ -667,8 +707,10 @@ function submitForm(createAnother = false) {
                         <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Harga Satuan</th>
                         <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Diskon (%)</th>
                         <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Pajak (%)</th>
-                        <th class="border border-gray-300 text-sm min-w-32 px-1.5 py-1.5">Tgl Kirim</th>
-                        <th class="border border-gray-300 text-sm min-w-32 px-1.5 py-1.5">Lokasi</th>
+                        <th v-if="hasStockProducts" class="border border-gray-300 text-sm min-w-32 px-1.5 py-1.5">Tgl Kirim</th>
+                        <th v-if="hasStockProducts" class="border border-gray-300 text-sm min-w-32 px-1.5 py-1.5">Lokasi</th>
+                        <th v-if="hasBookingProducts" class="border border-gray-300 text-sm min-w-32 px-1.5 py-1.5">Mulai</th>
+                        <th v-if="hasBookingProducts" class="border border-gray-300 text-sm min-w-32 px-1.5 py-1.5">Selesai</th>
                         <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Subtotal</th>
                         <th class="border border-gray-300 px-1.5 py-1.5"></th>
                     </tr>
@@ -749,21 +791,41 @@ function submitForm(createAnother = false) {
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                        <td v-if="hasStockProducts" class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppInput
+                                v-if="!isBookingProduct(line)"
                                 v-model="line.requested_delivery_date"
                                 type="date"
                                 :error="form.errors?.[`lines.${index}.requested_delivery_date`]"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
-                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                        <td v-if="hasStockProducts" class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppSelect
+                                v-if="!isBookingProduct(line)"
                                 v-model="line.reservation_location_id"
                                 :options="filteredLocations.map((loc) => ({ value: loc.id, label: `${loc.code} — ${loc.name}` }))"
                                 placeholder="Pilih lokasi"
                                 :error="form.errors?.[`lines.${index}.reservation_location_id`]"
                                 :required="form.reserve_stock"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td v-if="hasBookingProducts" class="border border-gray-300 px-1.5 py-1.5 align-top">
+                            <AppInput
+                                v-if="isBookingProduct(line)"
+                                v-model="line.start_date"
+                                type="datetime-local"
+                                :error="form.errors?.[`lines.${index}.start_date`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td v-if="hasBookingProducts" class="border border-gray-300 px-1.5 py-1.5 align-top">
+                            <AppInput
+                                v-if="isBookingProduct(line)"
+                                v-model="line.end_date"
+                                type="datetime-local"
+                                :error="form.errors?.[`lines.${index}.end_date`]"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
@@ -787,17 +849,17 @@ function submitForm(createAnother = false) {
 
                 <tfoot>
                     <tr class="text-sm">
-                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="7">Total</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right" :colspan="6 + (hasStockProducts ? 2 : 0) + (hasBookingProducts ? 2 : 0)">Total</th>
                         <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.subtotal) }}</th>
                         <th class="border border-gray-300 px-4 py-2"></th>
                     </tr>
                     <tr class="text-sm">
-                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="7">Total Pajak</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right" :colspan="6 + (hasStockProducts ? 2 : 0) + (hasBookingProducts ? 2 : 0)">Total Pajak</th>
                         <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.tax) }}</th>
                         <th class="border border-gray-300 px-4 py-2"></th>
                     </tr>
                     <tr class="text-sm font-semibold">
-                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="7">Grand Total</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right" :colspan="6 + (hasStockProducts ? 2 : 0) + (hasBookingProducts ? 2 : 0)">Grand Total</th>
                         <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(grandTotal) }}</th>
                         <th class="border border-gray-300 px-4 py-2"></th>
                     </tr>

@@ -29,6 +29,8 @@ class SalesOrderLine extends Model
         'quantity_invoiced' => 'decimal:3',
         'quantity_invoiced_base' => 'decimal:3',
         'requested_delivery_date' => 'date',
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
     ];
 
     public function salesOrder()
@@ -59,6 +61,11 @@ class SalesOrderLine extends Model
     public function reservationLocation()
     {
         return $this->belongsTo(Location::class, 'reservation_location_id');
+    }
+
+    public function resourcePool()
+    {
+        return $this->belongsTo(ResourcePool::class);
     }
 
     public function deliveryLines()

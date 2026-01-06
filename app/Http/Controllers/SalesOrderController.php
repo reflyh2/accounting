@@ -317,7 +317,7 @@ class SalesOrderController extends Controller
             'branches' => $this->branchOptions(),
             'customers' => $this->customerOptions(),
             'currencies' => Currency::orderBy('code')->get(['id', 'code', 'name']),
-            'products' => Product::with(['variants.uom:id,code,name,company_id', 'companies:id', 'taxCategory'])
+            'products' => Product::with(['variants.uom:id,code,name,company_id', 'companies:id', 'taxCategory', 'resourcePools:id,name,product_id'])
                 ->orderBy('name')
                 ->get()
                 ->map(function (Product $product) {
@@ -326,6 +326,10 @@ class SalesOrderController extends Controller
                         'name' => $product->name,
                         'company_ids' => $product->companies->pluck('id')->all(),
                         'tax_category_id' => $product->tax_category_id,
+                        'resource_pools' => $product->resourcePools->map(fn ($pool) => [
+                            'id' => $pool->id,
+                            'name' => $pool->name,
+                        ]),
                         'variants' => $product->variants->map(fn ($variant) => [
                             'id' => $variant->id,
                             'sku' => $variant->sku,

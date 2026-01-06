@@ -35,6 +35,10 @@ use App\Domain\Accounting\DTO\AccountingEntry;
 use Throwable;
 use RuntimeException;
 
+use App\Services\Booking\BookingService;
+use App\Services\Booking\DTO\HoldBookingDTO;
+use App\Services\Booking\DTO\BookingLineDTO;
+
 class SalesService
 {
     private const MONEY_SCALE = 2;
@@ -48,6 +52,7 @@ class SalesService
         private readonly TaxService $taxService,
         private readonly InventoryService $inventoryService,
         private readonly AccountingEventBus $accountingEventBus,
+        private readonly BookingService $bookingService,
     ) {
     }
 
@@ -276,7 +281,55 @@ class SalesService
             $this->applyReservation($salesOrder);
         }
 
+        $this->createBookingsForOrder($salesOrder);
+
         return $salesOrder->refresh();
+    }
+
+    private function createBookingsForOrder(SalesOrder $salesOrder): void
+    {
+        $salesOrder->loadMissing(['lines.product.rentalPolicy']);
+
+        $bookingLines = $salesOrder->lines->filter(function (SalesOrderLine $line) {
+            return $line->resource_pool_id && $line->start_date && $line->end_date;
+        });
+
+        if ($bookingLines->isEmpty()) {
+            return;
+        }
+
+        // Group by booking type
+        $groupedLines = $bookingLines->groupBy(function (SalesOrderLine $line) {
+            return $line->product->rentalPolicy ? 'rental' : 'default'; // Or 'accommodation' if logic supports it
+        });
+
+        foreach ($groupedLines as $type => $lines) {
+            $linesDto = $lines->map(function (SalesOrderLine $line) {
+                return new BookingLineDTO(
+                    productId: $line->product_id,
+                    resourcePoolId: $line->resource_pool_id,
+                    start: $line->start_date,
+                    end: $line->end_date,
+                    qty: (int) $line->quantity,
+                    unitPrice: (float) $line->unit_price,
+                    productVariantId: $line->product_variant_id,
+                );
+            })->values()->toArray();
+
+            $dto = new HoldBookingDTO(
+                partnerId: $salesOrder->partner_id,
+                currencyId: $salesOrder->currency_id,
+                bookingType: $type,
+                heldUntil: null,
+                depositAmount: 0,
+                sourceChannel: 'sales_order',
+                notes: 'Generated from Sales Order ' . $salesOrder->order_number,
+                lines: $linesDto
+            );
+
+            $booking = $this->bookingService->hold($dto);
+            $this->bookingService->confirm($booking->id);
+        }
     }
 
     public function cancel(
@@ -1317,6 +1370,9 @@ class SalesService
                     ? Carbon::parse($line['requested_delivery_date'])
                     : null,
                 'reservation_location_id' => $reservationLocationId,
+                'start_date' => isset($line['start_date']) ? Carbon::parse($line['start_date']) : null,
+                'end_date' => isset($line['end_date']) ? Carbon::parse($line['end_date']) : null,
+                'resource_pool_id' => $line['resource_pool_id'] ?? ($variant->product->resourcePools->first()?->id),
             ]);
 
             $subtotal += $lineSubtotal;
