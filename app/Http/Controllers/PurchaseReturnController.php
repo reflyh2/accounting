@@ -176,6 +176,7 @@ class PurchaseReturnController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.goods_receipt_line_id' => ['required', 'exists:goods_receipt_lines,id'],
             'lines.*.quantity' => ['required', 'numeric', 'min:0.0001'],
+            'lines.*.uom_id' => ['nullable', 'exists:uoms,id'],
         ]);
 
         try {
@@ -208,6 +209,77 @@ class PurchaseReturnController extends Controller
             'filters' => Session::get('purchase_returns.index_filters', []),
             'reasonOptions' => $this->reasonOptions(),
         ]);
+    }
+
+    /**
+     * Show the form for editing the specified purchase return.
+     * Note: Purchase returns are immediately posted, so editing is not allowed.
+     */
+    public function edit(PurchaseReturn $purchaseReturn)
+    {
+        // Purchase returns are immediately posted upon creation,
+        // so editing is not supported. Redirect to show page.
+        return Redirect::route('purchase-returns.show', $purchaseReturn->id)
+            ->with('error', 'Retur pembelian tidak dapat diedit karena sudah diposting.');
+    }
+
+    /**
+     * Update the specified purchase return.
+     * Note: Purchase returns are immediately posted, so updating is not allowed.
+     */
+    public function update(Request $request, PurchaseReturn $purchaseReturn)
+    {
+        // Purchase returns are immediately posted upon creation,
+        // so updating is not supported.
+        return Redirect::route('purchase-returns.show', $purchaseReturn->id)
+            ->with('error', 'Retur pembelian tidak dapat diperbarui karena sudah diposting.');
+    }
+
+    /**
+     * Remove the specified purchase return.
+     */
+    public function destroy(PurchaseReturn $purchaseReturn)
+    {
+        try {
+            $this->purchaseReturnService->delete($purchaseReturn);
+        } catch (PurchaseReturnException $exception) {
+            return Redirect::back()->withErrors(['error' => $exception->getMessage()]);
+        }
+
+        return Redirect::route('purchase-returns.index')
+            ->with('success', 'Retur pembelian berhasil dihapus.');
+    }
+
+    /**
+     * Bulk delete purchase returns.
+     */
+    public function bulkDelete(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'exists:purchase_returns,id'],
+        ]);
+
+        $purchaseReturns = PurchaseReturn::whereIn('id', $validated['ids'])->get();
+        $deletedCount = 0;
+        $errors = [];
+
+        foreach ($purchaseReturns as $purchaseReturn) {
+            try {
+                $this->purchaseReturnService->delete($purchaseReturn);
+                $deletedCount++;
+            } catch (PurchaseReturnException $exception) {
+                $errors[] = "{$purchaseReturn->return_number}: {$exception->getMessage()}";
+            }
+        }
+
+        if (!empty($errors)) {
+            return Redirect::back()
+                ->with('warning', "Berhasil menghapus {$deletedCount} retur. Gagal: " . implode(', ', $errors));
+        }
+
+        return Redirect::back()
+            ->with('success', "Berhasil menghapus {$deletedCount} retur pembelian.");
     }
 
     /**

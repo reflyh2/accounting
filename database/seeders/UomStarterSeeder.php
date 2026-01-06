@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\Uom;
 use App\Models\UomConversion;
+use App\Models\Company;
 
 class UomStarterSeeder extends Seeder
 {
@@ -58,119 +59,64 @@ class UomStarterSeeder extends Seeder
         $hour = Uom::where('code', 'hour')->first();
         $day = Uom::where('code', 'day')->first();
 
-        // Simple conversions (add both directions where practical)
+        // Helper to create conversion with numerator/denominator
+        $createConversion = function ($from, $to, $numerator, $denominator) {
+            UomConversion::query()->updateOrCreate(
+                ['from_uom_id' => $from->id, 'to_uom_id' => $to->id],
+                [
+                    'numerator' => $numerator,
+                    'denominator' => $denominator,
+                    'factor' => $numerator / $denominator, // Keep factor for backward compatibility
+                ]
+            );
+        };
+
+        // Dozen <-> Pieces (1 dozen = 12 pcs)
         if ($dozen && $pcs) {
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $dozen->id, 'to_uom_id' => $pcs->id],
-                ['factor' => 12]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $pcs->id, 'to_uom_id' => $dozen->id],
-                ['factor' => 1/12]
-            );
+            $createConversion($dozen, $pcs, 12, 1);   // 1 dozen = 12 pcs
+            $createConversion($pcs, $dozen, 1, 12);   // 1 pcs = 1/12 dozen
         }
 
+        // Weight conversions
         if ($kg && $g && $mg) {
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $kg->id, 'to_uom_id' => $g->id],
-                ['factor' => 1000]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $g->id, 'to_uom_id' => $kg->id],
-                ['factor' => 0.001]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $g->id, 'to_uom_id' => $mg->id],
-                ['factor' => 1000]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $mg->id, 'to_uom_id' => $g->id],
-                ['factor' => 0.001]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $mg->id, 'to_uom_id' => $kg->id],
-                ['factor' => 0.000001]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $kg->id, 'to_uom_id' => $mg->id],
-                ['factor' => 1000000]
-            );
+            $createConversion($kg, $g, 1000, 1);       // 1 kg = 1000 g
+            $createConversion($g, $kg, 1, 1000);       // 1 g = 1/1000 kg
+            $createConversion($g, $mg, 1000, 1);       // 1 g = 1000 mg
+            $createConversion($mg, $g, 1, 1000);       // 1 mg = 1/1000 g
+            $createConversion($kg, $mg, 1000000, 1);   // 1 kg = 1000000 mg
+            $createConversion($mg, $kg, 1, 1000000);   // 1 mg = 1/1000000 kg
         }
 
+        // Length conversions
         if ($m && $cm && $mm) {
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $m->id, 'to_uom_id' => $cm->id],
-                ['factor' => 100]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $cm->id, 'to_uom_id' => $m->id],
-                ['factor' => 0.01]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $cm->id, 'to_uom_id' => $mm->id],
-                ['factor' => 10]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $mm->id, 'to_uom_id' => $cm->id],
-                ['factor' => 0.1]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $m->id, 'to_uom_id' => $mm->id],
-                ['factor' => 1000]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $mm->id, 'to_uom_id' => $m->id],
-                ['factor' => 0.001]
-            );
+            $createConversion($m, $cm, 100, 1);        // 1 m = 100 cm
+            $createConversion($cm, $m, 1, 100);        // 1 cm = 1/100 m
+            $createConversion($cm, $mm, 10, 1);        // 1 cm = 10 mm
+            $createConversion($mm, $cm, 1, 10);        // 1 mm = 1/10 cm
+            $createConversion($m, $mm, 1000, 1);       // 1 m = 1000 mm
+            $createConversion($mm, $m, 1, 1000);       // 1 mm = 1/1000 m
         }
 
+        // Area conversions
         if ($m2 && $cm2 && $mm2) {
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $m2->id, 'to_uom_id' => $cm2->id],
-                ['factor' => 10000]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $cm2->id, 'to_uom_id' => $m2->id],
-                ['factor' => 0.0001]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $cm2->id, 'to_uom_id' => $mm2->id],
-                ['factor' => 100]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $mm2->id, 'to_uom_id' => $cm2->id],
-                ['factor' => 0.01]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $m2->id, 'to_uom_id' => $mm2->id],
-                ['factor' => 1000000]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $mm2->id, 'to_uom_id' => $m2->id],
-                ['factor' => 0.000001]
-            );
+            $createConversion($m2, $cm2, 10000, 1);    // 1 m2 = 10000 cm2
+            $createConversion($cm2, $m2, 1, 10000);    // 1 cm2 = 1/10000 m2
+            $createConversion($cm2, $mm2, 100, 1);     // 1 cm2 = 100 mm2
+            $createConversion($mm2, $cm2, 1, 100);     // 1 mm2 = 1/100 cm2
+            $createConversion($m2, $mm2, 1000000, 1);  // 1 m2 = 1000000 mm2
+            $createConversion($mm2, $m2, 1, 1000000);  // 1 mm2 = 1/1000000 m2
         }
 
+        // Volume conversions
         if ($l && $ml) {
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $l->id, 'to_uom_id' => $ml->id],
-                ['factor' => 1000]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $ml->id, 'to_uom_id' => $l->id],
-                ['factor' => 0.001]
-            );
+            $createConversion($l, $ml, 1000, 1);       // 1 l = 1000 ml
+            $createConversion($ml, $l, 1, 1000);       // 1 ml = 1/1000 l
         }
         
+        // Time conversions
         if ($day && $hour) {
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $day->id, 'to_uom_id' => $hour->id],
-                ['factor' => 24]
-            );
-            UomConversion::query()->updateOrCreate(
-                ['from_uom_id' => $hour->id, 'to_uom_id' => $day->id],
-                ['factor' => 1/24]
-            );
+            $createConversion($day, $hour, 24, 1);     // 1 day = 24 hours
+            $createConversion($hour, $day, 1, 24);     // 1 hour = 1/24 day
         }
     }
 }

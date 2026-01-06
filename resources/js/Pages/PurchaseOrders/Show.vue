@@ -31,6 +31,7 @@ const processing = ref(false);
 const canApprove = computed(() => props.allowedTransitions?.includes('approved'));
 const canSend = computed(() => props.allowedTransitions?.includes('sent'));
 const canCancel = computed(() => props.allowedTransitions?.includes('canceled'));
+const canClose = computed(() => props.allowedTransitions?.includes('closed'));
 const isDraft = computed(() => props.purchaseOrder.status === 'draft');
 const hasOutstandingReceipt = computed(() =>
     props.purchaseOrder.lines?.some((line) => {
@@ -75,6 +76,10 @@ function deleteOrder() {
             showDeleteConfirmation.value = false;
         },
     });
+}
+
+function closeOrder() {
+    router.post(route('purchase-orders.close', props.purchaseOrder.id));
 }
 </script>
 
@@ -128,6 +133,9 @@ function deleteOrder() {
                                 <AppDangerButton v-if="canCancel" type="button" @click="openCancelModal" :disabled="processing" class="ml-3">
                                     Batalkan
                                 </AppDangerButton>
+                                <AppSecondaryButton v-if="canClose" type="button" @click="closeOrder" class="ml-3">
+                                    Tutup PO
+                                </AppSecondaryButton>
                                 <AppDeleteButton v-if="isDraft" @click="showDeleteConfirmation = true" title="Delete" class="ml-3" />
                             </div>
                         </div>

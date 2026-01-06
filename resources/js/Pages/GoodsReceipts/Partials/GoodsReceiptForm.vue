@@ -1,6 +1,6 @@
 <script setup>
 import { useForm, router } from '@inertiajs/vue3';
-import { computed, watch, ref, onMounted } from 'vue';
+import { computed, watch, ref, reactive, onMounted } from 'vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppInput from '@/Components/AppInput.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
@@ -72,12 +72,19 @@ const currentLineForModal = ref(null);
 const lotsCache = ref({});
 const serialsCache = ref({});
 
+// Store convertible UOMs per PO line ID
+const lineConvertibleUoms = reactive({});
+
+// Store conversion factors per line and UOM: { poLineId: { uomId: conversionFactor } }
+const lineUomConversionFactors = reactive({});
+
 // Build initial lines from selected POs or existing GRN
 function buildInitialLines() {
     if (isEditMode.value && props.goodsReceipt?.lines) {
         return props.goodsReceipt.lines.map(line => ({
             purchase_order_line_id: line.purchase_order_line_id,
             quantity: line.quantity,
+            uom_id: line.uom?.id || null,
             lot_id: line.lot_id || null,
             serial_id: line.serial_id || null,
         }));
@@ -90,6 +97,7 @@ function buildInitialLines() {
                 lines.push({
                     purchase_order_line_id: line.id,
                     quantity: line.remaining_quantity,
+                    uom_id: line.uom?.id || null,
                     lot_id: null,
                     serial_id: null,
                 });
@@ -172,6 +180,115 @@ function setSerialId(poLineId, value) {
     if (existingIndex >= 0) {
         form.lines[existingIndex].serial_id = value;
     }
+}
+
+// Get/Set UOM for a line
+function getUomId(poLineId) {
+    return formLinesByPoLineId.value[poLineId]?.uom_id ?? null;
+}
+
+function setUomId(poLineId, value) {
+    const existingIndex = form.lines.findIndex(l => l.purchase_order_line_id === poLineId);
+    if (existingIndex >= 0) {
+        form.lines[existingIndex].uom_id = value;
+    }
+}
+
+/**
+ * Fetch convertible UOMs for a PO line based on its base UOM.
+ */
+async function fetchConvertibleUoms(poLineId, baseUomId, productId) {
+    if (!baseUomId) {
+        delete lineConvertibleUoms[poLineId];
+        delete lineUomConversionFactors[poLineId];
+        return;
+    }
+    
+    try {
+        const response = await axios.get(route('api.convertible-uoms'), {
+            params: {
+                base_uom_id: baseUomId,
+                product_id: productId,
+                company_id: selectedCompany.value,
+            }
+        });
+        
+        // Store UOM options
+        lineConvertibleUoms[poLineId] = response.data.map(u => ({
+            value: u.id,
+            label: u.code,
+            description: u.name,
+        }));
+        
+        // Store conversion ratios (numerator/denominator) for each UOM
+        lineUomConversionFactors[poLineId] = {};
+        for (const uom of response.data) {
+            // Store both numerator and denominator for precise conversion
+            lineUomConversionFactors[poLineId][uom.id] = {
+                numerator: uom.numerator || 1,
+                denominator: uom.denominator || 1,
+            };
+        }
+    } catch (error) {
+        console.error('Error fetching convertible UOMs:', error);
+        delete lineConvertibleUoms[poLineId];
+        delete lineUomConversionFactors[poLineId];
+    }
+}
+
+/**
+ * Get UOM options for a specific PO line.
+ */
+function getUomOptions(poLineId, defaultUom) {
+    const convertibleUoms = lineConvertibleUoms[poLineId];
+    if (convertibleUoms && convertibleUoms.length > 0) {
+        return convertibleUoms;
+    }
+    // Fallback: just show the PO line's UOM
+    if (defaultUom?.id) {
+        return [{ value: defaultUom.id, label: defaultUom.code, description: defaultUom.name }];
+    }
+    return [];
+}
+
+/**
+ * Get the remaining quantity converted to the selected UOM.
+ * Uses numerator/denominator from API for precise fraction-based conversion.
+ */
+function getConvertedRemainingQuantity(poLine) {
+    const selectedUomId = getUomId(poLine.id);
+    const originalUomId = poLine.uom?.id;
+    const remainingQty = poLine.remaining_quantity || 0;
+    
+    // If no UOM selected yet or same as original, return original remaining
+    if (!selectedUomId || selectedUomId === originalUomId) {
+        return remainingQty;
+    }
+    
+    // Get the conversion ratios for this line
+    const ratios = lineUomConversionFactors[poLine.id] || {};
+    const originalRatio = ratios[originalUomId] || { numerator: 1, denominator: 1 };
+    const selectedRatio = ratios[selectedUomId] || { numerator: 1, denominator: 1 };
+    
+    // Convert using cross multiplication:
+    // remaining * (selectedNumerator / selectedDenominator) / (originalNumerator / originalDenominator)
+    // = remaining * selectedNumerator * originalDenominator / (selectedDenominator * originalNumerator)
+    const convertedQty = remainingQty * selectedRatio.numerator * originalRatio.denominator 
+                       / (selectedRatio.denominator * originalRatio.numerator);
+    
+    return convertedQty;
+}
+
+/**
+ * Get the current UOM code for display
+ */
+function getSelectedUomCode(poLine) {
+    const selectedUomId = getUomId(poLine.id);
+    if (!selectedUomId) return poLine.uom?.code || '-';
+    
+    const options = lineConvertibleUoms[poLine.id] || [];
+    const selected = options.find(u => u.value === selectedUomId);
+    return selected?.label || poLine.uom?.code || '-';
 }
 
 // Fetch lots for a product variant
@@ -260,8 +377,9 @@ function handleSerialCreated(serial) {
 
 // Click on remaining quantity to receive all for that row
 function receiveRemainingForLine(line) {
-    if (line.remaining_quantity > 0) {
-        setQuantity(line.id, line.remaining_quantity);
+    const convertedRemaining = getConvertedRemainingQuantity(line);
+    if (convertedRemaining > 0) {
+        setQuantity(line.id, convertedRemaining);
     }
 }
 
@@ -275,8 +393,9 @@ const hasSelectedQuantity = computed(() =>
 
 function receiveAllRemaining() {
     for (const poLine of allPoLines.value) {
-        if (poLine.remaining_quantity > 0) {
-            setQuantity(poLine.id, poLine.remaining_quantity);
+        const convertedRemaining = getConvertedRemainingQuantity(poLine);
+        if (convertedRemaining > 0) {
+            setQuantity(poLine.id, convertedRemaining);
         }
     }
 }
@@ -398,6 +517,7 @@ function repopulateLinesFromPOs() {
                 newLines.push({
                     purchase_order_line_id: line.id,
                     quantity: line.remaining_quantity,
+                    uom_id: line.uom?.id || null,
                     lot_id: null,
                     serial_id: null,
                 });
@@ -474,16 +594,22 @@ const supplierTableHeaders = [
 const lotOptionsMap = ref({});
 const serialOptionsMap = ref({});
 
-// Load lot/serial options when PO lines change
+// Load lot/serial and UOM options when PO lines change
 watch(allPoLines, async (lines) => {
     for (const line of lines) {
-        if (line.variant.id) {
+        if (line.variant?.id) {
             fetchLots(line.variant.id).then(options => {
                 lotOptionsMap.value[line.variant.id] = options;
             });
             fetchSerials(line.variant.id).then(options => {
                 serialOptionsMap.value[line.variant.id] = options;
             });
+        }
+        // Fetch convertible UOMs for each line
+        const baseUomId = line.base_uom?.id || line.uom?.id;
+        const productId = line.variant?.product_id || line.product_id;
+        if (baseUomId) {
+            fetchConvertibleUoms(line.id, baseUomId, productId);
         }
     }
 }, { immediate: true });
@@ -635,20 +761,27 @@ const serialOptions = computed(() => {
                                 {{ line.purchase_order_number }}
                             </td>
                             <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-right">
-                                <span :class="line.remaining_quantity > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'">
-                                    {{ formatNumber(line.remaining_quantity, 2) }}
+                                <span :class="getConvertedRemainingQuantity(line) > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'">
+                                    {{ formatNumber(getConvertedRemainingQuantity(line), 2) }}
                                 </span>
                             </td>
-                            <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-gray-500">
-                                {{ line.uom?.code ?? '-' }}
+                            <td class="border border-gray-300 px-1.5 py-1.5">
+                                <AppSelect
+                                    :modelValue="getUomId(line.id)"
+                                    @update:modelValue="setUomId(line.id, $event)"
+                                    :options="getUomOptions(line.id, line.uom)"
+                                    placeholder="Pilih UOM"
+                                    :disabled="line.remaining_quantity <= 0"
+                                    :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                />
                             </td>
                             <td class="border border-gray-300 px-1.5 py-1.5">
                                 <AppInput
                                     :modelValue="getQuantity(line.id)"
                                     @update:modelValue="setQuantity(line.id, $event)"
                                     :numberFormat="true"
-                                    :max="line.remaining_quantity"
-                                    :disabled="line.remaining_quantity <= 0"
+                                    :max="getConvertedRemainingQuantity(line)"
+                                    :disabled="getConvertedRemainingQuantity(line) <= 0"
                                     :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                                     :prefix="true"
                                 >

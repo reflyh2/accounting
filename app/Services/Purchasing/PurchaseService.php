@@ -441,7 +441,7 @@ class PurchaseService
                     'product_id' => $line->product_id,
                     'product_variant_id' => $line->product_variant_id,
                     'description' => $line->description,
-                    'uom_id' => $line->uom_id,
+                    'uom_id' => $plan['uom_id'],
                     'base_uom_id' => $line->base_uom_id,
                     'quantity' => $plan['quantity'],
                     'quantity_base' => $plan['quantity_base'],
@@ -632,7 +632,7 @@ class PurchaseService
                     'product_id' => $line->product_id,
                     'product_variant_id' => $line->product_variant_id,
                     'description' => $line->description,
-                    'uom_id' => $line->uom_id,
+                    'uom_id' => $plan['uom_id'],
                     'base_uom_id' => $line->base_uom_id,
                     'quantity' => $plan['quantity'],
                     'quantity_base' => $plan['quantity_base'],
@@ -912,6 +912,24 @@ class PurchaseService
         return $purchaseOrder->refresh();
     }
 
+    public function close(PurchaseOrder $purchaseOrder, ?Authenticatable $actor = null): PurchaseOrder
+    {
+        $actor ??= Auth::user();
+
+        $purchaseOrder->transitionTo(
+            PurchaseOrderStatus::CLOSED,
+            $actor,
+            $this->makerCheckerContext($purchaseOrder->company_id)
+        );
+
+        $purchaseOrder->update([
+            'closed_by' => $actor?->getAuthIdentifier(),
+            'closed_at' => now(),
+        ]);
+
+        return $purchaseOrder->refresh();
+    }
+
     public function allowedStatuses(PurchaseOrder $purchaseOrder, ?Authenticatable $actor = null): array
     {
         $actor ??= Auth::user();
@@ -1107,7 +1125,7 @@ class PurchaseService
     }
 
     /**
-     * Prepare goods receipt lines from multiple purchase orders.
+     * Prepare GRN lines from multiple POs with optional custom UOM selection.
      *
      * @param \Illuminate\Support\Collection<int, PurchaseOrder> $purchaseOrders
      * @param array $linesPayload
@@ -1142,21 +1160,29 @@ class PurchaseService
                 throw new PurchaseOrderException('Baris penerimaan tidak valid.');
             }
 
-            $remaining = max(0.0, (float) $line->quantity - (float) $line->quantity_received);
-            if ($quantity - $remaining > self::QTY_TOLERANCE) {
-                throw new PurchaseOrderException(
-                    sprintf('Jumlah diterima melebihi sisa pada baris #%d.', $line->line_number)
-                );
+            // Determine which UOM to use: custom from payload or PO line's UOM
+            $selectedUomId = isset($payloadLine['uom_id']) && $payloadLine['uom_id']
+                ? (int) $payloadLine['uom_id']
+                : $line->uom_id;
+
+            // Validate selected UOM if different from PO UOM
+            if ($selectedUomId !== $line->uom_id) {
+                $selectedUom = Uom::find($selectedUomId);
+                if (!$selectedUom) {
+                    throw new PurchaseOrderException('Satuan yang dipilih tidak valid.');
+                }
             }
 
+            // Convert quantity from selected UOM to base UOM
             try {
                 $quantityBase = $this->roundQuantity(
-                    $this->uomConverter->convert($quantity, $line->uom_id, $line->base_uom_id)
+                    $this->uomConverter->convert($quantity, $selectedUomId, $line->base_uom_id)
                 );
             } catch (RuntimeException $exception) {
                 throw new PurchaseOrderException($exception->getMessage(), previous: $exception);
             }
 
+            // Validate against remaining base quantity
             $remainingBase = max(0.0, (float) $line->quantity_base - (float) $line->quantity_received_base);
             if ($quantityBase - $remainingBase > self::QTY_TOLERANCE) {
                 throw new PurchaseOrderException(
@@ -1164,21 +1190,37 @@ class PurchaseService
                 );
             }
 
+            // Calculate unit cost in base UOM (from PO line's pricing)
             $unitCostBase = (float) $line->unit_price;
             if ((float) $line->quantity_base > 0 && (float) $line->quantity > 0) {
                 $unitCostBase = $line->unit_price * ((float) $line->quantity / (float) $line->quantity_base);
             }
-
             $unitCostBase = $this->roundCost($unitCostBase);
+
+            // Calculate unit price in selected UOM
+            // If UOM changed, recalculate unit price based on conversion
+            $unitPriceInSelectedUom = (float) $line->unit_price;
+            if ($selectedUomId !== $line->uom_id) {
+                try {
+                    // Calculate conversion factor from PO UOM to selected UOM
+                    $conversionFactor = $this->uomConverter->convert(1, $line->uom_id, $selectedUomId);
+                    $unitPriceInSelectedUom = $this->roundMoney((float) $line->unit_price * $conversionFactor);
+                } catch (RuntimeException $exception) {
+                    // If conversion fails, use original unit price
+                    $unitPriceInSelectedUom = (float) $line->unit_price;
+                }
+            }
+
             $orderedQuantity = $this->roundQuantity($quantity);
-            $lineTotal = $this->roundMoney($orderedQuantity * (float) $line->unit_price);
+            $lineTotal = $this->roundMoney($orderedQuantity * $unitPriceInSelectedUom);
             $lineTotalBase = $this->roundCost($quantityBase * $unitCostBase);
 
             $prepared[] = [
                 'line' => $line,
                 'quantity' => $orderedQuantity,
                 'quantity_base' => $quantityBase,
-                'unit_price' => (float) $line->unit_price,
+                'uom_id' => $selectedUomId,
+                'unit_price' => $unitPriceInSelectedUom,
                 'unit_cost_base' => $unitCostBase,
                 'line_total' => $lineTotal,
                 'line_total_base' => $lineTotalBase,

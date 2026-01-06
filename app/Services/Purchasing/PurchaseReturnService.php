@@ -33,6 +33,7 @@ class PurchaseReturnService
     public function __construct(
         private readonly InventoryService $inventoryService,
         private readonly AccountingEventBus $accountingEventBus,
+        private readonly \App\Services\Inventory\UomConversionService $uomConversionService,
     ) {
     }
 
@@ -188,6 +189,172 @@ class PurchaseReturnService
         });
     }
 
+    /**
+     * Delete a purchase return and reverse all its effects.
+     * This includes:
+     * - Reversing inventory issue (adding stock back)
+     * - Restoring GRN line quantities
+     * - Restoring PO line quantities
+     * - Dispatching reversal accounting event
+     */
+    public function delete(PurchaseReturn $purchaseReturn, ?Authenticatable $actor = null): void
+    {
+        $actor ??= Auth::user();
+
+        DB::transaction(function () use ($purchaseReturn, $actor) {
+            $purchaseReturn->load([
+                'lines',
+                'goodsReceipt.purchaseOrders.lines',
+            ]);
+
+            $goodsReceipt = $purchaseReturn->goodsReceipt;
+
+            if (!$goodsReceipt) {
+                throw new PurchaseReturnException('Data penerimaan barang tidak ditemukan.');
+            }
+
+            // Collect line IDs for batch updates
+            $grnLineIds = $purchaseReturn->lines->pluck('goods_receipt_line_id')->unique();
+            $poLineIds = $purchaseReturn->lines->pluck('purchase_order_line_id')->unique();
+
+            /** @var \Illuminate\Support\Collection<int, GoodsReceiptLine> $lockedGrnLines */
+            $lockedGrnLines = GoodsReceiptLine::whereIn('id', $grnLineIds)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            /** @var \Illuminate\Support\Collection<int, PurchaseOrderLine> $lockedPoLines */
+            $lockedPoLines = PurchaseOrderLine::whereIn('id', $poLineIds)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            $receiveLines = [];
+
+            foreach ($purchaseReturn->lines as $line) {
+                /** @var GoodsReceiptLine|null $grnLine */
+                $grnLine = $lockedGrnLines->get($line->goods_receipt_line_id);
+                /** @var PurchaseOrderLine|null $poLine */
+                $poLine = $lockedPoLines->get($line->purchase_order_line_id);
+
+                if ($grnLine) {
+                    // Reverse the returned quantities on GRN line
+                    $grnLine->quantity_returned = $this->roundQuantity(
+                        max(0, (float) $grnLine->quantity_returned - (float) $line->quantity)
+                    );
+                    $grnLine->quantity_returned_base = $this->roundQuantity(
+                        max(0, (float) $grnLine->quantity_returned_base - (float) $line->quantity_base)
+                    );
+                    $grnLine->amount_returned = $this->roundMoney(
+                        max(0, (float) $grnLine->amount_returned - (float) $line->line_total)
+                    );
+                    $grnLine->save();
+
+                    // Prepare receive lines to add stock back
+                    $receiveLines[] = new \App\Services\Inventory\DTO\ReceiptLineDTO(
+                        $line->product_variant_id,
+                        $line->base_uom_id,
+                        (float) $line->quantity_base,
+                        (float) $line->unit_cost_base
+                    );
+                }
+
+                if ($poLine) {
+                    // Reverse the returned quantities on PO line
+                    $poLine->quantity_received = $this->roundQuantity(
+                        (float) $poLine->quantity_received + (float) $line->quantity
+                    );
+                    $poLine->quantity_received_base = $this->roundQuantity(
+                        (float) $poLine->quantity_received_base + (float) $line->quantity_base
+                    );
+                    $poLine->quantity_returned = $this->roundQuantity(
+                        max(0, (float) $poLine->quantity_returned - (float) $line->quantity)
+                    );
+                    $poLine->quantity_returned_base = $this->roundQuantity(
+                        max(0, (float) $poLine->quantity_returned_base - (float) $line->quantity_base)
+                    );
+                    $poLine->save();
+                }
+            }
+
+            // Reverse inventory issue by receiving stock back
+            if (!empty($receiveLines)) {
+                $this->inventoryService->receipt(new \App\Services\Inventory\DTO\ReceiptDTO(
+                    Carbon::now(),
+                    $purchaseReturn->location_id,
+                    $receiveLines,
+                    sourceType: PurchaseReturn::class,
+                    sourceId: $purchaseReturn->id,
+                    notes: "Reversal of Purchase Return {$purchaseReturn->return_number}",
+                    valuationMethod: $goodsReceipt->valuation_method
+                ));
+            }
+
+            // Dispatch reversal accounting event
+            $this->dispatchReturnReversalEvent($purchaseReturn, $goodsReceipt, (float) $purchaseReturn->total_value_base, $actor);
+
+            // Sync receipt status for all related purchase orders
+            foreach ($goodsReceipt->purchaseOrders as $purchaseOrder) {
+                $purchaseOrder->load('lines');
+                $this->syncPurchaseOrderReceiptStatus($purchaseOrder, $actor);
+            }
+
+            // Soft delete the purchase return and its lines
+            $purchaseReturn->lines()->delete();
+            $purchaseReturn->delete();
+        });
+    }
+
+    /**
+     * Dispatch reversal accounting event for deleted purchase return.
+     */
+    private function dispatchReturnReversalEvent(
+        PurchaseReturn $purchaseReturn,
+        GoodsReceipt $goodsReceipt,
+        float $amountBase,
+        ?Authenticatable $actor = null
+    ): void {
+        if ($amountBase <= 0) {
+            return;
+        }
+
+        $firstPurchaseOrder = $goodsReceipt->purchaseOrders->first();
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::PURCHASE_RETURN_REVERSED,
+            $purchaseReturn->company_id,
+            $purchaseReturn->branch_id,
+            'purchase_return',
+            $purchaseReturn->id,
+            $purchaseReturn->return_number,
+            $goodsReceipt->currency?->code ?? 'IDR',
+            (float) ($firstPurchaseOrder?->exchange_rate ?? 1),
+            CarbonImmutable::now(),
+            $actor?->getAuthIdentifier(),
+            [
+                'purchase_order_id' => $firstPurchaseOrder?->id,
+                'purchase_order_number' => $firstPurchaseOrder?->order_number,
+                'goods_receipt_id' => $purchaseReturn->goods_receipt_id,
+                'inventory_transaction_id' => $purchaseReturn->inventory_transaction_id,
+                'reversal_reason' => 'Purchase Return Deleted',
+            ]
+        );
+
+        $normalizedAmount = $this->roundCost($amountBase);
+
+        // Reverse the original journal entries
+        $payload->setLines([
+            AccountingEntry::debit('inventory', $normalizedAmount),
+            AccountingEntry::credit('goods_received_not_invoiced', $normalizedAmount),
+        ]);
+
+        rescue(function () use ($payload) {
+            $this->accountingEventBus->dispatch($payload);
+        }, static function (Throwable $throwable) {
+            report($throwable);
+        });
+    }
+
     private function assertReturnable(GoodsReceipt $goodsReceipt): void
     {
         if ($goodsReceipt->status !== GoodsReceiptStatus::POSTED->value) {
@@ -206,6 +373,7 @@ class PurchaseReturnService
         foreach ($linesPayload as $payloadLine) {
             $lineId = (int) ($payloadLine['goods_receipt_line_id'] ?? 0);
             $quantity = (float) ($payloadLine['quantity'] ?? 0);
+            $selectedUomId = isset($payloadLine['uom_id']) ? (int) $payloadLine['uom_id'] : null;
 
             if ($lineId === 0) {
                 continue;
@@ -222,14 +390,32 @@ class PurchaseReturnService
                 throw new PurchaseReturnException('Baris penerimaan tidak ditemukan.');
             }
 
-            $available = $this->availableQuantity($line);
+            // Determine effective UOM
+            $effectiveUomId = $selectedUomId ?: $line->uom_id;
+            $isUomChanged = $effectiveUomId !== $line->uom_id;
 
-            if (($quantity - $available) > self::QTY_TOLERANCE) {
-                throw new PurchaseReturnException('Jumlah retur melebihi saldo yang tersedia.');
+            // Calculate base quantity and unit price
+            if ($isUomChanged) {
+                // Convert quantity to base UOM
+                $quantityBase = $this->uomConversionService->convert($quantity, $effectiveUomId, $line->base_uom_id);
+                // Calculate unit price for the new UOM based on base cost
+                // unit_price = unit_cost_base * (quantity_base / quantity)
+                $conversionFactor = $quantity > 0 ? ($quantityBase / $quantity) : 0;
+                $unitPrice = (float) $line->unit_cost_base * $conversionFactor;
+            } else {
+                // Use original logic (preserves original GRN ratio)
+                $quantityBase = $this->deriveBaseQuantity($quantity, $line);
+                $unitPrice = (float) $line->unit_price;
             }
 
-            $quantityBase = $this->deriveBaseQuantity($quantity, $line);
-            $unitPrice = (float) $line->unit_price;
+            // Validate against available quantity (in base UOM for safety/consistency)
+            $availableBase = $this->availableQuantityBase($line);
+            
+            // Allow small tolerance for floating point comparison
+            if (($quantityBase - $availableBase) > self::QTY_TOLERANCE) {
+                 throw new PurchaseReturnException('Jumlah retur melebihi saldo yang tersedia.');
+            }
+
             $unitCostBase = (float) $line->unit_cost_base;
 
             $prepared[] = [
@@ -238,7 +424,7 @@ class PurchaseReturnService
                 'product_id' => $line->product_id,
                 'product_variant_id' => $line->product_variant_id,
                 'description' => $line->description,
-                'uom_id' => $line->uom_id,
+                'uom_id' => $effectiveUomId,
                 'base_uom_id' => $line->base_uom_id,
                 'quantity' => $this->roundQuantity($quantity),
                 'quantity_base' => $this->roundQuantity($quantityBase),
@@ -257,6 +443,15 @@ class PurchaseReturnService
         $available = (float) $line->quantity
             - (float) $line->quantity_invoiced
             - (float) $line->quantity_returned;
+
+        return max(0, $available);
+    }
+
+    private function availableQuantityBase(GoodsReceiptLine $line): float
+    {
+        $available = (float) $line->quantity_base
+            - (float) $line->quantity_invoiced_base
+            - (float) $line->quantity_returned_base;
 
         return max(0, $available);
     }

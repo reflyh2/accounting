@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { Head } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
@@ -134,6 +134,21 @@ function deleteInvoice(id) {
         preserveState: true,
     });
 }
+
+function handleBulkDelete(ids) {
+    const page = usePage();
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+
+    router.delete(route('purchase-invoices.bulk-delete'), {
+        preserveScroll: true,
+        preserveState: true,
+        data: {
+            preserveState: true,
+            currentQuery: currentQuery,
+            ids: ids,
+        },
+    });
+}
 </script>
 
 <template>
@@ -172,10 +187,11 @@ function deleteInvoice(id) {
                         routeName="purchase-invoices.index"
                         itemKey="id"
                         searchPlaceholder="Cari nomor faktur atau PO..."
-                        :enableBulkActions="false"
+                        :enableBulkActions="true"
                         @sort="handleSort"
                         @filter="handleFilter"
                         @delete="deleteInvoice"
+                        @bulkDelete="handleBulkDelete"
                     >
                         <template #custom_actions="{ item }">
                             <a :href="route('purchase-invoices.print', item.id)" target="_blank">

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { router, Head } from '@inertiajs/vue3';
+import { router, Head, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
 
@@ -133,6 +133,35 @@ function handleFilter(newFilters) {
         replace: true,
     });
 }
+
+function deletePurchaseReturn(id) {
+    const page = usePage();
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+
+    router.delete(route('purchase-returns.destroy', id), {
+        preserveScroll: true,
+        preserveState: true,
+        data: {
+            preserveState: true,
+            currentQuery: currentQuery
+        },
+    });
+}
+
+function handleBulkDelete(ids) {
+    const page = usePage();
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+
+    router.delete(route('purchase-returns.bulk-delete'), {
+        preserveScroll: true,
+        preserveState: true,
+        data: {
+            preserveState: true,
+            currentQuery: currentQuery,
+            ids: ids,
+        },
+    });
+}
 </script>
 
 <template>
@@ -153,6 +182,8 @@ function handleFilter(newFilters) {
                         :columnFormatters="columnFormatters"
                         :customFilters="customFilters"
                         :createRoute="{ name: 'purchase-returns.create' }"
+                        :editRoute="null"
+                        :deleteRoute="{ name: 'purchase-returns.destroy' }"
                         :viewRoute="{ name: 'purchase-returns.show' }"
                         :indexRoute="{ name: 'purchase-returns.index' }"
                         :sortable="sortableColumns"
@@ -160,17 +191,18 @@ function handleFilter(newFilters) {
                         :currentSort="currentSort"
                         :perPage="perPage"
                         :downloadOptions="downloadOptions"
+                        :enableBulkActions="true"
                         downloadBaseRoute="purchase-returns"
                         routeName="purchase-returns.index"
                         itemKey="id"
                         searchPlaceholder="Cari nomor retur, PO, atau GRN..."
                         @sort="handleSort"
                         @filter="handleFilter"
+                        @delete="deletePurchaseReturn"
+                        @bulkDelete="handleBulkDelete"
                     />
                 </div>
             </div>
         </div>
     </AuthenticatedLayout>
 </template>
-
-

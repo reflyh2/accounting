@@ -145,6 +145,7 @@ class ApiController extends Controller
     /**
      * Get UOMs that are convertible from a given base UOM.
      * Returns the base UOM itself plus all UOMs that have conversion rules.
+     * Includes conversion factors for each UOM relative to the base UOM.
      */
     public function getConvertibleUoms(Request $request)
     {
@@ -225,7 +226,40 @@ class ApiController extends Controller
             ->orderBy('code')
             ->get(['id', 'code', 'name', 'kind']);
 
-        return response()->json($uoms);
+        // Get conversion service to calculate factors
+        $uomConverter = app(\App\Services\Inventory\UomConversionService::class);
+
+        // Add conversion ratio (numerator/denominator) for each UOM (from base UOM to this UOM)
+        $result = $uoms->map(function ($uom) use ($baseUomId, $uomConverter) {
+            $numerator = 1;
+            $denominator = 1;
+            
+            if ((int) $uom->id !== (int) $baseUomId) {
+                try {
+                    // Get precise conversion ratio
+                    $ratio = $uomConverter->getConversionRatio($baseUomId, $uom->id);
+                    $numerator = $ratio['numerator'];
+                    $denominator = $ratio['denominator'];
+                } catch (\Exception $e) {
+                    // If conversion fails, default to 1:1
+                    $numerator = 1;
+                    $denominator = 1;
+                }
+            }
+
+            return [
+                'id' => $uom->id,
+                'code' => $uom->code,
+                'name' => $uom->name,
+                'kind' => $uom->kind,
+                'numerator' => $numerator,
+                'denominator' => $denominator,
+                // Keep conversion_factor for backward compatibility
+                'conversion_factor' => $denominator > 0 ? $numerator / $denominator : 1,
+            ];
+        });
+
+        return response()->json($result);
     }
 
     /**

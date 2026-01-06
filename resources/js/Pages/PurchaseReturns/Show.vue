@@ -1,9 +1,11 @@
 <script setup>
-import { computed } from 'vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
+import AppDeleteButton from '@/Components/AppDeleteButton.vue';
+import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
 import { formatNumber } from '@/utils/numberFormat';
 
 const props = defineProps({
@@ -17,6 +19,8 @@ const props = defineProps({
         default: () => [],
     },
 });
+
+const showDeleteConfirmation = ref(false);
 
 const reasonLookup = computed(() =>
     props.reasonOptions.reduce((carry, item) => ({ ...carry, [item.value]: item.label }), {})
@@ -34,6 +38,14 @@ function formatDate(date) {
         day: '2-digit',
         month: 'long',
         year: 'numeric'
+    });
+}
+
+function deletePurchaseReturn() {
+    router.delete(route('purchase-returns.destroy', props.purchaseReturn.id), {
+        onFinish: () => {
+            showDeleteConfirmation.value = false;
+        },
     });
 }
 </script>
@@ -60,6 +72,7 @@ function formatDate(date) {
                                     Lihat GRN
                                 </AppSecondaryButton>
                             </Link>
+                            <AppDeleteButton @click="showDeleteConfirmation = true" title="Hapus Retur" />
                         </div>
                     </div>
 
@@ -151,5 +164,15 @@ function formatDate(date) {
                 </div>
             </div>
         </div>
+
+        <!-- Delete Confirmation Modal -->
+        <DeleteConfirmationModal
+            :show="showDeleteConfirmation"
+            title="Hapus Retur Pembelian"
+            message="Apakah Anda yakin ingin menghapus retur pembelian ini? Tindakan ini akan membalikkan efek inventori dan akuntansi yang terkait."
+            @close="showDeleteConfirmation = false"
+            @confirm="deletePurchaseReturn"
+        />
     </AuthenticatedLayout>
 </template>
+

@@ -575,15 +575,11 @@ Route::middleware([
         Route::resource('goods-receipts', GoodsReceiptController::class);
 
         Route::get('api/suppliers-with-grns', [PurchaseReturnController::class, 'apiSuppliersWithGRNs'])->name('api.suppliers-with-grns');
+        Route::delete('purchase-returns/bulk-delete', [PurchaseReturnController::class, 'bulkDelete'])->name('purchase-returns.bulk-delete');
         Route::get('purchase-returns/export-xlsx', [PurchaseReturnController::class, 'exportXLSX'])->name('purchase-returns.export-xlsx');
         Route::get('purchase-returns/export-csv', [PurchaseReturnController::class, 'exportCSV'])->name('purchase-returns.export-csv');
         Route::get('purchase-returns/export-pdf', [PurchaseReturnController::class, 'exportPDF'])->name('purchase-returns.export-pdf');
-        Route::resource('purchase-returns', PurchaseReturnController::class)->only([
-            'index',
-            'create',
-            'store',
-            'show',
-        ]);
+        Route::resource('purchase-returns', PurchaseReturnController::class);
 
         // Purchase Plans Routes
         Route::post('purchase-plans/{purchase_plan}/confirm', [PurchasePlanController::class, 'confirm'])
@@ -605,6 +601,8 @@ Route::middleware([
             ->name('purchase-orders.send');
         Route::post('purchase-orders/{purchase_order}/cancel', [PurchaseOrderController::class, 'cancel'])
             ->name('purchase-orders.cancel');
+        Route::post('purchase-orders/{purchase_order}/close', [PurchaseOrderController::class, 'close'])
+            ->name('purchase-orders.close');
         Route::get('purchase-orders/{purchase_order}/print', [PurchaseOrderController::class, 'print'])->name('purchase-orders.print');
         Route::resource('purchase-orders', PurchaseOrderController::class);
 
@@ -622,6 +620,7 @@ Route::middleware([
             ->name('sales-orders.print');
         Route::resource('sales-orders', SalesOrderController::class);
         Route::resource('sales-deliveries', SalesDeliveryController::class);
+        Route::delete('purchase-invoices/bulk-delete', [PurchaseInvoiceController::class, 'bulkDelete'])->name('purchase-invoices.bulk-delete');
         Route::get('purchase-invoices/export-xlsx', [PurchaseInvoiceController::class, 'exportXLSX'])->name('purchase-invoices.export-xlsx');
         Route::get('purchase-invoices/export-csv', [PurchaseInvoiceController::class, 'exportCSV'])->name('purchase-invoices.export-csv');
         Route::get('purchase-invoices/export-pdf', [PurchaseInvoiceController::class, 'exportPDF'])->name('purchase-invoices.export-pdf');

@@ -88,9 +88,7 @@ Recognize revenue.
 - invoice_line
 
 ### Accounting
-- Dr Accounts Receivable
-- Cr Revenue
-- Cr Tax Payable
+We create external debt, and the AR accounting journal will be handled by the external debt module.
 
 COGS posted according to cost_model.
 
@@ -101,17 +99,7 @@ COGS posted according to cost_model.
 ### Purpose
 Record incoming cash.
 
-### Core Tables
-- payment (type = inbound)
-- payment_allocation
-
-### Characteristics
-- One payment → many invoices
-- Partial payments allowed
-
-### Accounting
-- Dr Cash / Bank
-- Cr Accounts Receivable
+Customer payment is handled by the external debt payment module. We just need to sync the external debt payment to the AR Invoice status.
 
 ---
 

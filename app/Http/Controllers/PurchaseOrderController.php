@@ -271,6 +271,17 @@ class PurchaseOrderController extends Controller
         return Redirect::back()->with('success', 'Purchase Order dibatalkan.');
     }
 
+    public function close(PurchaseOrder $purchaseOrder, PurchaseService $service): RedirectResponse
+    {
+        try {
+            $service->close($purchaseOrder);
+        } catch (PurchaseOrderException $exception) {
+            return Redirect::back()->with('error', $exception->getMessage());
+        }
+
+        return Redirect::back()->with('success', 'Purchase Order berhasil ditutup.');
+    }
+
     private function companyOptions()
     {
         return Company::orderBy('name')

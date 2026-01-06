@@ -10,6 +10,12 @@ class UomConversion extends Model
 
     public $timestamps = false;
 
+    protected $casts = [
+        'numerator' => 'integer',
+        'denominator' => 'integer',
+        'factor' => 'decimal:6',
+    ];
+
     public function fromUom()
     {
         return $this->belongsTo(Uom::class, 'from_uom_id');
@@ -20,5 +26,6 @@ class UomConversion extends Model
         return $this->belongsTo(Uom::class, 'to_uom_id');
     }
 }
+
 
 

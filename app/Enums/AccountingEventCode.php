@@ -8,6 +8,7 @@ enum AccountingEventCode: string
     case PURCHASE_GRN_REVERSED = 'purchase.grn_reversed';
     case PURCHASE_AP_POSTED = 'purchase.ap_posted';
     case PURCHASE_RETURN_POSTED = 'purchase.return_posted';
+    case PURCHASE_RETURN_REVERSED = 'purchase.return_reversed';
     case SALES_DELIVERY_POSTED = 'sales.delivery_posted';
     case SALES_DELIVERY_REVERSED = 'sales.delivery_reversed';
     case SALES_RETURN_POSTED = 'sales.return_posted';
@@ -23,6 +24,7 @@ enum AccountingEventCode: string
             self::PURCHASE_GRN_REVERSED => 'Purchase GRN Reversed',
             self::PURCHASE_AP_POSTED => 'Purchase AP Posted',
             self::PURCHASE_RETURN_POSTED => 'Purchase Return Posted',
+            self::PURCHASE_RETURN_REVERSED => 'Purchase Return Reversed',
             self::SALES_DELIVERY_POSTED => 'Sales Delivery Posted',
             self::SALES_DELIVERY_REVERSED => 'Sales Delivery Reversed',
             self::SALES_RETURN_POSTED => 'Sales Return Posted',

@@ -247,6 +247,38 @@ class PurchaseInvoiceController extends Controller
             ->with('success', 'Faktur pembelian berhasil dihapus.');
     }
 
+    public function bulkDelete(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'exists:purchase_invoices,id'],
+        ]);
+
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($request) {
+                foreach ($request->ids as $id) {
+                    $invoice = PurchaseInvoice::find($id);
+                    if ($invoice && $invoice->status === InvoiceStatus::DRAFT->value) {
+                        $this->invoiceService->delete($invoice);
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            return Redirect::back()->with('error', 'Terjadi kesalahan saat menghapus data.');
+        }
+
+        if ($request->has('preserveState')) {
+            $currentQuery = $request->input('currentQuery', '');
+            $redirectUrl = route('purchase-invoices.index') . ($currentQuery ? '?' . $currentQuery : '');
+
+            return Redirect::to($redirectUrl)
+                ->with('success', 'Faktur pembelian berhasil dihapus.');
+        }
+
+        return Redirect::route('purchase-invoices.index')
+            ->with('success', 'Faktur pembelian berhasil dihapus.');
+    }
+
     public function post(PurchaseInvoice $purchaseInvoice, Request $request): RedirectResponse
     {
         $this->authorizeDraft($purchaseInvoice);
@@ -464,11 +496,15 @@ class PurchaseInvoiceController extends Controller
             'lines.baseUom',
         ])->whereIn('id', $purchaseOrderIds)->get();
 
+        // Get UOM conversion service for quantity conversion
+        $uomConverter = app(\App\Services\Inventory\UomConversionService::class);
+
         $result = [];
 
         foreach ($purchaseOrders as $purchaseOrder) {
             // Need to fetch receipt lines availability for these POs
-            $receiptLines = GoodsReceiptLine::with(['goodsReceipt'])
+            // Load GRN line's UOM for conversion check
+            $receiptLines = GoodsReceiptLine::with(['goodsReceipt', 'uom'])
                 ->whereHas('goodsReceipt', function ($q) use ($purchaseOrder) {
                     $q->whereHas('purchaseOrders', function($q) use ($purchaseOrder) {
                         $q->where('purchase_orders.id', $purchaseOrder->id);
@@ -482,12 +518,28 @@ class PurchaseInvoiceController extends Controller
                 $poLine = $purchaseOrder->lines->firstWhere('id', $line->purchase_order_line_id);
                 if (!$poLine) continue;
 
+                // Calculate remaining quantities based on GRN line
                 $remainingGrn = max(0.0, (float) $line->quantity - (float) $line->quantity_invoiced - (float) $line->quantity_returned);
                 $remainingPo = max(0.0, ((float) $poLine->quantity_received - (float) $poLine->quantity_returned) - (float) $poLine->quantity_invoiced);
                 $available = min($remainingGrn, $remainingPo);
                 static $QTY_TOLERANCE = 0.0005;
 
                 if ($available <= $QTY_TOLERANCE) continue;
+
+                // Check if GRN line UOM differs from PO line UOM
+                $grnUomId = (int) $line->uom_id;
+                $poUomId = (int) $poLine->uom_id;
+                $convertedAvailable = $available;
+
+                if ($grnUomId !== $poUomId && $grnUomId && $poUomId) {
+                    // Convert GRN quantity from GRN UOM to PO UOM
+                    try {
+                        $convertedAvailable = $uomConverter->convert($available, $grnUomId, $poUomId);
+                    } catch (\Exception $e) {
+                        // If conversion fails, use original quantity (this shouldn't happen for valid data)
+                        $convertedAvailable = $available;
+                    }
+                }
 
                 $lines[] = [
                     'purchase_order_line_id' => $poLine->id,
@@ -497,10 +549,10 @@ class PurchaseInvoiceController extends Controller
                     'description' => $poLine->description,
                     'uom_label' => $poLine->uom?->name,
                     'product_variant_id' => $poLine->product_variant_id,
-                    'uom_id' => $poLine->uom_id,
-                    'available_quantity' => $available,
-                    'quantity' => $available,
-                    'unit_price' => (float) $poLine->unit_price,
+                    'uom_id' => $poLine->uom_id, // Always use PO's UOM for invoice
+                    'available_quantity' => $convertedAvailable, // Converted to PO UOM
+                    'quantity' => $convertedAvailable, // Default to available in PO UOM
+                    'unit_price' => (float) $poLine->unit_price, // Use PO's unit price
                     'tax_rate' => $poLine->tax_rate,
                     'tax_amount' => $poLine->tax_amount,
                 ];

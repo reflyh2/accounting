@@ -197,6 +197,7 @@ class GoodsReceiptController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.purchase_order_line_id' => ['required', 'exists:purchase_order_lines,id'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.uom_id' => ['nullable', 'exists:uoms,id'],
         ]);
 
         try {
@@ -286,6 +287,7 @@ class GoodsReceiptController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.purchase_order_line_id' => ['required', 'exists:purchase_order_lines,id'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.uom_id' => ['nullable', 'exists:uoms,id'],
             'lines.*.lot_id' => ['nullable', 'exists:lots,id'],
             'lines.*.serial_id' => ['nullable', 'exists:serials,id'],
         ]);
@@ -504,14 +506,22 @@ class GoodsReceiptController extends Controller
                     'id' => $line->id,
                     'line_number' => $line->line_number,
                     'description' => $line->description,
+                    'product_id' => $line->product_id,
                     'variant' => $line->variant ? [
                         'id' => $line->variant->id,
                         'sku' => $line->variant->sku,
                         'product_name' => $line->variant->product?->name,
+                        'product_id' => $line->variant->product_id,
                     ] : null,
                     'uom' => [
                         'id' => $line->uom?->id,
                         'code' => $line->uom?->code,
+                        'name' => $line->uom?->name,
+                    ],
+                    'base_uom' => [
+                        'id' => $line->baseUom?->id,
+                        'code' => $line->baseUom?->code,
+                        'name' => $line->baseUom?->name,
                     ],
                     'ordered_quantity' => (float) $line->quantity,
                     'received_quantity' => (float) $line->quantity_received,
@@ -581,14 +591,22 @@ class GoodsReceiptController extends Controller
                     'id' => $line->id,
                     'line_number' => $line->line_number,
                     'description' => $line->description,
+                    'product_id' => $line->product_id,
                     'variant' => $line->variant ? [
                         'id' => $line->variant->id,
                         'sku' => $line->variant->sku,
                         'product_name' => $line->variant->product?->name,
+                        'product_id' => $line->variant->product_id,
                     ] : null,
                     'uom' => [
                         'id' => $line->uom?->id,
                         'code' => $line->uom?->code,
+                        'name' => $line->uom?->name,
+                    ],
+                    'base_uom' => [
+                        'id' => $line->baseUom?->id,
+                        'code' => $line->baseUom?->code,
+                        'name' => $line->baseUom?->name,
                     ],
                     'ordered_quantity' => (float) $line->quantity,
                     'received_quantity' => $receivedFromOthers,

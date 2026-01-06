@@ -1,6 +1,6 @@
 <script setup>
 import { useForm, router } from '@inertiajs/vue3';
-import { computed, watch, ref, onMounted } from 'vue';
+import { computed, watch, ref, onMounted, reactive } from 'vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppInput from '@/Components/AppInput.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
@@ -21,7 +21,7 @@ const props = defineProps({
         default: () => [],
     },
     branches: {
-        type: Array,
+        type: Array, 
         default: () => [],
     },
     suppliers: {
@@ -211,20 +211,113 @@ watch(selectedGrnId, (newGrnId) => {
     }
 }, { immediate: false });
 
-// Watch for selectedGoodsReceipt prop changes to populate lines
+const lineConvertibleUoms = reactive({});
+const lineUomConversionFactors = reactive({});
+
+async function fetchConvertibleUoms(poLineId, baseUomId, productId) {
+    if (!baseUomId) {
+        delete lineConvertibleUoms[poLineId];
+        delete lineUomConversionFactors[poLineId];
+        return;
+    }
+    
+    try {
+        const response = await axios.get(route('api.convertible-uoms'), {
+            params: {
+                base_uom_id: baseUomId,
+                product_id: productId,
+                company_id: selectedCompany.value,
+            }
+        });
+        
+        // Store UOM options
+        lineConvertibleUoms[poLineId] = response.data.map(u => ({
+            value: u.id,
+            label: u.code,
+            description: u.name,
+        }));
+        
+        // Store conversion ratios (numerator/denominator) for each UOM
+        lineUomConversionFactors[poLineId] = {};
+        for (const uom of response.data) {
+            lineUomConversionFactors[poLineId][uom.id] = {
+                numerator: uom.numerator || 1,
+                denominator: uom.denominator || 1,
+            };
+        }
+    } catch (error) {
+        console.error('Error fetching convertible UOMs:', error);
+        delete lineConvertibleUoms[poLineId];
+        delete lineUomConversionFactors[poLineId];
+    }
+}
+
+function getUomOptions(poLineId, defaultUom) {
+    const convertibleUoms = lineConvertibleUoms[poLineId];
+    if (convertibleUoms && convertibleUoms.length > 0) {
+        return convertibleUoms;
+    }
+    if (defaultUom?.id) {
+        return [{ value: defaultUom.id, label: defaultUom.code, description: defaultUom.name }];
+    }
+    return [];
+}
+
+function getConvertedRemainingQuantity(line) {
+    const remainingQty = Number(line.available_quantity || 0);
+    const originalUomId = line.uom?.id;
+    const selectedUomId = line.selected_uom_id || originalUomId;
+    
+    // If no UOM selected yet or same as original, return original remaining
+    if (!selectedUomId || selectedUomId === originalUomId) {
+        return remainingQty;
+    }
+    
+    // Get the conversion ratios for this line
+    const ratios = lineUomConversionFactors[line.goods_receipt_line_id] || {};
+    const originalRatio = ratios[originalUomId] || { numerator: 1, denominator: 1 };
+    const selectedRatio = ratios[selectedUomId] || { numerator: 1, denominator: 1 };
+    
+    if (originalRatio.denominator === 0 || selectedRatio.numerator === 0 || originalRatio.numerator === 0) {
+        return remainingQty;
+    }
+
+    // Convert using cross multiplication:
+    // remaining * (selectedNumerator / selectedDenominator) / (originalNumerator / originalDenominator)
+    const convertedQty = remainingQty * selectedRatio.numerator * originalRatio.denominator 
+                       / (selectedRatio.denominator * originalRatio.numerator);
+    
+    return convertedQty;
+}
+
 watch(
     () => props.selectedGoodsReceipt,
     (newGrn) => {
         if (newGrn && newGrn.lines) {
-            form.lines = newGrn.lines.map(line => ({
-                goods_receipt_line_id: line.id,
-                description: line.description,
-                variant: line.variant,
-                uom: line.uom,
-                available_quantity: Number(line.available_quantity || 0),
-                quantity: 0,
-                unit_price: Number(line.unit_price || 0),
-            }));
+            // Reset state
+            Object.keys(lineConvertibleUoms).forEach(k => delete lineConvertibleUoms[k]);
+            Object.keys(lineUomConversionFactors).forEach(k => delete lineUomConversionFactors[k]);
+
+            form.lines = newGrn.lines.map(line => {
+                // Fetch convertible UOMs if base UOM exists
+                if (line.variant?.product?.base_uom_id) {
+                    fetchConvertibleUoms(line.id, line.variant.product.base_uom_id, line.variant.product_id);
+                } else if (line.uom?.id) {
+                    // Fallback to simpler fetch if product base UOM missing but line UOM exists
+                    fetchConvertibleUoms(line.id, line.uom.id, line.variant?.product_id);
+                }
+
+                return {
+                    goods_receipt_line_id: line.id,
+                    description: line.description,
+                    variant: line.variant,
+                    uom: line.uom,
+                    selected_uom_id: line.uom?.id,
+                    available_quantity: Number(line.available_quantity || 0),
+                    quantity: 0,
+                    unit_price: Number(line.unit_price || 0),
+                };
+            });
         }
     },
     { immediate: true }
@@ -242,15 +335,19 @@ onMounted(() => {
     }
 });
 
+function getUniqueLineId(line) {
+    return line.goods_receipt_line_id;
+}
+
 function getQuantity(lineId) {
-    const line = form.lines.find(l => l.goods_receipt_line_id === lineId);
+    const line = form.lines.find(l => getUniqueLineId(l) === lineId);
     return line ? line.quantity : 0;
 }
 
 function setQuantity(lineId, value) {
-    const line = form.lines.find(l => l.goods_receipt_line_id === lineId);
+    const line = form.lines.find(l => getUniqueLineId(l) === lineId);
     if (line) {
-        const max = Number(line.available_quantity || 0);
+        const max = getConvertedRemainingQuantity(line);
         let qty = Number(value) || 0;
         if (qty > max) qty = max;
         if (qty < 0) qty = 0;
@@ -259,16 +356,16 @@ function setQuantity(lineId, value) {
 }
 
 function returnRemainingForLine(line) {
-    const targetLine = form.lines.find(l => l.goods_receipt_line_id === line.goods_receipt_line_id);
+    const targetLine = form.lines.find(l => getUniqueLineId(l) === getUniqueLineId(line));
     if (targetLine) {
-        targetLine.quantity = Number(targetLine.available_quantity || 0);
+        targetLine.quantity = getConvertedRemainingQuantity(targetLine);
     }
 }
 
 function returnAll() {
     form.lines = form.lines.map(line => ({
         ...line,
-        quantity: Number(line.available_quantity || 0),
+        quantity: getConvertedRemainingQuantity(line),
     }));
 }
 
@@ -284,6 +381,7 @@ function filteredLinesPayload(lines) {
         .filter(line => Number(line.quantity || 0) > 0)
         .map(line => ({
             goods_receipt_line_id: line.goods_receipt_line_id,
+            uom_id: line.selected_uom_id,
             quantity: Number(line.quantity),
         }));
 }
@@ -466,21 +564,31 @@ function submit() {
                                 <div class="font-medium text-gray-900">{{ line.variant?.product_name ?? '-' }}</div>
                                 <div class="text-xs text-gray-500">{{ line.variant?.sku ?? line.description }}</div>
                             </td>
-                            <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-gray-500">
-                                {{ line.uom?.code ?? '-' }}
+                            <td class="border border-gray-300 px-1.5 py-1.5 text-sm align-top">
+                                <AppSelect
+                                    v-if="getUomOptions(getUniqueLineId(line), line.uom).length > 1"
+                                    v-model="line.selected_uom_id"
+                                    :options="getUomOptions(getUniqueLineId(line), line.uom)"
+                                    placeholder="UOM"
+                                    class="min-w-[100px]"
+                                    :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                />
+                                <span v-else class="text-gray-500 px-2 py-1.5 block">
+                                    {{ line.uom?.code ?? '-' }}
+                                </span>
                             </td>
                             <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-right">
-                                <span :class="line.available_quantity > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'">
-                                    {{ formatNumber(line.available_quantity, 2) }}
+                                <span :class="getConvertedRemainingQuantity(line) > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'">
+                                    {{ formatNumber(getConvertedRemainingQuantity(line), 2) }}
                                 </span>
                             </td>
                             <td class="border border-gray-300 px-1.5 py-1.5">
                                 <AppInput
-                                    :modelValue="getQuantity(line.goods_receipt_line_id)"
-                                    @update:modelValue="setQuantity(line.goods_receipt_line_id, $event)"
+                                    :modelValue="getQuantity(getUniqueLineId(line))"
+                                    @update:modelValue="setQuantity(getUniqueLineId(line), $event)"
                                     :numberFormat="true"
-                                    :max="line.available_quantity"
-                                    :disabled="line.available_quantity <= 0"
+                                    :max="getConvertedRemainingQuantity(line)"
+                                    :disabled="getConvertedRemainingQuantity(line) <= 0"
                                     :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                                     :prefix="true"
                                 >

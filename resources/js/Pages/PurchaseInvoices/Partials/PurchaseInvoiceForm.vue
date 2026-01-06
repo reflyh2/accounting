@@ -1,6 +1,7 @@
 <script setup>
 import { useForm, router } from '@inertiajs/vue3';
-import { computed, watch, ref, onMounted } from 'vue';
+import { computed, watch, ref, reactive, onMounted } from 'vue';
+import axios from 'axios';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppInput from '@/Components/AppInput.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
@@ -407,36 +408,79 @@ function getVariantsForProduct(productId) {
     })) || [];
 }
 
-function lineUomOptions(line) {
-    if (!line.product_variant_id) return props.uoms;
+// Store convertible UOMs per line index for direct invoices
+const lineConvertibleUoms = reactive({});
+
+/**
+ * Fetch convertible UOMs for a direct invoice line based on variant's UOM.
+ */
+async function fetchConvertibleUoms(lineIndex, baseUomId, productId) {
+    if (!baseUomId) {
+        delete lineConvertibleUoms[lineIndex];
+        return;
+    }
+    
+    try {
+        const response = await axios.get(route('api.convertible-uoms'), {
+            params: {
+                base_uom_id: baseUomId,
+                product_id: productId,
+                company_id: selectedCompany.value,
+            }
+        });
+        lineConvertibleUoms[lineIndex] = response.data.map(u => ({
+            value: u.id,
+            label: u.code,
+            description: u.name,
+        }));
+    } catch (error) {
+        console.error('Error fetching convertible UOMs:', error);
+        delete lineConvertibleUoms[lineIndex];
+    }
+}
+
+function lineUomOptions(line, lineIndex) {
+    // For direct invoices, use fetched convertible UOMs if available
+    if (lineConvertibleUoms[lineIndex] && lineConvertibleUoms[lineIndex].length > 0) {
+        return lineConvertibleUoms[lineIndex];
+    }
+    
+    // Fallback: filter by UOM kind from variant
+    if (!line.product_variant_id) return props.uoms.map(u => ({ value: u.id, label: u.code, description: u.name }));
     
     const product = props.products.find(p => p.id === line.product_id);
     const variant = product?.variants?.find(v => v.id === line.product_variant_id);
     
     if (variant?.uom?.kind) {
-        return props.uoms.filter(u => u.kind === variant.uom.kind);
+        return props.uoms.filter(u => u.kind === variant.uom.kind).map(u => ({ value: u.id, label: u.code, description: u.name }));
     }
-    return props.uoms;
+    return props.uoms.map(u => ({ value: u.id, label: u.code, description: u.name }));
 }
 
-function handleProductChange(line) {
+function handleProductChange(line, lineIndex) {
     line.product_variant_id = null;
     line.uom_id = null;
+    // Clear cached convertible UOMs for this line
+    delete lineConvertibleUoms[lineIndex];
     const product = props.products.find(p => p.id === line.product_id);
     if (product) line.description = product.name;
     
     if (product?.variants?.length === 1) {
         line.product_variant_id = product.variants[0].id;
-        syncVariant(line);
+        syncVariant(line, lineIndex);
     }
 }
 
-function syncVariant(line) {
+function syncVariant(line, lineIndex) {
     if (!line.product_variant_id) return;
     const product = props.products.find(p => p.id === line.product_id);
     const variant = product?.variants?.find(v => v.id === line.product_variant_id);
     if (variant) {
         line.uom_id = variant.uom?.id;
+        // Fetch convertible UOMs for this variant's UOM
+        if (variant.uom?.id && lineIndex !== undefined) {
+            fetchConvertibleUoms(lineIndex, variant.uom.id, product.id);
+        }
     }
 }
 
@@ -648,7 +692,7 @@ function submitForm(createAnother = false) {
                                         placeholder="Pilih produk"
                                         :error="form.errors?.[`lines.${index}.product_id`]"
                                         required
-                                        @update:modelValue="handleProductChange(line)"
+                                        @update:modelValue="handleProductChange(line, index)"
                                         :margins="{ top: 0, right: 0, bottom: 2, left: 0 }"
                                     />
                                     <AppSelect 
@@ -658,7 +702,7 @@ function submitForm(createAnother = false) {
                                         :error="form.errors?.[`lines.${index}.product_variant_id`]"
                                         :disabled="!line.product_id || getVariantsForProduct(line.product_id).length === 0"
                                         :required="line.product_id && getVariantsForProduct(line.product_id).length > 0"
-                                        @update:modelValue="syncVariant(line)"
+                                        @update:modelValue="syncVariant(line, index)"
                                         :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                                     />
                                 </div>
@@ -672,7 +716,7 @@ function submitForm(createAnother = false) {
                                 <AppSelect 
                                     v-else
                                     v-model="line.uom_id"
-                                    :options="lineUomOptions(line).map(u => ({value: u.id, label: u.code, description: u.name}))"
+                                    :options="lineUomOptions(line, index)"
                                     placeholder="Satuan"
                                     :error="form.errors?.[`lines.${index}.uom_id`]"
                                     required
