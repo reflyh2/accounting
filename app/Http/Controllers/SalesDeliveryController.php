@@ -301,6 +301,28 @@ class SalesDeliveryController extends Controller
             ->with('success', 'Pengiriman berhasil dihapus.');
     }
 
+    /**
+     * Display the print view for Sales Delivery.
+     */
+    public function print(SalesDelivery $salesDelivery): Response
+    {
+        $salesDelivery->load([
+            'salesOrders',
+            'partner',
+            'currency',
+            'location',
+            'lines.variant.product',
+            'lines.uom',
+            'lines.salesOrderLine.salesOrder',
+            'branch.branchGroup.company',
+            'creator:global_id,name',
+        ]);
+
+        return Inertia::render('SalesDeliveries/Print', [
+            'salesDelivery' => $salesDelivery,
+        ]);
+    }
+
     private function transformDeliveryListItem(SalesDelivery $delivery): array
     {
         return [

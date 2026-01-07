@@ -621,6 +621,8 @@ Route::middleware([
         Route::get('sales-orders/{sales_order}/print', [SalesOrderController::class, 'print'])
             ->name('sales-orders.print');
         Route::resource('sales-orders', SalesOrderController::class);
+        Route::get('sales-deliveries/{sales_delivery}/print', [SalesDeliveryController::class, 'print'])
+            ->name('sales-deliveries.print');
         Route::resource('sales-deliveries', SalesDeliveryController::class);
         Route::delete('purchase-invoices/bulk-delete', [PurchaseInvoiceController::class, 'bulkDelete'])->name('purchase-invoices.bulk-delete');
         Route::get('purchase-invoices/export-xlsx', [PurchaseInvoiceController::class, 'exportXLSX'])->name('purchase-invoices.export-xlsx');

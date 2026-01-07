@@ -1,6 +1,7 @@
 <script setup>
 import { useForm, router } from '@inertiajs/vue3';
-import { computed, watch, ref, onMounted } from 'vue';
+import { computed, watch, ref, reactive, onMounted } from 'vue';
+import axios from 'axios';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppInput from '@/Components/AppInput.vue';
 import AppTextarea from '@/Components/AppTextarea.vue';
@@ -365,29 +366,74 @@ function getVariantsForProduct(productId) {
     })) || [];
 }
 
-function lineUomOptions(line) {
-    return props.uoms;
+function lineUomOptions(line, lineIndex) {
+    // For direct invoices, use fetched convertible UOMs if available
+    if (lineConvertibleUoms[lineIndex] && lineConvertibleUoms[lineIndex].length > 0) {
+        return lineConvertibleUoms[lineIndex];
+    }
+    
+    // Fallback: filter by UOM kind from variant
+    if (!line.product_variant_id) return props.uoms.map(u => ({ value: u.id, label: u.code, description: u.name }));
+    
+    const product = props.products.find(p => p.id === line.product_id);
+    const variant = product?.variants?.find(v => v.id === line.product_variant_id);
+    
+    if (variant?.uom?.kind) {
+        return props.uoms.filter(u => u.kind === variant.uom.kind).map(u => ({ value: u.id, label: u.code, description: u.name }));
+    }
+    return props.uoms.map(u => ({ value: u.id, label: u.code, description: u.name }));
 }
 
-function handleProductChange(line) {
+async function handleProductChange(line, lineIndex) {
     line.product_variant_id = null;
     line.uom_id = null;
+    // Clear cached convertible UOMs for this line
+    delete lineConvertibleUoms[lineIndex];
+    
     const product = props.products.find(p => p.id === line.product_id);
     if (product) line.description = product.name;
     
+    // Set UOM from product's default if available
+    if (product?.default_uom?.id) {
+        line.uom_id = product.default_uom.id;
+    }
+    
     if (product?.variants?.length === 1) {
         line.product_variant_id = product.variants[0].id;
-        syncVariant(line);
+        await syncVariant(line, lineIndex);
+    } else {
+        // Fetch price/tax for product without variant
+        await fetchPriceQuote(line, lineIndex);
+        await fetchTaxQuote(line, lineIndex);
     }
 }
 
-function syncVariant(line) {
-    if (!line.product_variant_id) return;
+async function syncVariant(line, lineIndex) {
+    if (!line.product_variant_id) {
+        // Variant cleared - refetch with just product
+        line.unit_price = 0;
+        line.tax_rate = 0;
+        await fetchPriceQuote(line, lineIndex);
+        await fetchTaxQuote(line, lineIndex);
+        return;
+    }
+    
     const product = props.products.find(p => p.id === line.product_id);
     const variant = product?.variants?.find(v => v.id === line.product_variant_id);
     if (variant) {
         line.uom_id = variant.uom?.id;
+        // Fetch convertible UOMs for this variant's UOM
+        if (variant.uom?.id && lineIndex !== undefined) {
+            fetchConvertibleUoms(lineIndex, variant.uom.id, product.id);
+        }
     }
+    
+    // Reset price to force re-fetch with variant context
+    line.unit_price = 0;
+    line.tax_rate = 0;
+    
+    await fetchPriceQuote(line, lineIndex);
+    await fetchTaxQuote(line, lineIndex);
 }
 
 // Line calculation functions
@@ -468,6 +514,121 @@ const customerTableHeaders = [
     { key: 'actions', label: '' },
 ];
 
+// Customer search URL - use api.partners for direct invoices (allows selecting any customer)
+const customerSearchUrl = computed(() => route('api.partners', {
+    company_id: form.company_id,
+    roles: ['customer'],
+}));
+
+// Product search configuration for AppPopoverSearch
+const productSearchUrl = computed(() => route('api.products', { company_id: form.company_id }));
+
+const productTableHeaders = [
+    { key: 'name', label: 'Nama Produk' },
+    { key: 'category.name', label: 'Kategori' },
+    { key: 'uom_code', label: 'UOM' },
+    { key: 'actions', label: '' },
+];
+
+function getProductDisplayValue(productId) {
+    const product = props.products.find(p => p.id === productId);
+    return product ? product.name : '';
+}
+
+// Store convertible UOMs per line index for direct invoices
+const lineConvertibleUoms = reactive({});
+
+/**
+ * Fetch convertible UOMs for a direct invoice line based on variant's UOM.
+ */
+async function fetchConvertibleUoms(lineIndex, baseUomId, productId) {
+    if (!baseUomId) {
+        delete lineConvertibleUoms[lineIndex];
+        return;
+    }
+    
+    try {
+        const response = await axios.get(route('api.convertible-uoms'), {
+            params: {
+                base_uom_id: baseUomId,
+                product_id: productId,
+                company_id: selectedCompany.value,
+            }
+        });
+        lineConvertibleUoms[lineIndex] = response.data.map(u => ({
+            value: u.id,
+            label: u.code,
+            description: u.name,
+        }));
+    } catch (error) {
+        console.error('Error fetching convertible UOMs:', error);
+        delete lineConvertibleUoms[lineIndex];
+    }
+}
+
+/**
+ * Fetch price quote for the selected product/variant
+ */
+async function fetchPriceQuote(line, index) {
+    if (!line.product_id || !line.uom_id) {
+        return;
+    }
+    // Only fetch if price is not already set
+    if (line.unit_price && Number(line.unit_price) > 0) {
+        return;
+    }
+    try {
+        const params = {
+            product_id: line.product_id,
+            uom_id: line.uom_id,
+            quantity: line.quantity || 1,
+        };
+        if (line.product_variant_id) params.product_variant_id = line.product_variant_id;
+        if (form.partner_id) params.partner_id = form.partner_id;
+        if (form.company_id) params.company_id = form.company_id;
+        if (form.currency_id) params.currency_id = form.currency_id;
+        if (form.invoice_date) params.date = form.invoice_date;
+
+        const response = await axios.get(route('api.price-quote'), { params });
+        if (response.data?.success && response.data?.data?.price !== undefined) {
+            line.unit_price = response.data.data.price;
+        }
+    } catch (error) {
+        console.warn('Failed to fetch price quote:', error);
+    }
+}
+
+/**
+ * Fetch tax quote for the selected product/variant
+ */
+async function fetchTaxQuote(line, index) {
+    if (!line.product_id) {
+        return;
+    }
+    if (line.tax_rate && Number(line.tax_rate) > 0) {
+        return;
+    }
+    try {
+        const params = {};
+        // Prefer variant if available, otherwise use product
+        if (line.product_variant_id) {
+            params.product_variant_id = line.product_variant_id;
+        } else {
+            params.product_id = line.product_id;
+        }
+        if (form.partner_id) params.partner_id = form.partner_id;
+        if (form.company_id) params.company_id = form.company_id;
+        if (form.invoice_date) params.date = form.invoice_date;
+
+        const response = await axios.get(route('api.tax-quote'), { params });
+        if (response.data?.success && response.data?.data?.rate !== undefined) {
+            line.tax_rate = response.data.data.rate;
+        }
+    } catch (error) {
+        console.warn('Failed to fetch tax quote:', error);
+    }
+}
+
 function submitForm(createAnother = false) {
     if (!hasLines.value) {
         form.setError('lines', 'Minimal satu baris harus diisi.');
@@ -535,7 +696,7 @@ function submitForm(createAnother = false) {
 
                     <AppPopoverSearch
                         v-model="selectedCustomerId"
-                        :url="route('api.customers-with-sos')"
+                        :url="customerSearchUrl"
                         :displayKeys="['name']"
                         :tableHeaders="customerTableHeaders"
                         :initialDisplayValue="selectedCustomerName"
@@ -671,13 +832,16 @@ function submitForm(createAnother = false) {
                                     <div class="text-xs text-gray-500" v-if="line.max_quantity">Available: {{ formatNumber(line.max_quantity) }}</div>
                                 </div>
                                 <div v-else>
-                                    <AppSelect 
-                                        v-model="line.product_id" 
-                                        :options="products.map(p => ({value: p.id, label: p.name}))"
+                                    <AppPopoverSearch
+                                        v-model="line.product_id"
+                                        :url="productSearchUrl"
+                                        :displayKeys="['name']"
+                                        :tableHeaders="productTableHeaders"
+                                        :initialDisplayValue="getProductDisplayValue(line.product_id)"
                                         placeholder="Pilih produk"
+                                        modalTitle="Pilih Produk"
                                         :error="form.errors?.[`lines.${index}.product_id`]"
-                                        @update:modelValue="handleProductChange(line)"
-                                        :margins="{ top: 0, right: 0, bottom: 2, left: 0 }"
+                                        @update:modelValue="handleProductChange(line, index)"
                                     />
                                     <AppSelect 
                                         v-model="line.product_variant_id"
@@ -686,7 +850,7 @@ function submitForm(createAnother = false) {
                                         :error="form.errors?.[`lines.${index}.product_variant_id`]"
                                         :disabled="!line.product_id || getVariantsForProduct(line.product_id).length === 0"
                                         :required="line.product_id && getVariantsForProduct(line.product_id).length > 0"
-                                        @update:modelValue="syncVariant(line)"
+                                        @update:modelValue="syncVariant(line, index)"
                                         :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                                     />
                                 </div>
@@ -700,7 +864,7 @@ function submitForm(createAnother = false) {
                                 <AppSelect 
                                     v-else
                                     v-model="line.uom_id"
-                                    :options="lineUomOptions(line).map(u => ({value: u.id, label: u.code, description: u.name}))"
+                                    :options="lineUomOptions(line, index)"
                                     placeholder="Satuan"
                                     :error="form.errors?.[`lines.${index}.uom_id`]"
                                     required

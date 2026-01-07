@@ -49,7 +49,7 @@ class PricingService
         if ($variantId) {
             $query->where('product_variant_id', $variantId);
         } else {
-            $query->where('product_id', $productId);
+            $query->where('product_id', $productId)->whereNull('product_variant_id');
         }
 
         if ($qty > 0) {

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
 import { DocumentStatusKind } from '@/constants/documentStatuses';
@@ -40,6 +40,12 @@ const columnFormatters = {
 const columnRenderers = {
     status: (value) => renderStatusPillHtml(DocumentStatusKind.SALES_ORDER, value, 'sm'),
 };
+
+const downloadOptions = [
+    { format: 'pdf', label: 'Download PDF' },
+    { format: 'xlsx', label: 'Download Excel' },
+    { format: 'csv', label: 'Download CSV' }
+];
 
 const currentSort = ref({ key: props.sort || 'order_date', order: props.order || 'desc' });
 const sortableColumns = ['order_date', 'order_number', 'status', 'total_amount'];
@@ -163,10 +169,32 @@ function handleFilter(newFilters) {
     );
 }
 
-function deleteSalesOrder(id) {
+function handleDelete(id) {
+    const page = usePage();
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+
     router.delete(route('sales-orders.destroy', id), {
         preserveScroll: true,
         preserveState: true,
+        data: {
+            preserveState: true,
+            currentQuery: currentQuery
+        },
+    });
+}
+
+function handleBulkDelete(ids) {
+    const page = usePage();
+    const currentQuery = page.url.includes('?') ? page.url.split('?')[1] : '';
+
+    router.delete(route('sales-orders.bulk-delete'), {
+        preserveScroll: true,
+        preserveState: true,
+        data: {
+            preserveState: true,
+            currentQuery: currentQuery,
+            ids: ids,
+        },
     });
 }
 </script>
@@ -199,10 +227,13 @@ function deleteSalesOrder(id) {
                         :currentSort="currentSort"
                         :perPage="perPage"
                         routeName="sales-orders.index"
-                        :enableBulkActions="false"
+                        :enableBulkActions="true"
+                        :downloadOptions="downloadOptions"
+                        downloadBaseRoute="sales-orders"
                         @sort="handleSort"
                         @filter="handleFilter"
-                        @delete="deleteSalesOrder"
+                        @delete="handleDelete"
+                        @bulkDelete="handleBulkDelete"
                     >
                         <template #reserve_stock="{ item }">
                             <span
@@ -217,4 +248,3 @@ function deleteSalesOrder(id) {
         </div>
     </AuthenticatedLayout>
 </template>
-

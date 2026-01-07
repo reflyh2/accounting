@@ -166,6 +166,23 @@ const productOptions = computed(() =>
     }))
 );
 
+// Product search configuration for AppPopoverSearch
+const productSearchUrl = computed(() => {
+    return route('api.products', { company_id: form.company_id });
+});
+
+const productTableHeaders = [
+    { key: 'name', label: 'Nama Produk' },
+    { key: 'category.name', label: 'Kategori' },
+    { key: 'uom_code', label: 'UOM' },
+    { key: 'actions', label: '' }
+];
+
+function getProductDisplayValue(productId) {
+    const product = filteredProducts.value.find(p => p.id === productId);
+    return product ? product.name : '';
+}
+
 const channelOptions = computed(() => [
     { value: null, label: 'Pilih channel' },
     ...Object.entries(props.channels).map(([value, label]) => ({ value, label }))
@@ -313,18 +330,26 @@ onMounted(() => {
 });
 
 function lineUomOptions(line) {
-    if (!line.product_id || !line.product_variant_id) {
-        return uomOptions.value;
+    // If variant is selected, filter by variant's UOM kind
+    if (line.product_id && line.product_variant_id) {
+        const product = filteredProducts.value.find((p) => p.id === line.product_id);
+        if (product) {
+            const variant = product.variants.find((v) => v.id === line.product_variant_id);
+            if (variant?.uom?.kind) {
+                return uomOptions.value.filter((uom) => uom.kind === variant.uom.kind);
+            }
+        }
     }
-    const product = filteredProducts.value.find((p) => p.id === line.product_id);
-    if (!product) {
-        return uomOptions.value;
+    
+    // If only product is selected, filter by product's default UOM kind
+    if (line.product_id) {
+        const product = filteredProducts.value.find((p) => p.id === line.product_id);
+        if (product?.default_uom?.kind) {
+            return uomOptions.value.filter((uom) => uom.kind === product.default_uom.kind);
+        }
     }
-    const variant = product.variants.find((v) => v.id === line.product_variant_id);
-    if (!variant?.uom?.kind) {
-        return uomOptions.value;
-    }
-    return uomOptions.value.filter((uom) => uom.kind === variant.uom.kind);
+    
+    return uomOptions.value;
 }
 
 function createEmptyLine() {
@@ -372,36 +397,152 @@ function resetLine(line) {
     line.resource_pool_id = null;
 }
 
-function handleProductChange(line, index) {
+async function handleProductChange(line, productId, index) {
+    const product = filteredProducts.value.find((p) => p.id === productId);
+
+    console.log(product);
+    
+    line.product_id = productId;
     line.product_variant_id = null;
-    line.uom_id = null;
-    if (!line.description) {
-        const product = filteredProducts.value.find((p) => p.id === line.product_id);
-        if (product) {
-            line.description = product.name;
+    line.resource_pool_id = null;
+    
+    if (!line.description && product) {
+        line.description = product.name;
+    }
+    
+    // Set UOM from product's default UOM (access via relationship)
+    if (product?.default_uom?.id) {
+        line.uom_id = product.default_uom.id;
+    } else {
+        line.uom_id = null;
+    }
+    
+    // Auto-select pool if only one exists
+    if (product?.resource_pools && product.resource_pools.length === 1) {
+        line.resource_pool_id = product.resource_pools[0].id;
+    }
+    
+    // If product has exactly one variant, auto-select it
+    if (product?.variants?.length === 1) {
+        const variant = product.variants[0];
+        line.product_variant_id = variant.id;
+        if (variant.uom?.id) {
+            line.uom_id = variant.uom.id;
         }
     }
+    
+    // Reset price to allow re-fetch
+    line.unit_price = 0;
+    line.tax_rate = 0;
+    
+    // Fetch price quote for the product
+    await fetchPriceQuoteForProduct(line);
+    // Fetch tax quote for the product (now works with just product_id)
+    await fetchTaxQuoteForProduct(line);
 }
 
-function syncVariant(line, index) {
-    if (!line.product_id || !line.product_variant_id) {
-        return;
-    }
+async function syncVariant(line, index) {
     const product = filteredProducts.value.find((p) => p.id === line.product_id);
     if (!product) {
         return;
     }
+    
+    // If variant is being removed (cleared)
+    if (!line.product_variant_id) {
+        // Restore product's default UOM
+        if (product?.default_uom?.id) {
+            line.uom_id = product.default_uom.id;
+        }
+        
+        // Reset and re-fetch price/tax with just product
+        line.unit_price = 0;
+        line.tax_rate = 0;
+        
+        await fetchPriceQuoteForProduct(line);
+        await fetchTaxQuoteForProduct(line);
+        return;
+    }
+    
     const variant = product.variants.find((v) => v.id === line.product_variant_id);
     if (!variant) {
         return;
     }
-    line.uom_id = variant.uom?.id || line.uom_id;
+    
+    // Always use variant's UOM if available
+    if (variant.uom?.id) {
+        line.uom_id = variant.uom.id;
+    }
+    
     if (!line.description) {
         line.description = product.name;
     }
+    
     fetchAvailability(index);
+    
+    // Reset price to force re-fetch with variant context
+    line.unit_price = 0;
+    line.tax_rate = 0;
+    
     fetchPriceQuote(line, index);
     fetchTaxQuote(line, index);
+}
+
+async function fetchPriceQuoteForProduct(line) {
+    if (!line.product_id || !line.uom_id) {
+        return;
+    }
+    // Only fetch if price is not already set
+    if (line.unit_price && Number(line.unit_price) > 0) {
+        return;
+    }
+    try {
+        const params = {
+            product_id: line.product_id,
+            uom_id: line.uom_id,
+            quantity: line.quantity || 1,
+        };
+        if (line.product_variant_id) params.product_variant_id = line.product_variant_id;
+        if (form.partner_id) params.partner_id = form.partner_id;
+        if (form.company_id) params.company_id = form.company_id;
+        if (form.currency_id) params.currency_id = form.currency_id;
+        if (form.sales_channel) params.channel = form.sales_channel;
+        if (form.order_date) params.date = form.order_date;
+
+        const response = await axios.get(route('api.price-quote'), { params });
+        if (response.data?.success && response.data?.data?.price !== undefined) {
+            line.unit_price = response.data.data.price;
+        }
+    } catch (error) {
+        console.warn('Failed to fetch price quote:', error);
+    }
+}
+
+async function fetchTaxQuoteForProduct(line) {
+    if (!line.product_id) {
+        return;
+    }
+    if (line.tax_rate && Number(line.tax_rate) > 0) {
+        return;
+    }
+    try {
+        const params = {};
+        // Prefer variant if available, otherwise use product
+        if (line.product_variant_id) {
+            params.product_variant_id = line.product_variant_id;
+        } else {
+            params.product_id = line.product_id;
+        }
+        if (form.partner_id) params.partner_id = form.partner_id;
+        if (form.company_id) params.company_id = form.company_id;
+        if (form.order_date) params.date = form.order_date;
+
+        const response = await axios.get(route('api.tax-quote'), { params });
+        if (response.data?.success && response.data?.data?.rate !== undefined) {
+            line.tax_rate = response.data.data.rate;
+        }
+    } catch (error) {
+        console.warn('Failed to fetch tax quote:', error);
+    }
 }
 
 async function fetchAvailability(index) {
@@ -421,6 +562,47 @@ async function fetchAvailability(index) {
     } catch (error) {
         availabilityState.value[index] = null;
     }
+}
+
+// Booking availability state
+const bookingAvailabilityState = ref({});
+
+async function fetchBookingAvailability(index) {
+    const line = form.lines[index];
+    if (!line.resource_pool_id || !line.start_date || !line.end_date || !line.quantity) {
+        bookingAvailabilityState.value[index] = null;
+        return;
+    }
+    try {
+        const { data } = await axios.get(route('api.bookings.check-availability'), {
+            params: {
+                resource_pool_id: line.resource_pool_id,
+                start_datetime: line.start_date,
+                end_datetime: line.end_date,
+                qty: line.quantity,
+            },
+        });
+        bookingAvailabilityState.value[index] = data;
+    } catch (error) {
+        bookingAvailabilityState.value[index] = { available: false, error: true };
+    }
+}
+
+function bookingAvailabilityLabel(index) {
+    const state = bookingAvailabilityState.value[index];
+    if (!state) return '';
+    if (state.error) return 'Error';
+    if (state.available) {
+        return `Tersedia (${state.available_qty})`;
+    }
+    return `Tidak tersedia (${state.available_qty}/${state.requested_qty})`;
+}
+
+function bookingAvailabilityClass(index) {
+    const state = bookingAvailabilityState.value[index];
+    if (!state) return '';
+    if (state.error) return 'text-red-600';
+    return state.available ? 'text-emerald-600' : 'text-red-600';
 }
 
 async function fetchPriceQuote(line, index) {
@@ -718,14 +900,18 @@ function submitForm(createAnother = false) {
                 <tbody>
                     <tr v-for="(line, index) in form.lines" :key="index">
                         <td class="border border-gray-300 px-1.5 py-1.5 align-top">
-                            <AppSelect
+                            <AppPopoverSearch
                                 v-model="line.product_id"
-                                :options="productOptions"
-                                placeholder="Pilih produk"
+                                :url="productSearchUrl"
+                                :tableHeaders="productTableHeaders"
+                                :displayKeys="['name']"
+                                :initialDisplayValue="getProductDisplayValue(line.product_id)"
+                                placeholder="Pilih Produk"
+                                modalTitle="Pilih Produk"
                                 :error="form.errors?.[`lines.${index}.product_id`]"
+                                @update:modelValue="handleProductChange(line, $event, index)"
+                                :disabled="!form.company_id"
                                 required
-                                @update:modelValue="handleProductChange(line, index)"
-                                :margins="{ top: 0, right: 0, bottom: 2, left: 0 }"
                             />
 
                             <AppSelect
@@ -736,7 +922,7 @@ function submitForm(createAnother = false) {
                                 :disabled="!line.product_id || getVariantsForProduct(line.product_id).length === 0"
                                 :required="line.product_id && getVariantsForProduct(line.product_id).length > 0"
                                 @update:modelValue="syncVariant(line, index)"
-                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                :margins="{ top: 2, right: 0, bottom: 0, left: 0 }"
                             />
                             <p class="text-xs text-gray-500 mt-1">{{ availabilityLabel(index) }}</p>
                         </td>
@@ -818,6 +1004,7 @@ function submitForm(createAnother = false) {
                                 type="datetime-local"
                                 :error="form.errors?.[`lines.${index}.start_date`]"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                @blur="fetchBookingAvailability(index)"
                             />
                         </td>
                         <td v-if="hasBookingProducts" class="border border-gray-300 px-1.5 py-1.5 align-top">
@@ -827,7 +1014,11 @@ function submitForm(createAnother = false) {
                                 type="datetime-local"
                                 :error="form.errors?.[`lines.${index}.end_date`]"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                @blur="fetchBookingAvailability(index)"
                             />
+                            <div v-if="isBookingProduct(line) && bookingAvailabilityLabel(index)" class="text-xs mt-1" :class="bookingAvailabilityClass(index)">
+                                {{ bookingAvailabilityLabel(index) }}
+                            </div>
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-right whitespace-nowrap align-top">
                             <div class="flex justify-between">

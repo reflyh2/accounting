@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
+import AppPrintButton from '@/Components/AppPrintButton.vue';
 import { formatNumber } from '@/utils/numberFormat';
 import { renderStatusPillHtml } from '@/utils/statusPillHtml';
 import { DocumentStatusKind } from '@/constants/documentStatuses';
@@ -174,7 +175,13 @@ function deleteSalesDelivery(id) {
                         @sort="handleSort"
                         @filter="handleFilter"
                         @delete="deleteSalesDelivery"
-                    />
+                    >
+                        <template #custom_actions="{ item }">
+                            <a :href="route('sales-deliveries.print', item.id)" target="_blank">
+                                <AppPrintButton />
+                            </a>
+                        </template>
+                    </AppDataTable>
                 </div>
             </div>
         </div>

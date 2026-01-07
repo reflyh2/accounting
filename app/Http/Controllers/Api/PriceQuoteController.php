@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Services\Catalog\PricingService;
 use Illuminate\Http\JsonResponse;
@@ -16,11 +17,12 @@ class PriceQuoteController extends Controller
     }
 
     /**
-     * Get price quote for a product variant.
+     * Get price quote for a product or product variant.
      * 
      * GET /api/price-quote
      * Query params:
-     *   - product_variant_id (required)
+     *   - product_id (required if product_variant_id not provided)
+     *   - product_variant_id (required if product_id not provided)
      *   - uom_id (required)
      *   - quantity (optional, defaults to 1)
      *   - partner_id (optional) - for customer price list targeting
@@ -32,7 +34,8 @@ class PriceQuoteController extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         $request->validate([
-            'product_variant_id' => 'required|integer|exists:product_variants,id',
+            'product_id' => 'required_without:product_variant_id|nullable|integer|exists:products,id',
+            'product_variant_id' => 'required_without:product_id|nullable|integer|exists:product_variants,id',
             'uom_id' => 'required|integer|exists:uoms,id',
             'quantity' => 'nullable|numeric|min:0',
             'partner_id' => 'nullable|integer|exists:partners,id',
@@ -42,9 +45,18 @@ class PriceQuoteController extends Controller
             'date' => 'nullable|date',
         ]);
 
-        $variant = ProductVariant::with('product')->findOrFail(
-            $request->input('product_variant_id')
-        );
+        // Get product and variant info
+        if ($request->input('product_variant_id')) {
+            $variant = ProductVariant::with('product')->findOrFail(
+                $request->input('product_variant_id')
+            );
+            $productId = $variant->product_id;
+            $variantId = $variant->id;
+        } else {
+            $product = Product::findOrFail($request->input('product_id'));
+            $productId = $product->id;
+            $variantId = null;
+        }
 
         $quantity = $request->input('quantity', 1);
 
@@ -57,8 +69,8 @@ class PriceQuoteController extends Controller
         ]);
 
         $quote = $this->pricingService->quote(
-            productId: $variant->product_id,
-            variantId: $variant->id,
+            productId: $productId,
+            variantId: $variantId,
             uomId: $request->input('uom_id'),
             qty: $quantity,
             ctx: $context

@@ -439,8 +439,8 @@ const customerTableHeaders = [
                             <th class="border border-gray-300 text-sm min-w-48 px-1.5 py-1.5">Produk</th>
                             <th class="border border-gray-300 text-sm px-1.5 py-1.5">SO #</th>
                             <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Sisa</th>
-                            <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Qty Kirim</th>
                             <th class="border border-gray-300 text-sm px-1.5 py-1.5">UOM</th>
+                            <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Qty Kirim</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -456,6 +456,9 @@ const customerTableHeaders = [
                                 <span :class="line.remaining_quantity > 0 ? 'text-amber-600 font-medium' : 'text-gray-400'">
                                     {{ formatNumber(line.remaining_quantity, 2) }}
                                 </span>
+                            </td>
+                            <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-gray-500">
+                                {{ line.uom?.code ?? '-' }}
                             </td>
                             <td class="border border-gray-300 px-1.5 py-1.5">
                                 <AppInput
@@ -479,16 +482,12 @@ const customerTableHeaders = [
                                     </template>
                                 </AppInput>
                             </td>
-                            <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-gray-500">
-                                {{ line.uom?.code ?? '-' }}
-                            </td>
                         </tr>
                     </tbody>
                     <tfoot>
                         <tr class="text-sm">
-                            <th colspan="3" class="border border-gray-300 px-4 py-2 text-right">Total Kirim</th>
+                            <th colspan="4" class="border border-gray-300 px-4 py-2 text-right">Total Kirim</th>
                             <th class="border border-gray-300 px-4 py-2 text-left">{{ formatNumber(totalQuantity, 2) }}</th>
-                            <th></th>
                         </tr>
                     </tfoot>
                 </table>

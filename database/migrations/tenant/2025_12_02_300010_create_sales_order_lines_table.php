@@ -20,6 +20,7 @@ return new class extends Migration
                 ->onUpdate('cascade')
                 ->onDelete('restrict');
             $table->foreignId('product_variant_id')
+                ->nullable()
                 ->constrained('product_variants')
                 ->onUpdate('cascade')
                 ->onDelete('restrict');

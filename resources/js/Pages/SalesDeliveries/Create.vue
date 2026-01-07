@@ -31,22 +31,27 @@ const props = defineProps({
             <h2>Buat Pengiriman Penjualan</h2>
         </template>
 
-        <div class="mx-auto">
-            <div class="bg-white shadow-sm sm:rounded border border-gray-200 p-6 space-y-6">
-                <AppBackLink :href="route('sales-deliveries.index', filters)" text="Kembali ke daftar pengiriman" />
-
-                <SalesDeliveryForm
-                    :companies="companies"
-                    :branches="branches"
-                    :salesOrders="salesOrders"
-                    :selectedSalesOrders="selectedSalesOrders"
-                    :selectedCompanyId="selectedCompanyId"
-                    :selectedBranchId="selectedBranchId"
-                    :selectedPartnerId="selectedPartnerId"
-                    :customers="customers"
-                    :locations="locations"
-                    :filters="filters"
-                />
+        <div>
+            <div class="mx-auto">
+                <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
+                    <div class="p-6 text-gray-900">
+                        <div class="mb-6">
+                            <AppBackLink :href="route('sales-deliveries.index', filters)" text="Kembali ke Daftar Pengiriman" />
+                        </div>
+                        <SalesDeliveryForm
+                            :companies="companies"
+                            :branches="branches"
+                            :salesOrders="salesOrders"
+                            :selectedSalesOrders="selectedSalesOrders"
+                            :selectedCompanyId="selectedCompanyId"
+                            :selectedBranchId="selectedBranchId"
+                            :selectedPartnerId="selectedPartnerId"
+                            :customers="customers"
+                            :locations="locations"
+                            :filters="filters"
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     </AuthenticatedLayout>

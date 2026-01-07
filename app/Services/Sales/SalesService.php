@@ -12,6 +12,7 @@ use App\Models\InventoryItem;
 use App\Models\Location;
 use App\Models\Partner;
 use App\Models\PriceList;
+use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SalesDelivery;
 use App\Models\SalesOrder;
@@ -1344,14 +1345,32 @@ class SalesService
         $taxTotal = 0.0;
 
         foreach ($lines as $line) {
-            $variant = ProductVariant::with([
-                'product.companies:id',
-                'product.taxCategory',
-                'product',
-                'uom',
-            ])->findOrFail($line['product_variant_id']);
+            $variant = null;
+            $product = null;
+            $baseUom = null;
 
-            if (!$variant->product->companies->pluck('id')->contains($branch->branchGroup?->company_id)) {
+            // Handle both products with and without variants
+            if (!empty($line['product_variant_id'])) {
+                $variant = ProductVariant::with([
+                    'product.companies:id',
+                    'product.taxCategory',
+                    'product.defaultUom',
+                    'product',
+                    'uom',
+                ])->findOrFail($line['product_variant_id']);
+                $product = $variant->product;
+                $baseUom = $variant->uom;
+            } else {
+                // Product without variant - load product directly
+                $product = Product::with([
+                    'companies:id',
+                    'taxCategory',
+                    'defaultUom',
+                ])->findOrFail($line['product_id']);
+                $baseUom = $product->defaultUom;
+            }
+
+            if (!$product->companies->pluck('id')->contains($branch->branchGroup?->company_id)) {
                 throw new SalesOrderException('Produk tidak tersedia untuk perusahaan ini.');
             }
 
@@ -1360,9 +1379,12 @@ class SalesService
                 throw new SalesOrderException('Satuan tidak valid untuk perusahaan ini.');
             }
 
-            $baseUom = $variant->uom;
+            if (!$baseUom) {
+                throw new SalesOrderException('Produk tidak memiliki satuan dasar yang valid.');
+            }
+
             if ((int) $baseUom->company_id !== (int) $branch->branchGroup?->company_id) {
-                throw new SalesOrderException('Satuan dasar varian tidak valid.');
+                throw new SalesOrderException('Satuan dasar tidak valid untuk perusahaan ini.');
             }
 
             $quantity = $this->roundQuantity((float) $line['quantity']);
@@ -1378,7 +1400,8 @@ class SalesService
                 throw new SalesOrderException($exception->getMessage(), previous: $exception);
             }
 
-            $unitPrice = $this->resolveUnitPrice(
+            $unitPrice = $this->resolveUnitPriceForProduct(
+                $product,
                 $variant,
                 $orderedUom->id,
                 $quantity,
@@ -1386,8 +1409,8 @@ class SalesService
                 $line['unit_price'] ?? null
             );
 
-            $taxRate = $this->resolveTaxRate(
-                $variant,
+            $taxRate = $this->resolveTaxRateForProduct(
+                $product,
                 $context,
                 $line['tax_rate'] ?? null
             );
@@ -1407,9 +1430,9 @@ class SalesService
 
             $salesOrder->lines()->create([
                 'line_number' => $lineNumber++,
-                'product_id' => $variant->product_id,
-                'product_variant_id' => $variant->id,
-                'description' => $line['description'] ?? $variant->product->name,
+                'product_id' => $product->id,
+                'product_variant_id' => $variant?->id,
+                'description' => $line['description'] ?? $product->name,
                 'uom_id' => $orderedUom->id,
                 'base_uom_id' => $baseUom->id,
                 'quantity' => $quantity,
@@ -1426,7 +1449,7 @@ class SalesService
                 'reservation_location_id' => $reservationLocationId,
                 'start_date' => isset($line['start_date']) ? Carbon::parse($line['start_date']) : null,
                 'end_date' => isset($line['end_date']) ? Carbon::parse($line['end_date']) : null,
-                'resource_pool_id' => $line['resource_pool_id'] ?? ($variant->product->resourcePools->first()?->id),
+                'resource_pool_id' => $line['resource_pool_id'] ?? ($product->resourcePools->first()?->id),
             ]);
 
             $subtotal += $lineSubtotal;
@@ -1692,6 +1715,46 @@ class SalesService
 
         $quote = $this->taxService->quote(
             $variant->product,
+            $context
+        );
+
+        return round((float) ($quote['rate'] ?? 0), 2);
+    }
+
+    private function resolveUnitPriceForProduct(
+        Product $product,
+        ?ProductVariant $variant,
+        int $uomId,
+        float $quantity,
+        array $context,
+        ?float $explicitPrice
+    ): float {
+        if ($explicitPrice !== null) {
+            return $this->roundCost($explicitPrice);
+        }
+
+        $quote = $this->pricingService->quote(
+            $product->id,
+            $variant?->id,
+            $uomId,
+            $quantity,
+            $context
+        );
+
+        return $this->roundCost((float) ($quote['price'] ?? 0));
+    }
+
+    private function resolveTaxRateForProduct(
+        Product $product,
+        array $context,
+        ?float $explicitRate
+    ): float {
+        if ($explicitRate !== null) {
+            return round($explicitRate, 2);
+        }
+
+        $quote = $this->taxService->quote(
+            $product,
             $context
         );
 

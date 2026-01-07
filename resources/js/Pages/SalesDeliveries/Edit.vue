@@ -20,17 +20,22 @@ const props = defineProps({
             <h2>Edit Pengiriman Penjualan</h2>
         </template>
 
-        <div class="mx-auto">
-            <div class="bg-white shadow-sm sm:rounded border border-gray-200 p-6 space-y-6">
-                <AppBackLink :href="route('sales-deliveries.show', delivery.id)" text="Kembali ke detail pengiriman" />
-
-                <SalesDeliveryEditForm
-                    :delivery="delivery"
-                    :selectedSalesOrders="selectedSalesOrders"
-                    :selectedPartnerId="selectedPartnerId"
-                    :locations="locations"
-                    :filters="filters"
-                />
+        <div>
+            <div class="mx-auto">
+                <div class="bg-white overflow-auto shadow-sm sm:rounded-s border-y border-l border-gray-200">
+                    <div class="p-6 text-gray-900">
+                        <div class="mb-6">
+                            <AppBackLink :href="route('sales-deliveries.show', delivery.id)" text="Kembali ke detail pengiriman" />
+                        </div>
+                        <SalesDeliveryEditForm
+                            :delivery="delivery"
+                            :selectedSalesOrders="selectedSalesOrders"
+                            :selectedPartnerId="selectedPartnerId"
+                            :locations="locations"
+                            :filters="filters"
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     </AuthenticatedLayout>
