@@ -7,8 +7,10 @@ use App\Domain\Accounting\DTO\AccountingEventPayload;
 use App\Enums\AccountingEventCode;
 use App\Enums\Documents\InvoiceStatus;
 use App\Enums\Documents\SalesOrderStatus;
+use App\Events\Debt\ExternalDebtCreated;
 use App\Exceptions\SalesInvoiceException;
 use App\Models\Currency;
+use App\Models\ExternalDebt;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SalesDeliveryLine;
@@ -341,10 +343,14 @@ class SalesInvoiceService
 
             $this->dispatchArPostedEvent($invoice->fresh('currency'), $totals, $actor);
 
+            // Create External Debt record for AR tracking
+            $this->createExternalDebt($invoice, $actor);
+
             return $invoice->fresh([
                 'salesOrders.partner',
                 'lines.salesOrderLine',
                 'lines.salesDeliveryLine.salesDelivery',
+                'externalDebt',
             ]);
         });
     }
@@ -383,7 +389,10 @@ class SalesInvoiceService
 
             $this->dispatchDirectArPostedEvent($invoice, $actor);
 
-            return $invoice->fresh(['lines', 'currency']);
+            // Create External Debt record for AR tracking
+            $this->createExternalDebt($invoice, $actor);
+
+            return $invoice->fresh(['lines', 'currency', 'externalDebt']);
         });
     }
 
@@ -992,5 +1001,62 @@ class SalesInvoiceService
     private function roundCost(float $value): float
     {
         return round($value, self::COST_SCALE);
+    }
+
+    /**
+     * Create an External Debt record for the posted Sales Invoice.
+     * This integrates with the External Debt module for AR tracking.
+     */
+    private function createExternalDebt(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $invoice->loadMissing(['branch.branchGroup.company', 'partner', 'currency']);
+
+        $company = $invoice->branch?->branchGroup?->company;
+        if (!$company) {
+            return; // Cannot create external debt without company context
+        }
+
+        $debtAccountId = $company->default_receivable_account_id;
+        if (!$debtAccountId) {
+            return; // Cannot create external debt without a default receivable account
+        }
+
+        // For offset account, use revenue account based on company config
+        $offsetAccountId = $company->default_revenue_account_id ?? $debtAccountId;
+
+        $totalAmount = (float) $invoice->total_amount;
+        $exchangeRate = (float) ($invoice->exchange_rate ?? 1);
+
+        $externalDebt = ExternalDebt::create([
+            'type' => 'receivable',
+            'branch_id' => $invoice->branch_id,
+            'partner_id' => $invoice->partner_id,
+            'currency_id' => $invoice->currency_id,
+            'exchange_rate' => $exchangeRate,
+            'issue_date' => $invoice->invoice_date,
+            'due_date' => $invoice->due_date,
+            'amount' => $totalAmount,
+            'primary_currency_amount' => $this->roundMoney($totalAmount * $exchangeRate),
+            'offset_account_id' => $offsetAccountId,
+            'debt_account_id' => $debtAccountId,
+            'status' => 'open',
+            'reference_number' => $invoice->customer_invoice_number,
+            'notes' => $invoice->notes,
+            'source_type' => SalesInvoice::class,
+            'source_id' => $invoice->id,
+            'created_by' => $actor?->getAuthIdentifier(),
+        ]);
+
+        // Link the external debt back to the invoice
+        $invoice->update([
+            'external_debt_id' => $externalDebt->id,
+        ]);
+
+        // Dispatch event for journal creation
+        rescue(function () use ($externalDebt) {
+            ExternalDebtCreated::dispatch($externalDebt);
+        }, static function (Throwable $throwable) {
+            report($throwable);
+        });
     }
 }

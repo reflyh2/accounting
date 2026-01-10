@@ -103,4 +103,9 @@ class SalesInvoice extends Model
     {
         return $this->belongsTo(User::class, 'posted_by', 'global_id');
     }
+
+    public function externalDebt()
+    {
+        return $this->belongsTo(ExternalDebt::class);
+    }
 }

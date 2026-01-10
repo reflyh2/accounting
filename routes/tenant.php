@@ -87,6 +87,9 @@ use App\Http\Controllers\TaxJurisdictionController;
 use App\Http\Controllers\TaxComponentController;
 use App\Http\Controllers\TaxCategoryController;
 use App\Http\Controllers\TaxRuleController;
+use App\Http\Controllers\Costing\CostEntryController;
+use App\Http\Controllers\Costing\CostPoolController;
+use App\Http\Controllers\Costing\CostAllocationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Stancl\Tenancy\Features\UserImpersonation;
@@ -566,6 +569,18 @@ Route::middleware([
             Route::resource('shipments', ShipController::class);
             Route::resource('adjustments', AdjustmentController::class);
             Route::resource('transfers', TransferController::class);
+        });
+
+        // Costing Routes
+        Route::prefix('costing')->name('costing.')->group(function () {
+            Route::resource('cost-entries', CostEntryController::class)->only(['index', 'show']);
+            
+            Route::delete('cost-pools/bulk-delete', [CostPoolController::class, 'bulkDelete'])->name('cost-pools.bulk-delete');
+            Route::resource('cost-pools', CostPoolController::class);
+            
+            Route::get('cost-allocations/batch', [CostAllocationController::class, 'batch'])->name('cost-allocations.batch');
+            Route::post('cost-allocations/run-batch', [CostAllocationController::class, 'runBatch'])->name('cost-allocations.run-batch');
+            Route::resource('cost-allocations', CostAllocationController::class)->only(['index', 'show']);
         });
 
         

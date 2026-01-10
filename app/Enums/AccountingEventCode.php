@@ -16,6 +16,8 @@ enum AccountingEventCode: string
     case MFG_ISSUE_POSTED = 'mfg.issue_posted';
     case MFG_RECEIPT_POSTED = 'mfg.receipt_posted';
     case MFG_VARIANCE_POSTED = 'mfg.variance_posted';
+    case COGS_RECOGNIZED = 'cogs.recognized';
+    case COST_ALLOCATED = 'cost.allocated';
 
     public function label(): string
     {
@@ -32,6 +34,8 @@ enum AccountingEventCode: string
             self::MFG_ISSUE_POSTED => 'Manufacturing Issue Posted',
             self::MFG_RECEIPT_POSTED => 'Manufacturing Receipt Posted',
             self::MFG_VARIANCE_POSTED => 'Manufacturing Variance Posted',
+            self::COGS_RECOGNIZED => 'COGS Recognized',
+            self::COST_ALLOCATED => 'Cost Allocated',
         };
     }
 }

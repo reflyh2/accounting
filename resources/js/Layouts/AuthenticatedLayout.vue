@@ -7,7 +7,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link } from '@inertiajs/vue3';
-import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon, CubeIcon, ShoppingCartIcon, CurrencyDollarIcon, PuzzlePieceIcon, CalendarDaysIcon } from '@heroicons/vue/24/solid';
+import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon, CubeIcon, ShoppingCartIcon, CurrencyDollarIcon, PuzzlePieceIcon, CalendarDaysIcon, CalculatorIcon } from '@heroicons/vue/24/solid';
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue';
 import { Cog8ToothIcon, ChevronRightIcon, Bars3Icon } from '@heroicons/vue/24/solid';
 import AlertNotification from '@/Components/AlertNotification.vue';
@@ -104,6 +104,12 @@ const isAccountingActive = computed(() => {
         || route().current('external-receivable-mutation.*')
         || route().current('external-receivable-card.*')
         || route().current('operational-reconciliation.*');
+});
+
+const isCostingActive = computed(() => {
+    return route().current('costing.cost-entries.*')
+        || route().current('costing.cost-pools.*')
+        || route().current('costing.cost-allocations.*');
 });
 
 const isAssetActive = computed(() => {
@@ -571,6 +577,41 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Laporan Akuntansi
+                            </ResponsiveNavLink>
+                        </DisclosurePanel>
+                    </Disclosure>
+
+                    <!-- Costing Section -->
+                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isCostingActive">
+                        <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
+                            <CalculatorIcon class="h-5 w-5 mr-2" />
+                            <span>Manajemen Biaya</span>
+                            <ChevronRightIcon
+                                :class="open ? 'transform rotate-90' : ''"
+                                class="ml-auto h-4 w-4 text-gray-400"
+                            />
+                        </DisclosureButton>
+                        <DisclosurePanel class="mt-1 space-y-1 text-sm">
+                            <ResponsiveNavLink
+                                :href="route('costing.cost-entries.index')"
+                                :active="route().current('costing.cost-entries.*')"
+                                class="pl-11"
+                            >
+                                Catatan Biaya
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('costing.cost-pools.index')"
+                                :active="route().current('costing.cost-pools.*')"
+                                class="pl-11"
+                            >
+                                Pool Biaya
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('costing.cost-allocations.index')"
+                                :active="route().current('costing.cost-allocations.*')"
+                                class="pl-11"
+                            >
+                                Alokasi Biaya
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -1430,6 +1471,80 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Laporan Akuntansi
+                                        </NavLink>
+                                    </DisclosurePanel>
+                                </Disclosure>
+                            </template>
+                        </div>
+
+                        <!-- Costing Section -->
+                        <div class="relative group">
+                            <template v-if="sidebarCollapsed">
+                                <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
+                                    <CalculatorIcon class="h-6 w-6" />
+                                </div>
+
+                                <div class="absolute left-full top-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-10" style="margin-left: 8px;">
+                                    <div class="p-2">
+                                        <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Manajemen Biaya</div>
+                                        <NavLink
+                                            :href="route('costing.cost-entries.index')"
+                                            :active="route().current('costing.cost-entries.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Catatan Biaya
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('costing.cost-pools.index')"
+                                            :active="route().current('costing.cost-pools.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Pool Biaya
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('costing.cost-allocations.index')"
+                                            :active="route().current('costing.cost-allocations.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Alokasi Biaya
+                                        </NavLink>
+                                    </div>
+                                </div>
+
+                                <div class="absolute left-full top-0 w-2 h-full opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto z-10"></div>
+                            </template>
+
+                            <template v-else>
+                                <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isCostingActive">
+                                    <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
+                                        <CalculatorIcon class="h-6 w-6 mr-2" />
+                                        <span>Manajemen Biaya</span>
+                                        <ChevronRightIcon
+                                            :class="open ? 'transform rotate-90' : ''"
+                                            class="ml-auto h-4 w-4 text-gray-400"
+                                        />
+                                    </DisclosureButton>
+                                    <DisclosurePanel class="mt-2 space-y-2 pl-8">
+                                        <NavLink
+                                            :href="route('costing.cost-entries.index')"
+                                            :active="route().current('costing.cost-entries.*')"
+                                            class="flex items-center"
+                                        >
+                                            Catatan Biaya
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('costing.cost-pools.index')"
+                                            :active="route().current('costing.cost-pools.*')"
+                                            class="flex items-center"
+                                        >
+                                            Pool Biaya
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('costing.cost-allocations.index')"
+                                            :active="route().current('costing.cost-allocations.*')"
+                                            class="flex items-center"
+                                        >
+                                            Alokasi Biaya
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
