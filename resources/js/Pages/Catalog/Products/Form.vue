@@ -20,6 +20,7 @@ const props = defineProps({
     attributeSet: Object,
     companies: Array,
     accounts: Array,
+    costPools: Array,
     rulesBundle: Object,
 });
 
@@ -35,6 +36,7 @@ const form = useForm({
     cogs_account_id: props.product?.cogs_account_id ?? null,
     inventory_account_id: props.product?.inventory_account_id ?? null,
     prepaid_account_id: props.product?.prepaid_account_id ?? null,
+    default_cost_pool_id: props.product?.default_cost_pool_id ?? null,
     cost_model: props.product?.cost_model ?? props.template?.cost_model ?? 'direct_expense_per_sale',
     is_active: props.product?.is_active ?? true,
     attributes: props.product?.attrs_json ?? {},
@@ -76,6 +78,11 @@ const showRentalFields = computed(() => {
 
 const showPrepaidFields = computed(() => {
     return props.template?.kind?.includes('_resale') || props.template?.cost_model === 'prepaid_consumption';
+});
+
+const showCostPoolField = computed(() => {
+    // Show cost pool field only for non-inventory cost models
+    return form.cost_model && form.cost_model !== 'inventory_layer';
 });
 
 const pageTitle = computed(() => {
@@ -267,6 +274,15 @@ function isCapabilityDisabled(cap) {
                                 label="Akun Prepaid/Deposit"
                                 :error="form.errors.prepaid_account_id"
                                 placeholder="Pilih akun prepaid"
+                            />
+                        </div>
+                        <div v-if="showCostPoolField" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <AppSelect
+                                v-model="form.default_cost_pool_id"
+                                :options="(costPools ?? []).map(p => ({ value: p.id, label: `${p.code} - ${p.name}` }))"
+                                label="Cost Pool Default"
+                                :error="form.errors.default_cost_pool_id"
+                                placeholder="Pilih cost pool untuk alokasi biaya"
                             />
                         </div>
                     </div>

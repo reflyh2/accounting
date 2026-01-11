@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\CostPool;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
@@ -51,6 +52,11 @@ class Product extends Model
     public function prepaidAccount()
     {
         return $this->belongsTo(Account::class, 'prepaid_account_id');
+    }
+
+    public function defaultCostPool()
+    {
+        return $this->belongsTo(CostPool::class, 'default_cost_pool_id');
     }
 
     public function companies()

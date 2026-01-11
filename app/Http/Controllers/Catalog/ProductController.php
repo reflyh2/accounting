@@ -10,6 +10,7 @@ use App\Models\TaxCategory;
 use App\Models\AttributeSet;
 use App\Models\Company;
 use App\Models\Account;
+use App\Models\CostPool;
 use App\Services\Catalog\ProductAppService;
 use App\Domain\Catalog\ProductTypeTemplates;
 use App\Domain\Catalog\ProductRulesBundle;
@@ -160,6 +161,7 @@ class ProductController extends Controller
             'attributeSet' => $attributeSet,
             'companies' => Company::orderBy('name')->get(),
             'accounts' => Account::where('is_parent', false)->orderBy('code')->get(),
+            'costPools' => CostPool::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
             'rulesBundle' => ProductRulesBundle::toArray(),
         ]);
     }
@@ -223,6 +225,7 @@ class ProductController extends Controller
             'attributeSet' => $attributeSet,
             'companies' => Company::orderBy('name')->get(),
             'accounts' => Account::where('is_parent', false)->orderBy('code')->get(),
+            'costPools' => CostPool::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
             'rulesBundle' => ProductRulesBundle::toArray(),
         ]);
     }
@@ -298,6 +301,7 @@ class ProductController extends Controller
             'inventory_account_id' => ['nullable', 'exists:accounts,id'],
             'prepaid_account_id' => ['nullable', 'exists:accounts,id'],
             'cost_model' => ['nullable', 'string', 'in:' . implode(',', ProductRulesBundle::COST_MODELS)],
+            'default_cost_pool_id' => ['nullable', 'exists:cost_pools,id'],
             'is_active' => ['boolean'],
             'capabilities' => ['array'],
             'company_ids' => ['sometimes', 'array'],

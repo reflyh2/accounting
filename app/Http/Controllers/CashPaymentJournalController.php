@@ -7,9 +7,13 @@ use App\Models\Branch;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Currency;
+use App\Models\CostPool;
 use Illuminate\Http\Request;
 use App\Exports\CashPaymentJournalsExport;
 use App\Models\Journal;
+use App\Enums\CostEntrySource;
+use App\Services\Costing\CostingService;
+use App\Services\Costing\DTO\CostEntryDTO;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Session;
@@ -17,6 +21,11 @@ use Illuminate\Support\Facades\Redirect;
 
 class CashPaymentJournalController extends Controller
 {
+    public function __construct(
+        private readonly CostingService $costingService
+    ) {
+    }
+
     public function index(Request $request)
     {
         $filters = $request->all() ?: Session::get('cash_payment_journals.index_filters', []);
@@ -102,6 +111,7 @@ class CashPaymentJournalController extends Controller
             'kasBankAccounts' => fn() => Account::whereHas('companies', function ($query) use ($request) {
                 $query->where('company_id', $request->input('company_id'));
             })->where('is_parent', false)->where('type', 'kas_bank')->with('currencies.companyRates')->orderBy('code', 'asc')->get(),
+            'costPools' => CostPool::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
             'primaryCurrency' => Currency::where('is_primary', true)->first(),
         ]);
     }
@@ -121,6 +131,7 @@ class CashPaymentJournalController extends Controller
             'entries.*.debit' => 'required|numeric|min:0',
             'entries.*.currency_id' => 'required|exists:currencies,id',
             'entries.*.exchange_rate' => 'required|numeric|min:0',
+            'entries.*.cost_pool_id' => 'nullable|exists:cost_pools,id',
         ]);
 
         $cashPaymentJournal = DB::transaction(function () use ($validated, $request) {
@@ -134,18 +145,31 @@ class CashPaymentJournalController extends Controller
             ]);
 
             $totalAmount = 0;
+            $costEntryData = [];
 
             foreach ($validated['entries'] as $entry) {
                 $amount = $entry['debit'] * $entry['exchange_rate'];
                 $totalAmount += $amount;
 
-                $cashPaymentJournal->journalEntries()->create([
+                $journalEntry = $cashPaymentJournal->journalEntries()->create([
                     'account_id' => $entry['account_id'],
                     'debit' => $entry['debit'],
                     'currency_id' => $entry['currency_id'],
                     'exchange_rate' => $entry['exchange_rate'],
                     'primary_currency_debit' => $amount,
                 ]);
+
+                // Collect cost entry data for entries with cost pool
+                if (!empty($entry['cost_pool_id'])) {
+                    $costEntryData[] = [
+                        'journal_entry_id' => $journalEntry->id,
+                        'cost_pool_id' => $entry['cost_pool_id'],
+                        'amount' => $entry['debit'],
+                        'currency_id' => $entry['currency_id'],
+                        'exchange_rate' => $entry['exchange_rate'],
+                        'amount_base' => $amount,
+                    ];
+                }
             }
 
             // Create the credit entry for kas_bank account
@@ -157,15 +181,19 @@ class CashPaymentJournalController extends Controller
                 'primary_currency_credit' => $totalAmount,
             ]);
 
-            return $cashPaymentJournal;
+            return [$cashPaymentJournal, $costEntryData];
         });
+
+        // Create cost entries outside transaction (uses service)
+        [$journal, $costEntryData] = $cashPaymentJournal;
+        $this->createCostEntriesFromJournal($journal, $costEntryData, $request->user());
 
         if ($request->input('create_another', false)) {
             return redirect()->route('cash-payment-journals.create')
                 ->with('success', 'Pengeluaran Kas berhasil dibuat. Silakan buat penerimaan kas lainnya.');
         }
 
-        return redirect()->route('cash-payment-journals.show', $cashPaymentJournal->id)
+        return redirect()->route('cash-payment-journals.show', $journal->id)
             ->with('success', 'Pengeluaran Kas berhasil dibuat.');
     }
 
@@ -202,6 +230,7 @@ class CashPaymentJournalController extends Controller
             'kasBankAccounts' => Account::whereHas('companies', function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })->where('is_parent', false)->where('type', 'kas_bank')->with('currencies.companyRates')->orderBy('code', 'asc')->get(),
+            'costPools' => CostPool::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
             'primaryCurrency' => Currency::where('is_primary', true)->first(),
         ]);
     }
@@ -384,5 +413,39 @@ class CashPaymentJournalController extends Controller
         $journal = Journal::find($journalId);
         $journal->load(['user', 'branch.branchGroup.company', 'journalEntries.account', 'journalEntries.currency']); 
         return Inertia::render('CashPaymentJournals/Print', [ 'cashPaymentJournal' => $journal, ]);
+    }
+
+    /**
+     * Create cost entries from journal entries that have cost pools assigned.
+     */
+    private function createCostEntriesFromJournal(Journal $journal, array $costEntryData, $actor): void
+    {
+        $journal->load('branch.branchGroup');
+        $companyId = $journal->branch?->branchGroup?->company_id;
+
+        if (!$companyId) {
+            return;
+        }
+
+        foreach ($costEntryData as $data) {
+            $dto = new CostEntryDTO(
+                companyId: $companyId,
+                sourceType: CostEntrySource::JOURNAL,
+                sourceId: $data['journal_entry_id'],
+                productId: null,
+                productVariantId: null,
+                costPoolId: $data['cost_pool_id'],
+                costObjectType: null,
+                costObjectId: null,
+                description: $journal->description ?? "Cash Payment #{$journal->journal_number}",
+                amount: $data['amount'],
+                currencyId: $data['currency_id'],
+                exchangeRate: $data['exchange_rate'],
+                costDate: $journal->date,
+                notes: "From Cash Payment Journal #{$journal->journal_number}",
+            );
+
+            $this->costingService->recordCostEntry($dto, $actor);
+        }
     }
 }

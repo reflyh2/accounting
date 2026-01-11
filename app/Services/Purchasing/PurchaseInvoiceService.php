@@ -5,6 +5,8 @@ namespace App\Services\Purchasing;
 use App\Domain\Accounting\DTO\AccountingEntry;
 use App\Domain\Accounting\DTO\AccountingEventPayload;
 use App\Enums\AccountingEventCode;
+use App\Enums\CostEntrySource;
+use App\Enums\CostModel;
 use App\Enums\Documents\InvoiceStatus;
 use App\Enums\Documents\PurchaseOrderStatus;
 use App\Events\Debt\ExternalDebtCreated;
@@ -22,6 +24,8 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Uom;
 use App\Services\Accounting\AccountingEventBus;
+use App\Services\Costing\CostingService;
+use App\Services\Costing\DTO\CostEntryDTO;
 use App\Services\Inventory\DTO\ReceiptDTO;
 use App\Services\Inventory\DTO\ReceiptLineDTO;
 use App\Services\Inventory\InventoryService;
@@ -41,6 +45,7 @@ class PurchaseInvoiceService
     public function __construct(
         private readonly AccountingEventBus $accountingEventBus,
         private readonly InventoryService $inventoryService,
+        private readonly CostingService $costingService,
     ) {
     }
 
@@ -354,6 +359,9 @@ class PurchaseInvoiceService
 
         $this->dispatchApPostedEvent($invoice, $totals, $actor);
 
+        // Create Cost Entries for non-inventory items
+        $this->createCostEntriesForNonInventory($invoice, $actor);
+
         // Create External Debt record for AP tracking
         $this->createExternalDebt($invoice, $actor);
 
@@ -412,6 +420,9 @@ class PurchaseInvoiceService
 
         // Dispatch Accounting Event (Direct)
         $this->dispatchDirectApPostedEvent($invoice, $actor);
+
+        // Create Cost Entries for non-inventory items
+        $this->createCostEntriesForNonInventory($invoice, $actor);
 
         // Create External Debt record for AP tracking
         $this->createExternalDebt($invoice, $actor);
@@ -912,6 +923,56 @@ class PurchaseInvoiceService
         }, static function (Throwable $throwable) {
             report($throwable);
         });
+    }
+
+    /**
+     * Create cost entries for non-inventory (non inventory_layer) items in a purchase invoice.
+     * 
+     * For products with cost_model != 'inventory_layer', we create a CostEntry to track
+     * the cost for margin analysis and potential allocation.
+     */
+    private function createCostEntriesForNonInventory(PurchaseInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $invoice->load('lines.productVariant.product');
+
+        foreach ($invoice->lines as $line) {
+            $product = $line->productVariant?->product;
+            
+            if (!$product) {
+                continue;
+            }
+
+            // Check if this product uses inventory layer costing
+            $costModel = CostModel::tryFrom($product->cost_model);
+            
+            // If it's inventory_layer, skip - inventory module handles this
+            if ($costModel === CostModel::INVENTORY_LAYER) {
+                continue;
+            }
+
+            // Create a cost entry for this line
+            $exchangeRate = (float) ($invoice->exchange_rate ?? 1);
+            $lineTotalBase = $this->roundCost((float) $line->line_total * $exchangeRate);
+
+            $dto = new CostEntryDTO(
+                companyId: $invoice->company_id,
+                sourceType: CostEntrySource::PURCHASE_INVOICE,
+                sourceId: $line->id,
+                productId: $product->id,
+                productVariantId: $line->product_variant_id,
+                costPoolId: $product->default_cost_pool_id,
+                costObjectType: null,
+                costObjectId: null,
+                description: $line->description ?? $product->name,
+                amount: (float) $line->line_total,
+                currencyId: $invoice->currency_id,
+                exchangeRate: $exchangeRate,
+                costDate: $invoice->invoice_date,
+                notes: "From Purchase Invoice #{$invoice->invoice_number}",
+            );
+
+            $this->costingService->recordCostEntry($dto, $actor);
+        }
     }
 }
 

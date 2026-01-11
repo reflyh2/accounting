@@ -4,13 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Models\AssetDepreciationSchedule;
 use App\Models\Asset;
+use App\Models\CostPool;
 use App\Models\Currency;
+use App\Enums\CostEntrySource;
+use App\Services\Costing\CostingService;
+use App\Services\Costing\DTO\CostEntryDTO;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class AssetDepreciationController extends Controller
 {
+    public function __construct(
+        private readonly CostingService $costingService
+    ) {
+    }
+
     public function index(Request $request)
     {
         $schedules = AssetDepreciationSchedule::with(['asset.branch.branchGroup.company'])
@@ -33,7 +42,7 @@ class AssetDepreciationController extends Controller
             ->whereDate('schedule_date', '<=', now()->toDateString())
             ->pluck('id');
 
-        $this->processMany($ids->all());
+        $this->processMany($ids->all(), $request->user());
 
         return redirect()->back()->with('success', 'Penyusutan/Amortisasi berhasil diproses.');
     }
@@ -41,15 +50,16 @@ class AssetDepreciationController extends Controller
     public function processSelected(Request $request)
     {
         $validated = $request->validate(['ids' => 'required|array', 'ids.*' => 'exists:asset_depreciation_schedules,id']);
-        $this->processMany($validated['ids']);
+        $this->processMany($validated['ids'], $request->user());
         return redirect()->back()->with('success', 'Penyusutan/Amortisasi terpilih berhasil diproses.');
     }
 
-    private function processMany(array $ids): void
+    private function processMany(array $ids, $actor): void
     {
         $schedules = AssetDepreciationSchedule::with(['asset.category', 'asset.branch.branchGroup.company'])->whereIn('id', $ids)->get();
+        $costEntryData = [];
 
-        DB::transaction(function () use ($schedules) {
+        DB::transaction(function () use ($schedules, &$costEntryData) {
             foreach ($schedules as $schedule) {
                 if ($schedule->is_processed) {
                     continue;
@@ -82,7 +92,7 @@ class AssetDepreciationController extends Controller
                 // Create journal
                 $journal = \App\Models\Journal::create([
                     'branch_id' => $asset->branch_id,
-                    'user_global_id' => auth()->user()?->global_id,
+                    'user_global_id' => auth()->user?->global_id,
                     'journal_type' => $type,
                     'date' => $schedule->schedule_date,
                     'description' => ($type === 'asset_amortization' ? 'Amortisasi' : 'Penyusutan') . ' aset ' . $asset->code . ' - ' . $asset->name . ' periode ' . $schedule->schedule_date,
@@ -118,8 +128,45 @@ class AssetDepreciationController extends Controller
                 $asset->accumulated_depreciation = ($asset->accumulated_depreciation ?? 0) + $schedule->amount;
                 $asset->net_book_value = max(0, ($asset->cost_basis ?? 0) - $asset->accumulated_depreciation);
                 $asset->saveQuietly();
+
+                // Collect cost entry data - look up cost pool by asset_id
+                $costPool = CostPool::where('asset_id', $asset->id)->where('is_active', true)->first();
+                if ($costPool) {
+                    $costEntryData[] = [
+                        'company_id' => $company->id,
+                        'schedule_id' => $schedule->id,
+                        'cost_pool_id' => $costPool->id,
+                        'amount' => $schedule->amount,
+                        'currency_id' => $primaryCurrency->id,
+                        'exchange_rate' => $exchangeRate,
+                        'cost_date' => $schedule->schedule_date,
+                        'asset_code' => $asset->code,
+                        'asset_name' => $asset->name,
+                    ];
+                }
             }
         });
+
+        // Create cost entries outside transaction
+        foreach ($costEntryData as $data) {
+            $dto = new CostEntryDTO(
+                companyId: $data['company_id'],
+                sourceType: CostEntrySource::ASSET_DEPRECIATION,
+                sourceId: $data['schedule_id'],
+                productId: null,
+                productVariantId: null,
+                costPoolId: $data['cost_pool_id'],
+                costObjectType: null,
+                costObjectId: null,
+                description: "Depreciation: {$data['asset_code']} - {$data['asset_name']}",
+                amount: $data['amount'],
+                currencyId: $data['currency_id'],
+                exchangeRate: $data['exchange_rate'],
+                costDate: $data['cost_date'],
+                notes: "Asset depreciation for {$data['asset_code']}",
+            );
+
+            $this->costingService->recordCostEntry($dto, $actor);
+        }
     }
 }
-

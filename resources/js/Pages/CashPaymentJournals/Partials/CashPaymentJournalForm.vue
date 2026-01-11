@@ -16,6 +16,7 @@ const props = defineProps({
    branches: Array,
    accounts: Array,
    kasBankAccounts: Array,
+   costPools: Array,
    filters: Object,
    primaryCurrency: Object,
 });
@@ -29,8 +30,11 @@ const form = useForm({
    kas_bank_account_id: props.cashPaymentJournal?.journal_entries?.find(entry => entry.credit != 0)?.account_id || null,
    kas_bank_account_currency_id: props.cashPaymentJournal?.journal_entries?.find(entry => entry.credit != 0)?.currency_id || null,
    kas_bank_account_exchange_rate: props.cashPaymentJournal?.journal_entries?.find(entry => entry.credit != 0)?.exchange_rate || 1,
-   entries: props.cashPaymentJournal?.journal_entries?.filter(entry => entry.credit == 0) || [
-      { account_id: null, debit: 0, currency_id: null, exchange_rate: 1 },
+   entries: props.cashPaymentJournal?.journal_entries?.filter(entry => entry.credit == 0).map(e => ({
+      ...e,
+      cost_pool_id: e.cost_pool_id || null,
+   })) || [
+      { account_id: null, debit: 0, currency_id: null, exchange_rate: 1, cost_pool_id: null },
    ],
    create_another: false,
 });
@@ -63,7 +67,7 @@ onMounted(() => {
 });
 
 function addEntry() {
-   form.entries.push({ account_id: null, debit: 0, currency_id: null, exchange_rate: 1 });
+   form.entries.push({ account_id: null, debit: 0, currency_id: null, exchange_rate: 1, cost_pool_id: null });
 }
 
 function removeEntry(index) {
@@ -210,6 +214,7 @@ function submitForm(createAnother = false) {
                   <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Jumlah</th>
                   <th class="border border-gray-300 text-sm px-1.5 py-1.5">Mata Uang</th>
                   <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Kurs</th>
+                  <th class="border border-gray-300 text-sm min-w-40 px-1.5 py-1.5">Cost Pool</th>
                   <th class="border border-gray-300 px-1.5 py-1.5"></th>
                </tr>
             </thead>
@@ -256,6 +261,15 @@ function submitForm(createAnother = false) {
                         :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                      />
                   </td>
+                  <td class="border border-gray-300 px-1.5 py-1.5">
+                     <AppSelect
+                        v-model="entry.cost_pool_id"
+                        :options="(props.costPools ?? []).map(p => ({ value: p.id, label: `${p.code} - ${p.name}` }))"
+                        :error="form.errors[`entries.${index}.cost_pool_id`]"
+                        placeholder="Pilih"
+                        :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                     />
+                  </td>
                   <td class="border border-gray-300 px-1.5 py-1.5 text-center align-middle">
                      <button type="button" @click="removeEntry(index)" class="text-red-500 hover:text-red-700">
                         <TrashIcon class="w-5 h-5" />
@@ -268,7 +282,7 @@ function submitForm(createAnother = false) {
                <tr class="text-sm">
                   <th class="border border-gray-300 px-1.5 py-1.5 text-right">Total</th>
                   <th class="border border-gray-300 px-1.5 py-1.5 text-left">{{ props.primaryCurrency.symbol + ' ' + formatNumber(form.entries.reduce((sum, entry) => sum + (Number(entry.debit) * Number(entry.exchange_rate)), 0)) }}</th>
-                  <th colspan="3"></th>
+                  <th colspan="4"></th>
                </tr>
             </tfoot>
          </table>
