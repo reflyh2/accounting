@@ -12,7 +12,9 @@ use App\Models\Location;
 use App\Models\Partner;
 use App\Models\SalesDelivery;
 use App\Models\SalesOrder;
+use App\Models\DocumentTemplate;
 use App\Services\Sales\SalesService;
+use App\Services\DocumentTemplateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -304,7 +306,7 @@ class SalesDeliveryController extends Controller
     /**
      * Display the print view for Sales Delivery.
      */
-    public function print(SalesDelivery $salesDelivery): Response
+    public function print(SalesDelivery $salesDelivery, DocumentTemplateService $templateService): Response
     {
         $salesDelivery->load([
             'salesOrders',
@@ -318,8 +320,19 @@ class SalesDeliveryController extends Controller
             'creator:global_id,name',
         ]);
 
+        // Resolve template for this company or fallback to default
+        $companyId = $salesDelivery->company_id ?? $salesDelivery->branch?->branchGroup?->company_id;
+        $template = DocumentTemplate::resolveTemplate($companyId, 'sales_delivery');
+
+        $renderedContent = null;
+        if ($template) {
+            $renderedContent = $templateService->renderTemplate($template, $salesDelivery);
+        }
+
         return Inertia::render('SalesDeliveries/Print', [
             'salesDelivery' => $salesDelivery,
+            'template' => $template,
+            'renderedContent' => $renderedContent,
         ]);
     }
 

@@ -1,6 +1,6 @@
 <script setup>
-import { ref } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { router, useForm } from '@inertiajs/vue3';
 import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
@@ -32,38 +32,54 @@ const form = useForm({
    business_license_expiry: props.company?.business_license_expiry || '',
    tax_registration_number: props.company?.tax_registration_number || '',
    social_security_number: props.company?.social_security_number || '',
+   logo: null,
    create_another: false,
 });
 
+const logoPreview = ref(props.company?.logo_path ? `/storage/${props.company.logo_path}` : null);
 const submitted = ref(false);
+
+function handleLogoChange(event) {
+   const file = event.target.files[0];
+   if (file) {
+      form.logo = file;
+      logoPreview.value = URL.createObjectURL(file);
+   }
+}
+
+function removeLogo() {
+   form.logo = null;
+   logoPreview.value = null;
+}
 
 function submitForm(createAnother = false) {
    submitted.value = true;
    form.create_another = createAnother;
+   
+   const options = {
+      preserveScroll: true,
+      forceFormData: true,
+      onSuccess: () => {
+         submitted.value = false;
+         if (createAnother && !props.company) {
+            form.reset();
+            form.clearErrors();
+            logoPreview.value = null;
+         }
+      },
+      onError: () => {
+         submitted.value = false;
+      }
+   };
+
    if (props.company) {
-      form.put(route('companies.update', props.company.id), {
-         preserveScroll: true,
-         onSuccess: () => {
-            submitted.value = false;
-         },
-         onError: () => {
-            submitted.value = false;
-         }
-      });
+      // For updates with file uploads, we need to use POST with _method spoofing
+      form.transform((data) => ({
+         ...data,
+         _method: 'PUT',
+      })).post(route('companies.update', props.company.id), options);
    } else {
-      form.post(route('companies.store'), {
-         preserveScroll: true,
-         onSuccess: () => {
-            submitted.value = false;
-            if (createAnother) {
-               form.reset();
-               form.clearErrors();
-            }
-         },
-         onError: () => {
-            submitted.value = false;
-         }
-      });
+      form.post(route('companies.store'), options);
    }
 }
 </script>
@@ -71,6 +87,36 @@ function submitForm(createAnother = false) {
 <template>
    <div class="flex justify-between">
       <form @submit.prevent="submitForm(false)" class="w-2/3 max-w-xl mr-8">
+         <!-- Logo Upload -->
+         <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Logo Perusahaan</label>
+            <div class="flex items-start space-x-4">
+               <div v-if="logoPreview" class="relative">
+                  <img :src="logoPreview" alt="Logo Preview" class="w-32 h-32 object-contain border rounded" />
+                  <button
+                     type="button"
+                     @click="removeLogo"
+                     class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                  >
+                     ×
+                  </button>
+               </div>
+               <div v-else class="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 text-sm">
+                  Tidak ada logo
+               </div>
+               <div class="flex-1">
+                  <input
+                     type="file"
+                     accept="image/jpeg,image/png,image/gif"
+                     @change="handleLogoChange"
+                     class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  <p class="text-xs text-gray-500 mt-1">Format: JPG, PNG, GIF. Max: 2MB</p>
+                  <p v-if="form.errors.logo" class="text-red-500 text-sm mt-1">{{ form.errors.logo }}</p>
+               </div>
+            </div>
+         </div>
+
          <AppInput
             v-model="form.name"
             label="Nama Perusahaan:"
@@ -201,6 +247,7 @@ function submitForm(createAnother = false) {
             <li>NPWP dan NIB harus valid dan terdaftar</li>
             <li>Alamat harus lengkap dan sesuai dengan dokumen resmi</li>
             <li>Nomor izin usaha dan tanggal kadaluarsa harus akurat</li>
+            <li>Logo akan digunakan pada dokumen cetak (SO, DO, Invoice)</li>
          </ul>
       </div>
    </div>

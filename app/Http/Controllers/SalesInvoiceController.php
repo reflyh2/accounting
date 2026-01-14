@@ -16,7 +16,9 @@ use App\Models\SalesDeliveryLine;
 use App\Models\SalesInvoice;
 use App\Models\SalesOrder;
 use App\Models\Uom;
+use App\Models\DocumentTemplate;
 use App\Services\Sales\SalesInvoiceService;
+use App\Services\DocumentTemplateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
@@ -783,7 +785,7 @@ class SalesInvoiceController extends Controller
         return Uom::orderBy('code')->get(['id', 'code', 'name'])->toArray();
     }
 
-    public function print(SalesInvoice $salesInvoice): Response
+    public function print(SalesInvoice $salesInvoice, DocumentTemplateService $templateService): Response
     {
         $salesInvoice->load([
             'partner',
@@ -793,6 +795,15 @@ class SalesInvoiceController extends Controller
             'lines',
             'creator',
         ]);
+
+        // Resolve template for this company or fallback to default
+        $companyId = $salesInvoice->company_id ?? $salesInvoice->branch?->branchGroup?->company_id;
+        $template = DocumentTemplate::resolveTemplate($companyId, 'sales_invoice');
+
+        $renderedContent = null;
+        if ($template) {
+            $renderedContent = $templateService->renderTemplate($template, $salesInvoice);
+        }
 
         return Inertia::render('SalesInvoices/Print', [
             'salesInvoice' => [
@@ -826,6 +837,11 @@ class SalesInvoiceController extends Controller
                         ] : null,
                     ] : null,
                 ] : null,
+                'company' => $salesInvoice->branch?->branchGroup?->company ? [
+                    'name' => $salesInvoice->branch->branchGroup->company->name,
+                    'address' => $salesInvoice->branch->branchGroup->company->address,
+                    'phone' => $salesInvoice->branch->branchGroup->company->phone,
+                ] : null,
                 'sales_orders' => $salesInvoice->salesOrders->map(fn ($so) => [
                     'id' => $so->id,
                     'order_number' => $so->order_number,
@@ -847,6 +863,8 @@ class SalesInvoiceController extends Controller
                     'name' => $salesInvoice->creator->name,
                 ] : null,
             ],
+            'template' => $template,
+            'renderedContent' => $renderedContent,
         ]);
     }
 

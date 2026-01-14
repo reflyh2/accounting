@@ -28,6 +28,7 @@ class Company extends Model
         'business_license_expiry',
         'tax_registration_number',
         'social_security_number',
+        'logo_path',
         'default_receivable_account_id',
         'default_payable_account_id',
         'default_revenue_account_id',

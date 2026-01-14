@@ -77,7 +77,8 @@ const isSettingsActive = computed(() => {
         || route().current('tax-categories.*')
         || route().current('company-bank-accounts.*')
         || route().current('tax-rules.*')
-        || route().current('gl-event-configurations.*');
+        || route().current('gl-event-configurations.*')
+        || route().current('document-templates.*');
 });
 
 const isAccountingActive = computed(() => {
@@ -720,6 +721,13 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Pajak
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink 
+                                :href="route('document-templates.index')" 
+                                :active="route().current('document-templates.*')" 
+                                class="pl-11"
+                            >
+                                Template Dokumen
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -1764,6 +1772,13 @@ function toggleSidebar() {
                                         >
                                             Pajak
                                         </NavLink>
+                                        <NavLink 
+                                            :href="route('document-templates.index')" 
+                                            :active="route().current('document-templates.*')" 
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Template Dokumen
+                                        </NavLink>
                                     </div>
                                 </div>
                                 
@@ -1837,6 +1852,13 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Pajak
+                                        </NavLink>
+                                        <NavLink 
+                                            :href="route('document-templates.index')" 
+                                            :active="route().current('document-templates.*')" 
+                                            class="flex items-center"
+                                        >
+                                            Template Dokumen
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>

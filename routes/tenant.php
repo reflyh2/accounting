@@ -38,6 +38,7 @@ use App\Http\Controllers\CashBankBookController;
 use App\Http\Controllers\CashPaymentJournalController;
 use App\Http\Controllers\CashReceiptJournalController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\CompanyDefaultAccountsController;
 use App\Http\Controllers\ComponentIssueController;
 use App\Http\Controllers\ComponentScrapController;
@@ -220,6 +221,14 @@ Route::middleware([
         Route::get('/companies/{company}/edit', [CompanyController::class, 'edit'])->name('companies.edit');
         Route::put('/companies/{company}', [CompanyController::class, 'update'])->name('companies.update');
         Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
+
+        // Document Templates Routes
+        Route::delete('document-templates/bulk-delete', [DocumentTemplateController::class, 'bulkDelete'])->name('document-templates.bulk-delete');
+        Route::post('document-templates/{document_template}/set-default', [DocumentTemplateController::class, 'setDefault'])->name('document-templates.set-default');
+        Route::get('document-templates/{document_template}/preview', [DocumentTemplateController::class, 'preview'])->name('document-templates.preview');
+        Route::post('document-templates/{document_template}/duplicate', [DocumentTemplateController::class, 'duplicate'])->name('document-templates.duplicate');
+        Route::get('api/document-templates/placeholders', [DocumentTemplateController::class, 'placeholders'])->name('api.document-templates.placeholders');
+        Route::resource('document-templates', DocumentTemplateController::class);
 
         Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
         Route::delete('/branches/bulk-delete', [BranchController::class, 'bulkDelete'])->name('branches.bulk-delete');

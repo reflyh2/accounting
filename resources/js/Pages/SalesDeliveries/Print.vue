@@ -1,11 +1,15 @@
 <script setup>
 import { Head } from '@inertiajs/vue3';
-import { onMounted } from 'vue';
+import { onMounted, computed } from 'vue';
 import { formatNumber } from '@/utils/numberFormat';
 
 const props = defineProps({
     salesDelivery: Object,
+    template: Object,
+    renderedContent: String,
 });
+
+const useCustomTemplate = computed(() => !!props.renderedContent);
 
 onMounted(() => {
     window.print();
@@ -24,7 +28,11 @@ function formatDate(date) {
 <template>
     <Head :title="`Print Delivery ${salesDelivery.delivery_number}`" />
 
-    <div class="print-layout">
+    <!-- Custom Template Rendering -->
+    <div v-if="useCustomTemplate" class="print-custom-template" v-html="renderedContent"></div>
+
+    <!-- Default Hardcoded Template (Fallback) -->
+    <div v-else class="print-layout">
         <div class="header">
             <div class="company-info">
                 <h1>{{ salesDelivery.branch?.branch_group?.company?.name }}</h1>

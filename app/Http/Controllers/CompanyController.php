@@ -86,9 +86,16 @@ class CompanyController extends Controller
             'tax_registration_number' => 'nullable|string|max:255',
             'social_security_number' => 'nullable|string|max:255',
             'default_tax_jurisdiction_id' => 'nullable|exists:tax_jurisdictions,id',
+            'logo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
 
         $validated['tenant_id'] = $request->user()->tenant_id;
+
+        // Handle logo upload
+        if ($request->hasFile('logo')) {
+            $validated['logo_path'] = $request->file('logo')->store('company-logos', 'public');
+        }
+        unset($validated['logo']);
 
         $company = Company::create($validated);
 
@@ -146,7 +153,18 @@ class CompanyController extends Controller
             'tax_registration_number' => 'nullable|string|max:255',
             'social_security_number' => 'nullable|string|max:255',
             'default_tax_jurisdiction_id' => 'nullable|exists:tax_jurisdictions,id',
+            'logo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
+
+        // Handle logo upload
+        if ($request->hasFile('logo')) {
+            // Delete old logo if exists
+            if ($company->logo_path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($company->logo_path);
+            }
+            $validated['logo_path'] = $request->file('logo')->store('company-logos', 'public');
+        }
+        unset($validated['logo']);
 
         $company->update($validated);
 

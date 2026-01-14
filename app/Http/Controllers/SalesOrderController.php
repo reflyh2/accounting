@@ -13,8 +13,10 @@ use App\Models\Location;
 use App\Models\Partner;
 use App\Models\Product;
 use App\Models\SalesOrder;
+use App\Models\DocumentTemplate;
 use App\Models\Uom;
 use App\Services\Sales\SalesService;
+use App\Services\DocumentTemplateService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -390,7 +392,7 @@ class SalesOrderController extends Controller
     /**
      * Display the print view for SO.
      */
-    public function print(SalesOrder $salesOrder): Response
+    public function print(SalesOrder $salesOrder, DocumentTemplateService $templateService): Response
     {
         $salesOrder->load([
             'partner',
@@ -401,8 +403,19 @@ class SalesOrderController extends Controller
             'creator',
         ]);
 
+        // Resolve template for this company or fallback to default
+        $companyId = $salesOrder->company_id ?? $salesOrder->branch?->branchGroup?->company_id;
+        $template = DocumentTemplate::resolveTemplate($companyId, 'sales_order');
+
+        $renderedContent = null;
+        if ($template) {
+            $renderedContent = $templateService->renderTemplate($template, $salesOrder);
+        }
+
         return Inertia::render('SalesOrders/Print', [
             'salesOrder' => $salesOrder,
+            'template' => $template,
+            'renderedContent' => $renderedContent,
         ]);
     }
 }
