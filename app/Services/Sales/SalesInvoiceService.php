@@ -149,7 +149,7 @@ class SalesInvoiceService
                 'currency',
                 'lines.salesDeliveryLine.salesDelivery',
                 'lines.salesOrderLine',
-                'costs.costPool',
+                'costs.costItem',
             ]);
         });
     }
@@ -212,7 +212,7 @@ class SalesInvoiceService
                 'salesOrders.partner',
                 'lines.salesOrderLine',
                 'lines.salesDeliveryLine.salesDelivery',
-                'costs.costPool',
+                'costs.costItem',
             ]);
         });
     }

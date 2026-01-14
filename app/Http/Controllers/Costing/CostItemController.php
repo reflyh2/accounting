@@ -146,6 +146,7 @@ class CostItemController extends Controller
         return [
             'companies' => Company::orderBy('name')->get(['id', 'name']),
             'accounts' => Account::with('companies:id')
+                ->where('is_parent', false)
                 ->orderBy('code')
                 ->get(['id', 'code', 'name'])
                 ->map(fn ($a) => [

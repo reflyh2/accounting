@@ -141,7 +141,7 @@ class SalesService
                 'lines.uom',
                 'lines.baseUom',
                 'lines.reservationLocation',
-                'costs.costPool',
+                'costs.costItem',
             ]);
         });
     }
@@ -237,7 +237,7 @@ class SalesService
                 'lines.uom',
                 'lines.baseUom',
                 'lines.reservationLocation',
-                'costs.costPool',
+                'costs.costItem',
             ]);
         });
     }

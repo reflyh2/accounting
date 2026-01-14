@@ -198,6 +198,7 @@ class SalesInvoiceController extends Controller
             'lines.salesOrderLine',
             'lines.salesDeliveryLine.salesDelivery',
             'currency',
+            'costs.costItem',
         ]);
 
         $filters = Session::get('sales_invoices.index_filters', []);
@@ -612,6 +613,12 @@ class SalesInvoiceController extends Controller
             'sales_orders' => $invoice->salesOrders->map(fn ($so) => [
                 'id' => $so->id,
                 'order_number' => $so->order_number,
+            ])->values(),
+            'costs' => $invoice->costs->map(fn ($cost) => [
+                'id' => $cost->id,
+                'cost_item' => $cost->costItem,
+                'description' => $cost->description,
+                'amount' => $cost->amount,
             ])->values(),
             'is_direct_invoice' => $invoice->salesOrders->isEmpty(),
             'lines' => $invoice->lines->map(fn ($line) => [

@@ -1099,8 +1099,8 @@ function submitForm(createAnother = false) {
             <table v-if="form.costs.length > 0" class="min-w-full bg-white border border-gray-300 text-sm">
                 <thead>
                     <tr class="bg-gray-100">
-                        <th class="border border-gray-300 px-2 py-1.5 min-w-48">Deskripsi</th>
-                        <th class="border border-gray-300 px-2 py-1.5 min-w-40">Cost Item</th>
+                        <th class="border border-gray-300 px-2 py-1.5 min-w-40">Biaya</th>
+                        <th class="border border-gray-300 px-2 py-1.5 min-w-48">Catatan</th>
                         <th class="border border-gray-300 px-2 py-1.5 min-w-28">Jumlah</th>
                         <th class="border border-gray-300 px-2 py-1.5 w-10"></th>
                     </tr>
@@ -1108,19 +1108,19 @@ function submitForm(createAnother = false) {
                 <tbody>
                     <tr v-for="(cost, index) in form.costs" :key="index">
                         <td class="border border-gray-300 px-1.5 py-1.5">
-                            <AppInput
-                                v-model="cost.description"
-                                placeholder="Deskripsi (opsional)"
-                                :error="form.errors?.[`costs.${index}.description`]"
+                            <AppSelect
+                                v-model="cost.cost_item_id"
+                                :options="costItems.filter(i => !selectedCompany || i.company_id === selectedCompany).map(i => ({ value: i.id, label: `${i.code} - ${i.name}` }))"
+                                placeholder="Pilih Biaya"
+                                :error="form.errors?.[`costs.${index}.cost_item_id`]"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5">
-                            <AppSelect
-                                v-model="cost.cost_item_id"
-                                :options="costItems.filter(i => !selectedCompany || i.company_id === selectedCompany).map(i => ({ value: i.id, label: `${i.code} - ${i.name}` }))"
-                                placeholder="Pilih Cost Item"
-                                :error="form.errors?.[`costs.${index}.cost_item_id`]"
+                            <AppInput
+                                v-model="cost.description"
+                                placeholder="Catatan (opsional)"
+                                :error="form.errors?.[`costs.${index}.description`]"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>

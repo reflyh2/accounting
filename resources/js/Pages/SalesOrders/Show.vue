@@ -223,6 +223,31 @@ function deleteOrder() {
                             </table>
                         </div>
 
+                        <div v-if="salesOrder.costs && salesOrder.costs.length > 0" class="bg-white border border-gray-200 rounded">
+                            
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left font-medium text-gray-600">Biaya</th>
+                                        <th class="px-4 py-2 text-left font-medium text-gray-600">Catatan</th>
+                                        <th class="px-4 py-2 text-right font-medium text-gray-600">Jumlah</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 bg-white">
+                                    <tr v-for="cost in salesOrder.costs" :key="cost.id">
+                                        <td class="px-4 py-3">
+                                            <span v-if="cost.cost_item">
+                                                {{ cost.cost_item.code }} - {{ cost.cost_item.name }}
+                                            </span>
+                                            <span v-else class="text-gray-400">—</span>
+                                        </td>
+                                        <td class="px-4 py-3">{{ cost.description || '—' }}</td>
+                                        <td class="px-4 py-3 text-right">{{ formatNumber(cost.amount) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
                         <div v-if="salesOrder.notes" class="bg-white border border-gray-200 rounded p-4">
                             <h3 class="text-sm font-semibold text-gray-600 mb-2">Catatan</h3>
                             <p class="text-gray-700 whitespace-pre-line">{{ salesOrder.notes }}</p>

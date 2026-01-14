@@ -154,6 +154,30 @@ const postInvoice = () => {
                                 </tfoot>
                             </table>
                         </div>
+
+                        <div v-if="invoice.costs && invoice.costs.length > 0" class="mt-6">
+                            <table class="w-full border-collapse border border-gray-300 text-sm">
+                                <thead>
+                                    <tr>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">Biaya</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">Catatan</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2">Jumlah</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="cost in invoice.costs" :key="cost.id">
+                                        <td class="border border-gray-300 px-4 py-2">
+                                            <span v-if="cost.cost_item">
+                                                {{ cost.cost_item.code }} - {{ cost.cost_item.name }}
+                                            </span>
+                                            <span v-else class="text-gray-400">—</span>
+                                        </td>
+                                        <td class="border border-gray-300 px-4 py-2">{{ cost.description || '—' }}</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(cost.amount) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
