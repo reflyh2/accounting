@@ -109,6 +109,7 @@ const isAccountingActive = computed(() => {
 const isCostingActive = computed(() => {
     return route().current('costing.cost-entries.*')
         || route().current('costing.cost-pools.*')
+        || route().current('costing.cost-items.*')
         || route().current('costing.cost-allocations.*');
 });
 
@@ -605,6 +606,13 @@ function toggleSidebar() {
                                 class="pl-11"
                             >
                                 Pool Biaya
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('costing.cost-items.index')"
+                                :active="route().current('costing.cost-items.*')"
+                                class="pl-11"
+                            >
+                                Cost Items
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 :href="route('costing.cost-allocations.index')"
@@ -1502,6 +1510,13 @@ function toggleSidebar() {
                                             Pool Biaya
                                         </NavLink>
                                         <NavLink
+                                            :href="route('costing.cost-items.index')"
+                                            :active="route().current('costing.cost-items.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Cost Items
+                                        </NavLink>
+                                        <NavLink
                                             :href="route('costing.cost-allocations.index')"
                                             :active="route().current('costing.cost-allocations.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1538,6 +1553,13 @@ function toggleSidebar() {
                                             class="flex items-center"
                                         >
                                             Pool Biaya
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('costing.cost-items.index')"
+                                            :active="route().current('costing.cost-items.*')"
+                                            class="flex items-center"
+                                        >
+                                            Cost Items
                                         </NavLink>
                                         <NavLink
                                             :href="route('costing.cost-allocations.index')"

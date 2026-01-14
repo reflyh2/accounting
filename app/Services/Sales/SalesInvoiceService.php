@@ -5,6 +5,7 @@ namespace App\Services\Sales;
 use App\Domain\Accounting\DTO\AccountingEntry;
 use App\Domain\Accounting\DTO\AccountingEventPayload;
 use App\Enums\AccountingEventCode;
+use App\Enums\CostEntrySource;
 use App\Enums\Documents\InvoiceStatus;
 use App\Enums\Documents\SalesOrderStatus;
 use App\Events\Debt\ExternalDebtCreated;
@@ -15,12 +16,15 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SalesDeliveryLine;
 use App\Models\SalesInvoice;
+use App\Models\SalesInvoiceCost;
 use App\Models\SalesInvoiceLine;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\Uom;
 use App\Services\Accounting\AccountingEventBus;
 use App\Services\Catalog\UserDiscountLimitResolver;
+use App\Services\Costing\CostingService;
+use App\Services\Costing\DTO\CostEntryDTO;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -37,6 +41,7 @@ class SalesInvoiceService
     public function __construct(
         private readonly AccountingEventBus $accountingEventBus,
         private readonly UserDiscountLimitResolver $discountLimitResolver,
+        private readonly CostingService $costingService,
     ) {
     }
 
@@ -135,12 +140,16 @@ class SalesInvoiceService
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 
+            // Persist costs if provided
+            $this->persistCosts($invoice, $payload['costs'] ?? []);
+
             return $invoice->fresh([
                 'salesOrders.partner',
                 'salesOrders.branch',
                 'currency',
                 'lines.salesDeliveryLine.salesDelivery',
                 'lines.salesOrderLine',
+                'costs.costPool',
             ]);
         });
     }
@@ -196,10 +205,14 @@ class SalesInvoiceService
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 
+            // Persist costs if provided
+            $this->persistCosts($invoice, $payload['costs'] ?? []);
+
             return $invoice->fresh([
                 'salesOrders.partner',
                 'lines.salesOrderLine',
                 'lines.salesDeliveryLine.salesDelivery',
+                'costs.costPool',
             ]);
         });
     }
@@ -346,6 +359,9 @@ class SalesInvoiceService
             // Create External Debt record for AR tracking
             $this->createExternalDebt($invoice, $actor);
 
+            // Create CostEntry records from invoice costs
+            $this->createCostEntries($invoice, $actor);
+
             return $invoice->fresh([
                 'salesOrders.partner',
                 'lines.salesOrderLine',
@@ -392,7 +408,10 @@ class SalesInvoiceService
             // Create External Debt record for AR tracking
             $this->createExternalDebt($invoice, $actor);
 
-            return $invoice->fresh(['lines', 'currency', 'externalDebt']);
+            // Create CostEntry records from invoice costs
+            $this->createCostEntries($invoice, $actor);
+
+            return $invoice->fresh(['lines', 'currency', 'externalDebt', 'costs']);
         });
     }
 
@@ -1058,5 +1077,93 @@ class SalesInvoiceService
         }, static function (Throwable $throwable) {
             report($throwable);
         });
+    }
+
+    /**
+     * Persist costs for a sales invoice.
+     */
+    private function persistCosts(SalesInvoice $invoice, array $costs): void
+    {
+        // Delete existing costs for update case
+        $invoice->costs()->delete();
+
+        foreach ($costs as $cost) {
+            if (!isset($cost['amount']) || (float) $cost['amount'] <= 0) {
+                continue;
+            }
+
+            SalesInvoiceCost::create([
+                'sales_invoice_id' => $invoice->id,
+                'sales_order_cost_id' => $cost['sales_order_cost_id'] ?? null,
+                'cost_item_id' => $cost['cost_item_id'] ?? null,
+                'description' => $cost['description'] ?? null,
+                'amount' => $cost['amount'],
+                'currency_id' => $cost['currency_id'] ?? $invoice->currency_id,
+                'exchange_rate' => $cost['exchange_rate'] ?? $invoice->exchange_rate ?? 1,
+            ]);
+        }
+    }
+
+    /**
+     * Create journal entries for invoice direct costs using cost item accounts.
+     */
+    private function createCostEntries(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $invoice->loadMissing(['costs.costItem', 'branch', 'currency']);
+        
+        if ($invoice->costs->isEmpty()) {
+            return;
+        }
+
+        // Filter costs that have valid cost items with accounts
+        $validCosts = $invoice->costs->filter(function ($cost) {
+            return $cost->costItem 
+                && $cost->costItem->debit_account_id 
+                && $cost->costItem->credit_account_id
+                && (float) $cost->amount > 0;
+        });
+
+        if ($validCosts->isEmpty()) {
+            return;
+        }
+
+        // Create a single journal for all direct costs
+        $journal = \App\Models\Journal::create([
+            'branch_id' => $invoice->branch_id,
+            'user_global_id' => $actor?->getAuthIdentifier() ?? 'system',
+            'date' => $invoice->invoice_date,
+            'journal_type' => 'sales',
+            'reference_number' => $invoice->invoice_number,
+            'description' => "Direct Costs - {$invoice->invoice_number}",
+        ]);
+
+        foreach ($validCosts as $invoiceCost) {
+            $costItem = $invoiceCost->costItem;
+            $amount = (float) $invoiceCost->amount;
+            $primaryAmount = $amount * (float) $invoiceCost->exchange_rate;
+            $description = $costItem->name . ($invoiceCost->description ? ": {$invoiceCost->description}" : '');
+
+            // Debit entry (expense account)
+            $journal->journalEntries()->create([
+                'account_id' => $costItem->debit_account_id,
+                'debit' => $amount,
+                'credit' => 0,
+                'currency_id' => $invoiceCost->currency_id,
+                'exchange_rate' => $invoiceCost->exchange_rate,
+                'primary_currency_debit' => $primaryAmount,
+                'primary_currency_credit' => 0,
+            ]);
+
+            // Credit entry (offset account)
+            $journal->journalEntries()->create([
+                'account_id' => $costItem->credit_account_id,
+                'debit' => 0,
+                'credit' => $amount,
+                'currency_id' => $invoiceCost->currency_id,
+                'exchange_rate' => $invoiceCost->exchange_rate,
+                'primary_currency_debit' => 0,
+                'primary_currency_credit' => $primaryAmount,
+            ]);
+        }
     }
 }

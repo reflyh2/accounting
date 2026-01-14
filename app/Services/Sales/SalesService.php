@@ -16,6 +16,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SalesDelivery;
 use App\Models\SalesOrder;
+use App\Models\SalesOrderCost;
 use App\Models\SalesOrderLine;
 use App\Models\Uom;
 use App\Services\Catalog\PricingService;
@@ -128,6 +129,9 @@ class SalesService
                 'total_amount' => $totals['total_amount'],
             ]);
 
+            // Persist costs if provided
+            $this->persistCosts($salesOrder, $payload['costs'] ?? []);
+
             return $salesOrder->fresh([
                 'partner',
                 'branch.branchGroup.company',
@@ -137,6 +141,7 @@ class SalesService
                 'lines.uom',
                 'lines.baseUom',
                 'lines.reservationLocation',
+                'costs.costPool',
             ]);
         });
     }
@@ -220,6 +225,9 @@ class SalesService
                 'total_amount' => $totals['total_amount'],
             ]);
 
+            // Persist costs if provided
+            $this->persistCosts($salesOrder, $payload['costs'] ?? []);
+
             return $salesOrder->fresh([
                 'partner',
                 'branch.branchGroup.company',
@@ -229,6 +237,7 @@ class SalesService
                 'lines.uom',
                 'lines.baseUom',
                 'lines.reservationLocation',
+                'costs.costPool',
             ]);
         });
     }
@@ -1464,6 +1473,30 @@ class SalesService
             'tax_total' => $taxTotal,
             'total_amount' => $this->roundMoney($subtotal + $taxTotal),
         ];
+    }
+
+    /**
+     * Persist costs for a sales order.
+     */
+    private function persistCosts(SalesOrder $salesOrder, array $costs): void
+    {
+        // Delete existing costs for update case
+        $salesOrder->costs()->delete();
+
+        foreach ($costs as $cost) {
+            if (!isset($cost['amount']) || (float) $cost['amount'] <= 0) {
+                continue;
+            }
+
+            SalesOrderCost::create([
+                'sales_order_id' => $salesOrder->id,
+                'cost_item_id' => $cost['cost_item_id'] ?? null,
+                'description' => $cost['description'] ?? null,
+                'amount' => $cost['amount'],
+                'currency_id' => $cost['currency_id'] ?? $salesOrder->currency_id,
+                'exchange_rate' => $cost['exchange_rate'] ?? $salesOrder->exchange_rate ?? 1,
+            ]);
+        }
     }
 
     /**

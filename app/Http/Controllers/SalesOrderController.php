@@ -7,6 +7,7 @@ use App\Exceptions\SalesOrderException;
 use App\Http\Requests\SalesOrderRequest;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\CostItem;
 use App\Models\Currency;
 use App\Models\Location;
 use App\Models\Partner;
@@ -151,6 +152,7 @@ class SalesOrderController extends Controller
             'lines.uom',
             'lines.baseUom',
             'lines.reservationLocation',
+            'costs.costItem',
         ]);
 
         return Inertia::render('SalesOrders/Show', [
@@ -167,6 +169,7 @@ class SalesOrderController extends Controller
             'lines.uom',
             'lines.baseUom',
             'lines.reservationLocation',
+            'costs.costItem',
         ]);
 
         return Inertia::render('SalesOrders/Edit', [
@@ -369,6 +372,9 @@ class SalesOrderController extends Controller
                 ])
                 ->values()
                 ->toArray(),
+            'costItems' => CostItem::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'code', 'name', 'company_id']),
         ];
     }
 

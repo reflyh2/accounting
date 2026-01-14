@@ -7,6 +7,7 @@ use App\Enums\Documents\SalesOrderStatus;
 use App\Exports\SalesInvoicesExport;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\CostItem;
 use App\Models\Currency;
 use App\Models\Partner;
 use App\Models\Product;
@@ -165,6 +166,9 @@ class SalesInvoiceController extends Controller
                     'label' => "{$ba->bank_name} - {$ba->account_number} ({$ba->account_holder_name})",
                     'company_id' => $ba->company_id,
                 ]),
+            'costItems' => CostItem::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'code', 'name', 'company_id']),
             'filters' => Session::get('sales_invoices.index_filters', []),
         ]);
     }
@@ -261,6 +265,9 @@ class SalesInvoiceController extends Controller
                     'label' => "{$ba->bank_name} - {$ba->account_number} ({$ba->account_holder_name})",
                     'company_id' => $ba->company_id,
                 ]),
+            'costItems' => CostItem::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'code', 'name', 'company_id']),
             'filters' => Session::get('sales_invoices.index_filters', []),
         ]);
     }
@@ -392,6 +399,17 @@ class SalesInvoiceController extends Controller
             })
             ->toArray();
 
+        // Validate costs separately (applies to both direct and SO-based invoices)
+        $costsValidation = $request->validate([
+            'costs' => 'nullable|array',
+            'costs.*.description' => 'nullable|string|max:255',
+            'costs.*.cost_item_id' => 'nullable|exists:cost_items,id',
+            'costs.*.amount' => 'required|numeric|min:0',
+            'costs.*.currency_id' => 'nullable|exists:currencies,id',
+            'costs.*.exchange_rate' => 'nullable|numeric|min:0.0001',
+        ]);
+        $validated['costs'] = $costsValidation['costs'] ?? [];
+
         return $validated;
     }
 
@@ -407,6 +425,7 @@ class SalesInvoiceController extends Controller
             'currency',
             'lines.uom',
             'lines.baseUom',
+            'costs.costItem',
         ])->whereIn('id', $salesOrderIds)->get();
 
         $result = [];
@@ -488,6 +507,16 @@ class SalesInvoiceController extends Controller
                 'payment_method' => $salesOrder->payment_method,
                 'company_bank_account_id' => $salesOrder->company_bank_account_id,
                 'lines' => $lines,
+                'costs' => $salesOrder->costs->map(fn ($cost) => [
+                    'id' => $cost->id,
+                    'sales_order_cost_id' => $cost->id,
+                    'description' => $cost->description,
+                    'cost_item_id' => $cost->cost_item_id,
+                    'cost_item_name' => $cost->costItem?->name,
+                    'amount' => (float) $cost->amount,
+                    'currency_id' => $cost->currency_id,
+                    'exchange_rate' => (float) $cost->exchange_rate,
+                ])->values()->toArray(),
             ];
         }
 

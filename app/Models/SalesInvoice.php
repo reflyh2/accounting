@@ -108,4 +108,9 @@ class SalesInvoice extends Model
     {
         return $this->belongsTo(ExternalDebt::class);
     }
+
+    public function costs()
+    {
+        return $this->hasMany(SalesInvoiceCost::class);
+    }
 }

@@ -103,6 +103,11 @@ class SalesOrder extends Model
     {
         return $this->belongsTo(User::class, 'canceled_by', 'global_id');
     }
+
+    public function costs()
+    {
+        return $this->hasMany(SalesOrderCost::class);
+    }
 }
 
 

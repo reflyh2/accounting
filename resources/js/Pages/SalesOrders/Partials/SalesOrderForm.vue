@@ -73,6 +73,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    costItems: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const form = useForm({
@@ -92,6 +96,14 @@ const form = useForm({
     payment_method: props.salesOrder?.payment_method || null,
     company_bank_account_id: props.salesOrder?.company_bank_account_id || null,
     lines: props.salesOrder?.lines || [createEmptyLine()],
+    costs: props.salesOrder?.costs?.map(c => ({
+        id: c.id,
+        description: c.description,
+        cost_item_id: c.cost_item_id,
+        amount: c.amount,
+        currency_id: c.currency_id,
+        exchange_rate: c.exchange_rate,
+    })) || [],
     create_another: false,
 });
 
@@ -372,6 +384,24 @@ function createEmptyLine() {
 
 function addLine() {
     form.lines.push(createEmptyLine());
+}
+
+function createEmptyCost() {
+    return {
+        description: '',
+        cost_item_id: null,
+        amount: 0,
+        currency_id: form.currency_id,
+        exchange_rate: form.exchange_rate || 1,
+    };
+}
+
+function addCost() {
+    form.costs.push(createEmptyCost());
+}
+
+function removeCost(index) {
+    form.costs.splice(index, 1);
 }
 
 function removeLine(index) {
@@ -1059,6 +1089,60 @@ function submitForm(createAnother = false) {
             <div class="flex mt-2 mb-4">
                 <button type="button" @click="addLine" class="flex items-center text-main-500 hover:text-main-700">
                     <PlusCircleIcon class="w-6 h-6 mr-2" /> Tambah Baris
+                </button>
+            </div>
+        </div>
+
+        <!-- Direct Costs Section -->
+        <div class="mt-6 border-t pt-4">
+            <h3 class="text-lg font-semibold mb-3">Biaya Langsung</h3>
+            <table v-if="form.costs.length > 0" class="min-w-full bg-white border border-gray-300 text-sm">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="border border-gray-300 px-2 py-1.5 min-w-48">Deskripsi</th>
+                        <th class="border border-gray-300 px-2 py-1.5 min-w-40">Cost Item</th>
+                        <th class="border border-gray-300 px-2 py-1.5 min-w-28">Jumlah</th>
+                        <th class="border border-gray-300 px-2 py-1.5 w-10"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(cost, index) in form.costs" :key="index">
+                        <td class="border border-gray-300 px-1.5 py-1.5">
+                            <AppInput
+                                v-model="cost.description"
+                                placeholder="Deskripsi (opsional)"
+                                :error="form.errors?.[`costs.${index}.description`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5">
+                            <AppSelect
+                                v-model="cost.cost_item_id"
+                                :options="costItems.filter(i => !selectedCompany || i.company_id === selectedCompany).map(i => ({ value: i.id, label: `${i.code} - ${i.name}` }))"
+                                placeholder="Pilih Cost Item"
+                                :error="form.errors?.[`costs.${index}.cost_item_id`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5">
+                            <AppInput
+                                v-model="cost.amount"
+                                :numberFormat="true"
+                                :error="form.errors?.[`costs.${index}.amount`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5 text-center">
+                            <button type="button" @click="removeCost(index)" class="text-red-500 hover:text-red-700">
+                                <TrashIcon class="w-5 h-5" />
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="flex mt-2">
+                <button type="button" @click="addCost" class="flex items-center text-main-500 hover:text-main-700">
+                    <PlusCircleIcon class="w-5 h-5 mr-1" /> Tambah Biaya
                 </button>
             </div>
         </div>

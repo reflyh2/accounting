@@ -35,6 +35,7 @@ const props = defineProps({
                     :channels="formOptions.channels"
                     :paymentMethods="formOptions.paymentMethods"
                     :companyBankAccounts="formOptions.companyBankAccounts"
+                    :costItems="formOptions.costItems"
                     :filters="filters"
                     mode="create"
                     submit-label="Simpan Sales Order"

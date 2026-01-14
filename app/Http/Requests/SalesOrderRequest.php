@@ -45,6 +45,12 @@ class SalesOrderRequest extends FormRequest
                 'exists:locations,id',
                 'required_if:reserve_stock,1',
             ],
+            'costs' => ['nullable', 'array'],
+            'costs.*.description' => ['nullable', 'string', 'max:255'],
+            'costs.*.cost_item_id' => ['nullable', 'exists:cost_items,id'],
+            'costs.*.amount' => ['required', 'numeric', 'min:0'],
+            'costs.*.currency_id' => ['nullable', 'exists:currencies,id'],
+            'costs.*.exchange_rate' => ['nullable', 'numeric', 'min:0.0001'],
         ];
     }
 }
