@@ -67,6 +67,17 @@ const placeholderCategories = ref([
         ],
     },
     {
+        name: 'Bank Perusahaan',
+        expanded: false,
+        items: [
+            { key: 'bank.bank_name', label: 'Nama Bank' },
+            { key: 'bank.account_number', label: 'No. Rekening' },
+            { key: 'bank.account_holder_name', label: 'Atas Nama' },
+            { key: 'bank.branch_name', label: 'Cabang Bank' },
+            { key: 'bank.swift_code', label: 'SWIFT Code' },
+        ],
+    },
+    {
         name: 'Cabang',
         expanded: false,
         items: [

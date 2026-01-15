@@ -177,6 +177,19 @@ class DocumentTemplateService
             }
         }
 
+        // Company bank account (primary)
+        if ($company = $this->getCompany($document)) {
+            $bankAccount = $company->bankAccounts()->where('is_primary', true)->first()
+                ?? $company->bankAccounts()->where('is_active', true)->first();
+            if ($bankAccount) {
+                $placeholders['bank.bank_name'] = $bankAccount->bank_name ?? '';
+                $placeholders['bank.account_number'] = $bankAccount->account_number ?? '';
+                $placeholders['bank.account_holder_name'] = $bankAccount->account_holder_name ?? '';
+                $placeholders['bank.branch_name'] = $bankAccount->branch_name ?? '';
+                $placeholders['bank.swift_code'] = $bankAccount->swift_code ?? '';
+            }
+        }
+
         // Creator
         if ($creator = $document->creator) {
             $placeholders['created_by.name'] = $creator->name;
@@ -391,6 +404,13 @@ class DocumentTemplateService
             'company' => $companyFields,
             'branch' => $branchFields,
             'partner' => $partnerFields,
+            'bank' => [
+                'bank_name' => 'Nama Bank',
+                'account_number' => 'No. Rekening',
+                'account_holder_name' => 'Atas Nama',
+                'branch_name' => 'Cabang Bank',
+                'swift_code' => 'SWIFT Code',
+            ],
             'currency' => ['code' => 'Kode', 'name' => 'Nama', 'symbol' => 'Simbol'],
             'created_by' => ['name' => 'Nama', 'email' => 'Email'],
             'notes' => 'Catatan Dokumen',

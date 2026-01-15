@@ -41,6 +41,11 @@ const placeholderCategories = ref([
         items: Object.entries(props.placeholders?.common?.company || {}).map(([key, label]) => ({ key: `company.${key}`, label })),
     },
     {
+        name: 'Bank Perusahaan',
+        expanded: false,
+        items: Object.entries(props.placeholders?.common?.bank || {}).map(([key, label]) => ({ key: `bank.${key}`, label })),
+    },
+    {
         name: 'Cabang',
         expanded: false,
         items: Object.entries(props.placeholders?.common?.branch || {}).map(([key, label]) => ({ key: `branch.${key}`, label })),
