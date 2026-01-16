@@ -28,6 +28,7 @@ services:
             - meilisearch
             - mailpit
             - selenium
+            - memcached
     mysql:
         image: 'mysql/mysql-server:8.0'
         ports:
@@ -124,6 +125,12 @@ services:
             - 'host.docker.internal:host-gateway'
         volumes:
             - '/dev/shm:/dev/shm'
+        networks:
+            - sail
+    memcached:
+        image: 'memcached:alpine'
+        ports:
+            - '${FORWARD_MEMCACHED_PORT:-11211}:11211'
         networks:
             - sail
 networks:
