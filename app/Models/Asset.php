@@ -40,6 +40,11 @@ class Asset extends Model
             if (Auth::check()) {
                 $user = User::find(Auth::user()->global_id);
 
+                // Skip scope if user doesn't exist in tenant DB yet (e.g., during seeding)
+                if (!$user) {
+                    return;
+                }
+
                 if ($user->roles->whereIn('access_level', ['company', 'branch_group', 'branch'])->isNotEmpty()) {
                     $builder->whereHas('branch');
                 } else {

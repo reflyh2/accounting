@@ -67,6 +67,11 @@ class Account extends Model
             if (Auth::check()) {
                 $user = User::find(Auth::user()->global_id);
 
+                // Skip scope if user doesn't exist in tenant DB yet (e.g., during seeding)
+                if (!$user) {
+                    return;
+                }
+
                 $companyIds = $user->branches->pluck('branchGroup.company_id')->unique();
 
                 $builder->whereHas('companies', function ($query) use ($companyIds) {

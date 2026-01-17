@@ -17,6 +17,12 @@ class BranchGroup extends Model
         static::addGlobalScope('userBranchGroups', function ($builder) {
             if (Auth::check()) {
                 $user = User::find(Auth::user()->global_id);
+                
+                // Skip scope if user doesn't exist in tenant DB yet (e.g., during seeding)
+                if (!$user) {
+                    return;
+                }
+                
                 $userId = $user->global_id;
 
                 // Check if the user has company-level access

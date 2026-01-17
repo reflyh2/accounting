@@ -55,6 +55,13 @@ class Company extends Model
         static::addGlobalScope('userCompanies', function ($builder) {
             if (Auth::check()) {
                 $userId = Auth::user()->global_id;
+                
+                // Skip scope if user doesn't exist in tenant DB yet (e.g., during seeding)
+                $user = User::find($userId);
+                if (!$user) {
+                    return;
+                }
+                
                 $builder->whereHas('branchGroups.branches.users', function ($query) use ($userId) {
                     $query->where('users.global_id', $userId);
                 });

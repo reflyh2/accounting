@@ -11,27 +11,16 @@ class AccountSeeder extends Seeder
 {
     public function run()
     {
-        $company = Company::first();
+        // Get existing company - should be created by SetupTenantDatabase before this seeder runs
+        $company = Company::withoutGlobalScopes()->first();
         if (!$company) {
-            $company = Company::create([
-                'name' => 'PT. Sample Indonesia',
-                'legal_name' => 'PT. Sample Indonesia Tbk.',
-                'address' => 'Jl. Sudirman No. 123',
-                'city' => 'Jakarta',
-                'province' => 'DKI Jakarta',
-                'postal_code' => '12930',
-                'phone' => '021-5551234',
-            ]);
+            throw new \RuntimeException('AccountSeeder requires a company to exist. Run SetupTenantDatabase first.');
         }
 
+        // Get existing currency - should be created by SetupTenantDatabase before this seeder runs
         $currency = Currency::where('code', 'IDR')->first();
         if (!$currency) {
-            $currency = Currency::create([
-                'name' => 'Indonesian Rupiah',
-                'code' => 'IDR',
-                'symbol' => 'Rp',
-                'is_primary' => true,
-            ]);
+            throw new \RuntimeException('AccountSeeder requires IDR currency to exist. Run SetupTenantDatabase first.');
         }
 
         $accountStructure = [

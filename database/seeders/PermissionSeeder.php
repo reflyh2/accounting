@@ -36,19 +36,23 @@ class PermissionSeeder extends Seeder
             }
         }
 
-        // Create Super Admin Role and grant all permissions
-        $superAdminRole = Role::create([
-            'name' => 'Super Administrator',
-            'guard_name' => 'web',
-            'access_level' => 'company',
-            'description' => 'Super Administrator bisa mengakses semua data',
-        ]);
+        // Create Super Admin Role and grant all permissions (use firstOrCreate to avoid duplicates)
+        $superAdminRole = Role::firstOrCreate(
+            ['name' => 'Super Administrator', 'guard_name' => 'web'],
+            [
+                'access_level' => 'company',
+                'description' => 'Super Administrator bisa mengakses semua data',
+            ]
+        );
 
         $permissions = Permission::all();
-        $superAdminRole->permissions()->attach($permissions);
+        $superAdminRole->permissions()->syncWithoutDetaching($permissions);
 
-        // Assign Super Admin Role to first user
+        // Assign Super Admin Role to first user (if exists)
+        // Note: When called from TenantSetupSeeder, user may be created separately
         $firstUser = User::first();
-        $firstUser->roles()->attach($superAdminRole);
+        if ($firstUser && !$firstUser->hasRole('Super Administrator')) {
+            $firstUser->roles()->attach($superAdminRole);
+        }
     }
 }

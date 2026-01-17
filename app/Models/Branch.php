@@ -20,6 +20,11 @@ class Branch extends Model
             if (Auth::check()) {
                 $user = User::find(Auth::user()->global_id);
                 
+                // Skip scope if user doesn't exist in tenant DB yet (e.g., during seeding)
+                if (!$user) {
+                    return;
+                }
+                
                 $branchIds = DB::table('branch_has_users')->select('branch_id')->where('user_id', $user->global_id)->get()->pluck('branch_id');
                 $branchGroupIds = DB::table('branches')->select('branch_group_id')->whereIn('branches.id', $branchIds)->get()->pluck('branch_group_id');
                 $companyIds = BranchGroup::withoutGlobalScopes()->whereIn('branch_groups.id', $branchGroupIds)->pluck('company_id');

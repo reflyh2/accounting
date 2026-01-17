@@ -9,10 +9,12 @@ use App\Models\Journal;
 use App\Models\BranchGroup;
 use Illuminate\Http\Request;
 use App\Exports\BranchesExport;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Redirect; // Add this line
+use Illuminate\Support\Facades\Redirect;
 
 class BranchController extends Controller
 {
@@ -105,7 +107,11 @@ class BranchController extends Controller
             'branch_group_id' => 'required|exists:branch_groups,id',
         ]);
 
-        $branch = Branch::create($validated);
+        $authUser = Auth::user();
+
+        $user = User::where('global_id', $authUser->global_id)->first();
+
+        $branch = $user->branches()->create($validated);
 
         if ($request->input('create_another', false)) {
             return redirect()->route('branches.create')

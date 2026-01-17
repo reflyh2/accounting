@@ -26,6 +26,12 @@ class JournalEntry extends Model
         static::addGlobalScope('userJournalEntries', function ($builder) {
             if (Auth::check()) {
                 $user = User::find(Auth::user()->global_id);
+                
+                // Skip scope if user doesn't exist in tenant DB yet (e.g., during seeding)
+                if (!$user) {
+                    return;
+                }
+                
                 $builder->whereHas('journal');
             }
         });

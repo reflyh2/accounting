@@ -161,23 +161,43 @@ function submitForm(createAnother = false) {
         notes: b.notes || null,
     }));
 
-    form.transform((data) => ({
-        ...data,
-        roles,
-        contacts: filteredContacts,
-        selectedRoles: undefined,
-        supplier_settings: undefined,
-        customer_settings: undefined,
-        bank_accounts: bankAccountsPayload,
-    })).put(route('partners.update', props.partner.id), {
-        preserveScroll: true,
-        onSuccess: () => {
-            submitted.value = false;
-        },
-        onError: () => {
-            submitted.value = false;
-        }
-    });
+    if (props.partner) {
+        form.transform((data) => ({
+            ...data,
+            roles,
+            contacts: filteredContacts,
+            selectedRoles: undefined,
+            supplier_settings: undefined,
+            customer_settings: undefined,
+            bank_accounts: bankAccountsPayload,
+        })).put(route('partners.update', props.partner.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                submitted.value = false;
+            },
+            onError: () => {
+                submitted.value = false;
+            }
+        });
+    } else {
+        form.transform((data) => ({
+            ...data,
+            roles,
+            contacts: filteredContacts,
+            selectedRoles: undefined,
+            supplier_settings: undefined,
+            customer_settings: undefined,
+            bank_accounts: bankAccountsPayload,
+        })).post(route('partners.store'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                submitted.value = false;
+            },
+            onError: () => {
+                submitted.value = false;
+            }
+        });
+    }
 }
 </script>
 
