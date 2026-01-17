@@ -15,7 +15,7 @@ const mappedSalesOrder = {
     ...props.salesOrder,
     lines: props.salesOrder.lines?.map(line => ({
         ...line,
-        product_id: line.variant?.product_id || null,
+        product_id: line.product_id || null,
         product_variant_id: line.product_variant_id,
         uom_id: line.uom_id,
         quantity: line.quantity,
