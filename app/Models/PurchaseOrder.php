@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Domain\Documents\StateMachine\Definitions\PurchaseOrderStates;
 use App\Domain\Documents\StateMachine\DocumentStateMachineDefinition;
 use App\Enums\Documents\PurchaseOrderStatus;
+use App\Traits\Auditable;
 use App\Traits\DocumentStateMachine;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,8 +16,14 @@ class PurchaseOrder extends Model
     use HasFactory;
     use SoftDeletes;
     use DocumentStateMachine;
+    use Auditable;
 
     protected $guarded = [];
+
+    /**
+     * Fields to audit for this model.
+     */
+    protected $auditable = ['status', 'total_amount', 'approved_at', 'canceled_at'];
 
     protected $casts = [
         'order_date' => 'date',

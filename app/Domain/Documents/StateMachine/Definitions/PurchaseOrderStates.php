@@ -38,8 +38,20 @@ final class PurchaseOrderStates
             ?Authenticatable $actor,
             array $context
         ): bool {
-            $shouldEnforce = $context['enforceMakerChecker']
-                ?? config('purchasing.maker_checker.enforce', false);
+            // Check if maker-checker should be enforced:
+            // 1. Explicit context override
+            // 2. Company setting
+            // 3. Global config fallback
+            $shouldEnforce = $context['enforceMakerChecker'] ?? null;
+            
+            if ($shouldEnforce === null) {
+                // Check company setting if document has company relationship
+                if (method_exists($document, 'company') && $document->company) {
+                    $shouldEnforce = $document->company->enable_maker_checker ?? false;
+                } else {
+                    $shouldEnforce = config('purchasing.maker_checker.enforce', false);
+                }
+            }
 
             if (!$shouldEnforce) {
                 return true;

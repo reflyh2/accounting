@@ -42,12 +42,14 @@ class Company extends Model
         'reservation_strictness',
         'default_backflush',
         'default_tax_jurisdiction_id',
+        'enable_maker_checker',
     ];
 
     protected $casts = [
         'year_established' => 'integer',
         'business_license_expiry' => 'date',
         'default_backflush' => 'boolean',
+        'enable_maker_checker' => 'boolean',
     ];
 
     protected static function booted()

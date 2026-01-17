@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Exceptions\DocumentStateException;
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Auth;
@@ -10,6 +11,12 @@ use Carbon\Carbon;
 
 class AccountingPeriod extends Model
 {
+    use Auditable;
+
+    /**
+     * Fields to audit for this model.
+     */
+    protected $auditable = ['status'];
     protected $fillable = [
         'company_id',
         'name',
