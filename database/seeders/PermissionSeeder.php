@@ -11,26 +11,91 @@ class PermissionSeeder extends Seeder
 {
     public function run()
     {
+        // Permission groups organized by module
         $permissionGroups = [
+            // Settings module - basic CRUD
             'settings' => [
                 'companies',
                 'branch-groups',
                 'branches',
                 'roles',
                 'users',
+                'accounting-periods',
+                'approval-workflows',
+            ],
+            // Purchase module - includes document workflow actions
+            'purchase' => [
+                'purchase_plan',
+                'purchase_order',
+                'goods_receipt',
+                'purchase_invoice',
+                'purchase_return',
+            ],
+            // Sales module - includes document workflow actions
+            'sales' => [
+                'sales_order',
+                'sales_invoice',
+                'sales_return',
+                'delivery_order',
+            ],
+            // Inventory module
+            'inventory' => [
+                'stock',
+                'transfer',
+                'adjustment',
+                'warehouse',
+            ],
+            // Accounting module
+            'accounting' => [
+                'journal',
+                'payment',
+                'receipt',
+                'reconciliation',
+            ],
+            // Manufacturing module
+            'manufacturing' => [
+                'work_order',
+                'bom',
+                'production',
+            ],
+            // Master data module
+            'catalog' => [
+                'products',
+                'partners',
+                'accounts',
+                'currencies',
             ],
         ];
 
+        // Standard CRUD actions for all modules
         $crudActions = ['view', 'create', 'update', 'delete'];
+
+        // Document-specific actions for workflow modules
+        $documentActions = ['approve', 'post', 'cancel'];
+
+        // Modules that have document workflow actions
+        $documentModules = ['purchase', 'sales', 'accounting'];
 
         foreach ($permissionGroups as $group => $routes) {
             foreach ($routes as $route) {
+                // Create standard CRUD permissions for all modules
                 foreach ($crudActions as $action) {
                     $permissionName = "{$group}.{$route}.{$action}";
                     
                     // Check if the permission already exists
                     if (!Permission::where('name', $permissionName)->exists()) {
                         Permission::create(['name' => $permissionName]);
+                    }
+                }
+
+                // Create document workflow actions for document modules
+                if (in_array($group, $documentModules)) {
+                    foreach ($documentActions as $action) {
+                        $permissionName = "{$group}.{$route}.{$action}";
+                        
+                        if (!Permission::where('name', $permissionName)->exists()) {
+                            Permission::create(['name' => $permissionName]);
+                        }
                     }
                 }
             }

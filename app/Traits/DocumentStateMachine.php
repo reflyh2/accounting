@@ -73,6 +73,9 @@ trait DocumentStateMachine
             $this->setAttribute($definition->column(), $target->value);
             $this->save();
 
+            // Log the status change to audit trail
+            $this->logStatusTransition($current, $target, $actor);
+
             $definition->runAfterAny($this, $actor, $context);
 
             if ($transition->after) {
@@ -153,6 +156,26 @@ trait DocumentStateMachine
                 throw new DocumentStateException('Transition blocked by guard.');
             }
         }
+    }
+
+    /**
+     * Log a status transition to the audit trail.
+     */
+    private function logStatusTransition(BackedEnum $from, BackedEnum $to, ?Authenticatable $actor): void
+    {
+        if (!class_exists(\App\Models\AuditLog::class)) {
+            return;
+        }
+
+        \App\Models\AuditLog::log(
+            \App\Models\AuditLog::ACTION_STATUS_CHANGED,
+            $this,
+            ['status' => $from->value],
+            ['status' => $to->value],
+            ['status'],
+            sprintf('Status changed from %s to %s', $from->value, $to->value),
+            $actor?->global_id ?? $actor?->getAuthIdentifier(),
+        );
     }
 }
 

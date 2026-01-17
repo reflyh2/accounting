@@ -21,5 +21,15 @@ class Role extends SpatieRole
             config('permission.column_names.model_morph_key')
         );
     }
+
+    /**
+     * Get the field permissions for this role.
+     */
+    public function fieldPermissions(): BelongsToMany
+    {
+        return $this->belongsToMany(FieldPermission::class, 'role_field_permissions')
+            ->withPivot(['can_view', 'can_edit'])
+            ->withTimestamps();
+    }
     
 }
