@@ -778,6 +778,7 @@ class GoodsReceiptController extends Controller
                 $q->whereIn('status', [
                     PurchaseOrderStatus::SENT->value,
                     PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
+                    PurchaseOrderStatus::RECEIVED->value,
                 ]);
             });
 
