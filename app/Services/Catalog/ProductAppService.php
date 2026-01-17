@@ -108,8 +108,18 @@ class ProductAppService
 
     private function syncVariants(Product $product, array $attributes, array $capabilities): void
     {
-        if (!$product->attribute_set_id) {
+        $trackInventory = in_array('inventory_tracked', $capabilities ?? [], true);
+        $uomId = $product->default_uom_id ?? $product->variants()->value('uom_id') ?? Uom::query()->value('id');
+
+        // If no UOM available, we cannot create variants
+        if (!$uomId) {
             $product->variants()->delete();
+            return;
+        }
+
+        // If no attribute set, ensure a default variant exists
+        if (!$product->attribute_set_id) {
+            $this->ensureDefaultVariant($product, $trackInventory, $uomId);
             return;
         }
 
@@ -119,8 +129,9 @@ class ProductAppService
             ->orderBy('id')
             ->get();
 
+        // If no variant axes defined, ensure a default variant exists
         if ($variantDefs->isEmpty()) {
-            $product->variants()->delete();
+            $this->ensureDefaultVariant($product, $trackInventory, $uomId);
             return;
         }
 
@@ -137,8 +148,9 @@ class ProductAppService
             }
         }
 
+        // If axes exist but have no values, ensure a default variant exists
         if (empty($axes)) {
-            $product->variants()->delete();
+            $this->ensureDefaultVariant($product, $trackInventory, $uomId);
             return;
         }
 
@@ -148,12 +160,6 @@ class ProductAppService
         });
         $usedSkus = $existing->pluck('sku')->filter()->values()->all();
         $keptIds = [];
-        $trackInventory = in_array('inventory_tracked', $capabilities ?? [], true);
-        $uomId = $product->default_uom_id ?? $product->variants()->value('uom_id') ?? Uom::query()->value('id');
-        if (!$uomId) {
-            $product->variants()->delete();
-            return;
-        }
 
         foreach ($combinations as $combo) {
             $key = $this->variantKey($combo);
@@ -179,6 +185,39 @@ class ProductAppService
             $product->variants()->whereNotIn('id', $keptIds)->delete();
         } else {
             $product->variants()->delete();
+        }
+    }
+
+    /**
+     * Ensure a single default variant exists for the product.
+     * Used when the product has no variant axes (non-variantable products).
+     */
+    private function ensureDefaultVariant(Product $product, bool $trackInventory, int $uomId): void
+    {
+        $defaultKey = $this->variantKey([]);
+
+        $existing = $product->variants()->get()->keyBy(function ($variant) {
+            return $this->variantKey($variant->attrs_json ?? []);
+        });
+
+        $payload = [
+            'attrs_json' => [],
+            'track_inventory' => $trackInventory,
+            'uom_id' => $uomId,
+            'is_active' => $product->is_active,
+        ];
+
+        if ($existing->has($defaultKey)) {
+            // Update existing default variant
+            $variant = $existing[$defaultKey];
+            $variant->update($payload);
+            // Remove any other variants (shouldn't exist, but clean up just in case)
+            $product->variants()->where('id', '!=', $variant->id)->delete();
+        } else {
+            // Create new default variant, delete any existing variants
+            $product->variants()->delete();
+            $payload['sku'] = $product->code;
+            $product->variants()->create($payload);
         }
     }
 
