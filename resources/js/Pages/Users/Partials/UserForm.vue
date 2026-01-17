@@ -106,7 +106,7 @@ function resetForm() {
          <AppSelect
             v-model="form.branches"
             label="Cabang:"
-            :options="filteredBranches.map(branch => ({ value: branch.id, label: `${branch.name} (${branch.branch_group.company.name})` }))"
+            :options="filteredBranches.map(branch => ({ value: branch.id, label: `${branch.name} (${branch.branch_group?.company?.name})` }))"
             placeholder="Pilih cabang"
             :error="form.errors.branches"
             :submitted="submitted"

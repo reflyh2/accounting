@@ -76,7 +76,7 @@ class UserController extends Controller
         
         return Inertia::render('Users/Create', [
             'roles' => Role::orderBy('name', 'asc')->get(),
-            'branches' => Branch::withoutGlobalScope('userBranches')->with('branchGroupAll.companyAll')->orderBy('name', 'asc')->get(),
+            'branches' => Branch::withoutGlobalScope('userBranches')->with(['branchGroupAll.companyAll', 'branchGroup.company'])->orderBy('name', 'asc')->get(),
             'companies' => Company::withoutGlobalScope('userCompanies')->orderBy('name', 'asc')->get(),
             'filters' => $filters,
         ]);

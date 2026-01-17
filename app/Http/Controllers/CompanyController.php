@@ -86,6 +86,7 @@ class CompanyController extends Controller
             'tax_registration_number' => 'nullable|string|max:255',
             'social_security_number' => 'nullable|string|max:255',
             'default_tax_jurisdiction_id' => 'nullable|exists:tax_jurisdictions,id',
+            'enable_maker_checker' => 'boolean',
             'logo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
 
@@ -153,6 +154,7 @@ class CompanyController extends Controller
             'tax_registration_number' => 'nullable|string|max:255',
             'social_security_number' => 'nullable|string|max:255',
             'default_tax_jurisdiction_id' => 'nullable|exists:tax_jurisdictions,id',
+            'enable_maker_checker' => 'boolean',
             'logo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
 

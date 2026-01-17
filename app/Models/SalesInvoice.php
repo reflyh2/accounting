@@ -7,6 +7,7 @@ use App\Domain\Documents\StateMachine\DocumentStateMachineDefinition;
 use App\Enums\Documents\InvoiceStatus;
 use App\Traits\Auditable;
 use App\Traits\DocumentStateMachine;
+use App\Traits\HasAccessLevelScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -17,6 +18,7 @@ class SalesInvoice extends Model
     use SoftDeletes;
     use DocumentStateMachine;
     use Auditable;
+    use HasAccessLevelScope;
 
     protected $guarded = [];
 

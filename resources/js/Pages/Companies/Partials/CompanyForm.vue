@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppInput from '@/Components/AppInput.vue';
 import AppSelect from '@/Components/AppSelect.vue';
+import AppCheckbox from '@/Components/AppCheckbox.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppUtilityButton from '@/Components/AppUtilityButton.vue';
@@ -32,6 +33,7 @@ const form = useForm({
    business_license_expiry: props.company?.business_license_expiry || '',
    tax_registration_number: props.company?.tax_registration_number || '',
    social_security_number: props.company?.social_security_number || '',
+   enable_maker_checker: props.company?.enable_maker_checker || false,
    logo: null,
    create_another: false,
 });
@@ -226,6 +228,17 @@ function submitForm(createAnother = false) {
             label="Nomor BPJS:"
             :error="form.errors.social_security_number"
          />
+         
+         <!-- Security Settings Section -->
+         <div class="mt-6 mb-4 border-t pt-4">
+            <h4 class="font-medium text-gray-700 mb-3">Pengaturan Keamanan</h4>
+            <AppCheckbox
+               v-model="form.enable_maker_checker"
+               label="Aktifkan Maker-Checker (Pembuat dokumen tidak bisa menyetujui dokumen yang sama)"
+               :error="form.errors.enable_maker_checker"
+            />
+         </div>
+
          <div class="mt-4 flex items-center">
             <AppPrimaryButton type="submit" class="mr-2">
                {{ props.company ? 'Ubah' : 'Tambah' }} Perusahaan
