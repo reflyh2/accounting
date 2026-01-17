@@ -22,6 +22,7 @@ class PermissionSeeder extends Seeder
                 'users',
                 'accounting-periods',
                 'approval-workflows',
+                'partners',
             ],
             // Purchase module - includes document workflow actions
             'purchase' => [
@@ -61,7 +62,6 @@ class PermissionSeeder extends Seeder
             // Master data module
             'catalog' => [
                 'products',
-                'partners',
                 'accounts',
                 'currencies',
             ],

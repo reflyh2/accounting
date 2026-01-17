@@ -11,9 +11,62 @@ import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon, CubeIcon,
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue';
 import { Cog8ToothIcon, ChevronRightIcon, Bars3Icon } from '@heroicons/vue/24/solid';
 import AlertNotification from '@/Components/AlertNotification.vue';
+import { usePermissions } from '@/Composables/usePermissions';
+
+const { hasModuleAccess, can } = usePermissions();
 
 const showingNavigationDropdown = ref(false);
 const showingMobileMenu = ref(false);
+
+// Module-level permission checks (for section visibility)
+const canAccessSettings = computed(() => hasModuleAccess('settings'));
+const canAccessPurchase = computed(() => hasModuleAccess('purchase'));
+const canAccessSales = computed(() => hasModuleAccess('sales'));
+const canAccessInventory = computed(() => hasModuleAccess('inventory'));
+const canAccessAccounting = computed(() => hasModuleAccess('accounting'));
+const canAccessManufacturing = computed(() => hasModuleAccess('manufacturing'));
+const canAccessCatalog = computed(() => hasModuleAccess('catalog'));
+
+// Resource-level permission checks (for sub-menu visibility)
+// Settings
+const canViewCompanies = computed(() => can('settings.companies.view'));
+const canViewBranches = computed(() => can('settings.branches.view'));
+const canViewRoles = computed(() => can('settings.roles.view'));
+const canViewUsers = computed(() => can('settings.users.view'));
+const canViewPartners = computed(() => can('settings.partners.view'));
+
+// Purchase
+const canViewPurchasePlans = computed(() => can('purchase.purchase_plan.view'));
+const canViewPurchaseOrders = computed(() => can('purchase.purchase_order.view'));
+const canViewGoodsReceipts = computed(() => can('purchase.goods_receipt.view'));
+const canViewPurchaseInvoices = computed(() => can('purchase.purchase_invoice.view'));
+const canViewPurchaseReturns = computed(() => can('purchase.purchase_return.view'));
+
+// Sales
+const canViewSalesOrders = computed(() => can('sales.sales_order.view'));
+const canViewDeliveries = computed(() => can('sales.delivery_order.view'));
+const canViewSalesInvoices = computed(() => can('sales.sales_invoice.view'));
+const canViewSalesReturns = computed(() => can('sales.sales_return.view'));
+
+// Inventory
+const canViewStock = computed(() => can('inventory.stock.view'));
+const canViewTransfers = computed(() => can('inventory.transfer.view'));
+const canViewAdjustments = computed(() => can('inventory.adjustment.view'));
+
+// Accounting
+const canViewJournals = computed(() => can('accounting.journal.view'));
+const canViewPayments = computed(() => can('accounting.payment.view'));
+const canViewReceipts = computed(() => can('accounting.receipt.view'));
+
+// Manufacturing
+const canViewBom = computed(() => can('manufacturing.bom.view'));
+const canViewWorkOrders = computed(() => can('manufacturing.work_order.view'));
+const canViewProduction = computed(() => can('manufacturing.production.view'));
+
+// Catalog
+const canViewProducts = computed(() => can('catalog.products.view'));
+const canViewAccounts = computed(() => can('catalog.accounts.view'));
+const canViewCurrencies = computed(() => can('catalog.currencies.view'));
 
 // Initialize sidebar state from localStorage, default to false (expanded)
 const getSavedSidebarState = () => {
@@ -246,7 +299,7 @@ function toggleSidebar() {
                     </ResponsiveNavLink>
 
                     <!-- Purchasing Section -->
-                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isPurchasingActive">
+                    <Disclosure v-if="canAccessPurchase" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isPurchasingActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <ShoppingCartIcon class="h-5 w-5 mr-2" />
                             <span>Pembelian</span>
@@ -257,6 +310,7 @@ function toggleSidebar() {
                         </DisclosureButton>
                         <DisclosurePanel class="mt-1 space-y-1 text-sm">
                             <ResponsiveNavLink
+                                v-if="canViewPurchasePlans"
                                 :href="route('purchase-plans.index')"
                                 :active="route().current('purchase-plans.*')"
                                 class="pl-11"
@@ -264,6 +318,7 @@ function toggleSidebar() {
                                 Rencana Pembelian
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewPurchaseOrders"
                                 :href="route('purchase-orders.index')"
                                 :active="route().current('purchase-orders.*')"
                                 class="pl-11"
@@ -271,6 +326,7 @@ function toggleSidebar() {
                                 Purchase Orders
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewGoodsReceipts"
                                 :href="route('goods-receipts.index')"
                                 :active="route().current('goods-receipts.*')"
                                 class="pl-11"
@@ -278,6 +334,7 @@ function toggleSidebar() {
                                 Penerimaan Pembelian
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewPurchaseInvoices"
                                 :href="route('purchase-invoices.index')"
                                 :active="route().current('purchase-invoices.*')"
                                 class="pl-11"
@@ -285,6 +342,7 @@ function toggleSidebar() {
                                 Faktur Pembelian
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewPurchaseReturns"
                                 :href="route('purchase-returns.index')"
                                 :active="route().current('purchase-returns.*')"
                                 class="pl-11"
@@ -292,6 +350,7 @@ function toggleSidebar() {
                                 Retur Pembelian
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewPurchaseOrders"
                                 :href="route('purchasing-reports.index')"
                                 :active="route().current('purchasing-reports.*')"
                                 class="pl-11"
@@ -302,7 +361,7 @@ function toggleSidebar() {
                     </Disclosure>
 
                     <!-- Sales Section -->
-                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isSalesActive">
+                    <Disclosure v-if="canAccessSales" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isSalesActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <CurrencyDollarIcon class="h-5 w-5 mr-2" />
                             <span>Penjualan</span>
@@ -313,6 +372,7 @@ function toggleSidebar() {
                         </DisclosureButton>
                         <DisclosurePanel class="mt-1 space-y-1 text-sm">
                             <ResponsiveNavLink
+                                v-if="canViewSalesOrders"
                                 :href="route('sales-orders.index')"
                                 :active="route().current('sales-orders.*')"
                                 class="pl-11"
@@ -320,6 +380,7 @@ function toggleSidebar() {
                                 Sales Order
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewDeliveries"
                                 :href="route('sales-deliveries.index')"
                                 :active="route().current('sales-deliveries.*')"
                                 class="pl-11"
@@ -327,6 +388,7 @@ function toggleSidebar() {
                                 Pengiriman Penjualan
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewSalesInvoices"
                                 :href="route('sales-invoices.index')"
                                 :active="route().current('sales-invoices.*')"
                                 class="pl-11"
@@ -334,6 +396,7 @@ function toggleSidebar() {
                                 Faktur Penjualan
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewSalesReturns"
                                 :href="route('sales-returns.index')"
                                 :active="route().current('sales-returns.*')"
                                 class="pl-11"
@@ -341,6 +404,7 @@ function toggleSidebar() {
                                 Retur Penjualan
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewSalesOrders"
                                 :href="route('sales-reports.index')"
                                 :active="route().current('sales-reports.*')"
                                 class="pl-11"
@@ -351,7 +415,7 @@ function toggleSidebar() {
                     </Disclosure>
 
                     <!-- Booking Section -->
-                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isBookingActive">
+                    <Disclosure v-if="canAccessSales" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isBookingActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <CalendarDaysIcon class="h-5 w-5 mr-2" />
                             <span>Booking</span>
@@ -386,7 +450,7 @@ function toggleSidebar() {
                     </Disclosure>
 
                     <!-- Produksi Section -->
-                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProduksiActive">
+                    <Disclosure v-if="canAccessManufacturing" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProduksiActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <PuzzlePieceIcon class="h-5 w-5 mr-2" />
                             <span>Produksi</span>
@@ -435,7 +499,7 @@ function toggleSidebar() {
                     </Disclosure>
 
                     <!-- Products Section -->
-                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProductsActive">
+                    <Disclosure v-if="canAccessCatalog" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isProductsActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <ArchiveBoxIcon class="h-5 w-5 mr-2" />
                             <span>Produk</span>
@@ -474,7 +538,7 @@ function toggleSidebar() {
                     </Disclosure>
 
                     <!-- Inventory Section -->
-                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isInventoryActive">
+                    <Disclosure v-if="canAccessInventory" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isInventoryActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <CubeIcon class="h-5 w-5 mr-2" />
                             <span>Persediaan</span>
@@ -516,7 +580,7 @@ function toggleSidebar() {
                     </Disclosure>
 
                     <!-- Accounting Section -->
-                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isAccountingActive">
+                    <Disclosure v-if="canAccessAccounting" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isAccountingActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <BanknotesIcon class="h-5 w-5 mr-2" />
                             <span>Akuntansi & Keuangan</span>
@@ -668,7 +732,7 @@ function toggleSidebar() {
                     </Disclosure>
 
                     <!-- Settings Section -->
-                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isSettingsActive">
+                    <Disclosure v-if="canAccessSettings" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isSettingsActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <Cog8ToothIcon class="h-5 w-5 mr-2" />
                             <span>Pengaturan</span>
@@ -681,16 +745,19 @@ function toggleSidebar() {
                             <ResponsiveNavLink :href="route('dashboard')" :active="route().current('/')" class="pl-11">
                                 General
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('companies.index')" 
+                            <ResponsiveNavLink 
+                                v-if="canViewCompanies"
+                                :href="route('companies.index')" 
                                 :active="route().current('companies.*') || route().current('branches.*') || route().current('branch-groups.*')" 
                                 class="pl-11"
                             >
                                 Perusahaan
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('partners.index')" :active="route().current('partners.*')" class="pl-11">
+                            <ResponsiveNavLink v-if="canViewPartners" :href="route('partners.index')" :active="route().current('partners.*')" class="pl-11">
                                 Partner Bisnis
                             </ResponsiveNavLink>
                             <ResponsiveNavLink 
+                                v-if="canViewRoles"
                                 :href="route('roles.index')" 
                                 :active="
                                     route().current('roles.*')
@@ -700,10 +767,11 @@ function toggleSidebar() {
                             >
                                 Hak Akses Pengguna
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('company-bank-accounts.index')" :active="route().current('company-bank-accounts.*')" class="pl-11">
+                            <ResponsiveNavLink v-if="canViewCompanies" :href="route('company-bank-accounts.index')" :active="route().current('company-bank-accounts.*')" class="pl-11">
                                 Rekening Bank
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewCompanies"
                                 :href="route('gl-event-configurations.index')"
                                 :active="route().current('gl-event-configurations.*')"
                                 class="pl-11"
@@ -711,6 +779,7 @@ function toggleSidebar() {
                                 Konfigurasi GL Event
                             </ResponsiveNavLink>
                             <ResponsiveNavLink 
+                                v-if="canViewCompanies"
                                 :href="route('tax-jurisdictions.index')" 
                                 :active="
                                     route().current('tax-jurisdictions.*')
@@ -723,6 +792,7 @@ function toggleSidebar() {
                                 Pajak
                             </ResponsiveNavLink>
                             <ResponsiveNavLink 
+                                v-if="canViewCompanies"
                                 :href="route('document-templates.index')" 
                                 :active="route().current('document-templates.*')" 
                                 class="pl-11"
@@ -774,7 +844,7 @@ function toggleSidebar() {
                         </div>
 
                         <!-- Purchasing Section -->
-                        <div class="relative group">
+                        <div v-if="canAccessPurchase" class="relative group">
                             <template v-if="sidebarCollapsed">
                                 <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
                                     <ShoppingCartIcon class="h-6 w-6" />
@@ -843,6 +913,7 @@ function toggleSidebar() {
                                     </DisclosureButton>
                                     <DisclosurePanel class="mt-2 space-y-2 pl-8">
                                         <NavLink
+                                            v-if="canViewPurchasePlans"
                                             :href="route('purchase-plans.index')"
                                             :active="route().current('purchase-plans.*')"
                                             class="flex items-center"
@@ -850,6 +921,7 @@ function toggleSidebar() {
                                             Rencana Pembelian
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewPurchaseOrders"
                                             :href="route('purchase-orders.index')"
                                             :active="route().current('purchase-orders.*')"
                                             class="flex items-center"
@@ -857,6 +929,7 @@ function toggleSidebar() {
                                             Purchase Orders
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewGoodsReceipts"
                                             :href="route('goods-receipts.index')"
                                             :active="route().current('goods-receipts.*')"
                                             class="flex items-center"
@@ -864,6 +937,7 @@ function toggleSidebar() {
                                             Penerimaan Pembelian
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewPurchaseInvoices"
                                             :href="route('purchase-invoices.index')"
                                             :active="route().current('purchase-invoices.*')"
                                             class="flex items-center"
@@ -871,6 +945,7 @@ function toggleSidebar() {
                                             Faktur Pembelian
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewPurchaseReturns"
                                             :href="route('purchase-returns.index')"
                                             :active="route().current('purchase-returns.*')"
                                             class="flex items-center"
@@ -878,6 +953,7 @@ function toggleSidebar() {
                                             Retur Pembelian
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewPurchaseOrders"
                                             :href="route('purchasing-reports.index')"
                                             :active="route().current('purchasing-reports.*')"
                                             class="flex items-center"
@@ -890,7 +966,7 @@ function toggleSidebar() {
                         </div>
 
                         <!-- Sales Section -->
-                        <div class="relative group">
+                        <div v-if="canAccessSales" class="relative group">
                             <template v-if="sidebarCollapsed">
                                 <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
                                     <CurrencyDollarIcon class="h-6 w-6" />
@@ -900,6 +976,7 @@ function toggleSidebar() {
                                     <div class="p-2">
                                         <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Penjualan</div>
                                         <NavLink
+                                            v-if="canViewSalesOrders"
                                             :href="route('sales-orders.index')"
                                             :active="route().current('sales-orders.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -907,25 +984,26 @@ function toggleSidebar() {
                                             Sales Order
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewDeliveries"
                                             :href="route('sales-deliveries.index')"
                                             :active="route().current('sales-deliveries.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Pengiriman Penjualan
                                         </NavLink>
-                                        <NavLink :href="route('sales-invoices.index')"
+                                        <NavLink v-if="canViewSalesInvoices" :href="route('sales-invoices.index')"
                                             :active="route().current('sales-invoices.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Faktur Penjualan
                                         </NavLink>
-                                        <NavLink :href="route('sales-returns.index')"
+                                        <NavLink v-if="canViewSalesReturns" :href="route('sales-returns.index')"
                                             :active="route().current('sales-returns.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Retur Penjualan
                                         </NavLink>
-                                        <NavLink :href="route('sales-reports.index')"
+                                        <NavLink v-if="canViewSalesOrders" :href="route('sales-reports.index')"
                                             :active="route().current('sales-reports.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
@@ -949,6 +1027,7 @@ function toggleSidebar() {
                                     </DisclosureButton>
                                     <DisclosurePanel class="mt-2 space-y-2 pl-8">
                                         <NavLink
+                                            v-if="canViewSalesOrders"
                                             :href="route('sales-orders.index')"
                                             :active="route().current('sales-orders.*')"
                                             class="flex items-center"
@@ -956,25 +1035,26 @@ function toggleSidebar() {
                                             Sales Order
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewDeliveries"
                                             :href="route('sales-deliveries.index')"
                                             :active="route().current('sales-deliveries.*')"
                                             class="flex items-center"
                                         >
                                             Pengiriman Penjualan
                                         </NavLink>
-                                        <NavLink :href="route('sales-invoices.index')"
+                                        <NavLink v-if="canViewSalesInvoices" :href="route('sales-invoices.index')"
                                             :active="route().current('sales-invoices.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Faktur Penjualan
                                         </NavLink>
-                                        <NavLink :href="route('sales-returns.index')"
+                                        <NavLink v-if="canViewSalesReturns" :href="route('sales-returns.index')"
                                             :active="route().current('sales-returns.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Retur Penjualan
                                         </NavLink>
-                                        <NavLink :href="route('sales-reports.index')"
+                                        <NavLink v-if="canViewSalesOrders" :href="route('sales-reports.index')"
                                             :active="route().current('sales-reports.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
@@ -986,7 +1066,7 @@ function toggleSidebar() {
                         </div>
 
                         <!-- Booking Section -->
-                        <div class="relative group">
+                        <div v-if="canAccessSales" class="relative group">
                             <template v-if="sidebarCollapsed">
                                 <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
                                     <CalendarDaysIcon class="h-6 w-6" />
@@ -1060,7 +1140,7 @@ function toggleSidebar() {
                         </div>
 
                         <!-- Produksi Section -->
-                        <div class="relative group">
+                        <div v-if="canAccessManufacturing" class="relative group">
                             <template v-if="sidebarCollapsed">
                                 <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
                                     <PuzzlePieceIcon class="h-6 w-6" />
@@ -1070,6 +1150,7 @@ function toggleSidebar() {
                                     <div class="p-2">
                                         <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Produksi</div>
                                         <NavLink
+                                            v-if="canViewBom"
                                             :href="route('bill-of-materials.index')"
                                             :active="route().current('bill-of-materials.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1077,6 +1158,7 @@ function toggleSidebar() {
                                             Bill of Materials
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewWorkOrders"
                                             :href="route('work-orders.index')"
                                             :active="route().current('work-orders.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1084,6 +1166,7 @@ function toggleSidebar() {
                                             Surat Perintah Produksi
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewProduction"
                                             :href="route('component-issues.index')"
                                             :active="route().current('component-issues.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1091,6 +1174,7 @@ function toggleSidebar() {
                                             Pengeluaran Bahan Baku
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewProduction"
                                             :href="route('finished-goods-receipts.index')"
                                             :active="route().current('finished-goods-receipts.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1098,6 +1182,7 @@ function toggleSidebar() {
                                             Penerimaan Produk Jadi
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewProduction"
                                             :href="route('component-scraps.index')"
                                             :active="route().current('component-scraps.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1122,6 +1207,7 @@ function toggleSidebar() {
                                     </DisclosureButton>
                                     <DisclosurePanel class="mt-2 space-y-2 pl-8">
                                         <NavLink
+                                            v-if="canViewBom"
                                             :href="route('bill-of-materials.index')"
                                             :active="route().current('bill-of-materials.*')"
                                             class="flex items-center"
@@ -1129,6 +1215,7 @@ function toggleSidebar() {
                                             Bill of Materials
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewWorkOrders"
                                             :href="route('work-orders.index')"
                                             :active="route().current('work-orders.*')"
                                             class="flex items-center"
@@ -1136,6 +1223,7 @@ function toggleSidebar() {
                                             Surat Perintah Produksi
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewProduction"
                                             :href="route('component-issues.index')"
                                             :active="route().current('component-issues.*')"
                                             class="flex items-center"
@@ -1143,6 +1231,7 @@ function toggleSidebar() {
                                             Pengeluaran Bahan Baku
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewProduction"
                                             :href="route('finished-goods-receipts.index')"
                                             :active="route().current('finished-goods-receipts.*')"
                                             class="flex items-center"
@@ -1150,6 +1239,7 @@ function toggleSidebar() {
                                             Penerimaan Produk Jadi
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewProduction"
                                             :href="route('component-scraps.index')"
                                             :active="route().current('component-scraps.*')"
                                             class="flex items-center"
@@ -1162,7 +1252,7 @@ function toggleSidebar() {
                         </div>
 
                         <!-- Products Section -->
-                        <div class="relative group">
+                        <div v-if="canAccessCatalog" class="relative group">
                             <template v-if="sidebarCollapsed">
                                 <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
                                     <ArchiveBoxIcon class="h-6 w-6" />
@@ -1173,6 +1263,7 @@ function toggleSidebar() {
                                     <div class="p-2">
                                         <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Produk</div>
                                         <NavLink 
+                                            v-if="canViewProducts"
                                             :href="route('catalog.product-categories.index')" 
                                             :active="route().current('catalog.product-categories.*')" 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1180,6 +1271,7 @@ function toggleSidebar() {
                                             Kategori Produk
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewProducts"
                                             :href="route('catalog.products.index')" 
                                             :active="route().current('catalog.products.*', 'trade')" 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1187,6 +1279,7 @@ function toggleSidebar() {
                                             Katalog Produk
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewProducts"
                                             :href="route('catalog.user-discount-limits.index')" 
                                             :active="route().current('catalog.user-discount-limits.*')" 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1194,6 +1287,7 @@ function toggleSidebar() {
                                             Batas Diskon
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewProducts"
                                             :href="route('catalog.price-lists.index')" 
                                             :active="
                                                 route().current('catalog.price-lists.*')
@@ -1222,10 +1316,11 @@ function toggleSidebar() {
                                         />
                                     </DisclosureButton>
                                     <DisclosurePanel class="mt-2 space-y-2 pl-8">
-                                        <NavLink :href="route('catalog.product-categories.index')" :active="route().current('catalog.product-categories.*')" class="flex items-center">
+                                        <NavLink v-if="canViewProducts" :href="route('catalog.product-categories.index')" :active="route().current('catalog.product-categories.*')" class="flex items-center">
                                             Kategori Produk
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewProducts"
                                             :href="route('catalog.products.index', 'trade')" 
                                             :active="route().current('catalog.products.*')
                                             " 
@@ -1233,6 +1328,7 @@ function toggleSidebar() {
                                             Katalog Produk
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewProducts"
                                             :href="route('catalog.user-discount-limits.index')" 
                                             :active="route().current('catalog.user-discount-limits.*')" 
                                             class="flex items-center"
@@ -1240,6 +1336,7 @@ function toggleSidebar() {
                                             Batas Diskon
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewProducts"
                                             :href="route('catalog.price-lists.index')" 
                                             :active="
                                                 route().current('catalog.price-lists.*')
@@ -1256,7 +1353,7 @@ function toggleSidebar() {
                         </div>
 
                         <!-- Inventory Section -->
-                        <div class="relative group">
+                        <div v-if="canAccessInventory" class="relative group">
                             <template v-if="sidebarCollapsed">
                                 <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
                                     <CubeIcon class="h-6 w-6" />
@@ -1266,6 +1363,7 @@ function toggleSidebar() {
                                     <div class="p-2">
                                         <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Persediaan</div>
                                         <NavLink
+                                            v-if="canViewStock"
                                             :href="route('inventory.receipts.index')"
                                             :active="route().current('inventory.receipts.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1273,6 +1371,7 @@ function toggleSidebar() {
                                             Penerimaan Barang
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewStock"
                                             :href="route('inventory.shipments.index')"
                                             :active="route().current('inventory.shipments.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1280,6 +1379,7 @@ function toggleSidebar() {
                                             Pengeluaran Barang
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewAdjustments"
                                             :href="route('inventory.adjustments.index')"
                                             :active="route().current('inventory.adjustments.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1287,6 +1387,7 @@ function toggleSidebar() {
                                             Penyesuaian Stok
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewTransfers"
                                             :href="route('inventory.transfers.index')"
                                             :active="route().current('inventory.transfers.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1311,6 +1412,7 @@ function toggleSidebar() {
                                     </DisclosureButton>
                                     <DisclosurePanel class="mt-2 space-y-2 pl-8">
                                         <NavLink
+                                            v-if="canViewStock"
                                             :href="route('inventory.receipts.index')"
                                             :active="route().current('inventory.receipts.*')"
                                             class="flex items-center"
@@ -1318,6 +1420,7 @@ function toggleSidebar() {
                                             Penerimaan Barang
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewStock"
                                             :href="route('inventory.shipments.index')"
                                             :active="route().current('inventory.shipments.*')"
                                             class="flex items-center"
@@ -1325,6 +1428,7 @@ function toggleSidebar() {
                                             Pengeluaran Barang
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewAdjustments"
                                             :href="route('inventory.adjustments.index')"
                                             :active="route().current('inventory.adjustments.*')"
                                             class="flex items-center"
@@ -1332,6 +1436,7 @@ function toggleSidebar() {
                                             Penyesuaian Stok
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewTransfers"
                                             :href="route('inventory.transfers.index')"
                                             :active="route().current('inventory.transfers.*')"
                                             class="flex items-center"
@@ -1344,7 +1449,7 @@ function toggleSidebar() {
                         </div>
 
                         <!-- Accounting Section -->
-                        <div class="relative group">
+                        <div v-if="canAccessAccounting" class="relative group">
                             <template v-if="sidebarCollapsed">
                                 <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
                                     <BanknotesIcon class="h-6 w-6" />
@@ -1354,19 +1459,19 @@ function toggleSidebar() {
                                 <div class="absolute left-full top-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-10" style="margin-left: 8px;">
                                     <div class="p-2">
                                         <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Akuntansi & Keuangan</div>
-                                        <NavLink :href="route('accounts.index')" 
+                                        <NavLink v-if="canViewAccounts" :href="route('accounts.index')" 
                                             :active="route().current('accounts.*')" 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Bagan Akun
                                         </NavLink>
-                                        <NavLink :href="route('currencies.index')"
+                                        <NavLink v-if="canViewCurrencies" :href="route('currencies.index')"
                                             :active="route().current('currencies.*')" 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Mata Uang
                                         </NavLink>
-                                        <NavLink :href="route('journals.index')"
+                                        <NavLink v-if="canViewJournals" :href="route('journals.index')"
                                             :active="
                                                 route().current('journals.*')
                                                 || route().current('cash-receipt-journals.*')
@@ -1376,7 +1481,7 @@ function toggleSidebar() {
                                         >
                                             Jurnal
                                         </NavLink>
-                                        <NavLink :href="route('external-payables.index')" 
+                                        <NavLink v-if="canViewPayments" :href="route('external-payables.index')" 
                                             :active="route().current('external-payables.*') 
                                                 || route().current('external-receivables.*')
                                                 || route().current('external-payable-payments.*')
@@ -1384,7 +1489,7 @@ function toggleSidebar() {
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
                                             Hutang / Piutang
                                         </NavLink>
-                                        <NavLink :href="route('internal-debts.index')"
+                                        <NavLink v-if="canViewPayments" :href="route('internal-debts.index')"
                                             :active="
                                                 route().current('internal-debts.*')
                                                 || route().current('internal-debt-payments.*')
@@ -1395,6 +1500,7 @@ function toggleSidebar() {
                                             Hutang / Piutang Internal
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewJournals"
                                             :href="route('general-ledger.index')" 
                                             :active="
                                                 route().current('general-ledger.*') 
@@ -1430,19 +1536,19 @@ function toggleSidebar() {
                                         />
                                     </DisclosureButton>
                                     <DisclosurePanel class="mt-2 space-y-2 pl-8">
-                                        <NavLink :href="route('accounts.index')" 
+                                        <NavLink v-if="canViewAccounts" :href="route('accounts.index')" 
                                             :active="route().current('accounts.*')" 
                                             class="flex items-center"
                                         >
                                             Bagan Akun
                                         </NavLink>
-                                        <NavLink :href="route('currencies.index')"
+                                        <NavLink v-if="canViewCurrencies" :href="route('currencies.index')"
                                             :active="route().current('currencies.*')" 
                                             class="flex items-center"
                                         >
                                             Mata Uang
                                         </NavLink>
-                                        <NavLink :href="route('journals.index')"
+                                        <NavLink v-if="canViewJournals" :href="route('journals.index')"
                                             :active="
                                                 route().current('journals.*')
                                                 || route().current('cash-receipt-journals.*')
@@ -1452,7 +1558,7 @@ function toggleSidebar() {
                                         >
                                             Jurnal
                                         </NavLink>
-                                        <NavLink :href="route('external-payables.index')" 
+                                        <NavLink v-if="canViewPayments" :href="route('external-payables.index')" 
                                             :active="route().current('external-payables.*') 
                                                 || route().current('external-receivables.*')
                                                 || route().current('external-payable-payments.*')
@@ -1460,7 +1566,7 @@ function toggleSidebar() {
                                             class="flex items-center">
                                             Hutang / Piutang
                                         </NavLink>
-                                        <NavLink :href="route('internal-debts.index')"
+                                        <NavLink v-if="canViewPayments" :href="route('internal-debts.index')"
                                             :active="
                                                 route().current('internal-debts.*')
                                                 || route().current('internal-debt-payments.*')
@@ -1471,6 +1577,7 @@ function toggleSidebar() {
                                             Hutang / Piutang Internal
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewJournals"
                                             :href="route('general-ledger.index')" 
                                             :active="
                                                 route().current('general-ledger.*') 
@@ -1706,7 +1813,7 @@ function toggleSidebar() {
                         </div>
                         
                         <!-- Settings Section -->
-                        <div class="relative group">
+                        <div v-if="canAccessSettings" class="relative group">
                             <template v-if="sidebarCollapsed">
                                 <div class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 cursor-pointer">
                                     <Cog8ToothIcon class="h-6 w-6" />
@@ -1720,6 +1827,7 @@ function toggleSidebar() {
                                             General
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewCompanies"
                                             :href="route('companies.index')" 
                                             :active="
                                                 route().current('companies.*') 
@@ -1730,13 +1838,14 @@ function toggleSidebar() {
                                         >
                                             Perusahaan
                                         </NavLink>
-                                        <NavLink :href="route('partners.index')"
+                                        <NavLink v-if="canViewPartners" :href="route('partners.index')"
                                             :active="route().current('partners.*')" 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Partner Bisnis
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewRoles"
                                             :href="route('roles.index')" 
                                             :active="
                                                 route().current('roles.*')
@@ -1747,6 +1856,7 @@ function toggleSidebar() {
                                             Hak Akses Pengguna
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewCompanies"
                                             :href="route('company-bank-accounts.index')"
                                             :active="route().current('company-bank-accounts.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1754,6 +1864,7 @@ function toggleSidebar() {
                                             Rekening Bank
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewCompanies"
                                             :href="route('gl-event-configurations.index')"
                                             :active="route().current('gl-event-configurations.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1761,6 +1872,7 @@ function toggleSidebar() {
                                             Konfigurasi GL Event
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewCompanies"
                                             :href="route('tax-jurisdictions.index')" 
                                             :active="
                                                 route().current('tax-jurisdictions.*')
@@ -1773,6 +1885,7 @@ function toggleSidebar() {
                                             Pajak
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewCompanies"
                                             :href="route('document-templates.index')" 
                                             :active="route().current('document-templates.*')" 
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1801,6 +1914,7 @@ function toggleSidebar() {
                                             General
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewCompanies"
                                             :href="route('companies.index')" 
                                             :active="
                                                 route().current('companies.*') 
@@ -1811,13 +1925,14 @@ function toggleSidebar() {
                                         >
                                             Perusahaan
                                         </NavLink>
-                                        <NavLink :href="route('partners.index')"
+                                        <NavLink v-if="canViewPartners" :href="route('partners.index')"
                                             :active="route().current('partners.*')" 
                                             class="flex items-center"
                                         >
                                             Partner Bisnis
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewRoles"
                                             :href="route('roles.index')" 
                                             :active="
                                                 route().current('roles.*')
@@ -1828,6 +1943,7 @@ function toggleSidebar() {
                                             Hak Akses Pengguna
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewCompanies"
                                             :href="route('company-bank-accounts.index')"
                                             :active="route().current('company-bank-accounts.*')"
                                             class="flex items-center"
@@ -1835,6 +1951,7 @@ function toggleSidebar() {
                                             Rekening Bank
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewCompanies"
                                             :href="route('gl-event-configurations.index')"
                                             :active="route().current('gl-event-configurations.*')"
                                             class="flex items-center"
@@ -1842,6 +1959,7 @@ function toggleSidebar() {
                                             Konfigurasi GL Event
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewCompanies"
                                             :href="route('tax-jurisdictions.index')" 
                                             :active="
                                                 route().current('tax-jurisdictions.*')
@@ -1854,6 +1972,7 @@ function toggleSidebar() {
                                             Pajak
                                         </NavLink>
                                         <NavLink 
+                                            v-if="canViewCompanies"
                                             :href="route('document-templates.index')" 
                                             :active="route().current('document-templates.*')" 
                                             class="flex items-center"

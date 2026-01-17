@@ -119,7 +119,7 @@ Route::middleware([
         return UserImpersonation::makeResponse($token);
     })->name('impersonate');
 
-    Route::middleware('auth')->group(function () {
+    Route::middleware(['auth', \App\Http\Middleware\CheckPermission::class])->group(function () {
         Route::get('verify-email', EmailVerificationPromptController::class)
             ->name('verification.notice');
 
