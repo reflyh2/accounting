@@ -207,6 +207,7 @@ function getStatusBadgeClass(status) {
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">No. SO</th>
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Salesperson</th>
                                             <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
                                             <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                                         </tr>
@@ -220,6 +221,7 @@ function getStatusBadgeClass(status) {
                                             </td>
                                             <td class="px-4 py-2 text-sm">{{ formatDate(item.order_date) }}</td>
                                             <td class="px-4 py-2 text-sm">{{ item.partner?.name || '-' }}</td>
+                                            <td class="px-4 py-2 text-sm">{{ item.sales_person?.name || '-' }}</td>
                                             <td class="px-4 py-2 text-sm text-right">{{ formatCurrency(item.total_amount) }}</td>
                                             <td class="px-4 py-2 text-sm text-center">
                                                 <span :class="['px-2 py-1 rounded-full text-xs font-medium', getStatusBadgeClass(item.status)]">
@@ -243,6 +245,7 @@ function getStatusBadgeClass(status) {
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cabang</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Salesperson</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
                                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                                     </tr>
@@ -257,6 +260,7 @@ function getStatusBadgeClass(status) {
                                         <td class="px-4 py-3 text-sm">{{ formatDate(item.order_date) }}</td>
                                         <td class="px-4 py-3 text-sm">{{ item.partner?.name || '-' }}</td>
                                         <td class="px-4 py-3 text-sm">{{ item.branch?.name || '-' }}</td>
+                                        <td class="px-4 py-3 text-sm">{{ item.sales_person?.name || '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-right">{{ formatCurrency(item.total_amount) }}</td>
                                         <td class="px-4 py-3 text-sm text-center">
                                             <span :class="['px-2 py-1 rounded-full text-xs font-medium', getStatusBadgeClass(item.status)]">
@@ -265,7 +269,7 @@ function getStatusBadgeClass(status) {
                                         </td>
                                     </tr>
                                     <tr v-if="!data.data?.length">
-                                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
                                             Tidak ada data untuk filter yang dipilih.
                                         </td>
                                     </tr>

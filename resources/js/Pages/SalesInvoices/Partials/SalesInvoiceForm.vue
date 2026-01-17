@@ -1,5 +1,5 @@
 <script setup>
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 import { computed, watch, ref, reactive, onMounted } from 'vue';
 import axios from 'axios';
 import AppSelect from '@/Components/AppSelect.vue';
@@ -60,8 +60,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    users: {
+        type: Array,
+        default: () => [],
+    },
     filters: Object,
 });
+
+const page = usePage();
 
 const isEditMode = computed(() => !!props.invoice);
 const isDirectInvoice = computed(() => !form.sales_order_ids || form.sales_order_ids.length === 0);
@@ -157,6 +163,7 @@ const form = useForm({
     notes: props.invoice?.notes ?? '',
     payment_method: props.invoice?.payment_method ?? null,
     company_bank_account_id: props.invoice?.company_bank_account_id ?? null,
+    sales_person_id: props.invoice?.sales_person_id || page.props.auth?.user?.global_id || null,
     lines: buildInitialLines(),
     costs: buildInitialCosts(),
 });
@@ -844,6 +851,17 @@ function submitForm(createAnother = false) {
                         label="Rekening Bank Perusahaan:"
                         placeholder="Pilih Rekening"
                         :error="form.errors.company_bank_account_id"
+                    />
+                </div>
+
+                <!-- Salesperson -->
+                <div class="grid grid-cols-2 gap-4">
+                    <AppSelect
+                        v-model="form.sales_person_id"
+                        :options="users"
+                        label="Salesperson:"
+                        placeholder="Pilih Salesperson"
+                        :error="form.errors?.sales_person_id"
                     />
                 </div>
 

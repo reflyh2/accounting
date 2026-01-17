@@ -117,6 +117,11 @@ class SalesOrder extends Model
     {
         return $this->hasMany(SalesOrderCost::class);
     }
+
+    public function salesPerson()
+    {
+        return $this->belongsTo(User::class, 'sales_person_id', 'global_id');
+    }
 }
 
 

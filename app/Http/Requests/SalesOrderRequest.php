@@ -30,6 +30,7 @@ class SalesOrderRequest extends FormRequest
             'notes' => ['nullable', 'string'],
             'payment_method' => ['nullable', 'string', 'in:cash,transfer,cek,giro'],
             'company_bank_account_id' => ['nullable', 'exists:company_bank_accounts,id', 'required_if:payment_method,transfer'],
+            'sales_person_id' => ['nullable', 'exists:users,global_id'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'exists:products,id'],
             'lines.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],

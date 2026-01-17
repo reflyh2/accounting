@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
  * - company: Can access all documents from all branches in their companies
  * - branch_group: Can access documents from all branches in their branch groups
  * - branch: Can access documents only from their assigned branches
- * - own: Can only access documents they created (uses created_by column)
+ * - own: Can only access documents they created (uses created_by column) or are assigned as sales person
  */
 trait HasAccessLevelScope
 {
@@ -67,6 +67,7 @@ trait HasAccessLevelScope
         $accessColumn = static::getAccessLevelColumn();
         $tableName = (new static)->getTable();
         $createdByColumn = static::getCreatedByColumn();
+        $salesPersonColumn = static::getSalesPersonColumn();
 
         // Apply scope based on user's highest access level
         if ($user->roles->contains('access_level', 'company')) {
@@ -105,15 +106,23 @@ trait HasAccessLevelScope
                 $builder->whereIn("{$tableName}.company_id", $companyIds);
             }
         } else {
-            // Own level: Access only documents created by this user
-            if ($createdByColumn) {
-                $builder->where("{$tableName}.{$createdByColumn}", $user->global_id);
-            } else {
-                // Fallback: if no created_by column, use branch restriction
-                if ($accessColumn === 'branch_id') {
-                    $builder->whereIn("{$tableName}.branch_id", $branchIds);
+            // Own level: Access documents created by this user OR assigned to them as sales person
+            $builder->where(function ($query) use ($tableName, $createdByColumn, $salesPersonColumn, $user, $accessColumn, $branchIds) {
+                if ($createdByColumn) {
+                    $query->where("{$tableName}.{$createdByColumn}", $user->global_id);
                 }
-            }
+                
+                if ($salesPersonColumn) {
+                    $query->orWhere("{$tableName}.{$salesPersonColumn}", $user->global_id);
+                }
+                
+                // Fallback: if neither column exists, use branch restriction
+                if (!$createdByColumn && !$salesPersonColumn) {
+                    if ($accessColumn === 'branch_id') {
+                        $query->whereIn("{$tableName}.branch_id", $branchIds);
+                    }
+                }
+            });
         }
     }
 
@@ -133,6 +142,16 @@ trait HasAccessLevelScope
     public static function getCreatedByColumn(): ?string
     {
         return 'created_by';
+    }
+
+    /**
+     * Get the column name for the sales person.
+     * Used for 'own' access level to allow sales person access.
+     * Override this method to return null if the model doesn't have a sales person.
+     */
+    public static function getSalesPersonColumn(): ?string
+    {
+        return 'sales_person_id';
     }
 
     /**

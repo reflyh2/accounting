@@ -55,6 +55,7 @@ const mappedSalesOrder = {
                     :paymentMethods="formOptions.paymentMethods"
                     :companyBankAccounts="formOptions.companyBankAccounts"
                     :costItems="formOptions.costItems"
+                    :users="formOptions.users"
                     :filters="filters"
                     mode="edit"
                     submit-label="Perbarui Sales Order"

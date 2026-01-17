@@ -77,6 +77,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    users: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const form = useForm({
@@ -104,6 +108,7 @@ const form = useForm({
         currency_id: c.currency_id,
         exchange_rate: c.exchange_rate,
     })) || [],
+    sales_person_id: props.salesOrder?.sales_person_id || page.props.auth?.user?.global_id || null,
     create_another: false,
 });
 
@@ -790,6 +795,14 @@ function submitForm(createAnother = false) {
                             :error="form.errors?.partner_id"
                         />
                     </div>
+
+                    <AppSelect
+                        v-model="form.sales_person_id"
+                        :options="users"
+                        label="Salesperson:"
+                        placeholder="Pilih Salesperson"
+                        :error="form.errors?.sales_person_id"
+                    />
                 </div>
 
                 <div class="grid grid-cols-2 gap-4 mt-4">

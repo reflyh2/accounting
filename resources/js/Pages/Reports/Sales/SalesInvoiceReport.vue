@@ -240,6 +240,7 @@ function getProfitClass(value) {
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">No. Invoice</th>
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                                             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Salesperson</th>
                                             <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Revenue</th>
                                             <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">COGS</th>
                                             <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Profit</th>
@@ -256,6 +257,7 @@ function getProfitClass(value) {
                                             </td>
                                             <td class="px-4 py-2 text-sm">{{ formatDate(item.invoice_date) }}</td>
                                             <td class="px-4 py-2 text-sm">{{ item.partner?.name || '-' }}</td>
+                                            <td class="px-4 py-2 text-sm">{{ item.sales_person?.name || '-' }}</td>
                                             <td class="px-4 py-2 text-sm text-right">{{ formatCurrency(item.total_amount) }}</td>
                                             <td class="px-4 py-2 text-sm text-right">{{ formatCurrency(item.cogs) }}</td>
                                             <td :class="['px-4 py-2 text-sm text-right', getProfitClass(item.gross_profit)]">
@@ -285,6 +287,7 @@ function getProfitClass(value) {
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">No. Invoice</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Salesperson</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Revenue</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">COGS</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Gross Profit</th>
@@ -301,6 +304,7 @@ function getProfitClass(value) {
                                         </td>
                                         <td class="px-4 py-3 text-sm">{{ formatDate(item.invoice_date) }}</td>
                                         <td class="px-4 py-3 text-sm">{{ item.partner?.name || '-' }}</td>
+                                        <td class="px-4 py-3 text-sm">{{ item.sales_person?.name || '-' }}</td>
                                         <td class="px-4 py-3 text-sm text-right">{{ formatCurrency(item.total_amount) }}</td>
                                         <td class="px-4 py-3 text-sm text-right">{{ formatCurrency(item.cogs) }}</td>
                                         <td :class="['px-4 py-3 text-sm text-right font-medium', getProfitClass(item.gross_profit)]">
@@ -316,7 +320,7 @@ function getProfitClass(value) {
                                         </td>
                                     </tr>
                                     <tr v-if="!data.data?.length">
-                                        <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                        <td colspan="9" class="px-4 py-8 text-center text-gray-500">
                                             Tidak ada data untuk filter yang dipilih.
                                         </td>
                                     </tr>

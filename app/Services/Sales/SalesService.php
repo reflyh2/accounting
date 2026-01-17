@@ -104,6 +104,7 @@ class SalesService
                 'notes' => $payload['notes'] ?? null,
                 'payment_method' => $payload['payment_method'] ?? null,
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
+                'sales_person_id' => $payload['sales_person_id'] ?? $actor?->getAuthIdentifier(),
                 'created_by' => $actor?->getAuthIdentifier(),
             ]);
 
@@ -198,6 +199,7 @@ class SalesService
                 'notes' => $payload['notes'] ?? null,
                 'payment_method' => $payload['payment_method'] ?? null,
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
+                'sales_person_id' => $payload['sales_person_id'] ?? $salesOrder->sales_person_id,
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 

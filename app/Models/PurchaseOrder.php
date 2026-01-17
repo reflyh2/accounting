@@ -105,6 +105,14 @@ class PurchaseOrder extends Model
     {
         return $this->hasMany(PurchaseInvoice::class);
     }
+
+    /**
+     * Purchase orders don't have a sales person column.
+     */
+    public static function getSalesPersonColumn(): ?string
+    {
+        return null;
+    }
 }
 
 

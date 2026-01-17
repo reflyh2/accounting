@@ -16,6 +16,7 @@ use App\Models\SalesDeliveryLine;
 use App\Models\SalesInvoice;
 use App\Models\SalesOrder;
 use App\Models\Uom;
+use App\Models\User;
 use App\Models\DocumentTemplate;
 use App\Services\Sales\SalesInvoiceService;
 use App\Services\DocumentTemplateService;
@@ -171,6 +172,7 @@ class SalesInvoiceController extends Controller
             'costItems' => CostItem::where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'code', 'name', 'company_id']),
+            'users' => $this->userOptions(),
             'filters' => Session::get('sales_invoices.index_filters', []),
         ]);
     }
@@ -271,6 +273,7 @@ class SalesInvoiceController extends Controller
             'costItems' => CostItem::where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'code', 'name', 'company_id']),
+            'users' => $this->userOptions(),
             'filters' => Session::get('sales_invoices.index_filters', []),
         ]);
     }
@@ -360,6 +363,7 @@ class SalesInvoiceController extends Controller
                 'notes' => 'nullable|string',
                 'payment_method' => 'nullable|string|in:cash,transfer,cek,giro',
                 'company_bank_account_id' => 'nullable|exists:company_bank_accounts,id|required_if:payment_method,transfer',
+                'sales_person_id' => 'nullable|exists:users,global_id',
                 'lines' => 'required|array|min:1',
                 'lines.*.product_id' => 'nullable|exists:products,id',
                 'lines.*.product_variant_id' => 'nullable|exists:product_variants,id',
@@ -383,6 +387,7 @@ class SalesInvoiceController extends Controller
                 'notes' => 'nullable|string',
                 'payment_method' => 'nullable|string|in:cash,transfer,cek,giro',
                 'company_bank_account_id' => 'nullable|exists:company_bank_accounts,id|required_if:payment_method,transfer',
+                'sales_person_id' => 'nullable|exists:users,global_id',
                 'lines' => 'required|array|min:1',
                 'lines.*.sales_order_line_id' => 'required|exists:sales_order_lines,id',
                 'lines.*.sales_delivery_line_id' => 'required|exists:sales_delivery_lines,id',
@@ -783,6 +788,18 @@ class SalesInvoiceController extends Controller
     private function uomOptions(): array
     {
         return Uom::orderBy('code')->get(['id', 'code', 'name'])->toArray();
+    }
+
+    private function userOptions(): array
+    {
+        return User::orderBy('name')
+            ->get(['global_id', 'name', 'email'])
+            ->map(fn (User $user) => [
+                'value' => $user->global_id,
+                'label' => $user->name,
+                'email' => $user->email,
+            ])
+            ->toArray();
     }
 
     public function print(SalesInvoice $salesInvoice, DocumentTemplateService $templateService): Response

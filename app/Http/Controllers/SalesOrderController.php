@@ -15,6 +15,7 @@ use App\Models\Product;
 use App\Models\SalesOrder;
 use App\Models\DocumentTemplate;
 use App\Models\Uom;
+use App\Models\User;
 use App\Services\Sales\SalesService;
 use App\Services\DocumentTemplateService;
 use Illuminate\Http\RedirectResponse;
@@ -377,6 +378,13 @@ class SalesOrderController extends Controller
             'costItems' => CostItem::where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'code', 'name', 'company_id']),
+            'users' => User::orderBy('name')
+                ->get(['global_id', 'name', 'email'])
+                ->map(fn (User $user) => [
+                    'value' => $user->global_id,
+                    'label' => $user->name,
+                    'email' => $user->email,
+                ]),
         ];
     }
 

@@ -122,4 +122,9 @@ class SalesInvoice extends Model
     {
         return $this->hasMany(SalesInvoiceCost::class);
     }
+
+    public function salesPerson()
+    {
+        return $this->belongsTo(User::class, 'sales_person_id', 'global_id');
+    }
 }

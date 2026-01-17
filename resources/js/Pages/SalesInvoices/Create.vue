@@ -19,6 +19,7 @@ defineProps({
     paymentMethods: Array,
     companyBankAccounts: Array,
     costItems: Array,
+    users: Array,
 });
 </script>
 
@@ -51,6 +52,7 @@ defineProps({
                             :paymentMethods="paymentMethods"
                             :companyBankAccounts="companyBankAccounts"
                             :costItems="costItems"
+                            :users="users"
                             :filters="filters"
                         />
                     </div>

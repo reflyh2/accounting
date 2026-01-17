@@ -115,4 +115,12 @@ class PurchaseInvoice extends Model
     {
         return $this->belongsTo(ExternalDebt::class);
     }
+
+    /**
+     * Purchase invoices don't have a sales person column.
+     */
+    public static function getSalesPersonColumn(): ?string
+    {
+        return null;
+    }
 }

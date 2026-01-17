@@ -37,6 +37,7 @@ const props = defineProps({
                     :companyBankAccounts="formOptions.companyBankAccounts"
                     :costItems="formOptions.costItems"
                     :filters="filters"
+                    :users="formOptions.users"
                     mode="create"
                     submit-label="Simpan Sales Order"
                 />

@@ -24,6 +24,7 @@ class SalesReportController extends Controller
         ['value' => 'customer', 'label' => 'Per Customer'],
         ['value' => 'items', 'label' => 'Per Item'],
         ['value' => 'creator', 'label' => 'Per Pembuat'],
+        ['value' => 'salesperson', 'label' => 'Per Salesperson'],
         ['value' => 'status', 'label' => 'Per Status'],
         ['value' => 'branch', 'label' => 'Per Cabang'],
         ['value' => 'company', 'label' => 'Per Perusahaan'],
@@ -287,7 +288,7 @@ class SalesReportController extends Controller
 
         $groupBy = $filters['group_by'] ?? 'document';
 
-        $query = SalesOrder::with(['company', 'branch', 'partner', 'currency'])
+        $query = SalesOrder::with(['company', 'branch', 'partner', 'currency', 'salesPerson'])
             ->when(!empty($filters['company_id']), fn($q) => $q->whereIn('company_id', (array) $filters['company_id']))
             ->when(!empty($filters['branch_id']), fn($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
             ->when(!empty($filters['partner_id']), fn($q) => $q->where('partner_id', $filters['partner_id']))
@@ -363,7 +364,7 @@ class SalesReportController extends Controller
 
         $groupBy = $filters['group_by'] ?? 'document';
 
-        $query = SalesInvoice::with(['company', 'branch', 'partner', 'currency', 'lines.salesDeliveryLine'])
+        $query = SalesInvoice::with(['company', 'branch', 'partner', 'currency', 'lines.salesDeliveryLine', 'salesPerson'])
             ->when(!empty($filters['company_id']), fn($q) => $q->whereIn('company_id', (array) $filters['company_id']))
             ->when(!empty($filters['branch_id']), fn($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
             ->when(!empty($filters['partner_id']), fn($q) => $q->where('partner_id', $filters['partner_id']))
@@ -537,6 +538,25 @@ class SalesReportController extends Controller
                         ];
                     })->values();
 
+            case 'salesperson':
+                $salespersonIds = $items->pluck('sales_person_id')->unique()->filter();
+                $salespersons = User::whereIn('global_id', $salespersonIds)->pluck('name', 'global_id');
+                return $items->groupBy('sales_person_id')
+                    ->map(function ($groupItems, $salesPersonId) use ($salespersons) {
+                        $totalRevenue = $groupItems->sum('total_amount');
+                        $totalCogs = $groupItems->sum('cogs');
+                        $grossProfit = $totalRevenue - $totalCogs;
+                        return [
+                            'group_name' => $salespersons[$salesPersonId] ?? 'Tanpa Salesperson',
+                            'count' => $groupItems->count(),
+                            'total_value' => $totalRevenue,
+                            'total_cogs' => $totalCogs,
+                            'gross_profit' => $grossProfit,
+                            'margin_percentage' => $totalRevenue > 0 ? round(($grossProfit / $totalRevenue) * 100, 2) : 0,
+                            'items' => $groupItems,
+                        ];
+                    })->values();
+
             case 'status':
                 return $items->groupBy('status')
                     ->map(function ($groupItems, $status) {
@@ -682,6 +702,19 @@ class SalesReportController extends Controller
                     ->map(function ($items, $createdBy) use ($valueField, $creators) {
                         return [
                             'group_name' => $creators[$createdBy] ?? $createdBy ?: 'Unknown',
+                            'count' => $items->count(),
+                            'total_value' => $items->sum($valueField),
+                            'items' => $items,
+                        ];
+                    })->values();
+
+            case 'salesperson':
+                $salespersonIds = $query->pluck('sales_person_id')->unique()->filter();
+                $salespersons = User::whereIn('global_id', $salespersonIds)->pluck('name', 'global_id');
+                return $query->get()->groupBy('sales_person_id')
+                    ->map(function ($items, $salesPersonId) use ($valueField, $salespersons) {
+                        return [
+                            'group_name' => $salespersons[$salesPersonId] ?? 'Tanpa Salesperson',
                             'count' => $items->count(),
                             'total_value' => $items->sum($valueField),
                             'items' => $items,
