@@ -10,14 +10,17 @@ import { Link } from '@inertiajs/vue3';
 import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon, CubeIcon, ShoppingCartIcon, CurrencyDollarIcon, PuzzlePieceIcon, CalendarDaysIcon, CalculatorIcon } from '@heroicons/vue/24/solid';
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue';
 import { Cog8ToothIcon, ChevronRightIcon, Bars3Icon } from '@heroicons/vue/24/solid';
+import { QuestionMarkCircleIcon } from '@heroicons/vue/24/outline';
 import AlertNotification from '@/Components/AlertNotification.vue';
 import OnboardingTour from '@/Components/OnboardingTour.vue';
+import HelpDocumentation from '@/Components/HelpDocumentation.vue';
 import { usePermissions } from '@/Composables/usePermissions';
 
 const { hasModuleAccess, can } = usePermissions();
 
 const showingNavigationDropdown = ref(false);
 const showingMobileMenu = ref(false);
+const showHelp = ref(false);
 
 // Module-level permission checks (for section visibility)
 const canAccessSettings = computed(() => hasModuleAccess('settings'));
@@ -813,6 +816,15 @@ const onboardingStep = computed(() => {
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
+
+                    <!-- Help Link -->
+                    <button 
+                        @click="showHelp = true; showingMobileMenu = false;"
+                        class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50 mt-2"
+                    >
+                        <QuestionMarkCircleIcon class="h-5 w-5 mr-2" />
+                        <span>Bantuan</span>
+                    </button>
                 </div>
 
                 <!-- Existing profile section -->
@@ -1995,6 +2007,34 @@ const onboardingStep = computed(() => {
                                 </Disclosure>
                             </template>
                         </div>
+
+                        <!-- Help Link at Bottom -->
+                        <div class="relative group mt-6 pt-4 border-t border-gray-200">
+                            <template v-if="sidebarCollapsed">
+                                <button 
+                                    @click="showHelp = true"
+                                    class="flex items-center justify-center p-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 hover:bg-gray-50 cursor-pointer w-full"
+                                    title="Bantuan"
+                                >
+                                    <QuestionMarkCircleIcon class="h-6 w-6" />
+                                </button>
+                                
+                                <!-- Tooltip for collapsed state -->
+                                <div class="absolute left-full top-0 ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                                    Bantuan
+                                </div>
+                            </template>
+
+                            <template v-else>
+                                <button 
+                                    @click="showHelp = true"
+                                    class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 hover:bg-gray-50 focus:outline-none"
+                                >
+                                    <QuestionMarkCircleIcon class="h-6 w-6 mr-2" />
+                                    <span>Bantuan</span>
+                                </button>
+                            </template>
+                        </div>
                         
                     </nav>
                 </div>
@@ -2047,5 +2087,11 @@ const onboardingStep = computed(() => {
     <OnboardingTour 
         :show="showOnboarding" 
         :initial-step="onboardingStep"
+    />
+
+    <!-- Help Documentation -->
+    <HelpDocumentation
+        :show="showHelp"
+        @close="showHelp = false"
     />
 </template>

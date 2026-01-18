@@ -24,6 +24,9 @@ class TenantSetupSeeder extends Seeder
             // Chart of accounts (requires Company to exist)
             AccountSeeder::class,
             
+            // Set default accounts on company (requires accounts to exist)
+            CompanyDefaultAccountsSeeder::class,
+            
             // Units of measure
             UomStarterSeeder::class,
             
