@@ -292,7 +292,14 @@ class SalesReportController extends Controller
             ->when(!empty($filters['company_id']), fn($q) => $q->whereIn('company_id', (array) $filters['company_id']))
             ->when(!empty($filters['branch_id']), fn($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
             ->when(!empty($filters['partner_id']), fn($q) => $q->where('partner_id', $filters['partner_id']))
-            ->when(!empty($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->when(($filters['status'] ?? '') !== 'all', function($q) use ($filters) {
+                if (!empty($filters['status'])) {
+                    $q->where('status', $filters['status']);
+                } else {
+                    // Default: exclude cancelled
+                    $q->where('status', '!=', SalesOrderStatus::CANCELED->value);
+                }
+            })
             ->whereBetween('order_date', [$filters['start_date'], $filters['end_date']])
             ->orderBy('order_date', 'desc');
 
@@ -368,7 +375,14 @@ class SalesReportController extends Controller
             ->when(!empty($filters['company_id']), fn($q) => $q->whereIn('company_id', (array) $filters['company_id']))
             ->when(!empty($filters['branch_id']), fn($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
             ->when(!empty($filters['partner_id']), fn($q) => $q->where('partner_id', $filters['partner_id']))
-            ->when(!empty($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->when(($filters['status'] ?? '') !== 'all', function($q) use ($filters) {
+                if (!empty($filters['status'])) {
+                    $q->where('status', $filters['status']);
+                } else {
+                    // Default: exclude cancelled
+                    $q->where('status', '!=', InvoiceStatus::CANCELED->value);
+                }
+            })
             ->whereBetween('invoice_date', [$filters['start_date'], $filters['end_date']])
             ->orderBy('invoice_date', 'desc');
 
@@ -834,7 +848,17 @@ class SalesReportController extends Controller
 
     private function getStatusOptions(string $enumClass): array
     {
-        $options = [['value' => '', 'label' => 'Semua Status']];
+        // Check if this enum has a CANCELED status
+        $hasCanceledStatus = defined("{$enumClass}::CANCELED");
+
+        $options = [];
+
+        if ($hasCanceledStatus) {
+            $options[] = ['value' => '', 'label' => 'Semua Status (Kecuali Dibatalkan)'];
+            $options[] = ['value' => 'all', 'label' => 'Semua Status (Termasuk Dibatalkan)'];
+        } else {
+            $options[] = ['value' => '', 'label' => 'Semua Status'];
+        }
 
         foreach ($enumClass::cases() as $case) {
             $options[] = [
