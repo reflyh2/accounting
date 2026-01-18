@@ -212,6 +212,15 @@ Route::middleware([
         Route::get('/general-settings', [GeneralSettingsController::class, 'index'])->name('general-settings.index');
         Route::put('/general-settings', [GeneralSettingsController::class, 'update'])->name('general-settings.update');
 
+        // Onboarding Routes
+        Route::prefix('onboarding')->name('onboarding.')->group(function () {
+            Route::get('/status', [\App\Http\Controllers\OnboardingController::class, 'getStatus'])->name('status');
+            Route::post('/progress', [\App\Http\Controllers\OnboardingController::class, 'updateProgress'])->name('progress');
+            Route::post('/complete', [\App\Http\Controllers\OnboardingController::class, 'complete'])->name('complete');
+            Route::post('/skip', [\App\Http\Controllers\OnboardingController::class, 'skip'])->name('skip');
+            Route::post('/reset', [\App\Http\Controllers\OnboardingController::class, 'reset'])->name('reset');
+        });
+
         Route::get('/companies/{company}/default-accounts', [CompanyDefaultAccountsController::class, 'edit'])->name('companies.default-accounts.edit');
         Route::put('/companies/{company}/default-accounts', [CompanyDefaultAccountsController::class, 'update'])->name('companies.default-accounts.update');
         Route::delete('/companies/bulk-delete', [CompanyController::class, 'bulkDelete'])->name('companies.bulk-delete');

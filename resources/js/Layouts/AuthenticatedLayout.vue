@@ -11,6 +11,7 @@ import { BanknotesIcon, HomeIcon, BuildingOffice2Icon, ArchiveBoxIcon, CubeIcon,
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue';
 import { Cog8ToothIcon, ChevronRightIcon, Bars3Icon } from '@heroicons/vue/24/solid';
 import AlertNotification from '@/Components/AlertNotification.vue';
+import OnboardingTour from '@/Components/OnboardingTour.vue';
 import { usePermissions } from '@/Composables/usePermissions';
 
 const { hasModuleAccess, can } = usePermissions();
@@ -239,6 +240,17 @@ const mainContentLeft = computed(() => {
 function toggleSidebar() {
     sidebarCollapsed.value = !sidebarCollapsed.value;
 }
+
+// Onboarding
+const showOnboarding = computed(() => {
+    const onboarding = page.props.onboarding;
+    if (!onboarding) return false;
+    return !onboarding.completed && !onboarding.skipped;
+});
+
+const onboardingStep = computed(() => {
+    return page.props.onboarding?.currentStep || 0;
+});
 </script>
 
 <template>
@@ -2030,4 +2042,10 @@ function toggleSidebar() {
             </div>
         </div>
     </div>
+    
+    <!-- Onboarding Tour -->
+    <OnboardingTour 
+        :show="showOnboarding" 
+        :initial-step="onboardingStep"
+    />
 </template>

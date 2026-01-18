@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Inertia\Middleware;
 use App\Models\User;
 use App\Models\Currency;
+use App\Models\UserSetting;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -64,6 +65,11 @@ class HandleInertiaRequests extends Middleware
                 'hash' => hash('sha256', now()),
             ],
             'primaryCurrency' => ($tenantUser) ? Currency::where('is_primary', true)->first() : null,
+            'onboarding' => $tenantUser ? [
+                'completed' => UserSetting::getValue($tenantUser->global_id, 'onboarding_completed', false),
+                'skipped' => UserSetting::getValue($tenantUser->global_id, 'onboarding_skipped', false),
+                'currentStep' => UserSetting::getValue($tenantUser->global_id, 'onboarding_step', 0),
+            ] : null,
         ];
     }
 }

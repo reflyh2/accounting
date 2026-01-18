@@ -27,11 +27,23 @@ export default {
 
     safelist: [
         {
+            pattern: /(.*)-indigo-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
             pattern: /(.*)-purple-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
             pattern: /(.*)-slate-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
+            pattern: /(.*)-yellow-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
+            pattern: /(.*)-orange-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
@@ -55,7 +67,19 @@ export default {
             variants: ['hover', 'focus'],
         },
         {
+            pattern: /(.*)-pink-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
             pattern: /(.*)-rose-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
+            pattern: /(.*)-violet-(.*)/,
+            variants: ['hover', 'focus'],
+        },
+        {
+            pattern: /(.*)-fuchsia-(.*)/,
             variants: ['hover', 'focus'],
         },
         {
