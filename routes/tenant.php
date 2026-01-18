@@ -43,6 +43,7 @@ use App\Http\Controllers\CompanyDefaultAccountsController;
 use App\Http\Controllers\ComponentIssueController;
 use App\Http\Controllers\ComponentScrapController;
 use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExternalPayableAgingController;
 use App\Http\Controllers\ExternalPayableCardController;
 use App\Http\Controllers\ExternalPayableController;
@@ -55,6 +56,7 @@ use App\Http\Controllers\ExternalReceivableMutationController;
 use App\Http\Controllers\ExternalReceivablePaymentController;
 use App\Http\Controllers\FinishedGoodsReceiptController;
 use App\Http\Controllers\GeneralLedgerController;
+use App\Http\Controllers\GeneralSettingsController;
 use App\Http\Controllers\GlEventConfigurationController;
 use App\Http\Controllers\GoodsReceiptController;
 use App\Http\Controllers\OperationalReconciliationController;
@@ -200,13 +202,15 @@ Route::middleware([
             return redirect(route('dashboard'));
         });
 
-        Route::get('/dashboard', function () {
-            return Inertia::render('Dashboard');
-        })->name('dashboard');
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+        // General Settings
+        Route::get('/general-settings', [GeneralSettingsController::class, 'index'])->name('general-settings.index');
+        Route::put('/general-settings', [GeneralSettingsController::class, 'update'])->name('general-settings.update');
 
         Route::get('/companies/{company}/default-accounts', [CompanyDefaultAccountsController::class, 'edit'])->name('companies.default-accounts.edit');
         Route::put('/companies/{company}/default-accounts', [CompanyDefaultAccountsController::class, 'update'])->name('companies.default-accounts.update');

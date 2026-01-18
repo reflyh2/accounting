@@ -742,7 +742,7 @@ function toggleSidebar() {
                             />
                         </DisclosureButton>
                         <DisclosurePanel class="mt-1 space-y-1 text-sm">
-                            <ResponsiveNavLink :href="route('dashboard')" :active="route().current('/')" class="pl-11">
+                            <ResponsiveNavLink :href="route('general-settings.index')" :active="route().current('general-settings.*')" class="pl-11">
                                 General
                             </ResponsiveNavLink>
                             <ResponsiveNavLink 
@@ -1823,7 +1823,7 @@ function toggleSidebar() {
                                 <div class="absolute left-full top-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-10" style="margin-left: 8px;">
                                     <div class="p-2">
                                         <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Pengaturan</div>
-                                        <NavLink :href="route('dashboard')" :active="route().current('/')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
+                                        <NavLink :href="route('general-settings.index')" :active="route().current('general-settings.*')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
                                             General
                                         </NavLink>
                                         <NavLink 
@@ -1910,7 +1910,7 @@ function toggleSidebar() {
                                         />
                                     </DisclosureButton>
                                     <DisclosurePanel class="mt-2 space-y-2 pl-8">
-                                        <NavLink :href="route('dashboard')" :active="route().current('/')" class="flex items-center">
+                                        <NavLink :href="route('general-settings.index')" :active="route().current('general-settings.*')" class="flex items-center">
                                             General
                                         </NavLink>
                                         <NavLink 
@@ -2024,7 +2024,7 @@ function toggleSidebar() {
                 />
 
                 <!-- Page Content -->
-                <main class="px-0 md:px-10">
+                <main class="px-0 md:px-10 pb-12">
                     <slot />
                 </main>
             </div>
