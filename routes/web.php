@@ -10,8 +10,16 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\AssetFinancingAgreementController;
 use Illuminate\Foundation\Application;
 
+Route::get('/lang/{locale}', function ($locale) {
+    if (in_array($locale, ['en', 'id'])) {
+        session(['locale' => $locale]);
+    }
+    return redirect()->back();
+})->name('lang.switch');
+
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
+    app()->setLocale(session('locale', config('app.locale')));
+    return view('marketing.home', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
     ]);

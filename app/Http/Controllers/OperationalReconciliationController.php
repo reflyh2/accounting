@@ -212,10 +212,10 @@ class OperationalReconciliationController extends Controller
 
     private function calculateGrnToApLag(array $companyIds, array $branchIds, string $startDate, string $endDate): array
     {
-        $query = PurchaseInvoice::with(['purchaseOrder.goodsReceipts'])
+        $query = PurchaseInvoice::with(['purchaseOrders.goodsReceipts'])
             ->where('status', 'posted')
             ->whereBetween('invoice_date', [$startDate, $endDate])
-            ->whereNotNull('purchase_order_id');
+            ->whereHas('purchaseOrders');
 
         if (! empty($companyIds)) {
             $query->whereIn('company_id', $companyIds);
@@ -228,8 +228,8 @@ class OperationalReconciliationController extends Controller
 
         $lags = collect();
         foreach ($invoices as $invoice) {
-            if ($invoice->purchaseOrder) {
-                $latestGrn = $invoice->purchaseOrder->goodsReceipts()
+            foreach ($invoice->purchaseOrders as $purchaseOrder) {
+                $latestGrn = $purchaseOrder->goodsReceipts()
                     ->where('status', 'posted')
                     ->orderBy('receipt_date', 'desc')
                     ->first();
@@ -300,7 +300,7 @@ class OperationalReconciliationController extends Controller
 
     private function calculateOnTimeDelivery(array $companyIds, array $branchIds, string $startDate, string $endDate): array
     {
-        $query = SalesDelivery::with('salesOrder')
+        $query = SalesDelivery::with('salesOrders')
             ->whereBetween('delivery_date', [$startDate, $endDate])
             ->where('status', 'posted');
 
@@ -317,8 +317,14 @@ class OperationalReconciliationController extends Controller
         $late = 0;
 
         foreach ($deliveries as $delivery) {
-            if ($delivery->salesOrder && $delivery->salesOrder->expected_delivery_date) {
-                if ($delivery->delivery_date <= $delivery->salesOrder->expected_delivery_date) {
+            // Check against the earliest expected delivery date from all linked sales orders
+            $expectedDate = $delivery->salesOrders
+                ->pluck('expected_delivery_date')
+                ->filter()
+                ->min();
+
+            if ($expectedDate) {
+                if ($delivery->delivery_date <= $expectedDate) {
                     $onTime++;
                 } else {
                     $late++;
@@ -352,7 +358,7 @@ class OperationalReconciliationController extends Controller
     {
         $query = FinishedGoodsReceipt::whereBetween('receipt_date', [$startDate, $endDate])
             ->where('status', 'posted')
-            ->whereNotNull('unit_cost_base');
+            ->whereNotNull('unit_cost');
 
         if (! empty($companyIds)) {
             $query->whereIn('company_id', $companyIds);
@@ -367,14 +373,15 @@ class OperationalReconciliationController extends Controller
             return Carbon::parse($receipt->receipt_date)->format('Y-m');
         })->map(function ($group) {
             return [
-                'average_unit_cost' => $group->avg('unit_cost_base'),
+                'average_unit_cost' => $group->avg('unit_cost'),
                 'count' => $group->count(),
             ];
         });
 
         return [
             'trend' => $trend,
-            'current_average' => $receipts->avg('unit_cost_base') ?? 0,
+            'current_average' => $receipts->avg('unit_cost') ?? 0,
         ];
     }
 }
+

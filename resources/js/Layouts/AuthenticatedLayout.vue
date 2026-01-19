@@ -642,7 +642,7 @@ const onboardingStep = computed(() => {
                             >
                                 Hutang / Piutang Internal
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('general-ledger.index')" 
+                            <ResponsiveNavLink :href="route('operational-reconciliation.index')" 
                                 :active="
                                     route().current('general-ledger.*') 
                                     || route().current('cash-bank-book.*') 
@@ -654,6 +654,7 @@ const onboardingStep = computed(() => {
                                     || route().current('external-receivable-aging.*')
                                     || route().current('external-receivable-mutation.*')
                                     || route().current('external-receivable-card.*')
+                                    || route().current('operational-reconciliation.*')
                                 " 
                                 class="pl-11"
                             >
@@ -1525,9 +1526,10 @@ const onboardingStep = computed(() => {
                                         </NavLink>
                                         <NavLink 
                                             v-if="canViewJournals"
-                                            :href="route('general-ledger.index')" 
+                                            :href="route('operational-reconciliation.index')" 
                                             :active="
-                                                route().current('general-ledger.*') 
+                                                route().current('operational-reconciliation.*') 
+                                                || route().current('general-ledger.*') 
                                                 || route().current('cash-bank-book.*') 
                                                 || route().current('income.*')
                                                 || route().current('balance-sheet.*')
@@ -1602,9 +1604,10 @@ const onboardingStep = computed(() => {
                                         </NavLink>
                                         <NavLink 
                                             v-if="canViewJournals"
-                                            :href="route('general-ledger.index')" 
+                                            :href="route('operational-reconciliation.index')" 
                                             :active="
-                                                route().current('general-ledger.*') 
+                                                route().current('operational-reconciliation.*') 
+                                                || route().current('general-ledger.*') 
                                                 || route().current('cash-bank-book.*') 
                                                 || route().current('income.*')
                                                 || route().current('balance-sheet.*')
