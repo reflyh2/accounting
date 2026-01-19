@@ -1,6 +1,6 @@
 <template>
     <!-- FinsysPro Typography Logo with Icon -->
-    <svg :class="iconOnly ? 'h-10 w-10' : 'h-10'" viewBox="0 0 200 40" xmlns="http://www.w3.org/2000/svg" v-if="!iconOnly">
+    <svg :class="iconOnly ? 'h-10 w-10' : ''" viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg" v-if="!iconOnly">
         <defs>
             <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" style="stop-color:#1e40af" />

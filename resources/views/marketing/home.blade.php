@@ -9,6 +9,7 @@
         content="FinsysPro adalah software akuntansi dan ERP terbaik untuk bisnis Indonesia. Kelola pembukuan, faktur, inventaris, dan laporan keuangan dalam satu platform terintegrasi.">
     <meta name="keywords"
         content="software akuntansi, aplikasi pembukuan, ERP Indonesia, software keuangan, aplikasi faktur, sistem akuntansi online, software bisnis">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
     <!-- Fonts: Inter & Space Grotesk for that premium feel -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -164,52 +165,118 @@
     <div class="cursor-outline"></div>
 
     <!-- Navigation -->
-    <nav class="fixed w-full z-50 py-6 text-white">
-        <div class="max-w-[90%] mx-auto flex justify-between items-center">
-            <a href="#"
-                class="text-2xl font-bold font-display tracking-tighter text-blue-100 shadow-blue-500/50 drop-shadow-sm">FINSYSPRO</a>
+    <nav class="fixed w-full z-50 py-4 text-white">
+        <div
+            class="max-w-[92%] mx-auto bg-slate-900/70 backdrop-blur-xl rounded-2xl px-6 py-3 border border-white/10 shadow-lg shadow-black/20">
+            <div class="flex justify-between items-center">
+                <a href="#" class="flex items-center">
+                    <svg class="h-8" viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="navGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#60a5fa" />
+                                <stop offset="100%" style="stop-color:#818cf8" />
+                            </linearGradient>
+                        </defs>
+                        <g transform="translate(0, 4)">
+                            <rect width="26" height="32" rx="4" fill="url(#navGradient)" />
+                            <path d="M6 6h14v3H9v5h9v3H9v9H6V6z" fill="white" />
+                        </g>
+                        <text x="32" y="27" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700"
+                            fill="url(#navGradient)">
+                            <tspan>Finsys</tspan>
+                            <tspan font-weight="500" fill="#93c5fd">Pro</tspan>
+                        </text>
+                    </svg>
+                </a>
 
-            <div class="hidden md:flex items-center space-x-12">
-                <a href="#features"
-                    class="hover:text-blue-300 transition-colors uppercase text-sm tracking-widest font-medium">{{ __('marketing.nav.features') }}</a>
-                <a href="#how-it-works"
-                    class="hover:text-blue-300 transition-colors uppercase text-sm tracking-widest font-medium">{{ __('marketing.nav.how_it_works') }}</a>
-                <a href="#faq"
-                    class="hover:text-blue-300 transition-colors uppercase text-sm tracking-widest font-medium">FAQ</a>
+                <!-- Mobile Menu Button -->
+                <button id="mobile-menu-btn" class="md:hidden p-2 rounded-lg hover:bg-white/10 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path id="menu-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
 
-                <div class="flex items-center space-x-6">
-                    <!-- Lang Switcher (Dropdown) -->
-                    <div class="relative group">
-                        <button
-                            class="font-display font-bold uppercase hover:text-blue-300 transition-colors flex items-center space-x-1">
-                            <span>{{ app()->getLocale() }}</span>
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M19 9l-7 7-7-7"></path>
-                            </svg>
-                        </button>
-                        <div
-                            class="absolute right-0 top-full mt-2 w-32 bg-slate-800 border border-blue-500/30 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 overflow-hidden transform group-hover:translate-y-0 translate-y-2">
-                            <a href="{{ route('lang.switch', 'en') }}"
-                                class="block px-4 py-2 hover:bg-blue-600/30 text-sm tracking-wider uppercase {{ app()->getLocale() === 'en' ? 'text-blue-400 font-bold' : 'text-blue-100/70' }}">English</a>
-                            <a href="{{ route('lang.switch', 'id') }}"
-                                class="block px-4 py-2 hover:bg-blue-600/30 text-sm tracking-wider uppercase {{ app()->getLocale() === 'id' ? 'text-blue-400 font-bold' : 'text-blue-100/70' }}">Indonesia</a>
+                <div class="hidden md:flex items-center space-x-12">
+                    <a href="#features"
+                        class="hover:text-blue-300 transition-colors uppercase text-sm tracking-widest font-medium">{{ __('marketing.nav.features') }}</a>
+                    <a href="#how-it-works"
+                        class="hover:text-blue-300 transition-colors uppercase text-sm tracking-widest font-medium">{{ __('marketing.nav.how_it_works') }}</a>
+                    <a href="#faq"
+                        class="hover:text-blue-300 transition-colors uppercase text-sm tracking-widest font-medium">FAQ</a>
+
+                    <div class="flex items-center space-x-6">
+                        <!-- Lang Switcher (Dropdown) -->
+                        <div class="relative group">
+                            <button
+                                class="font-display font-bold uppercase hover:text-blue-300 transition-colors flex items-center space-x-1">
+                                <span>{{ app()->getLocale() }}</span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div
+                                class="absolute right-0 top-full mt-2 w-32 bg-slate-800 border border-blue-500/30 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 overflow-hidden transform group-hover:translate-y-0 translate-y-2">
+                                <a href="{{ route('lang.switch', 'en') }}"
+                                    class="block px-4 py-2 hover:bg-blue-600/30 text-sm tracking-wider uppercase {{ app()->getLocale() === 'en' ? 'text-blue-400 font-bold' : 'text-blue-100/70' }}">English</a>
+                                <a href="{{ route('lang.switch', 'id') }}"
+                                    class="block px-4 py-2 hover:bg-blue-600/30 text-sm tracking-wider uppercase {{ app()->getLocale() === 'id' ? 'text-blue-400 font-bold' : 'text-blue-100/70' }}">Indonesia</a>
+                            </div>
                         </div>
+
+                        @if (Route::has('login'))
+                            @auth
+                                <a href="{{ url('/dashboard') }}"
+                                    class="uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-2 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all shadow-lg shadow-blue-900/20">{{ __('marketing.nav.dashboard') }}</a>
+                            @else
+                                <a href="{{ route('login') }}"
+                                    class="uppercase text-sm tracking-widest hover:text-blue-300">{{ __('marketing.nav.login') }}</a>
+                                @if (Route::has('register'))
+                                    <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
+                                        class="uppercase text-sm tracking-widest bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-500 hover:scale-105 transition-all shadow-lg shadow-blue-500/30">{{ __('marketing.nav.book_demo') }}</a>
+                                @endif
+                            @endauth
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Menu Panel -->
+            <div id="mobile-menu" class="hidden md:hidden mt-4 pt-4 border-t border-white/10">
+                <div class="flex flex-col space-y-4">
+                    <a href="#features"
+                        class="mobile-link py-2 text-blue-100 hover:text-blue-300 transition-colors uppercase text-sm tracking-widest font-medium">{{ __('marketing.nav.features') }}</a>
+                    <a href="#how-it-works"
+                        class="mobile-link py-2 text-blue-100 hover:text-blue-300 transition-colors uppercase text-sm tracking-widest font-medium">{{ __('marketing.nav.how_it_works') }}</a>
+                    <a href="#faq"
+                        class="mobile-link py-2 text-blue-100 hover:text-blue-300 transition-colors uppercase text-sm tracking-widest font-medium">FAQ</a>
+
+                    <div class="flex items-center space-x-4 py-2">
+                        <span
+                            class="text-blue-200/60 text-sm uppercase tracking-wider">{{ __('marketing.nav.language') ?? 'Language' }}:</span>
+                        <a href="{{ route('lang.switch', 'en') }}"
+                            class="text-sm uppercase tracking-wider {{ app()->getLocale() === 'en' ? 'text-blue-400 font-bold' : 'text-blue-100/70' }}">EN</a>
+                        <span class="text-blue-200/40">|</span>
+                        <a href="{{ route('lang.switch', 'id') }}"
+                            class="text-sm uppercase tracking-wider {{ app()->getLocale() === 'id' ? 'text-blue-400 font-bold' : 'text-blue-100/70' }}">ID</a>
                     </div>
 
-                    @if (Route::has('login'))
-                        @auth
-                            <a href="{{ url('/dashboard') }}"
-                                class="uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-2 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all shadow-lg shadow-blue-900/20">{{ __('marketing.nav.dashboard') }}</a>
-                        @else
-                            <a href="{{ route('login') }}"
-                                class="uppercase text-sm tracking-widest hover:text-blue-300">{{ __('marketing.nav.login') }}</a>
-                            @if (Route::has('register'))
-                                <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
-                                    class="uppercase text-sm tracking-widest bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-500 hover:scale-105 transition-all shadow-lg shadow-blue-500/30">{{ __('marketing.nav.book_demo') }}</a>
-                            @endif
-                        @endauth
-                    @endif
+                    <div class="flex flex-col space-y-3 pt-2">
+                        @if (Route::has('login'))
+                            @auth
+                                <a href="{{ url('/dashboard') }}"
+                                    class="text-center uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-3 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all">{{ __('marketing.nav.dashboard') }}</a>
+                            @else
+                                <a href="{{ route('login') }}"
+                                    class="text-center uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-3 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all">{{ __('marketing.nav.login') }}</a>
+                                @if (Route::has('register'))
+                                    <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
+                                        class="text-center uppercase text-sm tracking-widest bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/30">{{ __('marketing.nav.book_demo') }}</a>
+                                @endif
+                            @endauth
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
@@ -360,9 +427,6 @@
                         {{ __('marketing.features.title') }} <br>
                         <span class="text-blue-400">{{ __('marketing.features.subtitle') }}</span>
                     </h2>
-                    <p class="text-xl text-blue-200/60 max-w-xs mt-8 md:mt-0">
-                        {{ __('marketing.features.subtitle') }}
-                    </p>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[400px]">
@@ -636,7 +700,23 @@
         <footer class="py-20 border-t border-blue-500/20 bg-blue-950/50">
             <div class="max-w-[90%] mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
                 <div class="col-span-1 md:col-span-2">
-                    <h2 class="text-4xl font-display font-bold mb-6 text-blue-100">FINSYSPRO</h2>
+                    <svg class="h-10 mb-6" viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="footerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#60a5fa" />
+                                <stop offset="100%" style="stop-color:#818cf8" />
+                            </linearGradient>
+                        </defs>
+                        <g transform="translate(0, 4)">
+                            <rect width="26" height="32" rx="4" fill="url(#footerGradient)" />
+                            <path d="M6 6h14v3H9v5h9v3H9v9H6V6z" fill="white" />
+                        </g>
+                        <text x="32" y="27" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700"
+                            fill="url(#footerGradient)">
+                            <tspan>Finsys</tspan>
+                            <tspan font-weight="500" fill="#93c5fd">Pro</tspan>
+                        </text>
+                    </svg>
                     <p class="text-blue-200/60 max-w-sm">{{ __('marketing.footer.tagline') }}</p>
                 </div>
                 <div>
@@ -666,7 +746,7 @@
                 </div>
             </div>
             <div
-                class="max-w-[90%] mx-auto mt-20 pt-8 border-t border-blue-500/10 flex justify-between text-sm text-blue-200/50">
+                class="max-w-[90%] mx-auto mt-20 pt-8 border-t border-blue-500/10 flex flex-col gap-4 md:flex-row justify-between text-sm text-blue-200/50">
                 <p>&copy; {{ date('Y') }} FinsysPro Inc. {{ __('marketing.footer.rights') }}</p>
                 <div class="flex gap-6">
                     <a href="#">{{ __('marketing.footer.privacy') }}</a>
@@ -696,6 +776,34 @@
             requestAnimationFrame(raf);
         }
         requestAnimationFrame(raf);
+
+        // --- MOBILE MENU TOGGLE ---
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const menuIcon = document.getElementById('menu-icon');
+        let isMenuOpen = false;
+
+        if (mobileMenuBtn && mobileMenu) {
+            mobileMenuBtn.addEventListener('click', () => {
+                isMenuOpen = !isMenuOpen;
+                mobileMenu.classList.toggle('hidden');
+                // Animate icon
+                if (isMenuOpen) {
+                    menuIcon.setAttribute('d', 'M6 18L18 6M6 6l12 12');
+                } else {
+                    menuIcon.setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
+                }
+            });
+
+            // Close menu when clicking a link
+            document.querySelectorAll('.mobile-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    mobileMenu.classList.add('hidden');
+                    isMenuOpen = false;
+                    menuIcon.setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
+                });
+            });
+        }
 
         // --- GSAP ANIMATIONS ---
         gsap.registerPlugin(ScrollTrigger);

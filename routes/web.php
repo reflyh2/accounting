@@ -8,6 +8,8 @@ use App\Http\Controllers\RegisterTenantController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\AssetFinancingAgreementController;
+use App\Http\Controllers\Admin\AdminAuthController;
+use App\Http\Controllers\Admin\AdminTenantController;
 use Illuminate\Foundation\Application;
 
 Route::get('/lang/{locale}', function ($locale) {
@@ -44,4 +46,28 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Admin Routes
+|--------------------------------------------------------------------------
+|
+| Routes for the admin dashboard. Uses a separate 'admin' guard for
+| authentication, completely isolated from regular user auth.
+|
+*/
+
+// Admin guest routes (login page)
+Route::middleware(['web'])->prefix('admin')->group(function () {
+    Route::get('/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
+    Route::post('/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
+});
+
+// Admin authenticated routes
+Route::middleware(['web', 'auth:admin'])->prefix('admin')->group(function () {
+    Route::post('/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+    Route::get('/tenants', [AdminTenantController::class, 'index'])->name('admin.tenants.index');
+    Route::get('/tenants/{tenant}/edit', [AdminTenantController::class, 'edit'])->name('admin.tenants.edit');
+    Route::patch('/tenants/{tenant}', [AdminTenantController::class, 'update'])->name('admin.tenants.update');
 });

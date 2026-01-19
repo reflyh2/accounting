@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Redirect;
+use App\Services\TenantLimitService;
 
 class BranchController extends Controller
 {
@@ -101,6 +102,13 @@ class BranchController extends Controller
 
     public function store(Request $request)
     {
+        // Check tenant limit before creating
+        $limitService = app(TenantLimitService::class);
+        if (!$limitService->canCreateBranch()) {
+            return redirect()->back()
+                ->with('error', 'Batas maksimum jumlah cabang telah tercapai. Silakan hubungi administrator.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'required|string',

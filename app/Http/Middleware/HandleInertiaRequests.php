@@ -33,8 +33,18 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $centralUser = $request->user();
+        $adminUser = null;
         $tenantUser = null;
         $permissions = [];
+
+        // Wrap admin user retrieval in try-catch to handle stale sessions
+        // with invalid IDs (e.g., integer IDs from before UUID migration)
+        try {
+            $adminUser = $request->user('admin');
+        } catch (\Exception $e) {
+            // Invalid session - clear the admin guard session
+            \Illuminate\Support\Facades\Auth::guard('admin')->logout();
+        }
 
         if ($centralUser) {
             // Get the current tenant
@@ -57,6 +67,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $centralUser,
                 'tenantUser' => $tenantUser,
                 'permissions' => $permissions,
+                'admin' => $adminUser,
             ],
             'flash' => [
                 'success' => $request->session()->get('success'),

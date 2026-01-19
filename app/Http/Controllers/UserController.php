@@ -14,6 +14,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Hash;
+use App\Services\TenantLimitService;
 
 class UserController extends Controller
 {
@@ -84,6 +85,13 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
+        // Check tenant limit before creating
+        $limitService = app(TenantLimitService::class);
+        if (!$limitService->canCreateUser()) {
+            return redirect()->back()
+                ->with('error', 'Batas maksimum jumlah pengguna telah tercapai. Silakan hubungi administrator.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Redirect;
+use App\Services\TenantLimitService;
 
 class CompanyController extends Controller
 {
@@ -67,6 +68,13 @@ class CompanyController extends Controller
 
     public function store(Request $request)
     {
+        // Check tenant limit before creating
+        $limitService = app(TenantLimitService::class);
+        if (!$limitService->canCreateCompany()) {
+            return redirect()->back()
+                ->with('error', 'Batas maksimum jumlah perusahaan telah tercapai. Silakan hubungi administrator.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'legal_name' => 'nullable|string|max:255',
