@@ -67,7 +67,17 @@ Route::middleware(['web'])->prefix('admin')->group(function () {
 // Admin authenticated routes
 Route::middleware(['web', 'auth:admin'])->prefix('admin')->group(function () {
     Route::post('/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+    
+    // Tenant management
     Route::get('/tenants', [AdminTenantController::class, 'index'])->name('admin.tenants.index');
     Route::get('/tenants/{tenant}/edit', [AdminTenantController::class, 'edit'])->name('admin.tenants.edit');
     Route::patch('/tenants/{tenant}', [AdminTenantController::class, 'update'])->name('admin.tenants.update');
+    
+    // Company module management
+    Route::get('/tenants/{tenant}/companies', [\App\Http\Controllers\Admin\AdminCompanyController::class, 'index'])
+        ->name('admin.tenants.companies.index');
+    Route::get('/tenants/{tenant}/companies/{company}/modules', [\App\Http\Controllers\Admin\AdminCompanyController::class, 'modules'])
+        ->name('admin.tenants.companies.modules');
+    Route::patch('/tenants/{tenant}/companies/{company}/modules', [\App\Http\Controllers\Admin\AdminCompanyController::class, 'updateModules'])
+        ->name('admin.tenants.companies.modules.update');
 });

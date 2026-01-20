@@ -43,6 +43,7 @@ class Company extends Model
         'default_backflush',
         'default_tax_jurisdiction_id',
         'enable_maker_checker',
+        'enabled_modules',
     ];
 
     protected $casts = [
@@ -50,7 +51,21 @@ class Company extends Model
         'business_license_expiry' => 'date',
         'default_backflush' => 'boolean',
         'enable_maker_checker' => 'boolean',
+        'enabled_modules' => 'array',
     ];
+
+    /**
+     * Check if a module is enabled for this company.
+     * null enabled_modules = all modules enabled.
+     */
+    public function hasModule(string $module): bool
+    {
+        if ($this->enabled_modules === null) {
+            return true;
+        }
+
+        return in_array($module, $this->enabled_modules, true);
+    }
 
     protected static function booted()
     {

@@ -17,6 +17,7 @@ enum CostEntrySource: string
     case INVENTORY_ISSUE = 'inventory_issue';
     case ASSET_DEPRECIATION = 'asset_depreciation';
     case SALES_INVOICE = 'sales_invoice';
+    case ASSET_MAINTENANCE = 'asset_maintenance';
 
     public function label(): string
     {
@@ -28,6 +29,7 @@ enum CostEntrySource: string
             self::INVENTORY_ISSUE => 'Inventory Issue',
             self::ASSET_DEPRECIATION => 'Asset Depreciation',
             self::SALES_INVOICE => 'Sales Invoice',
+            self::ASSET_MAINTENANCE => 'Asset Maintenance',
         };
     }
 
@@ -42,6 +44,7 @@ enum CostEntrySource: string
             self::INVENTORY_ISSUE => \App\Models\InventoryTransaction::class,
             self::ASSET_DEPRECIATION => \App\Models\AssetDepreciationSchedule::class,
             self::SALES_INVOICE => \App\Models\SalesInvoice::class,
+            self::ASSET_MAINTENANCE => \App\Models\AssetMaintenance::class,
             default => null,
         };
     }

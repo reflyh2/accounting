@@ -131,12 +131,8 @@ watch(selectedCompany, (newCompanyId) => {
         form.currency_id = page.props.primaryCurrency?.id || null;
         form.exchange_rate = 1;
     }
-    router.reload({ only: ['branches', 'currencies', 'partners'], data: { company_id: newCompanyId } });
-}, { immediate: true });
-
-watch(() => form.branch_id, () => {
-    router.reload({ only: ['assets'], data: { company_id: selectedCompany.value, branch_id: form.branch_id } });
-}, { immediate: true });
+    router.reload({ only: ['branches', 'currencies', 'partners'], data: { company_id: selectedCompany.value } });
+}, { immediate: false });
 
 watch(
     () => props.branches,
@@ -148,8 +144,20 @@ watch(
     { immediate: true, deep: true }
 );
 
+watch(() => form.branch_id, () => {
+    router.reload({ only: ['assets'], data: { company_id: selectedCompany.value, branch_id: form.branch_id } });
+}, { immediate: true });
+
 onMounted(() => {
-    selectedCompany.value = props.assetPurchase?.branch?.branch_group.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id);
+    const initialCompanyId = props.assetPurchase?.company_id || (props.companies.length === 1 ? props.companies[0].id : null);
+    selectedCompany.value = initialCompanyId;
+    form.company_id = initialCompanyId;
+    
+    // Trigger initial data load if company is pre-selected but branches not loaded
+    if (initialCompanyId && (!props.branches || props.branches.length === 0)) {
+        router.reload({ only: ['branches', 'assets'], data: { company_id: initialCompanyId } });
+    }
+    
     if (!props.assetPurchase && props.branches && props.branches.length === 1) {
         form.branch_id = props.branches[0].id;
     }

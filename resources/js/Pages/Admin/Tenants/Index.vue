@@ -1,7 +1,7 @@
 <script setup>
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { PencilIcon } from '@heroicons/vue/24/outline';
+import { PencilIcon, BuildingOffice2Icon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     tenants: Array,
@@ -99,13 +99,20 @@ function getUsageColor(current, max) {
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
                                 {{ tenant.created_at }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-1">
+                                <Link
+                                    :href="route('admin.tenants.companies.index', tenant.id)"
+                                    class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded-lg transition-colors"
+                                >
+                                    <BuildingOffice2Icon class="w-4 h-4 mr-1" />
+                                    Companies
+                                </Link>
                                 <Link
                                     :href="route('admin.tenants.edit', tenant.id)"
                                     class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition-colors"
                                 >
                                     <PencilIcon class="w-4 h-4 mr-1" />
-                                    Edit
+                                    Limits
                                 </Link>
                             </td>
                         </tr>

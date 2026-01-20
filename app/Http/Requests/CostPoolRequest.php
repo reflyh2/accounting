@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CostPoolRequest extends FormRequest
 {
@@ -15,13 +16,20 @@ class CostPoolRequest extends FormRequest
     {
         $poolId = $this->route('cost_pool')?->id;
 
+        $uniqueCodeRule = Rule::unique('cost_pools', 'code')
+            ->where('company_id', $this->company_id);
+
+        if ($poolId) {
+            $uniqueCodeRule->ignore($poolId);
+        }
+
         return [
             'company_id' => ['required', 'exists:companies,id'],
             'code' => [
                 'required',
                 'string',
                 'max:50',
-                "unique:cost_pools,code,{$poolId},id,company_id,{$this->company_id}",
+                $uniqueCodeRule,
             ],
             'name' => ['required', 'string', 'max:255'],
             'pool_type' => ['required', 'string', 'in:asset,service,branch'],

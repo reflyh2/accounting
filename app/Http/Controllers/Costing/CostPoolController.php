@@ -65,7 +65,7 @@ class CostPoolController extends Controller
         $sort = $filters['sort'] ?? 'created_at';
         $order = $filters['order'] ?? 'desc';
 
-        $allowedSorts = ['code', 'name', 'accumulated_amount', 'allocated_amount', 'created_at'];
+        $allowedSorts = ['code', 'name', 'total_accumulated', 'total_allocated', 'created_at'];
         if (!in_array($sort, $allowedSorts, true)) {
             $sort = 'created_at';
         }
@@ -107,8 +107,8 @@ class CostPoolController extends Controller
     {
         $data = $request->validated();
         $data['created_by'] = auth()->id();
-        $data['accumulated_amount'] = 0;
-        $data['allocated_amount'] = 0;
+        $data['total_accumulated'] = 0;
+        $data['total_allocated'] = 0;
 
         $costPool = CostPool::create($data);
 
@@ -128,7 +128,7 @@ class CostPoolController extends Controller
             'asset',
             'branch',
             'creator',
-            'updatedBy',
+            'updater',
             'costEntries' => fn ($q) => $q->with('product:id,name', 'currency:id,code')->latest('cost_date')->limit(20),
             'allocations' => fn ($q) => $q->with('salesInvoiceLine.salesInvoice:id,invoice_number', 'creator:id,name')->latest()->limit(20),
         ]);

@@ -8,16 +8,21 @@ import { computed } from 'vue';
  * e.g., 'purchase.purchase_order.view', 'sales.sales_order.create'
  * 
  * Usage:
- * const { can, canAny, hasModuleAccess } = usePermissions();
+ * const { can, canAny, hasModuleAccess, isModuleEnabled } = usePermissions();
  * 
  * if (can('purchase.purchase_order.view')) { ... }
  * if (hasModuleAccess('purchase')) { ... }
+ * if (isModuleEnabled('manufacturing')) { ... }
  */
 export function usePermissions() {
     const page = usePage();
     
     const permissions = computed(() => {
         return page.props.auth?.permissions || [];
+    });
+
+    const enabledModules = computed(() => {
+        return page.props.enabledModules || [];
     });
 
     /**
@@ -48,12 +53,31 @@ export function usePermissions() {
     }
 
     /**
-     * Check if user has access to a module (has any permission starting with module prefix).
-     * Module names: settings, purchase, sales, inventory, accounting, manufacturing, catalog
+     * Check if a module is enabled for the current company.
+     * @param {string} module - Module name
+     * @returns {boolean}
+     */
+    function isModuleEnabled(module) {
+        // If no enabledModules defined, all modules are enabled
+        if (!enabledModules.value || enabledModules.value.length === 0) {
+            return true;
+        }
+        return enabledModules.value.includes(module);
+    }
+
+    /**
+     * Check if user has access to a module.
+     * This combines role permissions AND company module access.
+     * Module names: settings, purchase, sales, booking, inventory, accounting, manufacturing, catalog, assets, costing
      * @param {string} module - Module name
      * @returns {boolean}
      */
     function hasModuleAccess(module) {
+        // First check if module is enabled for the company
+        if (!isModuleEnabled(module)) {
+            return false;
+        }
+        // Then check if user has any permission for this module
         return permissions.value.some(permission => permission.startsWith(`${module}.`));
     }
 
@@ -109,9 +133,11 @@ export function usePermissions() {
 
     return {
         permissions,
+        enabledModules,
         can,
         canAny,
         canAll,
+        isModuleEnabled,
         hasModuleAccess,
         canView,
         canCreate,

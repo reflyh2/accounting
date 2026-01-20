@@ -16,20 +16,24 @@ import OnboardingTour from '@/Components/OnboardingTour.vue';
 import HelpDocumentation from '@/Components/HelpDocumentation.vue';
 import { usePermissions } from '@/Composables/usePermissions';
 
-const { hasModuleAccess, can } = usePermissions();
+const { hasModuleAccess, isModuleEnabled, can } = usePermissions();
 
 const showingNavigationDropdown = ref(false);
 const showingMobileMenu = ref(false);
 const showHelp = ref(false);
 
 // Module-level permission checks (for section visibility)
+// These combine role permissions AND company module access
 const canAccessSettings = computed(() => hasModuleAccess('settings'));
 const canAccessPurchase = computed(() => hasModuleAccess('purchase'));
 const canAccessSales = computed(() => hasModuleAccess('sales'));
+const canAccessBooking = computed(() => isModuleEnabled('booking'));
 const canAccessInventory = computed(() => hasModuleAccess('inventory'));
 const canAccessAccounting = computed(() => hasModuleAccess('accounting'));
 const canAccessManufacturing = computed(() => hasModuleAccess('manufacturing'));
 const canAccessCatalog = computed(() => hasModuleAccess('catalog'));
+const canAccessAssets = computed(() => isModuleEnabled('assets'));
+const canAccessCosting = computed(() => isModuleEnabled('costing'));
 
 // Resource-level permission checks (for sub-menu visibility)
 // Settings
@@ -182,7 +186,8 @@ const isAssetActive = computed(() => {
         || route().current('asset-financing-agreements.*')
         || route().current('asset-financing-payments.*')
         || route().current('asset-depreciations.*')
-        || route().current('asset-transfers.*');
+        || route().current('asset-transfers.*')
+        || route().current('asset-maintenances.*');
 });
 
 const isProductsActive = computed(() => {   
@@ -430,7 +435,7 @@ const onboardingStep = computed(() => {
                     </Disclosure>
 
                     <!-- Booking Section -->
-                    <Disclosure v-if="canAccessSales" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isBookingActive">
+                    <Disclosure v-if="canAccessBooking" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isBookingActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <CalendarDaysIcon class="h-5 w-5 mr-2" />
                             <span>Booking</span>
@@ -664,7 +669,7 @@ const onboardingStep = computed(() => {
                     </Disclosure>
 
                     <!-- Costing Section -->
-                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isCostingActive">
+                    <Disclosure v-if="canAccessCosting" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isCostingActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <CalculatorIcon class="h-5 w-5 mr-2" />
                             <span>Manajemen Biaya</span>
@@ -706,7 +711,7 @@ const onboardingStep = computed(() => {
                     </Disclosure>
 
                     <!-- Asset Section -->
-                    <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isAssetActive">
+                    <Disclosure v-if="canAccessAssets" v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isAssetActive">
                         <DisclosureButton class="flex items-center w-full text-left px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50">
                             <BuildingOffice2Icon class="h-5 w-5 mr-2" />
                             <span>Aset</span>
@@ -743,6 +748,9 @@ const onboardingStep = computed(() => {
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('asset-transfers.index')" :active="route().current('asset-transfers.*')" class="pl-11">
                                 Transfer Aset
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('asset-maintenances.index')" :active="route().current('asset-maintenances.*')" class="pl-11">
+                                Pemeliharaan Aset
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -1127,7 +1135,7 @@ const onboardingStep = computed(() => {
                                 <div class="absolute left-full top-0 w-2 h-full opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto z-10"></div>
                             </template>
 
-                            <template v-else>
+                            <template v-else-if="canAccessBooking">
                                 <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isBookingActive">
                                     <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
                                         <CalendarDaysIcon class="h-6 w-6 mr-2" />
@@ -1671,7 +1679,7 @@ const onboardingStep = computed(() => {
                                 <div class="absolute left-full top-0 w-2 h-full opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto z-10"></div>
                             </template>
 
-                            <template v-else>
+                            <template v-else-if="canAccessCosting">
                                 <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isCostingActive">
                                     <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
                                         <CalculatorIcon class="h-6 w-6 mr-2" />
@@ -1771,6 +1779,9 @@ const onboardingStep = computed(() => {
                                         <NavLink :href="route('asset-transfers.index')" :active="route().current('asset-transfers.*')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
                                             Transfer Aset
                                         </NavLink>
+                                        <NavLink :href="route('asset-maintenances.index')" :active="route().current('asset-maintenances.*')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
+                                            Pemeliharaan Aset
+                                        </NavLink>
                                     </div>
                                 </div>
                                 
@@ -1778,7 +1789,7 @@ const onboardingStep = computed(() => {
                                 <div class="absolute left-full top-0 w-2 h-full opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto z-10"></div>
                             </template>
                             
-                            <template v-else>
+                            <template v-else-if="canAccessAssets">
                                 <Disclosure v-slot="{ open }" as="div" class="mt-2" :defaultOpen="isAssetActive">
                                     <DisclosureButton class="flex items-center w-full text-left px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:text-main-700 focus:outline-none">
                                         <BuildingOffice2Icon class="h-6 w-6 mr-2" />
@@ -1833,6 +1844,9 @@ const onboardingStep = computed(() => {
                                         </NavLink>
                                         <NavLink :href="route('asset-transfers.index')" :active="route().current('asset-transfers.*')" class="flex items-center">
                                             Transfer Aset
+                                        </NavLink>
+                                        <NavLink :href="route('asset-maintenances.index')" :active="route().current('asset-maintenances.*')" class="flex items-center">
+                                            Pemeliharaan Aset
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>

@@ -21,6 +21,7 @@ use App\Http\Controllers\AssetPurchaseController;
 use App\Http\Controllers\AssetRentalController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetTransferController;
+use App\Http\Controllers\AssetMaintenanceController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
@@ -469,6 +470,17 @@ Route::middleware([
         Route::get('asset-disposals/export-pdf', [AssetDisposalController::class, 'exportPDF'])->name('asset-disposals.export-pdf');
         Route::get('asset-disposals/{assetDisposal}/print', [AssetDisposalController::class, 'print'])->name('asset-disposals.print');
         Route::resource('asset-disposals', AssetDisposalController::class);
+
+        // Asset Maintenances Routes
+        Route::delete('asset-maintenances/bulk-delete', [AssetMaintenanceController::class, 'bulkDelete'])->name('asset-maintenances.bulk-delete');
+        Route::get('asset-maintenances/export-xlsx', [AssetMaintenanceController::class, 'exportXLSX'])->name('asset-maintenances.export-xlsx');
+        Route::get('asset-maintenances/export-csv', [AssetMaintenanceController::class, 'exportCSV'])->name('asset-maintenances.export-csv');
+        Route::get('asset-maintenances/export-pdf', [AssetMaintenanceController::class, 'exportPDF'])->name('asset-maintenances.export-pdf');
+        Route::get('asset-maintenances/{assetMaintenance}/print', [AssetMaintenanceController::class, 'print'])->name('asset-maintenances.print');
+        Route::post('asset-maintenances/{assetMaintenance}/complete', [AssetMaintenanceController::class, 'markCompleted'])->name('asset-maintenances.complete');
+        Route::post('asset-maintenances/{assetMaintenance}/cancel', [AssetMaintenanceController::class, 'markCancelled'])->name('asset-maintenances.cancel');
+        Route::post('asset-maintenances/{assetMaintenance}/reopen', [AssetMaintenanceController::class, 'reopen'])->name('asset-maintenances.reopen');
+        Route::resource('asset-maintenances', AssetMaintenanceController::class);
 
         // Partner Bank Account Routes
         Route::post('partner-bank-accounts', [PartnerBankAccountController::class, 'store'])->name('partner-bank-accounts.store');

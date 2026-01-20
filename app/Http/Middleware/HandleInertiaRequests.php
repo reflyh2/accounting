@@ -5,8 +5,10 @@ namespace App\Http\Middleware;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use App\Models\User;
+use App\Models\Company;
 use App\Models\Currency;
 use App\Models\UserSetting;
+use App\Services\ModuleAccessService;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -36,6 +38,8 @@ class HandleInertiaRequests extends Middleware
         $adminUser = null;
         $tenantUser = null;
         $permissions = [];
+        $enabledModules = [];
+        $currentCompany = null;
 
         // Wrap admin user retrieval in try-catch to handle stale sessions
         // with invalid IDs (e.g., integer IDs from before UUID migration)
@@ -57,6 +61,13 @@ class HandleInertiaRequests extends Middleware
                 if ($tenantUser) {
                     // Get all permissions for the tenant user
                     $permissions = $tenantUser->getAllPermissions()->pluck('name');
+
+                    // Get current company and its enabled modules
+                    $currentCompany = $this->getCurrentCompany($tenantUser);
+                    if ($currentCompany) {
+                        $moduleService = app(ModuleAccessService::class);
+                        $enabledModules = $moduleService->getEnabledModules($currentCompany);
+                    }
                 }
             }
         }
@@ -69,6 +80,11 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $permissions,
                 'admin' => $adminUser,
             ],
+            'enabledModules' => $enabledModules,
+            'currentCompany' => $currentCompany ? [
+                'id' => $currentCompany->id,
+                'name' => $currentCompany->name,
+            ] : null,
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
@@ -82,5 +98,37 @@ class HandleInertiaRequests extends Middleware
                 'currentStep' => UserSetting::getValue($tenantUser->global_id, 'onboarding_step', 0),
             ] : null,
         ];
+    }
+
+    /**
+     * Get the current company from session or user's first company.
+     */
+    protected function getCurrentCompany(?User $tenantUser): ?Company
+    {
+        if (!$tenantUser) {
+            return null;
+        }
+
+        // Try to get company from session
+        $companyId = session('current_company_id');
+        if ($companyId) {
+            $company = Company::withoutGlobalScope('userCompanies')->find($companyId);
+            if ($company) {
+                return $company;
+            }
+        }
+
+        // Fall back to user's first accessible company
+        $branch = $tenantUser->branches()
+            ->with('branchGroup.company')
+            ->first();
+
+        if ($branch?->branchGroup?->company) {
+            // Store in session for future requests
+            session(['current_company_id' => $branch->branchGroup->company->id]);
+            return $branch->branchGroup->company;
+        }
+
+        return null;
     }
 }

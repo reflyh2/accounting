@@ -65,6 +65,18 @@ class PermissionSeeder extends Seeder
                 'accounts',
                 'currencies',
             ],
+            // Asset module
+            'asset' => [
+                'asset_category',
+                'asset',
+                'asset_purchase',
+                'asset_rental',
+                'asset_sale',
+                'asset_disposal',
+                'asset_depreciation',
+                'asset_transfer',
+                'asset_maintenance',
+            ],
         ];
 
         // Standard CRUD actions for all modules
