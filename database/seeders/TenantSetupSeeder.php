@@ -27,6 +27,9 @@ class TenantSetupSeeder extends Seeder
             // Set default accounts on company (requires accounts to exist)
             CompanyDefaultAccountsSeeder::class,
             
+            // GL Event configurations (requires accounts to exist)
+            GlEventConfigurationSeeder::class,
+            
             // Units of measure
             UomStarterSeeder::class,
             
