@@ -142,7 +142,7 @@ Route::middleware([
         Route::put('password', [PasswordController::class, 'update'])->name('password.update');
 
         Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
-            ->name('logout');
+            ->name('tenant.logout');
 
         Route::get('api/branches-by-company/{companyId}', [ApiController::class, 'getBranchesByCompany'])->name('api.branches-by-company');
         Route::get('api/accounts-by-branch/{branchId}', [ApiController::class, 'getAccountsByBranch'])->name('api.accounts-by-branch');
