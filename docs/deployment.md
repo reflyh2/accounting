@@ -206,13 +206,13 @@ sudo apt update && sudo apt upgrade -y
 sudo add-apt-repository ppa:ondrej/php -y
 sudo apt update
 
-# Install PHP and extensions
-sudo apt install -y php8.3-fpm php8.3-cli php8.3-common php8.3-pgsql \
+# Install PHP and extensions (for Apache, use libapache2-mod-php instead of php-fpm)
+sudo apt install -y php8.3 php8.3-cli php8.3-common php8.3-pgsql \
     php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip php8.3-bcmath \
-    php8.3-gd php8.3-intl php8.3-redis
+    php8.3-gd php8.3-intl php8.3-redis libapache2-mod-php8.3
 
-# Install Nginx, Redis, and utilities
-sudo apt install -y nginx redis-server git unzip supervisor
+# Install Apache2, Redis, and utilities
+sudo apt install -y apache2 redis-server git unzip supervisor
 
 # Install Node.js 20.x
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -238,7 +238,8 @@ git clone YOUR_GIT_REPOSITORY_URL .
 
 ```bash
 composer install --optimize-autoloader --no-dev
-npm ci && npm run build
+npm ci
+NODE_OPTIONS="--max-old-space-size=4096" npm run build
 ```
 
 ### 2.5 Configure Environment
@@ -314,56 +315,54 @@ sudo chmod -R 775 /var/www/finfaspro/bootstrap/cache
 
 ---
 
-## Part 3: Nginx Configuration
+## Part 3: Apache2 Configuration
 
-Create site configuration:
+Enable required Apache modules:
 
 ```bash
-sudo nano /etc/nginx/sites-available/finfaspro
+sudo a2enmod rewrite headers ssl
+sudo systemctl restart apache2
 ```
 
-```nginx
-server {
-    listen 80;
-    listen [::]:80;
-    server_name yourdomain.com *.yourdomain.com;
-    root /var/www/finfaspro/public;
+Create virtual host configuration:
 
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-Content-Type-Options "nosniff";
+```bash
+sudo nano /etc/apache2/sites-available/finfaspro.conf
+```
 
-    index index.php;
-    charset utf-8;
+```apache
+<VirtualHost *:80>
+    ServerName yourdomain.com
+    ServerAlias *.yourdomain.com
+    DocumentRoot /var/www/finfaspro/public
 
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
+    <Directory /var/www/finfaspro/public>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
 
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
+    # Security headers
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
 
-    error_page 404 /index.php;
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/finfaspro-error.log
+    CustomLog ${APACHE_LOG_DIR}/finfaspro-access.log combined
 
-    location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-        include fastcgi_params;
-    }
-
-    location ~ /\.(?!well-known).* {
-        deny all;
-    }
-
-    client_max_body_size 100M;
-}
+    # PHP settings
+    <FilesMatch \.php$>
+        SetHandler application/x-httpd-php
+    </FilesMatch>
+</VirtualHost>
 ```
 
 Enable the site:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/finfaspro /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl reload nginx
+sudo a2ensite finfaspro.conf
+sudo a2dissite 000-default.conf
+sudo apache2ctl configtest && sudo systemctl reload apache2
 ```
 
 ---
@@ -371,8 +370,8 @@ sudo nginx -t && sudo systemctl reload nginx
 ## Part 4: SSL Certificate
 
 ```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d yourdomain.com -d *.yourdomain.com
+sudo apt install -y certbot python3-certbot-apache
+sudo certbot --apache -d yourdomain.com -d *.yourdomain.com
 ```
 
 ---
@@ -440,7 +439,8 @@ To deploy updates:
 cd /var/www/finfaspro
 git pull origin main
 composer install --optimize-autoloader --no-dev
-npm ci && npm run build
+npm ci
+NODE_OPTIONS="--max-old-space-size=4096" npm run build
 php artisan migrate --force
 php artisan cache:clear
 php artisan config:cache
