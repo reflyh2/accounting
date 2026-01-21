@@ -38,7 +38,7 @@ const form = useForm({
    create_another: false,
 });
 
-const logoPreview = ref(props.company?.logo_path ? `/storage/${props.company.logo_path}` : null);
+const logoPreview = ref(props.company?.logo_url || null);
 const submitted = ref(false);
 
 function handleLogoChange(event) {

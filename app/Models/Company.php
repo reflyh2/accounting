@@ -55,6 +55,24 @@ class Company extends Model
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     */
+    protected $appends = ['logo_url'];
+
+    /**
+     * Get the full URL for the company logo.
+     * Uses tenant_asset() for tenant-specific storage paths.
+     */
+    public function getLogoUrlAttribute(): ?string
+    {
+        if (!$this->logo_path) {
+            return null;
+        }
+
+        return tenant_asset($this->logo_path);
+    }
+
+    /**
      * Check if a module is enabled for this company.
      * null enabled_modules = all modules enabled.
      */
