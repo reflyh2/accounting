@@ -45,7 +45,7 @@ return [
         'step1' => [
             'number' => '01',
             'title' => 'Jadwalkan Demo',
-            'desc' => 'Jadwalkan demo personal dengan tim kami untuk melihat FinsysPro beraksi.',
+            'desc' => 'Jadwalkan demo personal dengan tim kami untuk melihat FinfasPro beraksi.',
         ],
         'step2' => [
             'number' => '02',
@@ -63,7 +63,7 @@ return [
         'subtitle' => 'Dipercaya oleh bisnis di seluruh Indonesia',
         'items' => [
             [
-                'quote' => "FinsysPro mengubah cara kami mengelola keuangan. Fitur otomatisasi saja sudah menghemat waktu berjam-jam setiap bulan.",
+                'quote' => "FinfasPro mengubah cara kami mengelola keuangan. Fitur otomatisasi saja sudah menghemat waktu berjam-jam setiap bulan.",
                 'author' => 'Budi Santoso',
                 'role' => '',
             ],
@@ -93,7 +93,7 @@ return [
             ],
             [
                 'q' => 'Apakah mendukung Pajak Indonesia (PPN/PPh)?',
-                'a' => 'Ya, FinsysPro sepenuhnya patuh dengan peraturan Perpajakan Indonesia dan dapat menghasilkan laporan pajak secara otomatis.',
+                'a' => 'Ya, FinfasPro sepenuhnya patuh dengan peraturan Perpajakan Indonesia dan dapat menghasilkan laporan pajak secara otomatis.',
             ],
             [
                 'q' => 'Bisakah saya mengimpor data yang ada?',
@@ -130,7 +130,7 @@ return [
     ],
     'demo_cta' => [
         'title' => 'Siap transformasi bisnis Anda?',
-        'subtitle' => 'Jadwalkan demo personal dan lihat bagaimana FinsysPro dapat merampingkan operasi Anda.',
+        'subtitle' => 'Jadwalkan demo personal dan lihat bagaimana FinfasPro dapat merampingkan operasi Anda.',
         'button' => 'Jadwalkan Demo',
     ],
     'cta_section' => [

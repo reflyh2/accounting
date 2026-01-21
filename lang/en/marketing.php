@@ -45,7 +45,7 @@ return [
         'step1' => [
             'number' => '01',
             'title' => 'Book a Demo',
-            'desc' => 'Schedule a personalized demo with our team to see FinsysPro in action.',
+            'desc' => 'Schedule a personalized demo with our team to see FinfasPro in action.',
         ],
         'step2' => [
             'number' => '02',
@@ -63,7 +63,7 @@ return [
         'subtitle' => 'Trusted by businesses across Indonesia',
         'items' => [
             [
-                'quote' => "FinsysPro transformed how we manage our finances. The automation features alone have saved us countless hours every month.",
+                'quote' => "FinfasPro transformed how we manage our finances. The automation features alone have saved us countless hours every month.",
                 'author' => 'Budi Santoso',
                 'role' => '',
             ],
@@ -93,7 +93,7 @@ return [
             ],
             [
                 'q' => 'Do you support Indonesian Tax (PPN/PPh)?',
-                'a' => 'Yes, FinsysPro is fully compliant with Indonesian Tax regulations and can generate tax reports automatically.',
+                'a' => 'Yes, FinfasPro is fully compliant with Indonesian Tax regulations and can generate tax reports automatically.',
             ],
             [
                 'q' => 'Can I import my existing data?',
@@ -130,7 +130,7 @@ return [
     ],
     'demo_cta' => [
         'title' => 'Ready to transform your business?',
-        'subtitle' => 'Book a personalized demo and see how FinsysPro can streamline your operations.',
+        'subtitle' => 'Book a personalized demo and see how FinfasPro can streamline your operations.',
         'button' => 'Book a Demo',
     ],
     'cta_section' => [

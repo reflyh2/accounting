@@ -4,9 +4,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>FinsysPro - Software Akuntansi & ERP Indonesia | Aplikasi Pembukuan Bisnis</title>
+    <title>FinfasPro - Software Akuntansi & ERP Indonesia | Aplikasi Pembukuan Bisnis</title>
     <meta name="description"
-        content="FinsysPro adalah software akuntansi dan ERP terbaik untuk bisnis Indonesia. Kelola pembukuan, faktur, inventaris, dan laporan keuangan dalam satu platform terintegrasi.">
+        content="FinfasPro adalah software akuntansi dan ERP terbaik untuk bisnis Indonesia. Kelola pembukuan, faktur, inventaris, dan laporan keuangan dalam satu platform terintegrasi.">
     <meta name="keywords"
         content="software akuntansi, aplikasi pembukuan, ERP Indonesia, software keuangan, aplikasi faktur, sistem akuntansi online, software bisnis">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -140,6 +140,10 @@
             letter-spacing: -0.05em;
             line-height: 1;
         }
+
+        .loader-text .accent {
+            color: var(--text-color);
+        }
     </style>
 
     <!-- Scripts -->
@@ -157,7 +161,7 @@
 
     <!-- Loading Screen -->
     <div class="loader">
-        <span class="loader-text block">FINSYSPRO</span>
+        <span class="loader-text block">FINFAS<span class="accent">PRO</span></span>
     </div>
 
     <!-- Custom Cursor -->
@@ -169,25 +173,32 @@
         <div
             class="max-w-[92%] mx-auto bg-slate-900/70 backdrop-blur-xl rounded-2xl px-6 py-3 border border-white/10 shadow-lg shadow-black/20">
             <div class="flex justify-between items-center">
-                <a href="#" class="flex items-center">
-                    <svg class="h-8" viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg">
-                        <defs>
-                            <linearGradient id="navGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#60a5fa" />
-                                <stop offset="100%" style="stop-color:#818cf8" />
-                            </linearGradient>
-                        </defs>
-                        <g transform="translate(0, 4)">
-                            <rect width="26" height="32" rx="4" fill="url(#navGradient)" />
-                            <path d="M6 6h14v3H9v5h9v3H9v9H6V6z" fill="white" />
-                        </g>
-                        <text x="32" y="27" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700"
-                            fill="url(#navGradient)">
-                            <tspan>Finsys</tspan>
-                            <tspan font-weight="500" fill="#93c5fd">Pro</tspan>
-                        </text>
-                    </svg>
-                </a>
+                <div class="flex">
+                    <div class="shrink-0 flex items-center">
+                        <a href="#">
+                            <svg class="block h-9 w-auto fill-current text-gray-800" viewBox="0 0 130 40"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <linearGradient id="navGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" style="stop-color:#60a5fa" />
+                                        <stop offset="100%" style="stop-color:#818cf8" />
+                                    </linearGradient>
+                                </defs>
+                                <!-- F Icon Mark -->
+                                <g transform="translate(0, 4)">
+                                    <path d="M4 0h18a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4z"
+                                        fill="url(#navGradient)" />
+                                    <path d="M8 8h12v3H11v4h7v3h-7v8H8V8z" fill="white" />
+                                </g>
+                                <!-- FinfasPro Text -->
+                                <text x="34" y="28" font-family="Inter, system-ui, sans-serif" font-size="20"
+                                    font-weight="700" fill="url(#navGradient)">
+                                    <tspan>Finfas</tspan><tspan font-weight="500" fill="#f8fafc">Pro</tspan>
+                                </text>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
 
                 <!-- Mobile Menu Button -->
                 <button id="mobile-menu-btn" class="md:hidden p-2 rounded-lg hover:bg-white/10 transition-colors">
@@ -700,23 +711,32 @@
         <footer class="py-20 border-t border-blue-500/20 bg-blue-950/50">
             <div class="max-w-[90%] mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
                 <div class="col-span-1 md:col-span-2">
-                    <svg class="h-10 mb-6" viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg">
-                        <defs>
-                            <linearGradient id="footerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#60a5fa" />
-                                <stop offset="100%" style="stop-color:#818cf8" />
-                            </linearGradient>
-                        </defs>
-                        <g transform="translate(0, 4)">
-                            <rect width="26" height="32" rx="4" fill="url(#footerGradient)" />
-                            <path d="M6 6h14v3H9v5h9v3H9v9H6V6z" fill="white" />
-                        </g>
-                        <text x="32" y="27" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700"
-                            fill="url(#footerGradient)">
-                            <tspan>Finsys</tspan>
-                            <tspan font-weight="500" fill="#93c5fd">Pro</tspan>
-                        </text>
-                    </svg>
+                    <div class="flex">
+                        <div class="shrink-0 flex items-center">
+                            <a href="#">
+                                <svg class="block h-9 w-auto fill-current text-gray-800" viewBox="0 0 130 40"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <defs>
+                                        <linearGradient id="navGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" style="stop-color:#60a5fa" />
+                                            <stop offset="100%" style="stop-color:#818cf8" />
+                                        </linearGradient>
+                                    </defs>
+                                    <!-- F Icon Mark -->
+                                    <g transform="translate(0, 4)">
+                                        <path d="M4 0h18a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4z"
+                                            fill="url(#navGradient)" />
+                                        <path d="M8 8h12v3H11v4h7v3h-7v8H8V8z" fill="white" />
+                                    </g>
+                                    <!-- FinfasPro Text -->
+                                    <text x="34" y="28" font-family="Inter, system-ui, sans-serif" font-size="20"
+                                        font-weight="700" fill="url(#navGradient)">
+                                        <tspan>Finfas</tspan><tspan font-weight="500" fill="#f8fafc">Pro</tspan>
+                                    </text>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
                     <p class="text-blue-200/60 max-w-sm">{{ __('marketing.footer.tagline') }}</p>
                 </div>
                 <div>
@@ -747,7 +767,7 @@
             </div>
             <div
                 class="max-w-[90%] mx-auto mt-20 pt-8 border-t border-blue-500/10 flex flex-col gap-4 md:flex-row justify-between text-sm text-blue-200/50">
-                <p>&copy; {{ date('Y') }} FinsysPro Inc. {{ __('marketing.footer.rights') }}</p>
+                <p>&copy; {{ date('Y') }} FinfasPro Inc. {{ __('marketing.footer.rights') }}</p>
                 <div class="flex gap-6">
                     <a href="#">{{ __('marketing.footer.privacy') }}</a>
                     <a href="#">{{ __('marketing.footer.terms') }}</a>

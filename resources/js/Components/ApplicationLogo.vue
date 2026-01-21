@@ -1,5 +1,5 @@
 <template>
-    <!-- FinsysPro Typography Logo with Icon -->
+    <!-- FinfasPro Typography Logo with Icon -->
     <svg :class="iconOnly ? 'h-10 w-10' : ''" viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg" v-if="!iconOnly">
         <defs>
             <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -12,9 +12,9 @@
             <path d="M4 0h18a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4z" fill="url(#brandGradient)"/>
             <path d="M8 8h12v3H11v4h7v3h-7v8H8V8z" fill="white"/>
         </g>
-        <!-- FinsysPro Text -->
+        <!-- FinfasPro Text -->
         <text x="34" y="28" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="700" fill="url(#brandGradient)">
-            <tspan>Finsys</tspan><tspan font-weight="500" fill="#1e40af">Pro</tspan>
+            <tspan>Finfas</tspan><tspan font-weight="500" fill="#1e40af">Pro</tspan>
         </text>
     </svg>
     
