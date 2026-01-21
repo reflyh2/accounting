@@ -5,13 +5,13 @@ This document provides step-by-step instructions for deploying FinfasPro to AWS 
 ## Architecture Overview
 
 ```
-┌─────────────────────┐     ┌─────────────────────┐
-│   Application EC2   │────▶│   PostgreSQL EC2    │
-│  (Laravel + Nginx)  │     │   (Database Server) │
-└─────────────────────┘     └─────────────────────┘
-         │
-         ▼
-    ┌─────────┐
+┌─────────────────────┐     ┌─────────────────────────────────┐
+│   Application EC2   │────▶│       PostgreSQL EC2            │
+│  (Laravel + Nginx)  │     │  ┌───────────┐  ┌────────────┐  │
+└─────────────────────┘     │  │ PgBouncer │─▶│ PostgreSQL │  │
+         │                  │  │  (:6432)  │  │  (:5432)   │  │
+         ▼                  │  └───────────┘  └────────────┘  │
+    ┌─────────┐             └─────────────────────────────────┘
     │  Redis  │ (on App Server)
     └─────────┘
 ```
@@ -35,14 +35,14 @@ This document provides step-by-step instructions for deploying FinfasPro to AWS 
 ssh -i your-key.pem ubuntu@YOUR_DB_SERVER_IP
 ```
 
-### 1.2 Install PostgreSQL 15
+### 1.2 Install PostgreSQL 15 and PgBouncer
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y postgresql-15 postgresql-contrib
+sudo apt install -y postgresql-15 postgresql-contrib pgbouncer
 ```
 
-### 1.3 Configure PostgreSQL for Remote Access
+### 1.3 Configure PostgreSQL
 
 Edit PostgreSQL configuration:
 
@@ -50,10 +50,10 @@ Edit PostgreSQL configuration:
 sudo nano /etc/postgresql/15/main/postgresql.conf
 ```
 
-Change the listen address:
+Change the listen address (localhost only since PgBouncer handles external connections):
 
 ```ini
-listen_addresses = '*'    # Or your specific app server IP for security
+listen_addresses = 'localhost'
 ```
 
 ### 1.4 Create Application Database User
@@ -68,21 +68,24 @@ Run the following SQL commands:
 
 ```sql
 -- Create the application user with ability to create databases
-CREATE USER finfaspro WITH PASSWORD 'YOUR_SECURE_PASSWORD' CREATEDB;
+CREATE ROLE finfasproadmin LOGIN PASSWORD 'REPLACE-with-strong-secret' NOSUPERUSER NOCREATEROLE NOCREATEDB INHERIT;
 
 -- Create the central database
-CREATE DATABASE finfaspro_central OWNER finfaspro;
+CREATE DATABASE finfaspro_central OWNER finfasproadmin;
+
+-- Restrict access only to that owner
+REVOKE CONNECT ON DATABASE finfaspro_central FROM PUBLIC;
+GRANT CONNECT ON DATABASE finfaspro_central TO finfasproadmin;
 
 -- Grant all privileges on central database
-GRANT ALL PRIVILEGES ON DATABASE finfaspro_central TO finfaspro;
+GRANT ALL PRIVILEGES ON DATABASE finfaspro_central TO finfasproadmin;
 
 -- Connect to central database to grant schema privileges
 \c finfaspro_central
 
 -- Grant schema privileges
-GRANT ALL ON SCHEMA public TO finfaspro;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO finfaspro;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO finfaspro;
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE, CREATE ON SCHEMA public TO finfasproadmin;
 
 -- Exit psql
 \q
@@ -90,20 +93,17 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO finfaspro;
 
 ### 1.5 Configure Client Authentication
 
-Edit `pg_hba.conf` to allow connections from the application server:
+Edit `pg_hba.conf` to allow PgBouncer to connect:
 
 ```bash
 sudo nano /etc/postgresql/15/main/pg_hba.conf
 ```
 
-Add the following line (replace with your app server IP):
+Add the following line:
 
 ```
-# Allow app server to connect
-host    all    finfaspro    YOUR_APP_SERVER_IP/32    scram-sha-256
-
-# Or allow from VPC subnet (more flexible)
-host    all    finfaspro    10.0.0.0/16    scram-sha-256
+# Allow PgBouncer to connect (localhost)
+host    all    finfaspro    127.0.0.1/32    scram-sha-256
 ```
 
 ### 1.6 Restart PostgreSQL
@@ -113,19 +113,78 @@ sudo systemctl restart postgresql
 sudo systemctl enable postgresql
 ```
 
-### 1.7 Configure Firewall
+### 1.7 Configure PgBouncer
+
+Create the userlist file:
 
 ```bash
-sudo ufw allow from YOUR_APP_SERVER_IP to any port 5432
+sudo nano /etc/pgbouncer/userlist.txt
+```
+
+Add the application user (use `md5` or `scram-sha-256` hash):
+
+```
+"finfaspro" "YOUR_SECURE_PASSWORD"
+```
+
+> **Note**: For production, generate a proper hash using:
+> ```bash
+> psql -h localhost -U postgres -c "SELECT concat('\"', usename, '\" \"', passwd, '\"') FROM pg_shadow WHERE usename = 'finfasproadmin';"
+> ```
+
+Edit PgBouncer configuration:
+
+```bash
+sudo nano /etc/pgbouncer/pgbouncer.ini
+```
+
+```ini
+[databases]
+; Template for tenant databases - * allows any database
+* = host=127.0.0.1 port=5432
+
+[pgbouncer]
+listen_addr = 0.0.0.0
+listen_port = 6432
+auth_type = scram-sha-256
+auth_file = /etc/pgbouncer/userlist.txt
+
+; Pool settings
+pool_mode = transaction
+max_client_conn = 1000
+default_pool_size = 25
+min_pool_size = 5
+reserve_pool_size = 5
+
+; Logging
+logfile = /var/log/pgbouncer/pgbouncer.log
+pidfile = /var/run/pgbouncer/pgbouncer.pid
+
+; Admin access
+admin_users = postgres
+stats_users = finfaspro
+```
+
+Start PgBouncer:
+
+```bash
+sudo systemctl restart pgbouncer
+sudo systemctl enable pgbouncer
+```
+
+### 1.8 Configure Firewall
+
+```bash
+sudo ufw allow from YOUR_APP_SERVER_IP to any port 6432
 sudo ufw enable
 ```
 
-### 1.8 Verify Connection
+### 1.9 Verify Connection
 
-From the app server, test the connection:
+From the app server, test the connection through PgBouncer:
 
 ```bash
-psql -h YOUR_DB_SERVER_IP -U finfaspro -d finfaspro_central
+psql -h YOUR_DB_SERVER_IP -p 6432 -U finfaspro -d finfaspro_central
 ```
 
 ---
@@ -197,10 +256,10 @@ APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://yourdomain.com
 
-# Database (pointing to separate DB server)
+# Database (pointing to PgBouncer on DB server)
 DB_CONNECTION=pgsql
 DB_HOST=YOUR_DB_SERVER_PRIVATE_IP
-DB_PORT=5432
+DB_PORT=6432
 DB_DATABASE=finfaspro_central
 DB_USERNAME=finfaspro
 DB_PASSWORD=YOUR_SECURE_PASSWORD
@@ -212,12 +271,27 @@ QUEUE_CONNECTION=redis
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 
-# Tenancy database connection (same credentials, tenant DBs created automatically)
+# Tenancy database connection (via PgBouncer)
 TENANCY_DATABASE_HOST=YOUR_DB_SERVER_PRIVATE_IP
-TENANCY_DATABASE_PORT=5432
+TENANCY_DATABASE_PORT=6432
 TENANCY_DATABASE_USERNAME=finfaspro
 TENANCY_DATABASE_PASSWORD=YOUR_SECURE_PASSWORD
 ```
+
+> [!IMPORTANT]
+> **Laravel with PgBouncer (Transaction Pooling)**
+>
+> When using `pool_mode = transaction`, you must disable prepared statements in Laravel.
+> Edit `config/database.php` and add `'options'` to your pgsql connection:
+>
+> ```php
+> 'pgsql' => [
+>     // ... other settings
+>     'options' => [
+>         PDO::ATTR_EMULATE_PREPARES => true,
+>     ],
+> ],
+> ```
 
 ### 2.6 Initialize Application
 
@@ -383,11 +457,24 @@ sudo systemctl restart php8.3-fpm
 ### Cannot connect to PostgreSQL
 
 ```bash
-# Test connection from app server
-psql -h YOUR_DB_SERVER_IP -U finfaspro -d finfaspro_central
+# Test connection through PgBouncer
+psql -h YOUR_DB_SERVER_IP -p 6432 -U finfaspro -d finfaspro_central
 
-# Check PostgreSQL logs on DB server
+# Check PgBouncer logs
+sudo tail -f /var/log/pgbouncer/pgbouncer.log
+
+# Check PostgreSQL logs
 sudo tail -f /var/log/postgresql/postgresql-15-main.log
+```
+
+### PgBouncer connection issues
+
+```bash
+# Check PgBouncer status
+sudo systemctl status pgbouncer
+
+# Connect to PgBouncer admin console
+psql -h 127.0.0.1 -p 6432 -U postgres pgbouncer -c "SHOW POOLS;"
 ```
 
 ### Tenant database creation fails
@@ -396,6 +483,16 @@ Ensure the `finfaspro` user has `CREATEDB` privilege:
 
 ```sql
 ALTER USER finfaspro CREATEDB;
+```
+
+### Prepared statement errors with PgBouncer
+
+If you see "prepared statement does not exist" errors, ensure you have added the PDO option in `config/database.php`:
+
+```php
+'options' => [
+    PDO::ATTR_EMULATE_PREPARES => true,
+],
 ```
 
 ### Permission errors

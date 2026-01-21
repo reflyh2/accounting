@@ -45,6 +45,7 @@ class RegisterTenantController extends Controller
 
         // Create tenant with setup data stored in 'data' JSON column
         $tenant = Tenant::create([
+            'id' => $request->subdomain,
             'name' => $request->tenant_name,
             // Company information
             'company_name' => $request->company_name,
