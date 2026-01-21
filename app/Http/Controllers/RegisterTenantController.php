@@ -19,7 +19,7 @@ class RegisterTenantController extends Controller
     public function create(): Response
     {
         return Inertia::render('Auth/RegisterTenant', [
-            'central_domain' => config('tenancy.central_domains')[1], 
+            'central_domain' => config('tenancy.main_domain'), 
         ]);
     }
 
