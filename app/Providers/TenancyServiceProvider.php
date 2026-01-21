@@ -11,6 +11,7 @@ use Stancl\JobPipeline\JobPipeline;
 use Stancl\Tenancy\Events;
 use Stancl\Tenancy\Jobs;
 use Stancl\Tenancy\Listeners;
+use Stancl\Tenancy\Controllers\TenantAssetsController;
 use Stancl\Tenancy\Middleware;
 
 class TenancyServiceProvider extends ServiceProvider
@@ -108,6 +109,10 @@ class TenancyServiceProvider extends ServiceProvider
 
     public function boot()
     {
+        // Override the asset controller to use subdomain-based tenancy resolution
+        // By default it uses InitializeTenancyByDomain which looks for full domain
+        TenantAssetsController::$tenancyMiddleware = Middleware\InitializeTenancyByDomainOrSubdomain::class;
+
         $this->bootEvents();
         $this->mapRoutes();
 
