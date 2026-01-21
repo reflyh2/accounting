@@ -696,13 +696,29 @@
                     {{ __('marketing.demo_cta.button') }}
                 </a>
             </div>
-            <!-- Dynamic Background Lines -->
+            <!-- Dynamic Background Lines with Gradient Blur -->
             <div class="absolute inset-0 opacity-20">
                 <svg width="100%" height="100%">
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" stroke-width="1" />
-                    </pattern>
-                    <rect width="100%" height="100%" fill="url(#grid)" />
+                    <defs>
+                        <!-- Blur filter -->
+                        <filter id="gridBlur" x="-80%" y="-60%" width="200%" height="200%">
+                            <feGaussianBlur in="SourceGraphic" stdDeviation="1" />
+                        </filter>
+                        <!-- Radial gradient mask for fading edges -->
+                        <radialGradient id="gridMask" cx="50%" cy="50%" r="70%" fx="50%" fy="50%">
+                            <stop offset="0%" style="stop-color:white;stop-opacity:1" />
+                            <stop offset="60%" style="stop-color:white;stop-opacity:0.6" />
+                            <stop offset="100%" style="stop-color:white;stop-opacity:0" />
+                        </radialGradient>
+                        <mask id="fadeMask">
+                            <rect width="100%" height="100%" fill="url(#gridMask)" />
+                        </mask>
+                        <!-- Grid pattern -->
+                        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" stroke-width="1" />
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#grid)" filter="url(#gridBlur)" mask="url(#fadeMask)" />
                 </svg>
             </div>
         </section>
