@@ -13,12 +13,9 @@ return [
      *
      * Only relevant if you're using the domain or subdomain identification middleware.
      */
-    'central_domains' => [
-        '127.0.0.1',
-        'localhost',
-    ],
+    'central_domains' => explode(',', env('TENANCY_CENTRAL_DOMAINS', 'localhost,127.0.0.1')),
 
-    'main_domain' => 'localhost',
+    'main_domain' => env('TENANCY_MAIN_DOMAIN', 'localhost'),
 
     /**
      * Tenancy bootstrappers are executed when tenancy is initialized.
