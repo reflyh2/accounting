@@ -813,6 +813,68 @@
         }
         requestAnimationFrame(raf);
 
+        // --- SMOOTH SCROLL NAVIGATION ---
+        // Handle all anchor links with smooth scroll animation
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                const href = this.getAttribute('href');
+                if (href === '#') return; // Skip empty anchors
+                
+                e.preventDefault();
+                const targetId = href.substring(1);
+                const targetElement = document.getElementById(targetId);
+                
+                if (targetElement) {
+                    // Use Lenis for buttery smooth scroll
+                    lenis.scrollTo(targetElement, {
+                        offset: -100, // Offset for fixed nav
+                        duration: 1.8, // Slower for visible, smooth effect
+                        easing: (t) => {
+                            // Custom cubic-bezier easing for premium feel
+                            return t < 0.5 
+                                ? 4 * t * t * t 
+                                : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                        },
+                        onComplete: () => {
+                            // Update URL hash without jump
+                            history.pushState(null, null, href);
+                        }
+                    });
+                    
+                    // Add visual feedback to clicked link
+                    this.classList.add('text-blue-400');
+                    setTimeout(() => {
+                        this.classList.remove('text-blue-400');
+                    }, 500);
+                }
+            });
+        });
+
+        // Highlight active nav link on scroll
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('nav a[href^="#"]');
+        
+        function updateActiveLink() {
+            const scrollPos = window.scrollY + 150;
+            
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.offsetHeight;
+                const sectionId = section.getAttribute('id');
+                
+                if (scrollPos >= sectionTop && scrollPos < sectionTop + sectionHeight) {
+                    navLinks.forEach(link => {
+                        link.classList.remove('text-blue-400');
+                        if (link.getAttribute('href') === `#${sectionId}`) {
+                            link.classList.add('text-blue-400');
+                        }
+                    });
+                }
+            });
+        }
+        
+        lenis.on('scroll', updateActiveLink);
+
         // --- MOBILE MENU TOGGLE ---
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileMenu = document.getElementById('mobile-menu');
