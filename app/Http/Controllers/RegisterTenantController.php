@@ -32,7 +32,7 @@ class RegisterTenantController extends Controller
     {
         $request->validate([
             'tenant_name' => 'required|string|max:255',
-            'subdomain' => 'required|string|lowercase|max:255|unique:'.Domain::class.',domain',
+            'subdomain' => 'required|string|lowercase|max:255|alpha_dash|unique:'.Domain::class.',domain',
             'company_name' => 'required|string|max:255',
             'company_address' => 'nullable|string|max:500',
             'company_city' => 'nullable|string|max:100',
@@ -60,6 +60,7 @@ class RegisterTenantController extends Controller
             'creator_email' => $centralUser->email,
             'creator_password' => $centralUser->password,
         ]);
+
 
         $domain = $tenant->domains()->create([
             'domain' => $request->subdomain,
