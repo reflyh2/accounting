@@ -22,30 +22,30 @@ Route::get('/lang/{locale}', function ($locale) {
 Route::get('/', function () {
     app()->setLocale(session('locale', config('app.locale')));
     return view('marketing.home', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
+        'canLogin' => Route::has('central.login'),
+        'canRegister' => Route::has('central.register'),
     ]);
 });
 
 Route::middleware(['web', 'guest'])->group(function () {
     Route::get('/register', [RegisteredUserController::class, 'create'])
-        ->name('register');
+        ->name('central.register');
     Route::post('/register', [RegisteredUserController::class, 'store']);
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])
-        ->name('login');
+        ->name('central.login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store']);
 });
 
 Route::middleware(['web', 'auth'])->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
-        ->name('logout');
+        ->name('central.logout');
     Route::get('/dashboard', [AuthController::class, 'dashboard'])
         ->name('central.dashboard');
     Route::get('/register-tenant', [RegisterTenantController::class, 'create'])->name('register.tenant');
     Route::post('/register-tenant', [RegisterTenantController::class, 'store'])->name('store.tenant');
 
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('central.profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('central.profile.update');
 });
 
 /*

@@ -241,7 +241,7 @@
                                 <a href="{{ url('/dashboard') }}"
                                     class="uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-2 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all shadow-lg shadow-blue-900/20">{{ __('marketing.nav.dashboard') }}</a>
                             @else
-                                <a href="{{ route('login') }}"
+                                <a href="{{ route('central.login') }}"
                                     class="uppercase text-sm tracking-widest hover:text-blue-300">{{ __('marketing.nav.login') }}</a>
                                 @if (Route::has('register'))
                                     <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
@@ -279,7 +279,7 @@
                                 <a href="{{ url('/dashboard') }}"
                                     class="text-center uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-3 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all">{{ __('marketing.nav.dashboard') }}</a>
                             @else
-                                <a href="{{ route('login') }}"
+                                <a href="{{ route('central.login') }}"
                                     class="text-center uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-3 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all">{{ __('marketing.nav.login') }}</a>
                                 @if (Route::has('register'))
                                     <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
@@ -766,7 +766,7 @@
                                 class="hover:text-white transition-colors">{{ __('marketing.nav.how_it_works') }}</a>
                         </li>
                         <li><a href="#faq" class="hover:text-white transition-colors">FAQ</a></li>
-                        <li><a href="{{ route('login') }}"
+                        <li><a href="{{ route('central.login') }}"
                                 class="hover:text-white transition-colors">{{ __('marketing.nav.login') }}</a></li>
                     </ul>
                 </div>
