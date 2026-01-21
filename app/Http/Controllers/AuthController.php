@@ -71,7 +71,7 @@ class AuthController extends Controller
     public function dashboard()
     {
         $user = Auth::user();
-        $centralDomain = config('tenancy.central_domains')[1];
+        $centralDomain = config('tenancy.main_domain');
 
         $tenants = $user->tenants()->with('primary_domain')->get()->map(function ($tenant) use ($centralDomain, $user) {
             $domain = $tenant->primary_domain ? $tenant->primary_domain->domain : null;
