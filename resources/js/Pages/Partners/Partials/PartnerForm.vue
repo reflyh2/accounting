@@ -79,7 +79,7 @@ const submitted = ref(false);
 const activeTab = ref('general');
 
 function addContact() {
-    form.contacts.push({ name: '', email: '', phone: '', position: '', notes: '' });
+    form.contacts.push({ id: null, name: '', email: '', phone: '', position: '', notes: '' });
 }
 
 function removeContact(index) {

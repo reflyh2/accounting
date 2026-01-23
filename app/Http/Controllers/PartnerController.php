@@ -300,18 +300,36 @@ class PartnerController extends Controller
                 ]);
             }
 
-            // Handle contacts - delete all and recreate
-            $partner->contacts()->delete();
+            // Handle contacts - upsert pattern to preserve created_by
+            $existingContactIds = $partner->contacts()->withoutPartnerContactAccess()->pluck('id')->toArray();
+            $submittedContactIds = [];
+
             if (!empty($validated['contacts'])) {
                 foreach ($validated['contacts'] as $contact) {
-                    $partner->contacts()->create([
+                    $data = [
                         'name' => $contact['name'],
                         'email' => $contact['email'] ?? null,
                         'phone' => $contact['phone'] ?? null,
                         'position' => $contact['position'] ?? null,
                         'notes' => $contact['notes'] ?? null,
-                    ]);
+                    ];
+
+                    if (!empty($contact['id'])) {
+                        // Update existing - created_by preserved
+                        $partner->contacts()->withoutPartnerContactAccess()->where('id', $contact['id'])->update($data);
+                        $submittedContactIds[] = $contact['id'];
+                    } else {
+                        // Create new - created_by auto-set via model boot
+                        $newContact = $partner->contacts()->create($data);
+                        $submittedContactIds[] = $newContact->id;
+                    }
                 }
+            }
+
+            // Delete contacts that were removed from the form
+            $contactsToDelete = array_diff($existingContactIds, $submittedContactIds);
+            if (!empty($contactsToDelete)) {
+                $partner->contacts()->withoutPartnerContactAccess()->whereIn('id', $contactsToDelete)->delete();
             }
 
             // Handle bank accounts - delete all and recreate from payload (simpler sync)
