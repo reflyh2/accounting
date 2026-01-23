@@ -1829,6 +1829,7 @@ class SalesService
     private function nextSequence(int $branchId, Carbon $orderDate): int
     {
         $latest = SalesOrder::withTrashed()
+            ->withoutGlobalScope('accessLevel')
             ->where('branch_id', $branchId)
             ->whereYear('order_date', $orderDate->year)
             ->orderByDesc('order_number')

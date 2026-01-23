@@ -826,6 +826,7 @@ class PurchaseInvoiceService
         $sequencePadding = (int) ($config['sequence_padding'] ?? 5);
 
         $latest = PurchaseInvoice::withTrashed()
+            ->withoutGlobalScope('accessLevel')
             ->where('branch_id', $branchId)
             ->whereYear('invoice_date', $invoiceDate->year)
             ->orderByDesc('invoice_number')

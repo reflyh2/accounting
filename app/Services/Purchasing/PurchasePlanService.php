@@ -248,6 +248,7 @@ class PurchasePlanService
         $prefix = 'PPLAN';
 
         $latest = PurchasePlan::withTrashed()
+            ->withoutGlobalScope('accessLevel')
             ->where('branch_id', $branchId)
             ->whereYear('plan_date', $planDate->year)
             ->orderByDesc('plan_number')

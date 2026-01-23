@@ -22,7 +22,8 @@ class Journal extends Model
         static::creating(function ($model) {
             $journalTypeCode = self::journalTypesCode()[$model->journal_type];
             $journalDate = date('y', strtotime($model->date));
-            $lastJournal = self::where('journal_type', $model->journal_type)
+            $lastJournal = self::withoutGlobalScope('userJournals')
+                                ->where('journal_type', $model->journal_type)
                                 ->whereYear('date', date('Y', strtotime($model->date)))
                                 ->where('branch_id', $model->branch_id)
                                 ->withTrashed()
