@@ -101,6 +101,11 @@ class Partner extends Model
         return $this->hasMany(SalesDelivery::class);
     }
 
+    public function addresses()
+    {
+        return $this->hasMany(PartnerAddress::class);
+    }
+
     // Helper methods to check roles
     public function isSupplier()
     {

@@ -200,6 +200,41 @@ const deletePartner = () => {
                         </div>
 
                         <div class="mt-6 border-t border-gray-200 pt-4">
+                            <h4 class="text-lg font-semibold mb-3">Alamat Tambahan</h4>
+                            <div v-if="partner.addresses && partner.addresses.length > 0" class="overflow-x-auto">
+                                <table class="min-w-full bg-white border border-gray-300 text-sm">
+                                    <thead>
+                                        <tr class="bg-gray-100">
+                                            <th class="border border-gray-300 px-2 py-2 text-left">Label</th>
+                                            <th class="border border-gray-300 px-2 py-2 text-left">Alamat</th>
+                                            <th class="border border-gray-300 px-2 py-2 text-left">Kota</th>
+                                            <th class="border border-gray-300 px-2 py-2 text-left">Propinsi</th>
+                                            <th class="border border-gray-300 px-2 py-2 text-left">Telepon</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="addr in partner.addresses" :key="addr.id">
+                                            <td class="border border-gray-300 px-2 py-2">{{ addr.name }}</td>
+                                            <td class="border border-gray-300 px-2 py-2">
+                                                {{ addr.address }}
+                                                <div v-if="addr.postal_code || addr.country" class="text-xs text-gray-500">
+                                                    {{ [addr.postal_code, addr.country].filter(Boolean).join(', ') }}
+                                                </div>
+                                            </td>
+                                            <td class="border border-gray-300 px-2 py-2">{{ addr.city || '-' }}</td>
+                                            <td class="border border-gray-300 px-2 py-2">{{ addr.region || '-' }}</td>
+                                            <td class="border border-gray-300 px-2 py-2">
+                                                <div>{{ addr.phone || '-' }}</div>
+                                                <div v-if="addr.email" class="text-xs text-gray-500">{{ addr.email }}</div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p v-else class="text-gray-500 italic">Tidak ada alamat tambahan terdaftar</p>
+                        </div>
+
+                        <div class="mt-6 border-t border-gray-200 pt-4">
                             <h4 class="text-lg font-semibold mb-3">Rekening Bank</h4>
                             <div v-if="partner.bank_accounts && partner.bank_accounts.length > 0" class="overflow-x-auto">
                                 <table class="min-w-full bg-white border border-gray-300 text-sm">

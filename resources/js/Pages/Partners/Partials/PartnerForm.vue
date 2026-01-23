@@ -72,6 +72,17 @@ const form = useForm({
         is_active: b.is_active ?? true,
         notes: b.notes || ''
     })) || [],
+    addresses: props.partner?.addresses?.map(addr => ({
+        id: addr.id,
+        name: addr.name || '',
+        address: addr.address || '',
+        city: addr.city || '',
+        region: addr.region || '',
+        country: addr.country || '',
+        postal_code: addr.postal_code || '',
+        phone: addr.phone || '',
+        email: addr.email || '',
+    })) || [],
     create_another: false,
 });
 
@@ -84,6 +95,14 @@ function addContact() {
 
 function removeContact(index) {
     form.contacts.splice(index, 1);
+}
+
+function addAddress() {
+    form.addresses.push({ id: null, name: '', address: '', city: '', region: '', country: '', postal_code: '', phone: '', email: '' });
+}
+
+function removeAddress(index) {
+    form.addresses.splice(index, 1);
 }
 
 function submitForm(createAnother = false) {
@@ -160,6 +179,17 @@ function submitForm(createAnother = false) {
         is_active: b.is_active !== false,
         notes: b.notes || null,
     }));
+    const addressesPayload = form.addresses.filter(a => a.name.trim() !== '' && a.address.trim() !== '').map(a => ({
+        id: a.id,
+        name: a.name,
+        address: a.address,
+        city: a.city || null,
+        region: a.region || null,
+        country: a.country || null,
+        postal_code: a.postal_code || null,
+        phone: a.phone || null,
+        email: a.email || null,
+    }));
 
     if (props.partner) {
         form.transform((data) => ({
@@ -170,6 +200,7 @@ function submitForm(createAnother = false) {
             supplier_settings: undefined,
             customer_settings: undefined,
             bank_accounts: bankAccountsPayload,
+            addresses: addressesPayload,
         })).put(route('partners.update', props.partner.id), {
             preserveScroll: true,
             onSuccess: () => {
@@ -188,6 +219,7 @@ function submitForm(createAnother = false) {
             supplier_settings: undefined,
             customer_settings: undefined,
             bank_accounts: bankAccountsPayload,
+            addresses: addressesPayload,
         })).post(route('partners.store'), {
             preserveScroll: true,
             onSuccess: () => {
@@ -247,6 +279,17 @@ function submitForm(createAnother = false) {
                         @click.prevent="activeTab = 'bank'"
                     >
                         Rekening Bank
+                    </button>
+                </li>
+                <li class="mr-2" role="presentation">
+                    <button 
+                        :class="[
+                            'inline-block p-4 rounded-t-lg border-b-2', 
+                            activeTab === 'addresses' ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-gray-600 hover:border-gray-300'
+                        ]"
+                        @click.prevent="activeTab = 'addresses'"
+                    >
+                        Alamat Lain
                     </button>
                 </li>
             </ul>
@@ -578,6 +621,113 @@ function submitForm(createAnother = false) {
             <!-- Bank Accounts Tab -->
             <div v-show="activeTab === 'bank'">
                 <PartnerBankAccountsSection v-model:bank-accounts="form.bank_accounts" :errors="form.errors" />
+            </div>
+
+            <!-- Addresses Tab -->
+            <div v-show="activeTab === 'addresses'">
+                <div class="rounded-lg border border-gray-200 p-4">
+                    <h3 class="text-lg font-medium mb-4">Alamat Tambahan</h3>
+                    <div class="overflow-x-auto mb-4">
+                        <table class="min-w-full bg-white border border-gray-300 text-sm">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="border border-gray-300 px-2 py-2 text-left min-w-[150px]">Nama (Label)</th>
+                                    <th class="border border-gray-300 px-2 py-2 text-left min-w-[200px]">Alamat</th>
+                                    <th class="border border-gray-300 px-2 py-2 text-left">Region</th>
+                                    <th class="border border-gray-300 px-2 py-2 text-left">Kontak</th>
+                                    <th class="border border-gray-300 px-2 py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(addr, index) in form.addresses" :key="addr.id ?? index">
+                                    <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                                        <AppInput
+                                            v-model="addr.name"
+                                            :error="form.errors[`addresses.${index}.name`]"
+                                            placeholder="Contoh: Kantor Cabang"
+                                            :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                        />
+                                    </td>
+                                    <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                                        <AppTextarea
+                                            v-model="addr.address"
+                                            :error="form.errors[`addresses.${index}.address`]"
+                                            placeholder="Alamat Lengkap"
+                                            :rows="2"
+                                            :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                        />
+                                    </td>
+                                    <td class="border border-gray-300 px-1.5 py-1.5 align-top">                                        
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <AppInput
+                                                v-model="addr.city"
+                                                :error="form.errors[`addresses.${index}.city`]"
+                                                placeholder="Kota"
+                                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                            />
+                                            <AppInput
+                                                v-model="addr.region"
+                                                :error="form.errors[`addresses.${index}.region`]"
+                                                placeholder="Propinsi"
+                                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                            />
+                                        </div>
+                                        <div class="mt-2 grid grid-cols-2 gap-2">
+                                            <AppInput
+                                                v-model="addr.country"
+                                                :error="form.errors[`addresses.${index}.country`]"
+                                                placeholder="Negara"
+                                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                            />
+                                            <AppInput
+                                                v-model="addr.postal_code"
+                                                :error="form.errors[`addresses.${index}.postal_code`]"
+                                                placeholder="Kode Pos"
+                                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                            />
+                                        </div>
+                                    </td>
+                                    <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                                        <AppInput
+                                            v-model="addr.phone"
+                                            :error="form.errors[`addresses.${index}.phone`]"
+                                            placeholder="Telepon"
+                                            :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                        />
+                                        <div class="mt-2">
+                                            <AppInput
+                                                v-model="addr.email"
+                                                :error="form.errors[`addresses.${index}.email`]"
+                                                placeholder="Email"
+                                                type="email"
+                                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                            />
+                                        </div>
+                                    </td>
+                                    <td class="border border-gray-300 px-1.5 py-1.5 align-top text-center">
+                                        <button type="button" class="text-red-600 inline-flex items-center" @click="removeAddress(index)">
+                                            <TrashIcon class="w-4 h-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="form.addresses.length === 0">
+                                    <td colspan="6" class="border border-gray-300 px-2 py-2 text-center text-gray-500">
+                                        Belum ada alamat tambahan. Tambahkan baris baru.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex mt-2">
+                        <button
+                            type="button"
+                            @click="addAddress"
+                            class="flex items-center text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
+                        >
+                            <PlusCircleIcon class="w-4 h-4 mr-2" /> Tambah Alamat
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div class="mt-6 flex items-center">

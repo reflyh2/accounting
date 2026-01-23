@@ -120,6 +120,15 @@ class PartnerController extends Controller
             'bank_accounts.*.is_primary' => 'boolean',
             'bank_accounts.*.is_active' => 'boolean',
             'bank_accounts.*.notes' => 'nullable|string',
+            'addresses' => 'nullable|array',
+            'addresses.*.name' => 'required|string|max:255',
+            'addresses.*.address' => 'required|string',
+            'addresses.*.city' => 'nullable|string|max:255',
+            'addresses.*.region' => 'nullable|string|max:255',
+            'addresses.*.country' => 'nullable|string|max:255',
+            'addresses.*.postal_code' => 'nullable|string|max:255',
+            'addresses.*.phone' => 'nullable|string|max:255',
+            'addresses.*.email' => 'nullable|email|max:255',
         ]);
 
         $partner = DB::transaction(function () use ($validated, $request) {
@@ -185,6 +194,22 @@ class PartnerController extends Controller
                 }
             }
 
+            // Create addresses
+            if (!empty($validated['addresses'])) {
+                foreach ($validated['addresses'] as $addr) {
+                    $partner->addresses()->create([
+                        'name' => $addr['name'],
+                        'address' => $addr['address'],
+                        'city' => $addr['city'] ?? null,
+                        'region' => $addr['region'] ?? null,
+                        'country' => $addr['country'] ?? null,
+                        'postal_code' => $addr['postal_code'] ?? null,
+                        'phone' => $addr['phone'] ?? null,
+                        'email' => $addr['email'] ?? null,
+                    ]);
+                }
+            }
+
             return $partner;
         });
 
@@ -200,7 +225,7 @@ class PartnerController extends Controller
     public function show(Partner $partner)
     {
         $filters = Session::get('partners.index_filters', []);
-        $partner->load(['roles', 'contacts', 'companies', 'bankAccounts', 'createdBy', 'updatedBy']);
+        $partner->load(['roles', 'contacts', 'companies', 'bankAccounts', 'addresses', 'createdBy', 'updatedBy']);
         
         return Inertia::render('Partners/Show', [
             'partner' => $partner,
@@ -212,7 +237,7 @@ class PartnerController extends Controller
     public function edit(Partner $partner)
     {
         $filters = Session::get('partners.index_filters', []);
-        $partner->load(['roles', 'contacts', 'companies', 'bankAccounts']);
+        $partner->load(['roles', 'contacts', 'companies', 'bankAccounts', 'addresses']);
 
         return Inertia::render('Partners/Edit', [
             'partner' => $partner,
@@ -265,6 +290,16 @@ class PartnerController extends Controller
             'bank_accounts.*.is_primary' => 'boolean',
             'bank_accounts.*.is_active' => 'boolean',
             'bank_accounts.*.notes' => 'nullable|string',
+            'addresses' => 'nullable|array',
+            'addresses.*.id' => 'nullable|exists:partner_addresses,id',
+            'addresses.*.name' => 'required|string|max:255',
+            'addresses.*.address' => 'required|string',
+            'addresses.*.city' => 'nullable|string|max:255',
+            'addresses.*.region' => 'nullable|string|max:255',
+            'addresses.*.country' => 'nullable|string|max:255',
+            'addresses.*.postal_code' => 'nullable|string|max:255',
+            'addresses.*.phone' => 'nullable|string|max:255',
+            'addresses.*.email' => 'nullable|email|max:255',
         ]);
 
         DB::transaction(function () use ($validated, $partner) {
@@ -330,6 +365,39 @@ class PartnerController extends Controller
             $contactsToDelete = array_diff($existingContactIds, $submittedContactIds);
             if (!empty($contactsToDelete)) {
                 $partner->contacts()->withoutPartnerContactAccess()->whereIn('id', $contactsToDelete)->delete();
+            }
+
+            // Handle addresses
+            $existingAddressIds = $partner->addresses()->pluck('id')->toArray();
+            $submittedAddressIds = [];
+
+            if (!empty($validated['addresses'])) {
+                foreach ($validated['addresses'] as $addr) {
+                    $data = [
+                        'name' => $addr['name'],
+                        'address' => $addr['address'],
+                        'city' => $addr['city'] ?? null,
+                        'region' => $addr['region'] ?? null,
+                        'country' => $addr['country'] ?? null,
+                        'postal_code' => $addr['postal_code'] ?? null,
+                        'phone' => $addr['phone'] ?? null,
+                        'email' => $addr['email'] ?? null,
+                    ];
+
+                    if (!empty($addr['id'])) {
+                        $partner->addresses()->where('id', $addr['id'])->update($data);
+                        $submittedAddressIds[] = $addr['id'];
+                    } else {
+                        $newAddress = $partner->addresses()->create($data);
+                        $submittedAddressIds[] = $newAddress->id;
+                    }
+                }
+            }
+
+            // Delete addresses that were removed
+            $addressesToDelete = array_diff($existingAddressIds, $submittedAddressIds);
+            if (!empty($addressesToDelete)) {
+                $partner->addresses()->whereIn('id', $addressesToDelete)->delete();
             }
 
             // Handle bank accounts - delete all and recreate from payload (simpler sync)
@@ -421,6 +489,7 @@ class PartnerController extends Controller
             // Delete related records
             $partner->roles()->delete();
             $partner->contacts()->delete();
+            $partner->addresses()->delete();
             $partner->companies()->detach();
             $partner->delete();
         });
@@ -445,6 +514,7 @@ class PartnerController extends Controller
                 if ($partner) {
                     $partner->roles()->delete();
                     $partner->contacts()->delete();
+                    $partner->addresses()->delete();
                     $partner->companies()->detach();
                     $partner->delete();
                 }
@@ -463,7 +533,8 @@ class PartnerController extends Controller
     private function getFilteredPartners(Request $request)
     {
         $filters = $request->all() ?: Session::get('partners.index_filters', []);
-
+        
+        // Removed addresses from eager loading here to avoid N+1 if not needed, or add if we want to search addresses
         $query = Partner::with(['roles', 'contacts', 'companies']);
 
         if (!empty($filters['search'])) {
