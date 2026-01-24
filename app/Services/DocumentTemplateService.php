@@ -159,11 +159,47 @@ class DocumentTemplateService
             }
         }
 
-        // Partner fields
+        // Partner fields - Default to main partner data
         if ($partner = $document->partner) {
             foreach ($partner->toArray() as $key => $value) {
                 if (!is_array($value) && !is_object($value)) {
                     $placeholders['partner.' . $key] = $value;
+                }
+            }
+        }
+
+        // Context-specific Address Overrides & Additional Address Placeholders
+        $addressOverride = null;
+
+        if ($document instanceof SalesDelivery && $document->shippingAddress) {
+            $addressOverride = $document->shippingAddress;
+            // Add explicit shipping address placeholders
+            foreach ($addressOverride->toArray() as $key => $value) {
+                if (!is_array($value) && !is_object($value)) {
+                    $placeholders['shipping_address.' . $key] = $value;
+                }
+            }
+            // Map 'name' to 'label' to avoid confusion, though usually we want the Partner Name
+            $placeholders['shipping_address.label'] = $addressOverride->name;
+        }
+
+        if ($document instanceof SalesInvoice && $document->invoiceAddress) {
+            $addressOverride = $document->invoiceAddress;
+            // Add explicit invoice address placeholders
+            foreach ($addressOverride->toArray() as $key => $value) {
+                if (!is_array($value) && !is_object($value)) {
+                    $placeholders['invoice_address.' . $key] = $value;
+                }
+            }
+            $placeholders['invoice_address.label'] = $addressOverride->name;
+        }
+
+        // Apply overrides to 'partner.*' fields if an address is selected
+        if ($addressOverride) {
+            $fieldsToOverride = ['address', 'city', 'region', 'postal_code', 'country', 'phone', 'email'];
+            foreach ($fieldsToOverride as $field) {
+                if (!empty($addressOverride->$field)) {
+                    $placeholders['partner.' . $field] = $addressOverride->$field;
                 }
             }
         }
@@ -400,6 +436,17 @@ class DocumentTemplateService
             'registration_number' => 'No. Registrasi',
         ];
         
+        $addressFields = [
+            'label' => 'Label Alamat (e.g. Kantor Cabang)',
+            'address' => 'Alamat Lengkap',
+            'city' => 'Kota',
+            'region' => 'Provinsi/Wilayah',
+            'postal_code' => 'Kode Pos',
+            'country' => 'Negara',
+            'phone' => 'Telepon',
+            'email' => 'Email',
+        ];
+
         $common = [
             'company' => $companyFields,
             'branch' => $branchFields,
@@ -439,6 +486,7 @@ class DocumentTemplateService
                 'document_date_short' => 'Tanggal (dd/mm/yyyy)',
                 'total_quantity' => 'Total Qty',
                 'so_numbers' => 'Nomor SO',
+                'shipping_address' => $addressFields,
             ],
             'sales_invoice' => [
                 'document_number' => 'Nomor Faktur',
@@ -455,6 +503,7 @@ class DocumentTemplateService
                 'total_terbilang_id' => 'Terbilang (ID)',
                 'total_terbilang_en' => 'Terbilang (EN)',
                 'so_numbers' => 'Nomor SO',
+                'invoice_address' => $addressFields,
             ],
             default => [],
         };
