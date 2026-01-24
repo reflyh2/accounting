@@ -1,14 +1,19 @@
 ---
-name: Tenant Migration
-description: Run tenant migrations using Laravel Sail
+name: run-migration
+description: Run migrations using Laravel Sail
 ---
 
-# Tenant Migration
+# Run Migration
 
-This skill runs the tenant migrations using Laravel Sail.
+This skill runs the migrations using Laravel Sail.
 
 ## Usage
+For central application
+```bash
+./vendor/bin/sail artisan migrate
+```
 
+For tenant application
 ```bash
 ./vendor/bin/sail artisan tenants:migrate
 ```

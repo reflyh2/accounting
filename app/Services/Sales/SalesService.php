@@ -105,6 +105,7 @@ class SalesService
                 'payment_method' => $payload['payment_method'] ?? null,
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'sales_person_id' => $payload['sales_person_id'] ?? $actor?->getAuthIdentifier(),
+                'shipping_address_id' => $payload['shipping_address_id'] ?? null,
                 'created_by' => $actor?->getAuthIdentifier(),
             ]);
 
@@ -200,6 +201,7 @@ class SalesService
                 'payment_method' => $payload['payment_method'] ?? null,
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'sales_person_id' => $payload['sales_person_id'] ?? $salesOrder->sales_person_id,
+                'shipping_address_id' => $payload['shipping_address_id'] ?? null,
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 
@@ -613,6 +615,7 @@ class SalesService
                 'delivery_date' => $deliveryDate,
                 'exchange_rate' => $salesOrder->exchange_rate,
                 'notes' => $payload['notes'] ?? null,
+                'shipping_address_id' => $payload['shipping_address_id'] ?? null,
                 'created_by' => $actor?->getAuthIdentifier(),
             ]);
 
@@ -1179,6 +1182,7 @@ class SalesService
                 'location_id' => $location->id,
                 'delivery_date' => $deliveryDate,
                 'notes' => $payload['notes'] ?? null,
+                'shipping_address_id' => $payload['shipping_address_id'] ?? null,
                 'inventory_transaction_id' => $result->transaction->id,
                 'status' => SalesDeliveryStatus::POSTED->value,
                 'posted_at' => now(),

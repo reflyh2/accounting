@@ -92,6 +92,7 @@ class ApiController extends Controller
 
     public function getPartner(Partner $partner)
     {
+        $partner->load(['addresses']);
         return response()->json($partner);
     }
 

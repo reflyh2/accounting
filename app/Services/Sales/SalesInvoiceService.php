@@ -125,6 +125,7 @@ class SalesInvoiceService
                 'payment_method' => $payload['payment_method'] ?? null,
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'sales_person_id' => $payload['sales_person_id'] ?? $actor?->getAuthIdentifier(),
+                'invoice_address_id' => $payload['invoice_address_id'] ?? null,
                 'created_by' => $actor?->getAuthIdentifier(),
             ]);
 
@@ -201,6 +202,7 @@ class SalesInvoiceService
                 'payment_method' => $payload['payment_method'] ?? null,
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'sales_person_id' => $payload['sales_person_id'] ?? $invoice->sales_person_id,
+                'invoice_address_id' => $payload['invoice_address_id'] ?? null,
                 'subtotal' => $totals['subtotal'],
                 'tax_total' => $totals['tax_total'],
                 'total_amount' => $totals['total_amount'],

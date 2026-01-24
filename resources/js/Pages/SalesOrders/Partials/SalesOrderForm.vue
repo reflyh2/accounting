@@ -109,6 +109,8 @@ const form = useForm({
         exchange_rate: c.exchange_rate,
     })) || [],
     sales_person_id: props.salesOrder?.sales_person_id || page.props.auth?.user?.global_id || null,
+    shipping_address_id: props.salesOrder?.shipping_address_id || null,
+    invoice_address_id: props.salesOrder?.invoice_address_id || null,
     create_another: false,
 });
 
@@ -116,6 +118,7 @@ const selectedCompany = ref(
     form.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id)
 );
 
+const partnerAddresses = ref([]);
 const availabilityState = ref({});
 
 const customerTableHeaders = [
@@ -297,7 +300,29 @@ watch(selectedCompany, (newCompanyId) => {
         form.company_id = newCompanyId;
         router.reload({ only: ['branches'], data: { company_id: newCompanyId } });
     }
+    if (props.mode === 'create') {
+        form.company_id = newCompanyId;
+        router.reload({ only: ['branches'], data: { company_id: newCompanyId } });
+    }
 }, { immediate: true });
+
+async function fetchPartnerAddresses(partnerId) {
+    if (!partnerId) {
+        partnerAddresses.value = [];
+        return;
+    }
+    try {
+        const response = await axios.get(route('api.partners.show', partnerId));
+        partnerAddresses.value = response.data.addresses || [];
+    } catch (error) {
+        console.error('Failed to fetch partner addresses:', error);
+        partnerAddresses.value = [];
+    }
+}
+
+watch(() => form.partner_id, (newVal) => {
+    fetchPartnerAddresses(newVal);
+});
 
 watch(
     () => props.branches,
@@ -343,6 +368,12 @@ onMounted(() => {
     selectedCompany.value = form.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id);
     if (props.mode === 'create' && props.branches.length === 1) {
         form.branch_id = props.branches[0].id;
+    }
+    if (props.mode === 'create' && props.branches.length === 1) {
+        form.branch_id = props.branches[0].id;
+    }
+    if (form.partner_id) {
+        fetchPartnerAddresses(form.partner_id);
     }
 });
 
@@ -799,9 +830,27 @@ function submitForm(createAnother = false) {
                     <AppSelect
                         v-model="form.sales_person_id"
                         :options="users"
-                        label="Salesperson:"
-                        placeholder="Pilih Salesperson"
+                        label="Sales Person:"
+                        placeholder="Pilih Sales Person"
                         :error="form.errors?.sales_person_id"
+                    />
+
+                    <AppSelect
+                        v-model="form.shipping_address_id"
+                        :options="[{ value: null, label: 'Sama dengan alamat utama' }, ...partnerAddresses.map((addr) => ({ value: addr.id, label: addr.name + ' - ' + addr.address }))]"
+                        label="Alamat Pengiriman:"
+                        :placeholder="partnerAddresses.length ? 'Pilih Alamat Pengiriman' : 'Partner tidak memiliki alamat tambahan'"
+                        :error="form.errors?.shipping_address_id"
+                        :disabled="!form.partner_id || partnerAddresses.length === 0"
+                    />
+
+                    <AppSelect
+                        v-model="form.invoice_address_id"
+                        :options="[{ value: null, label: 'Sama dengan alamat utama' }, ...partnerAddresses.map((addr) => ({ value: addr.id, label: addr.name + ' - ' + addr.address }))]"
+                        label="Alamat Tagihan:"
+                        :placeholder="partnerAddresses.length ? 'Pilih Alamat Tagihan' : 'Partner tidak memiliki alamat tambahan'"
+                        :error="form.errors?.invoice_address_id"
+                        :disabled="!form.partner_id || partnerAddresses.length === 0"
                     />
                 </div>
 

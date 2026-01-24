@@ -17,6 +17,8 @@ class SalesOrderRequest extends FormRequest
             'company_id' => ['required', 'exists:companies,id'],
             'branch_id' => ['required', 'exists:branches,id'],
             'partner_id' => ['required', 'exists:partners,id'],
+            'shipping_address_id' => ['nullable', 'exists:partner_addresses,id'],
+            'invoice_address_id' => ['nullable', 'exists:partner_addresses,id'],
             'price_list_id' => ['nullable', 'exists:price_lists,id'],
             'currency_id' => ['required', 'exists:currencies,id'],
             'order_date' => ['required', 'date'],

@@ -165,7 +165,10 @@ const form = useForm({
     company_bank_account_id: props.invoice?.company_bank_account_id ?? null,
     sales_person_id: props.invoice?.sales_person_id || page.props.auth?.user?.global_id || null,
     lines: buildInitialLines(),
+    lines: buildInitialLines(),
     costs: buildInitialCosts(),
+    costs: buildInitialCosts(),
+    invoice_address_id: props.invoice?.invoice_address_id || null,
 });
 
 // Watch for company changes - reload branches, customers, SOs
@@ -233,9 +236,27 @@ watch(() => form.currency_id, (newCurrencyId) => {
     }
 }, { immediate: true });
 
+// Partner addresses state
+const partnerAddresses = ref([]);
+
+async function fetchPartnerAddresses(partnerId) {
+    if (!partnerId) {
+        partnerAddresses.value = [];
+        return;
+    }
+    try {
+        const response = await axios.get(route('api.partners.show', partnerId));
+        partnerAddresses.value = response.data.addresses || [];
+    } catch (error) {
+        console.error('Failed to fetch partner addresses:', error);
+        partnerAddresses.value = [];
+    }
+}
+
 // Watch for customer selection changes
 watch(selectedCustomerId, (newId) => {
     form.partner_id = newId;
+    fetchPartnerAddresses(newId);
     if (!isEditMode.value) {
         selectedSoIds.value = [];
         router.reload({
@@ -266,6 +287,13 @@ watch(selectedSoIds, (newIds) => {
             preserveState: true,
             preserveScroll: true,
             only: ['selectedSalesOrders'],
+            onSuccess: (page) => {
+                const newSOs = page.props.selectedSalesOrders || [];
+                if (newSOs.length > 0) {
+                    const firstSO = newSOs[0];
+                    form.invoice_address_id = firstSO.invoice_address_id || null;
+                }
+            }
         });
     } else if (!isEditMode.value && newIds.length === 0) {
         form.lines = [];
@@ -356,6 +384,10 @@ onMounted(() => {
         repopulateLinesFromSOs();
     } else if (!isEditMode.value && form.sales_order_ids.length === 0 && form.lines.length === 0) {
         addDirectLine();
+    }
+    // Fetch addresses on mount if customer selected (edit mode or pre-selected)
+    if (selectedCustomerId.value) {
+        fetchPartnerAddresses(selectedCustomerId.value);
     }
 });
 
@@ -798,6 +830,19 @@ function submitForm(createAnother = false) {
                     />
                 </div>
 
+                <!-- Addresses -->
+                <div class="grid grid-cols-2 gap-4">
+                    <AppSelect
+                        v-model="form.invoice_address_id"
+                        :options="[{ value: null, label: 'Sama dengan alamat utama' }, ...partnerAddresses.map((addr) => ({ value: addr.id, label: addr.name + ' - ' + addr.address }))]"
+                        label="Alamat Tagihan:"
+                        :placeholder="partnerAddresses.length ? 'Pilih Alamat Tagihan' : 'Partner tidak memiliki alamat tambahan'"
+                        :error="form.errors.invoice_address_id"
+                        :disabled="!selectedCustomerId || partnerAddresses.length === 0"
+                    />
+                </div>
+
+
                 <!-- Dates -->
                 <div class="grid grid-cols-2 gap-4">
                     <AppInput
@@ -859,8 +904,8 @@ function submitForm(createAnother = false) {
                     <AppSelect
                         v-model="form.sales_person_id"
                         :options="users"
-                        label="Salesperson:"
-                        placeholder="Pilih Salesperson"
+                        label="Sales Person:"
+                        placeholder="Pilih Sales Person"
                         :error="form.errors?.sales_person_id"
                     />
                 </div>

@@ -1,5 +1,6 @@
 <script setup>
 import { useForm, router } from '@inertiajs/vue3';
+import axios from 'axios';
 import { computed, watch, ref, onMounted } from 'vue';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppInput from '@/Components/AppInput.vue';
@@ -81,6 +82,7 @@ const form = useForm({
     location_id: props.locations?.[0]?.id ?? null,
     notes: '',
     lines: buildInitialLines(),
+    shipping_address_id: null,
 });
 
 const allSoLines = computed(() => {
@@ -197,9 +199,26 @@ watch(selectedBranch, (newBranchId) => {
     }
 }, { immediate: false });
 
+const partnerAddresses = ref([]);
+
+async function fetchPartnerAddresses(partnerId) {
+    if (!partnerId) {
+        partnerAddresses.value = [];
+        return;
+    }
+    try {
+        const response = await axios.get(route('api.partners.show', partnerId));
+        partnerAddresses.value = response.data.addresses || [];
+    } catch (error) {
+        console.error('Failed to fetch partner addresses:', error);
+        partnerAddresses.value = [];
+    }
+}
+
 // Watch for customer selection changes
 watch(selectedCustomerId, (newId) => {
     form.partner_id = newId;
+    fetchPartnerAddresses(newId);
     // Clear selected SOs when customer changes
     selectedSoIds.value = [];
     form.lines = [];
@@ -237,6 +256,11 @@ watch(
     (newSOs) => {
         if (newSOs && newSOs.length > 0) {
             repopulateLinesFromSOs();
+            // Autoload addresses from first SO if available
+            const firstSO = newSOs[0];
+            if (firstSO) {
+                form.shipping_address_id = firstSO.shipping_address_id || null;
+            }
         }
     },
     { immediate: true }
@@ -262,6 +286,17 @@ function repopulateLinesFromSOs() {
     form.lines = newLines;
 }
 
+// Watch for locations prop changes - auto-select if only one
+watch(
+    () => props.locations,
+    (newLocations) => {
+        if (newLocations && newLocations.length === 1) {
+            form.location_id = newLocations[0].id;
+        }
+    },
+    { immediate: true }
+);
+
 // Auto-select on mount
 onMounted(() => {
     // Auto-select company if only one
@@ -271,6 +306,13 @@ onMounted(() => {
     // Auto-select branch if only one
     if (props.branches.length === 1) {
         selectedBranch.value = props.branches[0].value;
+    }
+    // Auto-select location if only one (already handled by immediate watch, but good for safety)
+    if (props.locations && props.locations.length === 1) {
+        form.location_id = props.locations[0].id;
+    }
+    if (selectedCustomerId.value) {
+        fetchPartnerAddresses(selectedCustomerId.value);
     }
 });
 
@@ -373,6 +415,18 @@ const customerTableHeaders = [
                         :multiple="true"
                         :disabled="!selectedCustomerId"
                         required
+                    />
+                </div>
+
+                <!-- Addresses -->
+                <div class="grid grid-cols-2 gap-4">
+                    <AppSelect
+                        v-model="form.shipping_address_id"
+                        :options="[{ value: null, label: 'Sama dengan alamat utama' }, ...partnerAddresses.map((addr) => ({ value: addr.id, label: addr.name + ' - ' + addr.address }))]"
+                        label="Alamat Pengiriman:"
+                        :placeholder="partnerAddresses.length ? 'Pilih Alamat Pengiriman' : 'Partner tidak memiliki alamat tambahan'"
+                        :error="form.errors.shipping_address_id"
+                        :disabled="!selectedCustomerId || partnerAddresses.length === 0"
                     />
                 </div>
 

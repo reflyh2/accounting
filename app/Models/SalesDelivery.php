@@ -43,6 +43,16 @@ class SalesDelivery extends Model
         return $this->belongsTo(Partner::class);
     }
 
+    public function shippingAddress()
+    {
+        return $this->belongsTo(PartnerAddress::class, 'shipping_address_id');
+    }
+
+    public function invoiceAddress()
+    {
+        return $this->belongsTo(PartnerAddress::class, 'invoice_address_id');
+    }
+
     public function currency()
     {
         return $this->belongsTo(Currency::class);

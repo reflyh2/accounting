@@ -190,6 +190,7 @@ class SalesDeliveryController extends Controller
     {
         $data = $request->validate([
             'partner_id' => ['required', 'exists:partners,id'],
+            'shipping_address_id' => ['nullable', 'exists:partner_addresses,id'],
             'sales_order_ids' => ['required', 'array', 'min:1'],
             'sales_order_ids.*' => ['required', 'exists:sales_orders,id'],
             'delivery_date' => ['required', 'date'],
@@ -272,6 +273,7 @@ class SalesDeliveryController extends Controller
     {
         $data = $request->validate([
             'delivery_date' => ['required', 'date'],
+            'shipping_address_id' => ['nullable', 'exists:partner_addresses,id'],
             'location_id' => ['required', 'exists:locations,id'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'lines' => ['required', 'array', 'min:1'],
@@ -535,6 +537,8 @@ class SalesDeliveryController extends Controller
                     'id' => $salesOrder->currency->id,
                     'code' => $salesOrder->currency->code,
                 ] : null,
+                'shipping_address_id' => $salesOrder->shipping_address_id,
+                'invoice_address_id' => $salesOrder->invoice_address_id,
                 'lines' => $lines,
             ];
         }
