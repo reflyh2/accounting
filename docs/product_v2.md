@@ -157,6 +157,7 @@ Common capabilities:
 - `rental`
 - `serialized`
 - `package`
+- `deliverable`
 
 Capabilities are assigned automatically by **Product Type Templates**.
 
