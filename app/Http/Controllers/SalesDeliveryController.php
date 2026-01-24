@@ -239,7 +239,8 @@ class SalesDeliveryController extends Controller
     public function edit(SalesDelivery $salesDelivery): Response|RedirectResponse
     {
         $salesDelivery->load([
-            'salesOrders.lines.variant.product',
+            'salesOrders.lines.variant.product.capabilities',
+            'salesOrders.lines.product.capabilities',
             'salesOrders.lines.uom',
             'salesOrders.partner',
             'salesOrders.branch.branchGroup.company',
@@ -481,7 +482,8 @@ class SalesDeliveryController extends Controller
             'partner',
             'branch.branchGroup.company',
             'currency',
-            'lines.variant.product',
+            'lines.variant.product.capabilities',
+            'lines.product.capabilities',
             'lines.uom',
             'lines.baseUom',
             'lines.reservationLocation',
@@ -492,6 +494,7 @@ class SalesDeliveryController extends Controller
         foreach ($salesOrders as $salesOrder) {
             $lines = $salesOrder->lines->map(function ($line) {
                 $remaining = max(0, (float) $line->quantity - (float) $line->quantity_delivered);
+                $product = $line->variant?->product ?? $line->product;
                 return [
                     'id' => $line->id,
                     'line_number' => $line->line_number,
@@ -501,6 +504,7 @@ class SalesDeliveryController extends Controller
                         'sku' => $line->variant->sku,
                         'product_name' => $line->variant->product?->name,
                     ] : null,
+                    'capabilities' => $product?->capabilities->pluck('capability') ?? [],
                     'uom' => [
                         'id' => $line->uom?->id,
                         'code' => $line->uom?->code,
@@ -668,6 +672,8 @@ class SalesDeliveryController extends Controller
                 // Remaining = ordered - delivered (from other deliveries) + current SD qty (to allow editing)
                 $deliveredFromOthers = max(0, (float) $line->quantity_delivered - $currentSdQty);
                 $remaining = max(0, (float) $line->quantity - $deliveredFromOthers);
+                
+                $product = $line->variant?->product ?? $line->product;
 
                 return [
                     'id' => $line->id,
@@ -678,6 +684,7 @@ class SalesDeliveryController extends Controller
                         'sku' => $line->variant->sku,
                         'product_name' => $line->variant->product?->name,
                     ] : null,
+                    'capabilities' => $product?->capabilities->pluck('capability') ?? [],
                     'uom' => [
                         'id' => $line->uom?->id,
                         'code' => $line->uom?->code,

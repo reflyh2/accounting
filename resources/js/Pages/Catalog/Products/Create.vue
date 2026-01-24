@@ -18,6 +18,32 @@ const groupTabs = computed(() => {
         active: props.group === key,
     }));
 });
+
+function formatCapability(cap) {
+    const labels = {
+        'inventory_tracked': 'Inventori',
+        'variantable': 'Varian',
+        'bookable': 'Booking',
+        'rental': 'Rental',
+        'serialized': 'Serial',
+        'package': 'Paket',
+        'deliverable': 'Deliverable',
+    };
+    return labels[cap] || cap;
+}
+
+function formatCostModel(model) {
+    const labels = {
+        'inventory_layer': 'Inventory Layer',
+        'direct_expense_per_sale': 'Direct Expense',
+        'job_costing': 'Job Costing',
+        'asset_usage_costing': 'Asset Usage',
+        'prepaid_consumption': 'Prepaid',
+        'hybrid': 'Hybrid',
+        'none': 'None',
+    };
+    return labels[model] || model;
+}
 </script>
 
 <template>
@@ -106,33 +132,3 @@ const groupTabs = computed(() => {
         </div>
     </AuthenticatedLayout>
 </template>
-
-<script>
-export default {
-    methods: {
-        formatCapability(cap) {
-            const labels = {
-                'inventory_tracked': 'Inventori',
-                'variantable': 'Varian',
-                'bookable': 'Booking',
-                'rental': 'Rental',
-                'serialized': 'Serial',
-                'package': 'Paket',
-            };
-            return labels[cap] || cap;
-        },
-        formatCostModel(model) {
-            const labels = {
-                'inventory_layer': 'Inventory Layer',
-                'direct_expense_per_sale': 'Direct Expense',
-                'job_costing': 'Job Costing',
-                'asset_usage_costing': 'Asset Usage',
-                'prepaid_consumption': 'Prepaid',
-                'hybrid': 'Hybrid',
-                'none': 'None',
-            };
-            return labels[model] || model;
-        },
-    },
-};
-</script>

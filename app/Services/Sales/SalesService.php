@@ -527,7 +527,8 @@ class SalesService
         }
 
         $salesOrder->loadMissing([
-            'lines.variant.product',
+            'lines.variant.product.capabilities',
+            'lines.product.capabilities',
             'lines.uom',
             'lines.baseUom',
             'lines.reservationLocation',
@@ -578,6 +579,13 @@ class SalesService
             $valuationMethod,
             $actor
         ) {
+            $inventoryItems = array_filter($preparedLines, function ($plan) {
+                /** @var SalesOrderLine $line */
+                $line = $plan['order_line'];
+                $product = $line->variant?->product ?? $line->product;
+                return $product && $product->hasCapability('inventory_tracked');
+            });
+
             $issueDto = new IssueDTO(
                 $deliveryDate,
                 $location->id,
@@ -587,7 +595,7 @@ class SalesService
                         $plan['order_line']->base_uom_id,
                         $plan['quantity_base'],
                     ),
-                    $preparedLines
+                    $inventoryItems
                 ),
                 sourceType: SalesOrder::class,
                 sourceId: $salesOrder->id,
@@ -595,7 +603,10 @@ class SalesService
                 valuationMethod: $valuationMethod,
             );
 
-            $result = $this->inventoryService->issue($issueDto);
+            $result = null;
+            if (!empty($inventoryItems)) {
+                $result = $this->inventoryService->issue($issueDto);
+            }
 
             $deliveryNumber = $this->generateDeliveryNumber(
                 $salesOrder->company_id,
@@ -624,10 +635,58 @@ class SalesService
             $totalCogs = 0.0;
 
             foreach ($preparedLines as $index => $plan) {
-                $transactionLine = $result->transaction->lines[$index] ?? null;
-                $unitCostBase = $transactionLine?->unit_cost !== null
-                    ? (float) $transactionLine->unit_cost
-                    : 0.0;
+                $transactionLine = null;
+                // If this item was in inventory items, try to find the transaction line
+                // Note: The index in preparedLines might not match transaction lines directly if we filtered
+                // So we need to match by variant ID or logic. However, since we filtered by array_filter maintaining keys?
+                // array_filter preserves keys.
+                // But $result->transaction->lines is a Collection (0-indexed).
+                // We need to map back.
+
+                // Simpler approach: If result exists, we iterate lines.
+                // But we need to link specific SO line to specific Txn line.
+
+                // Let's refine the logic.
+                // We shouldn't rely on index if we filtered.
+
+                $unitCostBase = 0.0;
+
+                if ($result) {
+                    // Find matching line in transaction
+                    // This is tricky if multiple lines have same variant.
+                    // But IssueDTO preserves order of input lines?
+                    // InventoryService::issue returns transaction with lines.
+                    // The lines in transaction are created in order of DTO lines.
+
+                    // Let's re-map inventory items to transaction lines based on position in $inventoryItems
+                    // array_filter with keys preserved.
+                    // But DTO constructor uses array_map on $inventoryItems.
+                }
+
+                $isInventoryItem = false;
+                $line = $plan['order_line'];
+                $product = $line->variant?->product ?? $line->product;
+                if ($product && $product->hasCapability('inventory_tracked')) {
+                    $isInventoryItem = true;
+                }
+
+                if ($isInventoryItem && $result) {
+                    // We need to find the specific transaction line.
+                    // Since we can have same product multiple times, we need robust matching.
+                    // The InventoryService creates lines in order of DTO.
+
+                    // Get the relative index of this item in $inventoryItems
+                    $inventoryIndex = 0;
+                    foreach ($inventoryItems as $key => $val) {
+                        if ($key == $index) break;
+                        $inventoryIndex++;
+                    }
+
+                    $transactionLine = $result->transaction->lines[$inventoryIndex] ?? null;
+                    $unitCostBase = $transactionLine?->unit_cost !== null
+                        ? (float) $transactionLine->unit_cost
+                        : 0.0;
+                }
 
                 $cogsTotal = $this->roundCost($unitCostBase * $plan['quantity_base']);
 
@@ -672,7 +731,7 @@ class SalesService
             }
 
             $delivery->update([
-                'inventory_transaction_id' => $result->transaction->id,
+                'inventory_transaction_id' => $result?->transaction->id,
                 'status' => SalesDeliveryStatus::POSTED->value,
                 'posted_at' => now(),
                 'posted_by' => $actor?->getAuthIdentifier(),
@@ -682,10 +741,12 @@ class SalesService
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 
-            $result->transaction->update([
-                'source_type' => SalesDelivery::class,
-                'source_id' => $delivery->id,
-            ]);
+            if ($result) {
+                $result->transaction->update([
+                    'source_type' => SalesDelivery::class,
+                    'source_id' => $delivery->id,
+                ]);
+            }
 
             $salesOrder->load('lines');
             $this->syncSalesOrderDeliveryStatus($salesOrder, $actor);
@@ -719,7 +780,8 @@ class SalesService
         }
 
         $salesOrders = SalesOrder::with([
-            'lines.variant.product',
+            'lines.variant.product.capabilities',
+            'lines.product.capabilities',
             'lines.uom',
             'lines.baseUom',
             'lines.reservationLocation',
@@ -817,6 +879,11 @@ class SalesService
 
             $lineTotal = $this->roundMoney($quantity * (float) $soLine->unit_price);
 
+            $product = $soLine->variant?->product ?? $soLine->product;
+            if (!$product || !$product->hasCapability('deliverable')) {
+                continue;
+            }
+
             $preparedLines[] = [
                 'order_line' => $soLine,
                 'quantity' => $this->roundQuantity($quantity),
@@ -846,6 +913,13 @@ class SalesService
             $currencyId,
             $exchangeRate
         ) {
+            $inventoryItems = array_filter($preparedLines, function ($plan) {
+                /** @var SalesOrderLine $line */
+                $line = $plan['order_line'];
+                $product = $line->variant?->product ?? $line->product;
+                return $product && $product->hasCapability('inventory_tracked');
+            });
+
             $issueDto = new IssueDTO(
                 $deliveryDate,
                 $location->id,
@@ -855,7 +929,7 @@ class SalesService
                         $plan['order_line']->base_uom_id,
                         $plan['quantity_base'],
                     ),
-                    $preparedLines
+                    $inventoryItems
                 ),
                 sourceType: SalesDelivery::class,
                 sourceId: 0, // Will update after creation
@@ -863,7 +937,10 @@ class SalesService
                 valuationMethod: $valuationMethod,
             );
 
-            $result = $this->inventoryService->issue($issueDto);
+            $result = null;
+            if (!empty($inventoryItems)) {
+                $result = $this->inventoryService->issue($issueDto);
+            }
 
             $deliveryNumber = $this->generateDeliveryNumber($companyId, $branchId, $deliveryDate);
 
@@ -889,10 +966,28 @@ class SalesService
             $totalCogs = 0.0;
 
             foreach ($preparedLines as $index => $plan) {
-                $transactionLine = $result->transaction->lines[$index] ?? null;
-                $unitCostBase = $transactionLine?->unit_cost !== null
-                    ? (float) $transactionLine->unit_cost
-                    : 0.0;
+                $transactionLine = null;
+                $unitCostBase = 0.0;
+
+                $isInventoryItem = false;
+                $line = $plan['order_line'];
+                $product = $line->variant?->product ?? $line->product;
+                if ($product && $product->hasCapability('inventory_tracked')) {
+                    $isInventoryItem = true;
+                }
+
+                if ($isInventoryItem && $result) {
+                    $inventoryIndex = 0;
+                    foreach ($inventoryItems as $key => $val) {
+                        if ($key == $index) break;
+                        $inventoryIndex++;
+                    }
+
+                    $transactionLine = $result->transaction->lines[$inventoryIndex] ?? null;
+                    $unitCostBase = $transactionLine?->unit_cost !== null
+                        ? (float) $transactionLine->unit_cost
+                        : 0.0;
+                }
 
                 $cogsTotal = $this->roundCost($unitCostBase * $plan['quantity_base']);
 
@@ -937,7 +1032,7 @@ class SalesService
             }
 
             $delivery->update([
-                'inventory_transaction_id' => $result->transaction->id,
+                'inventory_transaction_id' => $result?->transaction->id,
                 'status' => SalesDeliveryStatus::POSTED->value,
                 'posted_at' => now(),
                 'posted_by' => $actor?->getAuthIdentifier(),
@@ -947,10 +1042,12 @@ class SalesService
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 
-            $result->transaction->update([
-                'source_type' => SalesDelivery::class,
-                'source_id' => $delivery->id,
-            ]);
+            if ($result) {
+                $result->transaction->update([
+                    'source_type' => SalesDelivery::class,
+                    'source_id' => $delivery->id,
+                ]);
+            }
 
             // Sync status for all affected SOs
             foreach ($salesOrders as $so) {
@@ -1060,7 +1157,8 @@ class SalesService
 
             // Get all related SOs
             $salesOrders = $delivery->salesOrders()->with([
-                'lines.variant.product',
+                'lines.variant.product.capabilities',
+                'lines.product.capabilities',
                 'lines.uom',
                 'lines.baseUom',
                 'lines.reservationLocation',
@@ -1104,6 +1202,11 @@ class SalesService
 
                 $lineTotal = $this->roundMoney($quantity * (float) $soLine->unit_price);
 
+                $product = $soLine->variant?->product ?? $soLine->product;
+                if (!$product || !$product->hasCapability('deliverable')) {
+                    continue;
+                }
+
                 $preparedLines[] = [
                     'order_line' => $soLine,
                     'quantity' => $this->roundQuantity($quantity),
@@ -1117,6 +1220,13 @@ class SalesService
                 throw new SalesOrderException('Jumlah pengiriman tidak valid.');
             }
 
+            $inventoryItems = array_filter($preparedLines, function ($plan) {
+                /** @var SalesOrderLine $line */
+                $line = $plan['order_line'];
+                $product = $line->variant?->product ?? $line->product;
+                return $product && $product->hasCapability('inventory_tracked');
+            });
+
             // Create new inventory issue
             $issueDto = new IssueDTO(
                 $deliveryDate,
@@ -1127,24 +1237,46 @@ class SalesService
                         $plan['order_line']->base_uom_id,
                         $plan['quantity_base'],
                     ),
-                    $preparedLines
+                    $inventoryItems
                 ),
                 sourceType: SalesDelivery::class,
                 sourceId: $delivery->id,
                 notes: $payload['notes'] ?? null,
+                valuationMethod: $valuationMethod ?? null,
             );
 
-            $result = $this->inventoryService->issue($issueDto);
+            $result = null;
+            if (!empty($inventoryItems)) {
+                $result = $this->inventoryService->issue($issueDto);
+            }
 
             $totalQuantityBase = 0.0;
             $totalAmount = 0.0;
             $totalCogs = 0.0;
 
             foreach ($preparedLines as $index => $plan) {
-                $transactionLine = $result->transaction->lines[$index] ?? null;
-                $unitCostBase = $transactionLine?->unit_cost !== null
-                    ? (float) $transactionLine->unit_cost
-                    : 0.0;
+                $transactionLine = null;
+                $unitCostBase = 0.0;
+
+                $isInventoryItem = false;
+                $line = $plan['order_line'];
+                $product = $line->variant?->product ?? $line->product;
+                if ($product && $product->hasCapability('inventory_tracked')) {
+                    $isInventoryItem = true;
+                }
+
+                if ($isInventoryItem && $result) {
+                    $inventoryIndex = 0;
+                    foreach ($inventoryItems as $key => $val) {
+                        if ($key == $index) break;
+                        $inventoryIndex++;
+                    }
+
+                    $transactionLine = $result->transaction->lines[$inventoryIndex] ?? null;
+                    $unitCostBase = $transactionLine?->unit_cost !== null
+                        ? (float) $transactionLine->unit_cost
+                        : 0.0;
+                }
 
                 $cogsTotal = $this->roundCost($unitCostBase * $plan['quantity_base']);
 
@@ -1183,7 +1315,7 @@ class SalesService
                 'delivery_date' => $deliveryDate,
                 'notes' => $payload['notes'] ?? null,
                 'shipping_address_id' => $payload['shipping_address_id'] ?? null,
-                'inventory_transaction_id' => $result->transaction->id,
+                'inventory_transaction_id' => $result?->transaction->id,
                 'status' => SalesDeliveryStatus::POSTED->value,
                 'posted_at' => now(),
                 'posted_by' => $actor?->getAuthIdentifier(),
@@ -1193,6 +1325,15 @@ class SalesService
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 
+            if ($result) {
+                // Should already be set by issue() since we passed sourceId, but good to ensure
+                $result->transaction->update([
+                    'source_type' => SalesDelivery::class,
+                    'source_id' => $delivery->id,
+                ]);
+            }
+
+            
             // Sync all SO statuses
             foreach ($salesOrders as $so) {
                 $so->load('lines');
@@ -1544,6 +1685,11 @@ class SalesService
                 throw new SalesOrderException($exception->getMessage(), previous: $exception);
             }
 
+            $product = $line->variant?->product ?? $line->product;
+            if (!$product || !$product->hasCapability('deliverable')) {
+                continue;
+            }
+
             $prepared[] = [
                 'order_line' => $line,
                 'quantity' => $quantity,
@@ -1588,7 +1734,17 @@ class SalesService
         $actor ??= Auth::user();
         $currentStatus = SalesOrderStatus::from($salesOrder->status);
 
+        $salesOrder->loadMissing([
+            'lines.variant.product.capabilities',
+            'lines.product.capabilities',
+        ]);
+
         $hasRemaining = $salesOrder->lines->contains(function ($line) {
+            $product = $line->variant?->product ?? $line->product;
+            if (!$product || !$product->hasCapability('deliverable')) {
+                return false;
+            }
+
             return ((float) $line->quantity_base - (float) $line->quantity_delivered_base) > self::QTY_TOLERANCE;
         });
 

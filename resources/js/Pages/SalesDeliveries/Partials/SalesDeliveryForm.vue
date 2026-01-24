@@ -60,7 +60,8 @@ function buildInitialLines() {
     const lines = [];
     for (const so of (props.selectedSalesOrders || [])) {
         for (const line of so.lines) {
-            if (line.remaining_quantity > 0) {
+            const hasDeliverable = (line.capabilities || []).includes('deliverable');
+            if (line.remaining_quantity > 0 && hasDeliverable) {
                 lines.push({
                     sales_order_line_id: line.id,
                     quantity: line.remaining_quantity,
@@ -89,11 +90,14 @@ const allSoLines = computed(() => {
     const lines = [];
     for (const so of (props.selectedSalesOrders || [])) {
         for (const line of so.lines) {
-            lines.push({
-                ...line,
-                sales_order_number: so.order_number,
-                partner_name: so.partner?.name,
-            });
+            const hasDeliverable = (line.capabilities || []).includes('deliverable');
+            if (hasDeliverable) {
+                lines.push({
+                    ...line,
+                    sales_order_number: so.order_number,
+                    partner_name: so.partner?.name,
+                });
+            }
         }
     }
     return lines;
@@ -275,7 +279,8 @@ function repopulateLinesFromSOs() {
     const newLines = [];
     for (const so of props.selectedSalesOrders) {
         for (const line of (so.lines || [])) {
-            if (line.remaining_quantity > 0) {
+            const hasDeliverable = (line.capabilities || []).includes('deliverable');
+            if (line.remaining_quantity > 0 && hasDeliverable) {
                 newLines.push({
                     sales_order_line_id: line.id,
                     quantity: line.remaining_quantity,

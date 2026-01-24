@@ -103,6 +103,11 @@ class Product extends Model
     {
         return $this->belongsTo(User::class, 'updated_by', 'global_id');
     }
+
+    public function hasCapability(string $capability): bool
+    {
+        return $this->capabilities->contains('capability', $capability);
+    }
 }
 
 

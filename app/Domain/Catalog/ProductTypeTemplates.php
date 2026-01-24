@@ -24,7 +24,7 @@ class ProductTypeTemplates
                 'kind' => 'goods_stock',
                 'cost_model' => 'inventory_layer',
                 'attribute_set_code' => 'goods_stock',
-                'capabilities' => ['inventory_tracked', 'variantable'],
+                'capabilities' => ['inventory_tracked', 'variantable', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -50,7 +50,7 @@ class ProductTypeTemplates
                 'kind' => 'goods_nonstock',
                 'cost_model' => 'direct_expense_per_sale',
                 'attribute_set_code' => 'goods_nonstock',
-                'capabilities' => [],
+                'capabilities' => ['deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -72,7 +72,7 @@ class ProductTypeTemplates
                 'kind' => 'consumable',
                 'cost_model' => 'inventory_layer',
                 'attribute_set_code' => 'consumable',
-                'capabilities' => ['inventory_tracked'],
+                'capabilities' => ['inventory_tracked', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -96,7 +96,7 @@ class ProductTypeTemplates
                 'kind' => 'digital_good',
                 'cost_model' => 'direct_expense_per_sale',
                 'attribute_set_code' => 'digital_good',
-                'capabilities' => [],
+                'capabilities' => ['deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -118,7 +118,7 @@ class ProductTypeTemplates
                 'kind' => 'bundle',
                 'cost_model' => 'hybrid',
                 'attribute_set_code' => 'bundle',
-                'capabilities' => ['package'],
+                'capabilities' => ['package', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -140,7 +140,7 @@ class ProductTypeTemplates
                 'kind' => 'gift_card',
                 'cost_model' => 'none',
                 'attribute_set_code' => 'gift_card',
-                'capabilities' => [],
+                'capabilities' => ['deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -164,7 +164,7 @@ class ProductTypeTemplates
                 'kind' => 'service_professional',
                 'cost_model' => 'job_costing',
                 'attribute_set_code' => 'service_professional',
-                'capabilities' => [],
+                'capabilities' => ['deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -186,7 +186,7 @@ class ProductTypeTemplates
                 'kind' => 'service_managed',
                 'cost_model' => 'hybrid',
                 'attribute_set_code' => 'service_managed',
-                'capabilities' => [],
+                'capabilities' => ['deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -208,7 +208,7 @@ class ProductTypeTemplates
                 'kind' => 'service_labor',
                 'cost_model' => 'job_costing',
                 'attribute_set_code' => 'service_labor',
-                'capabilities' => [],
+                'capabilities' => ['deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -252,7 +252,7 @@ class ProductTypeTemplates
                 'kind' => 'service_installation',
                 'cost_model' => 'job_costing',
                 'attribute_set_code' => 'service_installation',
-                'capabilities' => [],
+                'capabilities' => ['deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -276,7 +276,7 @@ class ProductTypeTemplates
                 'kind' => 'accommodation',
                 'cost_model' => 'hybrid',
                 'attribute_set_code' => 'accommodation',
-                'capabilities' => ['bookable'],
+                'capabilities' => ['bookable', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -301,7 +301,7 @@ class ProductTypeTemplates
                 'kind' => 'venue_booking',
                 'cost_model' => 'hybrid',
                 'attribute_set_code' => 'venue_booking',
-                'capabilities' => ['bookable'],
+                'capabilities' => ['bookable', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -326,7 +326,7 @@ class ProductTypeTemplates
                 'kind' => 'event_ticket',
                 'cost_model' => 'direct_expense_per_sale',
                 'attribute_set_code' => 'event_ticket',
-                'capabilities' => ['bookable'],
+                'capabilities' => ['bookable', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -350,7 +350,7 @@ class ProductTypeTemplates
                 'kind' => 'tour_activity',
                 'cost_model' => 'hybrid',
                 'attribute_set_code' => 'tour_activity',
-                'capabilities' => ['bookable'],
+                'capabilities' => ['bookable', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -374,7 +374,7 @@ class ProductTypeTemplates
                 'kind' => 'appointment',
                 'cost_model' => 'job_costing',
                 'attribute_set_code' => 'appointment',
-                'capabilities' => ['bookable'],
+                'capabilities' => ['bookable', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -401,7 +401,7 @@ class ProductTypeTemplates
                 'kind' => 'asset_rental',
                 'cost_model' => 'asset_usage_costing',
                 'attribute_set_code' => 'asset_rental',
-                'capabilities' => ['bookable', 'rental', 'serialized'],
+                'capabilities' => ['bookable', 'rental', 'serialized', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -428,7 +428,7 @@ class ProductTypeTemplates
                 'kind' => 'rental_with_operator',
                 'cost_model' => 'hybrid',
                 'attribute_set_code' => 'rental_with_operator',
-                'capabilities' => ['bookable', 'rental', 'serialized'],
+                'capabilities' => ['bookable', 'rental', 'serialized', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -455,7 +455,7 @@ class ProductTypeTemplates
                 'kind' => 'lease',
                 'cost_model' => 'asset_usage_costing',
                 'attribute_set_code' => 'lease',
-                'capabilities' => ['rental', 'serialized'],
+                'capabilities' => ['rental', 'serialized', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -481,7 +481,7 @@ class ProductTypeTemplates
                 'kind' => 'air_ticket_resale',
                 'cost_model' => 'prepaid_consumption',
                 'attribute_set_code' => 'air_ticket',
-                'capabilities' => [],
+                'capabilities' => ['deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -505,7 +505,7 @@ class ProductTypeTemplates
                 'kind' => 'train_ticket_resale',
                 'cost_model' => 'direct_expense_per_sale',
                 'attribute_set_code' => 'train_ticket',
-                'capabilities' => [],
+                'capabilities' => ['deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -527,7 +527,7 @@ class ProductTypeTemplates
                 'kind' => 'bus_ferry_ticket_resale',
                 'cost_model' => 'direct_expense_per_sale',
                 'attribute_set_code' => 'bus_ferry_ticket',
-                'capabilities' => [],
+                'capabilities' => ['deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -549,7 +549,7 @@ class ProductTypeTemplates
                 'kind' => 'hotel_resale',
                 'cost_model' => 'direct_expense_per_sale',
                 'attribute_set_code' => 'hotel_resale',
-                'capabilities' => ['bookable'],
+                'capabilities' => ['bookable', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -571,7 +571,7 @@ class ProductTypeTemplates
                 'kind' => 'travel_package',
                 'cost_model' => 'hybrid',
                 'attribute_set_code' => 'travel_package',
-                'capabilities' => ['package'],
+                'capabilities' => ['package', 'deliverable'],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
