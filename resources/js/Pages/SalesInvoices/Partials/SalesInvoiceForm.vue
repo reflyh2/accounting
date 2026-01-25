@@ -64,6 +64,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    taxInvoiceCodeOptions: {
+        type: Object,
+        default: () => ({}),
+    },
+    defaultTaxInvoiceCode: {
+        type: String,
+        default: '01',
+    },
     filters: Object,
 });
 
@@ -77,6 +85,13 @@ const paymentMethodOptions = computed(() => [
     { value: null, label: 'Pilih Metode Pembayaran' },
     ...props.paymentMethods
 ]);
+
+const taxInvoiceCodeSelectOptions = computed(() => {
+    return Object.entries(props.taxInvoiceCodeOptions).map(([value, label]) => ({
+        value,
+        label,
+    }));
+});
 
 const filteredBankAccounts = computed(() => {
     if (!form.company_id) return [];
@@ -159,6 +174,7 @@ const form = useForm({
     invoice_date: props.invoice?.invoice_date ?? today,
     due_date: props.invoice?.due_date ?? null,
     customer_invoice_number: props.invoice?.customer_invoice_number ?? '',
+    tax_invoice_code: props.invoice?.tax_invoice_code ?? props.defaultTaxInvoiceCode ?? '01',
     exchange_rate: props.invoice?.exchange_rate ?? 1,
     notes: props.invoice?.notes ?? '',
     payment_method: props.invoice?.payment_method ?? null,
@@ -861,7 +877,7 @@ function submitForm(createAnother = false) {
                     />
                 </div>
 
-                <!-- Customer Invoice Number & Exchange Rate -->
+                <!-- Customer Invoice Number & Tax Invoice Code -->
                 <div class="grid grid-cols-2 gap-4">
                     <AppInput
                         v-model="form.customer_invoice_number"
@@ -870,6 +886,16 @@ function submitForm(createAnother = false) {
                         placeholder="Nomor referensi dari customer"
                     />
 
+                    <AppSelect
+                        v-model="form.tax_invoice_code"
+                        :options="taxInvoiceCodeSelectOptions"
+                        label="Kode Faktur Pajak:"
+                        :error="form.errors.tax_invoice_code"
+                    />
+                </div>
+
+                <!-- Exchange Rate -->
+                <div class="grid grid-cols-2 gap-4">
                     <AppInput
                         v-model="form.exchange_rate"
                         label="Kurs:"

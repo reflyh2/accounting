@@ -106,6 +106,10 @@ const postInvoice = () => {
                                 <p class="font-semibold">Kurs:</p>
                                 <p>{{ formatNumber(invoice.exchange_rate) }}</p>
                             </div>
+                            <div v-if="invoice.tax_invoice_code_label">
+                                <p class="font-semibold">Kode Faktur Pajak:</p>
+                                <p>{{ invoice.tax_invoice_code_label }}</p>
+                            </div>
                         </div>
                         <div class="mt-6">
                             <h4 class="text-lg font-semibold mb-2">Detail Faktur</h4>

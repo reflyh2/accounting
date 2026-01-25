@@ -4,22 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Enums\Documents\InvoiceStatus;
 use App\Enums\Documents\SalesOrderStatus;
+use App\Enums\TaxInvoiceCode;
 use App\Exports\SalesInvoicesExport;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\CostItem;
 use App\Models\Currency;
+use App\Models\DocumentTemplate;
 use App\Models\Partner;
 use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Models\SalesDeliveryLine;
 use App\Models\SalesInvoice;
 use App\Models\SalesOrder;
 use App\Models\Uom;
 use App\Models\User;
-use App\Models\DocumentTemplate;
-use App\Services\Sales\SalesInvoiceService;
 use App\Services\DocumentTemplateService;
+use App\Services\Sales\SalesInvoiceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
@@ -34,8 +34,7 @@ class SalesInvoiceController extends Controller
 
     public function __construct(
         private readonly SalesInvoiceService $invoiceService,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -49,7 +48,7 @@ class SalesInvoiceController extends Controller
             'branch.branchGroup.company',
         ]);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('lower(invoice_number) like ?', ["%{$search}%"])
@@ -60,29 +59,29 @@ class SalesInvoiceController extends Controller
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereHas('branch.branchGroup', function ($q) use ($filters) {
                 $q->whereIn('company_id', (array) $filters['company_id']);
             });
         }
 
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', (array) $filters['branch_id']);
         }
 
-        if (!empty($filters['partner_id'])) {
+        if (! empty($filters['partner_id'])) {
             $query->whereIn('partner_id', (array) $filters['partner_id']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->whereIn('status', (array) $filters['status']);
         }
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('invoice_date', '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('invoice_date', '<=', $filters['to_date']);
         }
 
@@ -103,7 +102,7 @@ class SalesInvoiceController extends Controller
 
         $companies = Company::orderBy('name', 'asc')->get();
         $partners = Partner::orderBy('name', 'asc')->get();
-        $branches = !empty($filters['company_id'])
+        $branches = ! empty($filters['company_id'])
             ? Branch::whereHas('branchGroup', function ($q) use ($filters) {
                 $q->whereIn('company_id', (array) $filters['company_id']);
             })->orderBy('name', 'asc')->get()
@@ -126,16 +125,16 @@ class SalesInvoiceController extends Controller
     {
         $selectedPartnerId = $request->integer('partner_id') ?: null;
         $selectedIds = $request->input('sales_order_ids', []);
-        if (!is_array($selectedIds)) {
+        if (! is_array($selectedIds)) {
             $selectedIds = $selectedIds ? [$selectedIds] : [];
         }
         $selectedIds = array_filter(array_map('intval', $selectedIds));
 
         $selectedSalesOrders = [];
 
-        if (!empty($selectedIds)) {
+        if (! empty($selectedIds)) {
             $selectedSalesOrders = $this->salesOrdersDetail($selectedIds);
-            if (!empty($selectedSalesOrders) && !$selectedPartnerId) {
+            if (! empty($selectedSalesOrders) && ! $selectedPartnerId) {
                 $selectedPartnerId = $selectedSalesOrders[0]['partner']['id'] ?? null;
             }
         }
@@ -150,7 +149,7 @@ class SalesInvoiceController extends Controller
             'branches' => $this->branchOptions(),
             'currencies' => Currency::select('id', 'code', 'name')->get()->map(fn ($c) => [
                 'value' => $c->id,
-                'label' => $c->code . ' - ' . $c->name,
+                'label' => $c->code.' - '.$c->name,
             ]),
             'products' => $this->productOptions(),
             'uoms' => $this->uomOptions(),
@@ -173,6 +172,8 @@ class SalesInvoiceController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'code', 'name', 'company_id']),
             'users' => $this->userOptions(),
+            'taxInvoiceCodeOptions' => TaxInvoiceCode::options(),
+            'defaultTaxInvoiceCode' => TaxInvoiceCode::default()->value,
             'filters' => Session::get('sales_invoices.index_filters', []),
         ]);
     }
@@ -236,7 +237,7 @@ class SalesInvoiceController extends Controller
         $isDirectInvoice = $salesInvoice->salesOrders->isEmpty();
 
         $selectedSalesOrders = [];
-        if (!$isDirectInvoice) {
+        if (! $isDirectInvoice) {
             $selectedSalesOrders = $this->salesOrdersDetail($salesInvoice->salesOrders->pluck('id')->toArray());
         }
 
@@ -251,7 +252,7 @@ class SalesInvoiceController extends Controller
             'branches' => $this->branchOptions(),
             'currencies' => Currency::select('id', 'code', 'name')->get()->map(fn ($c) => [
                 'value' => $c->id,
-                'label' => $c->code . ' - ' . $c->name,
+                'label' => $c->code.' - '.$c->name,
             ]),
             'products' => $this->productOptions(),
             'uoms' => $this->uomOptions(),
@@ -274,6 +275,7 @@ class SalesInvoiceController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'code', 'name', 'company_id']),
             'users' => $this->userOptions(),
+            'taxInvoiceCodeOptions' => TaxInvoiceCode::options(),
             'filters' => Session::get('sales_invoices.index_filters', []),
         ]);
     }
@@ -359,6 +361,7 @@ class SalesInvoiceController extends Controller
                 'invoice_date' => 'required|date',
                 'due_date' => 'nullable|date|after_or_equal:invoice_date',
                 'customer_invoice_number' => 'nullable|string|max:120',
+                'tax_invoice_code' => 'nullable|string|in:01,02,03,04,05,06,07,08,09,10',
                 'exchange_rate' => 'required|numeric|min:0.000001',
                 'notes' => 'nullable|string',
                 'payment_method' => 'nullable|string|in:cash,transfer,cek,giro',
@@ -385,6 +388,7 @@ class SalesInvoiceController extends Controller
                 'invoice_date' => 'required|date',
                 'due_date' => 'nullable|date|after_or_equal:invoice_date',
                 'customer_invoice_number' => 'nullable|string|max:120',
+                'tax_invoice_code' => 'nullable|string|in:01,02,03,04,05,06,07,08,09,10',
                 'exchange_rate' => 'required|numeric|min:0.000001',
                 'notes' => 'nullable|string',
                 'payment_method' => 'nullable|string|in:cash,transfer,cek,giro',
@@ -407,6 +411,7 @@ class SalesInvoiceController extends Controller
             ->map(function ($line) {
                 $line['discount_rate'] = $line['discount_rate'] ?? 0;
                 $line['tax_rate'] = $line['tax_rate'] ?? 0;
+
                 return $line;
             })
             ->toArray();
@@ -452,7 +457,7 @@ class SalesInvoiceController extends Controller
 
             foreach ($deliveryLines as $line) {
                 $soLine = $salesOrder->lines->firstWhere('id', $line->sales_order_line_id);
-                if (!$soLine) {
+                if (! $soLine) {
                     continue;
                 }
 
@@ -539,7 +544,7 @@ class SalesInvoiceController extends Controller
 
     private function availableSalesOrders(array $selectedIds = [], ?int $partnerId = null): array
     {
-        if (!$partnerId) {
+        if (! $partnerId) {
             return [];
         }
 
@@ -556,10 +561,10 @@ class SalesInvoiceController extends Controller
         $salesOrders = $query->get();
 
         // Include selected IDs even if not in query
-        if (!empty($selectedIds)) {
+        if (! empty($selectedIds)) {
             $existingIds = $salesOrders->pluck('id')->toArray();
             $missingIds = array_diff($selectedIds, $existingIds);
-            if (!empty($missingIds)) {
+            if (! empty($missingIds)) {
                 $additional = SalesOrder::with(['partner', 'branch.branchGroup.company', 'lines'])
                     ->whereIn('id', $missingIds)
                     ->get();
@@ -605,6 +610,8 @@ class SalesInvoiceController extends Controller
             'id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
             'customer_invoice_number' => $invoice->customer_invoice_number,
+            'tax_invoice_code' => $invoice->tax_invoice_code?->value,
+            'tax_invoice_code_label' => $invoice->taxInvoiceCodeLabel(),
             'invoice_date' => $invoice->invoice_date?->toDateString(),
             'due_date' => $invoice->due_date?->toDateString(),
             'status' => $invoice->status,
@@ -661,6 +668,7 @@ class SalesInvoiceController extends Controller
             'invoice_date' => $invoice->invoice_date?->toDateString(),
             'due_date' => $invoice->due_date?->toDateString(),
             'customer_invoice_number' => $invoice->customer_invoice_number,
+            'tax_invoice_code' => $invoice->tax_invoice_code?->value,
             'exchange_rate' => (float) $invoice->exchange_rate,
             'notes' => $invoice->notes,
             'company_id' => $invoice->company_id,
@@ -699,7 +707,7 @@ class SalesInvoiceController extends Controller
             'currency',
         ]);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('lower(invoice_number) like ?', ["%{$search}%"])
@@ -707,17 +715,17 @@ class SalesInvoiceController extends Controller
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereHas('branch.branchGroup', function ($q) use ($filters) {
                 $q->whereIn('company_id', (array) $filters['company_id']);
             });
         }
 
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', (array) $filters['branch_id']);
         }
 
-        if (!empty($filters['partner_id'])) {
+        if (! empty($filters['partner_id'])) {
             $query->whereIn('partner_id', (array) $filters['partner_id']);
         }
 

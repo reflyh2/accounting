@@ -5,7 +5,6 @@ namespace App\Services\Sales;
 use App\Domain\Accounting\DTO\AccountingEntry;
 use App\Domain\Accounting\DTO\AccountingEventPayload;
 use App\Enums\AccountingEventCode;
-use App\Enums\CostEntrySource;
 use App\Enums\Documents\InvoiceStatus;
 use App\Enums\Documents\SalesOrderStatus;
 use App\Events\Debt\ExternalDebtCreated;
@@ -13,18 +12,15 @@ use App\Exceptions\SalesInvoiceException;
 use App\Models\Currency;
 use App\Models\ExternalDebt;
 use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Models\SalesDeliveryLine;
 use App\Models\SalesInvoice;
 use App\Models\SalesInvoiceCost;
 use App\Models\SalesInvoiceLine;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
-use App\Models\Uom;
 use App\Services\Accounting\AccountingEventBus;
 use App\Services\Catalog\UserDiscountLimitResolver;
 use App\Services\Costing\CostingService;
-use App\Services\Costing\DTO\CostEntryDTO;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -36,14 +32,14 @@ use Throwable;
 class SalesInvoiceService
 {
     private const QTY_TOLERANCE = 0.0005;
+
     private const COST_SCALE = 6;
 
     public function __construct(
         private readonly AccountingEventBus $accountingEventBus,
         private readonly UserDiscountLimitResolver $discountLimitResolver,
         private readonly CostingService $costingService,
-    ) {
-    }
+    ) {}
 
     /**
      * Create a sales invoice from multiple Sales Orders or as a direct invoice.
@@ -54,13 +50,13 @@ class SalesInvoiceService
 
         return DB::transaction(function () use ($payload, $actor) {
             $soIds = $payload['sales_order_ids'] ?? [];
-            if (!is_array($soIds)) {
+            if (! is_array($soIds)) {
                 $soIds = $soIds ? [$soIds] : [];
             }
             $soIds = array_unique(array_filter(array_map('intval', $soIds)));
 
             $salesOrders = collect();
-            if (!empty($soIds)) {
+            if (! empty($soIds)) {
                 $salesOrders = SalesOrder::with(['branch.branchGroup', 'currency', 'partner'])
                     ->whereIn('id', $soIds)
                     ->get();
@@ -82,7 +78,7 @@ class SalesInvoiceService
             $partnerId = $firstSo?->partner_id ?? $payload['partner_id'] ?? null;
             $currencyId = $firstSo?->currency_id ?? $payload['currency_id'] ?? null;
 
-            if (!$companyId || !$branchId || !$partnerId || !$currencyId) {
+            if (! $companyId || ! $branchId || ! $partnerId || ! $currencyId) {
                 throw new SalesInvoiceException('Data perusahaan, cabang, pelanggan, dan mata uang wajib diisi.');
             }
 
@@ -120,6 +116,7 @@ class SalesInvoiceService
                 'invoice_date' => $invoiceDate,
                 'due_date' => isset($payload['due_date']) ? Carbon::parse($payload['due_date']) : null,
                 'customer_invoice_number' => $payload['customer_invoice_number'] ?? null,
+                'tax_invoice_code' => $payload['tax_invoice_code'] ?? '01',
                 'exchange_rate' => $exchangeRate,
                 'notes' => $payload['notes'] ?? null,
                 'payment_method' => $payload['payment_method'] ?? null,
@@ -197,6 +194,7 @@ class SalesInvoiceService
                 'invoice_date' => $invoiceDate,
                 'due_date' => isset($payload['due_date']) ? Carbon::parse($payload['due_date']) : null,
                 'customer_invoice_number' => $payload['customer_invoice_number'] ?? null,
+                'tax_invoice_code' => $payload['tax_invoice_code'] ?? $invoice->tax_invoice_code ?? '01',
                 'exchange_rate' => $exchangeRate,
                 'notes' => $payload['notes'] ?? null,
                 'payment_method' => $payload['payment_method'] ?? null,
@@ -289,7 +287,7 @@ class SalesInvoiceService
             foreach ($prepared as $line) {
                 /** @var SalesOrderLine $soLine */
                 $soLine = $lockedSoLines->get($line['sales_order_line_id']);
-                if (!$soLine) {
+                if (! $soLine) {
                     throw new SalesInvoiceException('Baris SO tidak ditemukan saat posting faktur.');
                 }
 
@@ -457,7 +455,7 @@ class SalesInvoiceService
      */
     private function validateDiscountAuthorization(SalesInvoice $invoice, ?Authenticatable $actor): void
     {
-        if (!$actor) {
+        if (! $actor) {
             throw new SalesInvoiceException('User harus login untuk posting faktur.');
         }
 
@@ -473,7 +471,7 @@ class SalesInvoiceService
 
             // Get product ID from invoice line or from SO line
             $productId = $line->product_id;
-            if (!$productId && $line->salesOrderLine) {
+            if (! $productId && $line->salesOrderLine) {
                 $productId = $line->salesOrderLine->product_id;
             }
 
@@ -484,14 +482,14 @@ class SalesInvoiceService
             }
 
             // Check if user is authorized for this discount
-            if (!$this->discountLimitResolver->validateDiscount($userGlobalId, $productId, $categoryId, $discountRate)) {
+            if (! $this->discountLimitResolver->validateDiscount($userGlobalId, $productId, $categoryId, $discountRate)) {
                 $limit = $this->discountLimitResolver->resolve($userGlobalId, $productId, $categoryId);
                 $limitText = $limit !== null ? "{$limit}%" : '0%';
                 $productName = $line->description ?? ($line->salesOrderLine?->product?->name ?? 'item');
-                
+
                 throw new SalesInvoiceException(
-                    "Diskon {$discountRate}% pada \"{$productName}\" melebihi batas otoritas Anda ({$limitText}). " .
-                    "Minta user dengan otoritas lebih tinggi untuk posting faktur ini."
+                    "Diskon {$discountRate}% pada \"{$productName}\" melebihi batas otoritas Anda ({$limitText}). ".
+                    'Minta user dengan otoritas lebih tinggi untuk posting faktur ini.'
                 );
             }
         }
@@ -544,18 +542,18 @@ class SalesInvoiceService
 
             /** @var SalesOrderLine|null $soLine */
             $soLine = $soLines->get($salesOrderLineId);
-            if (!$soLine) {
+            if (! $soLine) {
                 throw new SalesInvoiceException('Baris Sales Order tidak ditemukan.');
             }
 
             /** @var SalesDeliveryLine|null $deliveryLine */
             $deliveryLine = $salesDeliveryLineId ? $deliveryLines->get($salesDeliveryLineId) : null;
 
-            if (!$deliveryLine) {
+            if (! $deliveryLine) {
                 if ($salesDeliveryLineId) {
                     throw new SalesInvoiceException('Baris pengiriman tidak ditemukan referensinya.');
                 }
-                if (!$soLine->resource_pool_id) {
+                if (! $soLine->resource_pool_id) {
                     throw new SalesInvoiceException('Baris pengiriman harus dipilih untuk item barang.');
                 }
             } elseif ((int) $deliveryLine->sales_order_line_id !== $soLine->id) {
@@ -730,7 +728,7 @@ class SalesInvoiceService
             $deliveryLine = $line->salesDeliveryLine;
             $soLine = $line->salesOrderLine;
 
-            if (!$deliveryLine || !$soLine) {
+            if (! $deliveryLine || ! $soLine) {
                 throw new SalesInvoiceException('Detail faktur tidak memiliki referensi yang lengkap.');
             }
 
@@ -925,7 +923,7 @@ class SalesInvoiceService
             return;
         }
 
-        if (!in_array($salesOrder->status, [
+        if (! in_array($salesOrder->status, [
             SalesOrderStatus::DELIVERED->value,
             SalesOrderStatus::PARTIALLY_DELIVERED->value,
         ], true)) {
@@ -948,7 +946,7 @@ class SalesInvoiceService
 
     private function assertSalesOrderInvoiceable(SalesOrder $salesOrder): void
     {
-        if (!in_array($salesOrder->status, [
+        if (! in_array($salesOrder->status, [
             SalesOrderStatus::CONFIRMED->value,
             SalesOrderStatus::PARTIALLY_DELIVERED->value,
             SalesOrderStatus::DELIVERED->value,
@@ -1036,12 +1034,12 @@ class SalesInvoiceService
         $invoice->loadMissing(['branch.branchGroup.company', 'partner', 'currency']);
 
         $company = $invoice->branch?->branchGroup?->company;
-        if (!$company) {
+        if (! $company) {
             return; // Cannot create external debt without company context
         }
 
         $debtAccountId = $company->default_receivable_account_id;
-        if (!$debtAccountId) {
+        if (! $debtAccountId) {
             return; // Cannot create external debt without a default receivable account
         }
 
@@ -1093,7 +1091,7 @@ class SalesInvoiceService
         $invoice->costs()->delete();
 
         foreach ($costs as $cost) {
-            if (!isset($cost['amount']) || (float) $cost['amount'] <= 0) {
+            if (! isset($cost['amount']) || (float) $cost['amount'] <= 0) {
                 continue;
             }
 
@@ -1115,15 +1113,15 @@ class SalesInvoiceService
     private function createCostEntries(SalesInvoice $invoice, ?Authenticatable $actor): void
     {
         $invoice->loadMissing(['costs.costItem', 'branch', 'currency']);
-        
+
         if ($invoice->costs->isEmpty()) {
             return;
         }
 
         // Filter costs that have valid cost items with accounts
         $validCosts = $invoice->costs->filter(function ($cost) {
-            return $cost->costItem 
-                && $cost->costItem->debit_account_id 
+            return $cost->costItem
+                && $cost->costItem->debit_account_id
                 && $cost->costItem->credit_account_id
                 && (float) $cost->amount > 0;
         });
@@ -1146,7 +1144,7 @@ class SalesInvoiceService
             $costItem = $invoiceCost->costItem;
             $amount = (float) $invoiceCost->amount;
             $primaryAmount = $amount * (float) $invoiceCost->exchange_rate;
-            $description = $costItem->name . ($invoiceCost->description ? ": {$invoiceCost->description}" : '');
+            $description = $costItem->name.($invoiceCost->description ? ": {$invoiceCost->description}" : '');
 
             // Debit entry (expense account)
             $journal->journalEntries()->create([

@@ -21,6 +21,8 @@ defineProps({
     costItems: Array,
     users: Array,
     filters: Object,
+    taxInvoiceCodeOptions: Object,
+    defaultTaxInvoiceCode: String,
 });
 </script>
 
@@ -54,6 +56,8 @@ defineProps({
                             :companyBankAccounts="companyBankAccounts"
                             :costItems="costItems"
                             :users="users"
+                            :taxInvoiceCodeOptions="taxInvoiceCodeOptions"
+                            :defaultTaxInvoiceCode="defaultTaxInvoiceCode"
                             :filters="filters"
                         />
                     </div>

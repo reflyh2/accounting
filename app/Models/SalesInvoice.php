@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Domain\Documents\StateMachine\Definitions\SalesInvoiceStates;
 use App\Domain\Documents\StateMachine\DocumentStateMachineDefinition;
 use App\Enums\Documents\InvoiceStatus;
+use App\Enums\TaxInvoiceCode;
 use App\Traits\Auditable;
 use App\Traits\DocumentStateMachine;
 use App\Traits\HasAccessLevelScope;
@@ -14,11 +15,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SalesInvoice extends Model
 {
+    use Auditable;
+    use DocumentStateMachine;
+    use HasAccessLevelScope;
     use HasFactory;
     use SoftDeletes;
-    use DocumentStateMachine;
-    use Auditable;
-    use HasAccessLevelScope;
 
     protected $guarded = [];
 
@@ -36,6 +37,7 @@ class SalesInvoice extends Model
         'exchange_rate' => 'decimal:6',
         'delivery_value_base' => 'decimal:4',
         'revenue_variance' => 'decimal:2',
+        'tax_invoice_code' => TaxInvoiceCode::class,
     ];
 
     protected static function booted(): void
@@ -136,5 +138,10 @@ class SalesInvoice extends Model
     public function salesPerson()
     {
         return $this->belongsTo(User::class, 'sales_person_id', 'global_id');
+    }
+
+    public function taxInvoiceCodeLabel(): ?string
+    {
+        return $this->tax_invoice_code?->shortLabel();
     }
 }
