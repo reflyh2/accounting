@@ -288,11 +288,35 @@ watch(selectedCustomerId, (newId) => {
 }, { immediate: true });
 
 // Watch for SO selection changes
-watch(selectedSoIds, (newIds) => {
+watch(selectedSoIds, (newIds, oldIds) => {
     form.sales_order_ids = newIds;
     form.is_direct_invoice = newIds.length === 0;
-    
+
     if (!isEditMode.value && newIds.length > 0) {
+        // Validate sales person consistency before fetching SO details
+        if (oldIds && oldIds.length > 0 && newIds.length > oldIds.length) {
+            // User is adding a new SO - check if it has the same sales person
+            const addedIds = newIds.filter(id => !oldIds.includes(id));
+            if (addedIds.length > 0 && props.selectedSalesOrders && props.selectedSalesOrders.length > 0) {
+                // Check if the current SOs have a sales person
+                const currentSalesPerson = props.selectedSalesOrders[0]?.sales_person_id;
+
+                // Find the added SO in the salesOrders list to check its sales person
+                const addedSO = props.salesOrders?.find(so => addedIds.includes(so.id));
+                if (addedSO && currentSalesPerson && addedSO.sales_person_id !== currentSalesPerson) {
+                    // Remove the added SO and show error
+                    selectedSoIds.value = oldIds;
+                    const currentSPName = props.users?.find(u => u.value === currentSalesPerson)?.label || 'Unknown';
+                    const addedSPName = props.users?.find(u => u.value === addedSO.sales_person_id)?.label || 'Unknown';
+                    form.setError('sales_order_ids', `Sales Order "${addedSO.order_number}" memiliki sales person yang berbeda (${addedSPName}). Semua Sales Order harus memiliki sales person yang sama (${currentSPName}).`);
+                    return;
+                }
+            }
+        }
+
+        // Clear error if validation passes
+        form.clearErrors('sales_order_ids');
+
         router.get(route('sales-invoices.create'), {
             company_id: selectedCompany.value,
             branch_id: form.branch_id,
@@ -308,6 +332,18 @@ watch(selectedSoIds, (newIds) => {
                 if (newSOs.length > 0) {
                     const firstSO = newSOs[0];
                     form.invoice_address_id = firstSO.invoice_address_id || null;
+
+                    // Validate all SOs have the same sales person
+                    const salesPersonIds = newSOs.map(so => so.sales_person_id).filter(id => id != null);
+                    const uniqueSalesPersons = [...new Set(salesPersonIds)];
+                    if (uniqueSalesPersons.length > 1) {
+                        // Multiple sales persons detected - revert selection
+                        selectedSoIds.value = oldIds || [];
+                        const salesPersonNames = uniqueSalesPersons.map(id =>
+                            props.users?.find(u => u.value === id)?.label || 'Unknown'
+                        ).join(', ');
+                        form.setError('sales_order_ids', `Sales Orders yang dipilih memiliki sales person yang berbeda (${salesPersonNames}). Semua Sales Order harus memiliki sales person yang sama.`);
+                    }
                 }
             }
         });
@@ -330,7 +366,7 @@ watch(
 
 function repopulateLinesFromSOs() {
     if (isEditMode.value) return;
-    
+
     if (!props.selectedSalesOrders || props.selectedSalesOrders.length === 0) {
         if (!form.lines.length) addDirectLine();
         return;
@@ -358,7 +394,7 @@ function repopulateLinesFromSOs() {
     }
     form.lines = newLines;
 
-    // Set payment defaults from first SO
+    // Set payment defaults and sales person from first SO
     if (props.selectedSalesOrders && props.selectedSalesOrders.length > 0) {
         const firstSO = props.selectedSalesOrders[0];
         if (firstSO.payment_method && !form.payment_method) {
@@ -366,6 +402,10 @@ function repopulateLinesFromSOs() {
         }
         if (firstSO.company_bank_account_id && !form.company_bank_account_id) {
             form.company_bank_account_id = firstSO.company_bank_account_id;
+        }
+        // Set sales person from first SO
+        if (firstSO.sales_person_id) {
+            form.sales_person_id = firstSO.sales_person_id;
         }
     }
 

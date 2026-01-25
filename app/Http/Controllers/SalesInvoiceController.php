@@ -523,6 +523,7 @@ class SalesInvoiceController extends Controller
                 'exchange_rate' => (float) $salesOrder->exchange_rate,
                 'payment_method' => $salesOrder->payment_method,
                 'company_bank_account_id' => $salesOrder->company_bank_account_id,
+                'sales_person_id' => $salesOrder->sales_person_id,
                 'shipping_address_id' => $salesOrder->shipping_address_id,
                 'invoice_address_id' => $salesOrder->invoice_address_id,
                 'lines' => $lines,
@@ -578,6 +579,7 @@ class SalesInvoiceController extends Controller
                 'order_number' => $salesOrder->order_number,
                 'order_date' => optional($salesOrder->order_date)?->format('d/m/Y'),
                 'total_amount' => (float) $salesOrder->total_amount,
+                'sales_person_id' => $salesOrder->sales_person_id,
             ];
         })->values()->toArray();
     }
