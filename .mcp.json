@@ -1,7 +1,7 @@
 {
     "mcpServers": {
-        "laravel-boost": {
-            "command": "php",
+        "laravel-boost-accounting": {
+            "command": "./vendor/bin/sail",
             "args": [
                 "artisan",
                 "boost:mcp"
