@@ -99,6 +99,8 @@ const form = useForm({
     notes: props.salesOrder?.notes || '',
     payment_method: props.salesOrder?.payment_method || null,
     company_bank_account_id: props.salesOrder?.company_bank_account_id || null,
+    midtrans_code: props.salesOrder?.midtrans_code ?? null,
+    paypal_code: props.salesOrder?.paypal_code ?? null,
     lines: props.salesOrder?.lines || [createEmptyLine()],
     costs: props.salesOrder?.costs?.map(c => ({
         id: c.id,
@@ -931,6 +933,28 @@ function submitForm(createAnother = false) {
                         label="Rekening Bank Perusahaan:"
                         :error="form.errors?.company_bank_account_id"
                         placeholder="Pilih Rekening Bank"
+                    />
+                </div>
+
+                <!-- Midtrans Code -->
+                <div v-if="form.payment_method === 'midtrans'" class="grid grid-cols-2 gap-4">
+                    <AppInput
+                        v-model="form.midtrans_code"
+                        label="Kode Midtrans:"
+                        :error="form.errors?.midtrans_code"
+                        placeholder="Masukkan kode Midtrans"
+                        required
+                    />
+                </div>
+
+                <!-- Paypal Code -->
+                <div v-if="form.payment_method === 'paypal'" class="grid grid-cols-2 gap-4">
+                    <AppInput
+                        v-model="form.paypal_code"
+                        label="Kode Paypal:"
+                        :error="form.errors?.paypal_code"
+                        placeholder="Masukkan kode Paypal"
+                        required
                     />
                 </div>
 

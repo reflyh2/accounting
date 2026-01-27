@@ -24,6 +24,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -284,7 +285,7 @@ class SalesInvoiceController extends Controller
     {
         $this->authorizeDraft($salesInvoice);
 
-        $validated = $this->validatedPayload($request);
+        $validated = $this->validatedPayload($request, $salesInvoice);
 
         $invoice = $this->invoiceService->update($salesInvoice, $validated);
 
@@ -348,7 +349,7 @@ class SalesInvoiceController extends Controller
         );
     }
 
-    private function validatedPayload(Request $request): array
+    private function validatedPayload(Request $request, ?SalesInvoice $invoice = null): array
     {
         $isDirectInvoice = $request->boolean('is_direct_invoice', false);
 
@@ -364,8 +365,21 @@ class SalesInvoiceController extends Controller
                 'tax_invoice_code' => 'nullable|string|in:01,02,03,04,05,06,07,08,09,10',
                 'exchange_rate' => 'required|numeric|min:0.000001',
                 'notes' => 'nullable|string',
-                'payment_method' => 'nullable|string|in:cash,transfer,cek,giro',
+                'payment_method' => 'nullable|string|in:cash,transfer,cek,giro,credit_card,qris,paypal,midtrans',
                 'company_bank_account_id' => 'nullable|exists:company_bank_accounts,id|required_if:payment_method,transfer',
+                'midtrans_code' => [
+                    'nullable',
+                    'required_if:payment_method,midtrans',
+                    'string',
+                    'max:100',
+                    Rule::unique('sales_invoices', 'midtrans_code')->ignore($invoice?->id),
+                ],
+                'paypal_code' => [
+                    'nullable',
+                    'required_if:payment_method,paypal',
+                    'string',
+                    'max:100',
+                ],
                 'sales_person_id' => 'nullable|exists:users,global_id',
                 'shipping_address_id' => 'nullable|exists:partner_addresses,id',
                 'invoice_address_id' => 'nullable|exists:partner_addresses,id',
@@ -391,8 +405,21 @@ class SalesInvoiceController extends Controller
                 'tax_invoice_code' => 'nullable|string|in:01,02,03,04,05,06,07,08,09,10',
                 'exchange_rate' => 'required|numeric|min:0.000001',
                 'notes' => 'nullable|string',
-                'payment_method' => 'nullable|string|in:cash,transfer,cek,giro',
+                'payment_method' => 'nullable|string|in:cash,transfer,cek,giro,credit_card,qris,paypal,midtrans',
                 'company_bank_account_id' => 'nullable|exists:company_bank_accounts,id|required_if:payment_method,transfer',
+                'midtrans_code' => [
+                    'nullable',
+                    'required_if:payment_method,midtrans',
+                    'string',
+                    'max:100',
+                    Rule::unique('sales_invoices', 'midtrans_code')->ignore($invoice?->id),
+                ],
+                'paypal_code' => [
+                    'nullable',
+                    'required_if:payment_method,paypal',
+                    'string',
+                    'max:100',
+                ],
                 'sales_person_id' => 'nullable|exists:users,global_id',
                 'shipping_address_id' => 'nullable|exists:partner_addresses,id',
                 'invoice_address_id' => 'nullable|exists:partner_addresses,id',

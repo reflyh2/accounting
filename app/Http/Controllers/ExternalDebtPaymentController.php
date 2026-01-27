@@ -2,14 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Events\Debt\ExternalDebtPaymentCreated;
 use App\Models\ExternalDebt;
 use App\Models\ExternalDebtPayment;
 use App\Models\ExternalDebtPaymentDetail;
 use App\Models\PartnerBankAccount;
-use App\Events\Debt\ExternalDebtPaymentCreated;
-use App\Events\Debt\ExternalDebtPaymentUpdated;
-use App\Events\Debt\ExternalDebtPaymentDeleted;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ExternalDebtPaymentController extends Controller
@@ -25,7 +23,7 @@ class ExternalDebtPaymentController extends Controller
     {
         $debts = ExternalDebt::with(['partner', 'currency'])
             ->where('type', $this->type)
-            ->whereHas('branch.branchGroup', fn($bq) => $bq->where('company_id', $companyId))
+            ->whereHas('branch.branchGroup', fn ($bq) => $bq->where('company_id', $companyId))
             ->where('branch_id', $branchId)
             ->where('partner_id', $partnerId)
             ->where('currency_id', $currencyId)
@@ -47,17 +45,20 @@ class ExternalDebtPaymentController extends Controller
             ->pluck(DB::raw('SUM(external_debt_payment_details.amount) as total'), 'external_debt_id');
 
         return $debts->map(function ($d) use ($paidSums) {
-            $paid = (float)($paidSums[$d->id] ?? 0);
-            $remaining = (float)$d->amount - $paid;
+            $paid = (float) ($paidSums[$d->id] ?? 0);
+            $remaining = (float) $d->amount - $paid;
             $d->remaining_amount = max($remaining, 0);
+
             return $d;
-        })->filter(fn($d) => $d->remaining_amount > 0)->values();
+        })->filter(fn ($d) => $d->remaining_amount > 0)->values();
     }
 
     protected function detectOverpay(array $details, $excludePaymentId = null): bool
     {
         $grouped = collect($details)->groupBy('external_debt_id')->map->sum('amount');
-        if ($grouped->isEmpty()) return false;
+        if ($grouped->isEmpty()) {
+            return false;
+        }
         $paidSumsQuery = DB::table('external_debt_payment_details')
             ->join('external_debt_payments', 'external_debt_payments.id', '=', 'external_debt_payment_details.external_debt_payment_id')
             ->whereNull('external_debt_payment_details.deleted_at')
@@ -73,12 +74,13 @@ class ExternalDebtPaymentController extends Controller
 
         $debts = ExternalDebt::whereIn('id', $grouped->keys())->pluck('amount', 'id');
         foreach ($grouped as $debtId => $newAmount) {
-            $alreadyPaid = (float)($paidSums[$debtId] ?? 0);
-            $totalDebt = (float)($debts[$debtId] ?? 0);
+            $alreadyPaid = (float) ($paidSums[$debtId] ?? 0);
+            $totalDebt = (float) ($debts[$debtId] ?? 0);
             if ($newAmount + $alreadyPaid - 0.00001 > $totalDebt) {
                 return true;
             }
         }
+
         return false;
     }
 
@@ -91,7 +93,7 @@ class ExternalDebtPaymentController extends Controller
             'exchange_rate' => 'required|numeric|min:0.000001',
             'payment_date' => 'required|date',
             'account_id' => 'required|exists:accounts,id',
-            'payment_method' => 'required|in:tunai,transfer,cek,giro',
+            'payment_method' => 'required|in:tunai,transfer,cek,giro,credit_card,qris,paypal,midtrans',
             'partner_bank_account_id' => 'nullable|required_if:payment_method,transfer|exists:partner_bank_accounts,id',
             'instrument_date' => 'nullable|required_if:payment_method,cek,\\,giro|date',
             'withdrawal_date' => 'nullable|required_if:payment_method,cek,\\,giro|date|after_or_equal:instrument_date',
@@ -100,10 +102,16 @@ class ExternalDebtPaymentController extends Controller
             'details.*.amount' => 'required|numeric|min:0.01',
             'payment_method' => 'nullable|string',
             'reference_number' => 'nullable|string',
+            'trace_number' => [
+                'nullable',
+                'required_if:payment_method,credit_card,qris',
+                'string',
+                'max:100',
+            ],
             'notes' => 'nullable|string',
         ]);
 
-        if ($validated['payment_method'] === 'transfer' && !empty($validated['partner_bank_account_id'])) {
+        if ($validated['payment_method'] === 'transfer' && ! empty($validated['partner_bank_account_id'])) {
             $pba = PartnerBankAccount::findOrFail($validated['partner_bank_account_id']);
             if ($pba->partner_id != $validated['partner_id']) {
                 return Redirect::back()->with('error', 'Rekening bank tidak sesuai dengan partner yang dipilih.');
@@ -113,10 +121,10 @@ class ExternalDebtPaymentController extends Controller
         // Validate debts belong to same partner and type, and not overpay
         $debtIds = collect($validated['details'])->pluck('external_debt_id')->unique()->values();
         $debts = ExternalDebt::whereIn('id', $debtIds)->get();
-        if ($debts->isEmpty() || $debts->contains(fn($d) => $d->type !== $this->type)) {
+        if ($debts->isEmpty() || $debts->contains(fn ($d) => $d->type !== $this->type)) {
             return Redirect::back()->with('error', 'Jenis hutang/piutang tidak sesuai.');
         }
-        if ($debts->contains(fn($d) => $d->partner_id != $validated['partner_id'])) {
+        if ($debts->contains(fn ($d) => $d->partner_id != $validated['partner_id'])) {
             return Redirect::back()->with('error', 'Semua dokumen harus untuk partner yang sama.');
         }
         $overpaid = $this->detectOverpay($validated['details']);
@@ -155,10 +163,12 @@ class ExternalDebtPaymentController extends Controller
                     'notes' => null,
                 ]);
             }
+
             return $payment;
         });
 
         ExternalDebtPaymentCreated::dispatch($payment);
+
         return redirect()->route($this->type == 'payable' ? 'external-payable-payments.show' : 'external-receivable-payments.show', $payment->id)
             ->with('success', 'Pembayaran hutang berhasil dibuat.');
     }

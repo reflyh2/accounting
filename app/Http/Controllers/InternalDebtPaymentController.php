@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PaymentMethod;
+use App\Enums\PaymentStatus;
+use App\Events\Debt\InternalDebtPaymentApproved;
+use App\Events\Debt\InternalDebtPaymentDeleted;
 use App\Exports\InternalDebtPaymentsExport;
 use App\Models\Account;
 use App\Models\Branch;
@@ -9,17 +13,12 @@ use App\Models\Company;
 use App\Models\Currency;
 use App\Models\InternalDebt;
 use App\Models\InternalDebtPayment;
-use App\Models\InternalDebtPaymentDetail;
-use App\Enums\PaymentStatus;
-use App\Enums\PaymentMethod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Events\Debt\InternalDebtPaymentApproved;
-use App\Events\Debt\InternalDebtPaymentDeleted;
 
 class InternalDebtPaymentController extends Controller
 {
@@ -30,7 +29,7 @@ class InternalDebtPaymentController extends Controller
 
         $query = InternalDebtPayment::with(['branch.branchGroup.company', 'currency', 'details.internalDebt']);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where(DB::raw('lower(number)'), 'like', "%$search%")
@@ -39,36 +38,36 @@ class InternalDebtPaymentController extends Controller
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereHas('branch', function ($q) use ($filters) {
                 $q->whereHas('branchGroup', function ($qq) use ($filters) {
                     $qq->whereIn('company_id', $filters['company_id']);
                 });
             });
         }
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', $filters['branch_id']);
         }
-        if (!empty($filters['counterparty_company_id'])) {
+        if (! empty($filters['counterparty_company_id'])) {
             $query->whereHas('details.internalDebt.counterpartyBranch.branchGroup', function ($q) use ($filters) {
                 $q->whereIn('company_id', $filters['counterparty_company_id']);
             });
         }
-        if (!empty($filters['counterparty_branch_id'])) {
+        if (! empty($filters['counterparty_branch_id'])) {
             $query->whereHas('details.internalDebt', function ($q) use ($filters) {
                 $q->whereIn('counterparty_branch_id', $filters['counterparty_branch_id']);
             });
         }
-        if (!empty($filters['currency_id'])) {
+        if (! empty($filters['currency_id'])) {
             $query->whereIn('currency_id', (array) $filters['currency_id']);
         }
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('payment_date', '>=', $filters['from_date']);
         }
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('payment_date', '<=', $filters['to_date']);
         }
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->whereIn('status', (array) $filters['status']);
         }
 
@@ -87,13 +86,13 @@ class InternalDebtPaymentController extends Controller
         $items = $query->paginate($perPage)->onEachSide(0)->withQueryString();
 
         $companies = Company::orderBy('name', 'asc')->get();
-        $branches = !empty($filters['company_id'])
+        $branches = ! empty($filters['company_id'])
             ? Branch::whereHas('branchGroup', function ($q) use ($filters) {
                 $q->whereIn('company_id', $filters['company_id']);
             })->orderBy('name', 'asc')->get()
             : Branch::orderBy('name', 'asc')->get();
 
-        $counterpartyBranches = !empty($filters['counterparty_company_id'])
+        $counterpartyBranches = ! empty($filters['counterparty_company_id'])
             ? Branch::whereHas('branchGroup', function ($q) use ($filters) {
                 $q->whereIn('company_id', $filters['counterparty_company_id']);
             })->orderBy('name', 'asc')->get()
@@ -132,29 +131,29 @@ class InternalDebtPaymentController extends Controller
         $currencyId = $request->currency_id;
 
         if ($companyId) {
-            $branches = Branch::whereHas('branchGroup', fn($q) => $q->where('company_id', $companyId))
+            $branches = Branch::whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId))
                 ->orderBy('name', 'asc')->get();
 
-            $currencies = Currency::whereHas('companyRates', fn($q) => $q->where('company_id', $companyId))
-                ->with(['companyRates' => fn($q) => $q->where('company_id', $companyId)])
+            $currencies = Currency::whereHas('companyRates', fn ($q) => $q->where('company_id', $companyId))
+                ->with(['companyRates' => fn ($q) => $q->where('company_id', $companyId)])
                 ->orderBy('code', 'asc')
                 ->get();
 
             $accounts = Account::whereHas('companies', function ($query) use ($companyId) {
-                    $query->where('company_id', $companyId);
-                })
+                $query->where('company_id', $companyId);
+            })
                 ->where('is_parent', false)
                 ->with('currencies.companyRates')
                 ->orderBy('code', 'asc')
                 ->get();
         }
         if ($counterpartyCompanyId) {
-            $counterpartyBranches = Branch::whereHas('branchGroup', fn($q) => $q->where('company_id', $counterpartyCompanyId))
+            $counterpartyBranches = Branch::whereHas('branchGroup', fn ($q) => $q->where('company_id', $counterpartyCompanyId))
                 ->orderBy('name', 'asc')->get();
 
             $counterpartyAccounts = Account::whereHas('companies', function ($query) use ($counterpartyCompanyId) {
-                    $query->where('company_id', $counterpartyCompanyId);
-                })
+                $query->where('company_id', $counterpartyCompanyId);
+            })
                 ->where('is_parent', false)
                 ->with('currencies.companyRates')
                 ->orderBy('code', 'asc')
@@ -167,12 +166,12 @@ class InternalDebtPaymentController extends Controller
         return Inertia::render('InternalDebtPayments/Create', [
             'filters' => $filters,
             'companies' => $companies,
-            'branches' => fn() => $branches,
-            'counterpartyBranches' => fn() => $counterpartyBranches,
-            'currencies' => fn() => $currencies,
-            'debts' => fn() => $debts,
-            'accounts' => fn() => $accounts,
-            'counterpartyAccounts' => fn() => $counterpartyAccounts,
+            'branches' => fn () => $branches,
+            'counterpartyBranches' => fn () => $counterpartyBranches,
+            'currencies' => fn () => $currencies,
+            'debts' => fn () => $debts,
+            'accounts' => fn () => $accounts,
+            'counterpartyAccounts' => fn () => $counterpartyAccounts,
             'paymentStatusOptions' => InternalDebtPayment::statusOptions(),
             'paymentMethodOptions' => InternalDebtPayment::paymentMethodOptions(),
         ]);
@@ -186,8 +185,14 @@ class InternalDebtPaymentController extends Controller
             'exchange_rate' => 'required|numeric|min:0.000001',
             'payment_date' => 'required|date',
             'account_id' => 'required|exists:accounts,id',
-            'payment_method' => 'required|string|in:cash,transfer,cek,giro',
+            'payment_method' => 'required|string|in:cash,transfer,cek,giro,credit_card,qris,paypal,midtrans',
             'reference_number' => 'nullable|string',
+            'trace_number' => [
+                'nullable',
+                'required_if:payment_method,credit_card,qris',
+                'string',
+                'max:100',
+            ],
             'counterparty_account_id' => 'nullable|exists:accounts,id',
             'instrument_date' => 'nullable|date',
             'withdrawal_date' => 'nullable|date|after_or_equal:instrument_date',
@@ -202,7 +207,7 @@ class InternalDebtPaymentController extends Controller
         foreach ($validated['details'] as $detail) {
             $totalAmount += $detail['amount'];
             $debt = InternalDebt::find($detail['internal_debt_id']);
-            if (!$firstDebt) {
+            if (! $firstDebt) {
                 $firstDebt = $debt;
             } else {
                 if ($debt->type !== $firstDebt->type) {
@@ -254,20 +259,21 @@ class InternalDebtPaymentController extends Controller
         $counterpartyAccounts = collect();
         if ($counterpartyCompanyId) {
             $counterpartyAccounts = Account::whereHas('companies', function ($query) use ($counterpartyCompanyId) {
-                    $query->where('company_id', $counterpartyCompanyId);
-                })
+                $query->where('company_id', $counterpartyCompanyId);
+            })
                 ->where('is_parent', false)
                 ->with('currencies.companyRates')
                 ->orderBy('code', 'asc')
                 ->get();
         }
+
         return Inertia::render('InternalDebtPayments/Show', [
             'item' => $internalDebtPayment,
             'filters' => $filters,
             'paymentStatusOptions' => InternalDebtPayment::statusOptions(),
             'paymentStatusStyles' => InternalDebtPayment::statusStyles(),
             'paymentMethodOptions' => InternalDebtPayment::paymentMethodOptions(),
-            'counterpartyAccounts' => fn() => $counterpartyAccounts,
+            'counterpartyAccounts' => fn () => $counterpartyAccounts,
         ]);
     }
 
@@ -294,14 +300,14 @@ class InternalDebtPaymentController extends Controller
         $currencyId = $request->currency_id ?: $internalDebtPayment->currency_id;
 
         $companies = Company::orderBy('name', 'asc')->get();
-        $branches = Branch::whereHas('branchGroup', fn($q) => $q->where('company_id', $companyId))->orderBy('name', 'asc')->get();
-        $currencies = Currency::whereHas('companyRates', fn($q) => $q->where('company_id', $companyId))
-            ->with(['companyRates' => fn($q) => $q->where('company_id', $companyId)])
+        $branches = Branch::whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId))->orderBy('name', 'asc')->get();
+        $currencies = Currency::whereHas('companyRates', fn ($q) => $q->where('company_id', $companyId))
+            ->with(['companyRates' => fn ($q) => $q->where('company_id', $companyId)])
             ->orderBy('code', 'asc')->get();
 
         $counterpartyBranches = collect();
         if ($counterpartyCompanyId) {
-            $counterpartyBranches = Branch::whereHas('branchGroup', fn($q) => $q->where('company_id', $counterpartyCompanyId))->orderBy('name', 'asc')->get();
+            $counterpartyBranches = Branch::whereHas('branchGroup', fn ($q) => $q->where('company_id', $counterpartyCompanyId))->orderBy('name', 'asc')->get();
         }
 
         $debts = collect();
@@ -312,8 +318,8 @@ class InternalDebtPaymentController extends Controller
         $accounts = collect();
         if ($companyId) {
             $accounts = Account::whereHas('companies', function ($query) use ($companyId) {
-                    $query->where('company_id', $companyId);
-                })
+                $query->where('company_id', $companyId);
+            })
                 ->where('is_parent', false)
                 ->with('currencies.companyRates')
                 ->orderBy('code', 'asc')
@@ -322,8 +328,8 @@ class InternalDebtPaymentController extends Controller
         $counterpartyAccounts = collect();
         if ($counterpartyCompanyId) {
             $counterpartyAccounts = Account::whereHas('companies', function ($query) use ($counterpartyCompanyId) {
-                    $query->where('company_id', $counterpartyCompanyId);
-                })
+                $query->where('company_id', $counterpartyCompanyId);
+            })
                 ->where('is_parent', false)
                 ->with('currencies.companyRates')
                 ->orderBy('code', 'asc')
@@ -335,11 +341,11 @@ class InternalDebtPaymentController extends Controller
             'filters' => $filters,
             'companies' => $companies,
             'branches' => $branches,
-            'counterpartyBranches' => fn() => $counterpartyBranches,
+            'counterpartyBranches' => fn () => $counterpartyBranches,
             'currencies' => $currencies,
-            'debts' => fn() => $debts,
-            'accounts' => fn() => $accounts,
-            'counterpartyAccounts' => fn() => $counterpartyAccounts,
+            'debts' => fn () => $debts,
+            'accounts' => fn () => $accounts,
+            'counterpartyAccounts' => fn () => $counterpartyAccounts,
             'paymentStatusOptions' => InternalDebtPayment::statusOptions(),
             'paymentMethodOptions' => InternalDebtPayment::paymentMethodOptions(),
         ]);
@@ -353,8 +359,14 @@ class InternalDebtPaymentController extends Controller
             'exchange_rate' => 'required|numeric|min:0.000001',
             'payment_date' => 'required|date',
             'account_id' => 'required|exists:accounts,id',
-            'payment_method' => 'required|string|in:cash,transfer,cek,giro',
+            'payment_method' => 'required|string|in:cash,transfer,cek,giro,credit_card,qris,paypal,midtrans',
             'reference_number' => 'nullable|string',
+            'trace_number' => [
+                'nullable',
+                'required_if:payment_method,credit_card,qris',
+                'string',
+                'max:100',
+            ],
             'counterparty_account_id' => 'nullable|exists:accounts,id',
             'instrument_date' => 'nullable|date',
             'withdrawal_date' => 'nullable|date|after_or_equal:instrument_date',
@@ -374,7 +386,7 @@ class InternalDebtPaymentController extends Controller
         foreach ($validated['details'] as $detail) {
             $totalAmount += $detail['amount'];
             $debt = InternalDebt::find($detail['internal_debt_id']);
-            if (!$firstDebt) {
+            if (! $firstDebt) {
                 $firstDebt = $debt;
             } else {
                 if ($debt->type !== $firstDebt->type) {
@@ -411,7 +423,7 @@ class InternalDebtPaymentController extends Controller
                     'primary_currency_amount' => $detail['amount'] * $validated['exchange_rate'],
                     'notes' => $detail['notes'] ?? null,
                 ];
-                if (!empty($detail['id']) && in_array($detail['id'], $existingIds)) {
+                if (! empty($detail['id']) && in_array($detail['id'], $existingIds)) {
                     $internalDebtPayment->details()->find($detail['id'])->update($detailData);
                     $keptIds[] = $detail['id'];
                 } else {
@@ -421,7 +433,7 @@ class InternalDebtPaymentController extends Controller
             }
 
             $toDelete = array_diff($existingIds, $keptIds);
-            if (!empty($toDelete)) {
+            if (! empty($toDelete)) {
                 $internalDebtPayment->details()->whereIn('id', $toDelete)->delete();
             }
         });
@@ -442,9 +454,11 @@ class InternalDebtPaymentController extends Controller
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('internal-debt-payments.index') . ($currentQuery ? '?' . $currentQuery : '');
+            $redirectUrl = route('internal-debt-payments.index').($currentQuery ? '?'.$currentQuery : '');
+
             return Redirect::to($redirectUrl)->with('success', 'Pembayaran Internal berhasil dihapus.');
         }
+
         return redirect()->route('internal-debt-payments.index')->with('success', 'Pembayaran Internal berhasil dihapus.');
     }
 
@@ -462,7 +476,7 @@ class InternalDebtPaymentController extends Controller
                     return Redirect::back()->with('error', 'Tidak dapat menghapus pembayaran yang sudah disetujui.');
                 }
             }
-            
+
             foreach ($items as $item) {
                 // Dispatch deletion event to ensure any journals get cleaned if present
                 InternalDebtPaymentDeleted::dispatch($item->loadMissing(['details.internalDebt']));
@@ -470,6 +484,7 @@ class InternalDebtPaymentController extends Controller
                 $item->delete();
             }
         });
+
         return redirect()->route('internal-debt-payments.index')->with('success', 'Pembayaran Internal terpilih berhasil dihapus.');
     }
 
@@ -490,6 +505,7 @@ class InternalDebtPaymentController extends Controller
             $internalDebtPayment->update(['status' => 'approved']);
         }
         InternalDebtPaymentApproved::dispatch($internalDebtPayment->loadMissing(['details.internalDebt']));
+
         return redirect()->back()->with('success', 'Pembayaran Internal disetujui.');
     }
 
@@ -499,6 +515,7 @@ class InternalDebtPaymentController extends Controller
             return redirect()->back()->with('error', 'Status pembayaran tidak dapat diubah.');
         }
         $internalDebtPayment->update(['status' => 'rejected']);
+
         return redirect()->back()->with('success', 'Pembayaran Internal ditolak.');
     }
 
@@ -507,7 +524,7 @@ class InternalDebtPaymentController extends Controller
         $filters = $request->all() ?: Session::get('internal_debt_payments.index_filters', []);
         $query = InternalDebtPayment::with(['branch.branchGroup.company', 'currency', 'details.internalDebt']);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where(DB::raw('lower(number)'), 'like', "%$search%")
@@ -515,16 +532,16 @@ class InternalDebtPaymentController extends Controller
                     ->orWhere(DB::raw('lower(notes)'), 'like', "%$search%");
             });
         }
-        if (!empty($filters['company_id'])) {
-            $query->whereHas('branch.branchGroup', fn($q) => $q->whereIn('company_id', $filters['company_id']));
+        if (! empty($filters['company_id'])) {
+            $query->whereHas('branch.branchGroup', fn ($q) => $q->whereIn('company_id', $filters['company_id']));
         }
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', $filters['branch_id']);
         }
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('payment_date', '>=', $filters['from_date']);
         }
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('payment_date', '<=', $filters['to_date']);
         }
         $sort = $filters['sort'] ?? 'payment_date';
@@ -536,18 +553,21 @@ class InternalDebtPaymentController extends Controller
         } else {
             $query->orderBy($sort, $order);
         }
+
         return $query->get();
     }
 
     public function exportXLSX(Request $request)
     {
         $items = $this->getFiltered($request);
+
         return Excel::download(new InternalDebtPaymentsExport($items, 'Pembayaran/Penerimaan Internal'), 'internal-debt-payments.xlsx');
     }
 
     public function exportCSV(Request $request)
     {
         $items = $this->getFiltered($request);
+
         return Excel::download(new InternalDebtPaymentsExport($items, 'Pembayaran/Penerimaan Internal'), 'internal-debt-payments.csv', \Maatwebsite\Excel\Excel::CSV);
     }
 
@@ -561,8 +581,8 @@ class InternalDebtPaymentController extends Controller
         $debts = InternalDebt::with(['currency', 'branch', 'counterpartyBranch'])
             ->where('branch_id', $branchId)
             ->where('currency_id', $currencyId)
-            ->whereHas('branch.branchGroup', fn($q) => $q->where('company_id', $companyId))
-            ->whereHas('counterpartyBranch.branchGroup', fn($q) => $q->where('company_id', $counterpartyCompanyId))
+            ->whereHas('branch.branchGroup', fn ($q) => $q->where('company_id', $companyId))
+            ->whereHas('counterpartyBranch.branchGroup', fn ($q) => $q->where('company_id', $counterpartyCompanyId))
             ->where('counterparty_branch_id', $counterpartyBranchId)
             ->orderBy('due_date', 'asc')
             ->orderBy('issue_date', 'asc')
@@ -582,6 +602,7 @@ class InternalDebtPaymentController extends Controller
         return $debts->map(function ($d) use ($paidSums) {
             $paid = (float) ($paidSums[$d->id] ?? 0);
             $remaining = max(0, ((float) $d->amount) - $paid);
+
             return [
                 'id' => $d->id,
                 'number' => $d->number,
@@ -592,8 +613,6 @@ class InternalDebtPaymentController extends Controller
                 'paid' => $paid,
                 'remaining_amount' => $remaining,
             ];
-        })->filter(fn($row) => $row['remaining_amount'] > 0)->values();
+        })->filter(fn ($row) => $row['remaining_amount'] > 0)->values();
     }
 }
-
-

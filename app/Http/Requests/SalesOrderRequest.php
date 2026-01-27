@@ -30,7 +30,7 @@ class SalesOrderRequest extends FormRequest
             'exchange_rate' => ['nullable', 'numeric', 'min:0.0001'],
             'reserve_stock' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
-            'payment_method' => ['nullable', 'string', 'in:cash,transfer,cek,giro'],
+            'payment_method' => ['nullable', 'string', 'in:cash,transfer,cek,giro,credit_card,qris,paypal,midtrans'],
             'company_bank_account_id' => ['nullable', 'exists:company_bank_accounts,id', 'required_if:payment_method,transfer'],
             'sales_person_id' => ['nullable', 'exists:users,global_id'],
             'lines' => ['required', 'array', 'min:1'],
@@ -57,5 +57,3 @@ class SalesOrderRequest extends FormRequest
         ];
     }
 }
-
-

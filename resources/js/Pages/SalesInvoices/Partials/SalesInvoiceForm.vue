@@ -179,6 +179,8 @@ const form = useForm({
     notes: props.invoice?.notes ?? '',
     payment_method: props.invoice?.payment_method ?? null,
     company_bank_account_id: props.invoice?.company_bank_account_id ?? null,
+    midtrans_code: props.invoice?.midtrans_code ?? null,
+    paypal_code: props.invoice?.paypal_code ?? null,
     sales_person_id: props.invoice?.sales_person_id || page.props.auth?.user?.global_id || null,
     lines: buildInitialLines(),
     lines: buildInitialLines(),
@@ -962,6 +964,30 @@ function submitForm(createAnother = false) {
                         label="Rekening Bank Perusahaan:"
                         placeholder="Pilih Rekening"
                         :error="form.errors.company_bank_account_id"
+                    />
+                </div>
+
+                <!-- Midtrans Code - Required for Midtrans payment method -->
+                <div v-if="form.payment_method === 'midtrans'" class="grid grid-cols-2 gap-4">
+                    <AppInput
+                        v-model="form.midtrans_code"
+                        label="Kode Midtrans:"
+                        :error="form.errors.midtrans_code"
+                        placeholder="Masukkan kode Midtrans"
+                        hint="Kode unik untuk pembayaran Midtrans"
+                        required
+                    />
+                </div>
+
+                <!-- Paypal Code - Required for Paypal payment method -->
+                <div v-if="form.payment_method === 'paypal'" class="grid grid-cols-2 gap-4">
+                    <AppInput
+                        v-model="form.paypal_code"
+                        label="Kode Paypal:"
+                        :error="form.errors.paypal_code"
+                        placeholder="Masukkan kode Paypal"
+                        hint="Kode Paypal dapat digunakan untuk beberapa invoice"
+                        required
                     />
                 </div>
 

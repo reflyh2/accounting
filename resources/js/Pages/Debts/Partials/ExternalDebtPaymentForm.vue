@@ -36,6 +36,7 @@ const form = useForm({
     instrument_date: props.item?.instrument_date || null,
     withdrawal_date: props.item?.withdrawal_date || null,
     reference_number: props.item?.reference_number || '',
+    trace_number: props.item?.trace_number || null,
     notes: props.item?.notes || '',
     details: props.item?.details?.map(d => ({ external_debt_id: d.external_debt_id, amount: Number(d.amount) })) || [],
 });
@@ -319,6 +320,19 @@ function submitForm() {
                         required
                     />
                 </div>
+
+                <!-- Trace Number - Required for Credit Card and QRIS -->
+                <div v-if="form.payment_method === 'credit_card' || form.payment_method === 'qris'" class="col-span-2">
+                    <AppInput
+                        v-model="form.trace_number"
+                        label="Nomor Trace:"
+                        :error="form.errors.trace_number"
+                        placeholder="Masukkan nomor trace"
+                        hint="Nomor trace dari transaksi"
+                        required
+                    />
+                </div>
+
                 <AppInput
                     v-model="form.notes"
                     label="Catatan:"
