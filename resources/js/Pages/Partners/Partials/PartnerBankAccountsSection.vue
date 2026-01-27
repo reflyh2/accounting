@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import AppInput from '@/Components/AppInput.vue';
 import { TrashIcon, PlusCircleIcon } from '@heroicons/vue/24/solid';
 
@@ -17,15 +17,22 @@ const props = defineProps({
 const emit = defineEmits(['update:bank-accounts']);
 
 const rows = ref(Array.isArray(props.bankAccounts) ? [...props.bankAccounts] : []);
+const syncing = ref(false);
 
 watch(() => props.bankAccounts, (val) => {
+    syncing.value = true;
     rows.value = Array.isArray(val) ? [...val] : [];
+    nextTick(() => {
+        syncing.value = false;
+    });
 });
 
 watch(
     () => rows.value,
     (val) => {
-        emit('update:bank-accounts', val);
+        if (!syncing.value) {
+            emit('update:bank-accounts', val);
+        }
     },
     { deep: true }
 );
