@@ -8,13 +8,13 @@ use App\Exceptions\InventoryException;
 use App\Exceptions\SalesOrderException;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\DocumentTemplate;
 use App\Models\Location;
 use App\Models\Partner;
 use App\Models\SalesDelivery;
 use App\Models\SalesOrder;
-use App\Models\DocumentTemplate;
-use App\Services\Sales\SalesService;
 use App\Services\DocumentTemplateService;
+use App\Services\Sales\SalesService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -25,9 +25,7 @@ use Inertia\Response;
 
 class SalesDeliveryController extends Controller
 {
-    public function __construct(private readonly SalesService $salesService)
-    {
-    }
+    public function __construct(private readonly SalesService $salesService) {}
 
     public function index(Request $request): Response
     {
@@ -99,11 +97,11 @@ class SalesDeliveryController extends Controller
         $order = $filters['order'] ?? 'desc';
         $allowedSorts = ['delivery_date', 'delivery_number', 'status', 'total_amount'];
 
-        if (!in_array($sort, $allowedSorts, true)) {
+        if (! in_array($sort, $allowedSorts, true)) {
             $sort = 'delivery_date';
         }
 
-        if (!in_array(strtolower($order), ['asc', 'desc'], true)) {
+        if (! in_array(strtolower($order), ['asc', 'desc'], true)) {
             $order = 'desc';
         }
 
@@ -132,7 +130,7 @@ class SalesDeliveryController extends Controller
         $selectedBranchId = $request->integer('branch_id') ?: null;
         $selectedPartnerId = $request->integer('partner_id') ?: null;
         $selectedIds = $request->input('sales_order_ids', []);
-        if (!is_array($selectedIds)) {
+        if (! is_array($selectedIds)) {
             $selectedIds = $selectedIds ? [$selectedIds] : [];
         }
         $selectedIds = array_filter(array_map('intval', $selectedIds));
@@ -161,10 +159,10 @@ class SalesDeliveryController extends Controller
             $locations = $this->locationOptions($selectedBranchId);
         }
 
-        if (!empty($selectedIds)) {
+        if (! empty($selectedIds)) {
             $selectedSalesOrders = $this->salesOrdersDetail($selectedIds);
             // Update locations from SO branch if not already set
-            if (empty($locations) && !empty($selectedSalesOrders)) {
+            if (empty($locations) && ! empty($selectedSalesOrders)) {
                 $branchId = $selectedSalesOrders[0]['branch']['id'] ?? null;
                 if ($branchId) {
                     $locations = $this->locationOptions($branchId);
@@ -182,6 +180,9 @@ class SalesDeliveryController extends Controller
             'selectedPartnerId' => $selectedPartnerId,
             'customers' => $this->customerOptionsFiltered($selectedCompanyId),
             'locations' => $locations,
+            'costItems' => \App\Models\CostItem::where('is_active', true)
+                ->orderBy('code')
+                ->get(['id', 'code', 'name']),
             'filters' => Session::get('sales_deliveries.index_filters', []),
         ]);
     }
@@ -191,11 +192,15 @@ class SalesDeliveryController extends Controller
         $data = $request->validate([
             'partner_id' => ['required', 'exists:partners,id'],
             'shipping_address_id' => ['nullable', 'exists:partner_addresses,id'],
+            'invoice_address_id' => ['nullable', 'exists:partner_addresses,id'],
             'sales_order_ids' => ['required', 'array', 'min:1'],
             'sales_order_ids.*' => ['required', 'exists:sales_orders,id'],
             'delivery_date' => ['required', 'date'],
             'location_id' => ['required', 'exists:locations,id'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'shipping_cost' => ['nullable', 'numeric', 'min:0'],
+            'shipping_cost_item_id' => ['nullable', 'exists:cost_items,id', 'required_with:shipping_cost'],
+            'shipping_cost_description' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.sales_order_line_id' => ['required', 'exists:sales_order_lines,id'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
@@ -221,6 +226,8 @@ class SalesDeliveryController extends Controller
             'partner',
             'currency',
             'location',
+            'shippingProvider',
+            'costs.costItem',
             'lines.variant.product',
             'lines.uom',
             'lines.baseUom',
@@ -251,7 +258,7 @@ class SalesDeliveryController extends Controller
             'partner',
         ]);
 
-        if (!$this->salesService->canModifyDelivery($salesDelivery)) {
+        if (! $this->salesService->canModifyDelivery($salesDelivery)) {
             return Redirect::route('sales-deliveries.show', $salesDelivery->id)
                 ->with('error', 'Pengiriman tidak dapat diubah karena sudah digunakan pada invoice.');
         }
@@ -380,6 +387,13 @@ class SalesDeliveryController extends Controller
                 'id' => $delivery->partner->id,
                 'name' => $delivery->partner->name,
             ] : null,
+            'shipping_type' => $delivery->shipping_type,
+            'shipping_provider_id' => $delivery->shipping_provider_id,
+            'shipping_provider' => $delivery->shippingProvider ? [
+                'id' => $delivery->shippingProvider->id,
+                'name' => $delivery->shippingProvider->name,
+                'type' => $delivery->shippingProvider->type,
+            ] : null,
             'sales_orders' => $delivery->salesOrders->map(fn ($so) => [
                 'id' => $so->id,
                 'order_number' => $so->order_number,
@@ -438,11 +452,11 @@ class SalesDeliveryController extends Controller
         $salesOrders = $query->get();
 
         // Include any selected SOs not in query result
-        if (!empty($selectedIds)) {
+        if (! empty($selectedIds)) {
             $existingIds = $salesOrders->pluck('id')->toArray();
             $missingIds = array_diff($selectedIds, $existingIds);
 
-            if (!empty($missingIds)) {
+            if (! empty($missingIds)) {
                 $additionalSOs = SalesOrder::with(['partner', 'branch.branchGroup.company', 'lines'])
                     ->whereIn('id', $missingIds)
                     ->get();
@@ -482,6 +496,7 @@ class SalesDeliveryController extends Controller
             'partner',
             'branch.branchGroup.company',
             'currency',
+            'shippingProvider',
             'lines.variant.product.capabilities',
             'lines.product.capabilities',
             'lines.uom',
@@ -495,6 +510,7 @@ class SalesDeliveryController extends Controller
             $lines = $salesOrder->lines->map(function ($line) {
                 $remaining = max(0, (float) $line->quantity - (float) $line->quantity_delivered);
                 $product = $line->variant?->product ?? $line->product;
+
                 return [
                     'id' => $line->id,
                     'line_number' => $line->line_number,
@@ -543,6 +559,13 @@ class SalesDeliveryController extends Controller
                 ] : null,
                 'shipping_address_id' => $salesOrder->shipping_address_id,
                 'invoice_address_id' => $salesOrder->invoice_address_id,
+                'shipping_type' => $salesOrder->shipping_type,
+                'shipping_provider_id' => $salesOrder->shipping_provider_id,
+                'shipping_provider' => $salesOrder->shippingProvider ? [
+                    'id' => $salesOrder->shippingProvider->id,
+                    'name' => $salesOrder->shippingProvider->name,
+                    'type' => $salesOrder->shippingProvider->type,
+                ] : null,
                 'lines' => $lines,
             ];
         }
@@ -643,7 +666,7 @@ class SalesDeliveryController extends Controller
             $search = strtolower($request->search);
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('lower(name) like ?', ["%{$search}%"])
-                  ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
+                    ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
             });
         }
 
@@ -672,7 +695,7 @@ class SalesDeliveryController extends Controller
                 // Remaining = ordered - delivered (from other deliveries) + current SD qty (to allow editing)
                 $deliveredFromOthers = max(0, (float) $line->quantity_delivered - $currentSdQty);
                 $remaining = max(0, (float) $line->quantity - $deliveredFromOthers);
-                
+
                 $product = $line->variant?->product ?? $line->product;
 
                 return [
@@ -759,4 +782,3 @@ class SalesDeliveryController extends Controller
         ];
     }
 }
-

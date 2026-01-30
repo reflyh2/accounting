@@ -20,6 +20,9 @@ const props = defineProps({
     selectedPartnerId: Number,
     customers: Array,
     locations: Array,
+    costItems: Array,
+    shippingTypeOptions: Array,
+    shippingProviders: Array,
     filters: Object,
 });
 </script>
@@ -48,6 +51,9 @@ const props = defineProps({
                             :selectedPartnerId="selectedPartnerId"
                             :customers="customers"
                             :locations="locations"
+                            :costItems="costItems"
+                            :shippingTypeOptions="shippingTypeOptions"
+                            :shippingProviders="shippingProviders"
                             :filters="filters"
                         />
                     </div>

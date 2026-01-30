@@ -187,6 +187,7 @@ const form = useForm({
     costs: buildInitialCosts(),
     costs: buildInitialCosts(),
     invoice_address_id: props.invoice?.invoice_address_id || null,
+    shipping_charge: props.invoice?.shipping_charge || 0,
 });
 
 // Watch for company changes - reload branches, customers, SOs
@@ -649,7 +650,7 @@ const totals = computed(() => {
     );
 });
 
-const grandTotal = computed(() => totals.value.subtotal + totals.value.tax);
+const grandTotal = computed(() => totals.value.subtotal + totals.value.tax + parseFloat(form.shipping_charge || 0));
 
 const hasLines = computed(() => form.lines.length > 0);
 
@@ -1007,6 +1008,20 @@ function submitForm(createAnother = false) {
                     label="Catatan:"
                     :error="form.errors.notes"
                 />
+
+                <!-- Shipping Charge -->
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                    <AppInput
+                        v-model="form.shipping_charge"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        label="Biaya Pengiriman:"
+                        placeholder="0.00"
+                        hint="Biaya pengiriman yang ditagihkan ke customer"
+                        :error="form.errors?.shipping_charge"
+                    />
+                </div>
             </div>
 
             <div class="w-1/3 bg-gray-100 p-4 rounded-lg text-sm">
@@ -1172,6 +1187,11 @@ function submitForm(createAnother = false) {
                         <tr class="text-sm">
                             <th :colspan="isDirectInvoice ? 6 : 7" class="border border-gray-300 px-4 py-2 text-right">Total Pajak</th>
                             <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.tax) }}</th>
+                            <th class="border border-gray-300 px-4 py-2"></th>
+                        </tr>
+                        <tr class="text-sm" v-if="form.shipping_charge > 0">
+                            <th :colspan="isDirectInvoice ? 6 : 7" class="border border-gray-300 px-4 py-2 text-right">Biaya Pengiriman</th>
+                            <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(parseFloat(form.shipping_charge || 0)) }}</th>
                             <th class="border border-gray-300 px-4 py-2"></th>
                         </tr>
                         <tr class="text-sm font-semibold">

@@ -33,6 +33,7 @@ class SalesInvoice extends Model
         'due_date' => 'date',
         'subtotal' => 'decimal:2',
         'tax_total' => 'decimal:2',
+        'shipping_charge' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'exchange_rate' => 'decimal:6',
         'delivery_value_base' => 'decimal:4',

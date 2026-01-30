@@ -63,6 +63,11 @@ class SalesDelivery extends Model
         return $this->belongsTo(Location::class);
     }
 
+    public function shippingProvider()
+    {
+        return $this->belongsTo(ShippingProvider::class);
+    }
+
     public function inventoryTransaction()
     {
         return $this->belongsTo(InventoryTransaction::class);
@@ -73,10 +78,13 @@ class SalesDelivery extends Model
         return $this->hasMany(SalesDeliveryLine::class)->orderBy('id');
     }
 
+    public function costs()
+    {
+        return $this->hasMany(SalesDeliveryCost::class);
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 }
-
-

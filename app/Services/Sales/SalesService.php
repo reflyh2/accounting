@@ -2,6 +2,8 @@
 
 namespace App\Services\Sales;
 
+use App\Domain\Accounting\DTO\AccountingEntry;
+use App\Domain\Accounting\DTO\AccountingEventPayload;
 use App\Enums\AccountingEventCode;
 use App\Enums\Documents\SalesDeliveryStatus;
 use App\Enums\Documents\SalesOrderStatus;
@@ -19,33 +21,33 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderCost;
 use App\Models\SalesOrderLine;
 use App\Models\Uom;
-use App\Services\Catalog\PricingService;
 use App\Services\Accounting\AccountingEventBuilder;
 use App\Services\Accounting\AccountingEventBus;
+use App\Services\Booking\BookingService;
+use App\Services\Booking\DTO\BookingLineDTO;
+use App\Services\Booking\DTO\HoldBookingDTO;
+use App\Services\Catalog\PricingService;
 use App\Services\Inventory\DTO\IssueDTO;
 use App\Services\Inventory\DTO\IssueLineDTO;
 use App\Services\Inventory\InventoryService;
 use App\Services\Inventory\UomConversionService;
 use App\Services\Tax\TaxService;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Carbon;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use App\Domain\Accounting\DTO\AccountingEventPayload;
-use App\Domain\Accounting\DTO\AccountingEntry;
-use Throwable;
 use RuntimeException;
-
-use App\Services\Booking\BookingService;
-use App\Services\Booking\DTO\HoldBookingDTO;
-use App\Services\Booking\DTO\BookingLineDTO;
+use Throwable;
 
 class SalesService
 {
     private const MONEY_SCALE = 2;
+
     private const COST_SCALE = 4;
+
     private const QTY_SCALE = 3;
+
     private const QTY_TOLERANCE = 0.0005;
 
     public function __construct(
@@ -55,8 +57,7 @@ class SalesService
         private readonly InventoryService $inventoryService,
         private readonly AccountingEventBus $accountingEventBus,
         private readonly BookingService $bookingService,
-    ) {
-    }
+    ) {}
 
     public function create(array $payload, ?Authenticatable $actor = null): SalesOrder
     {
@@ -66,7 +67,7 @@ class SalesService
             $branch = $this->resolveBranch($payload['branch_id'] ?? null);
             $companyId = $branch->branchGroup?->company_id;
 
-            if (!$companyId) {
+            if (! $companyId) {
                 throw new SalesOrderException('Cabang belum terhubung dengan perusahaan.');
             }
 
@@ -76,7 +77,7 @@ class SalesService
             $priceList = $this->resolvePriceList($payload['price_list_id'] ?? null, $companyId);
             $currencyId = $payload['currency_id'] ?? $priceList?->currency_id;
 
-            if (!$currencyId || !Currency::query()->whereKey($currencyId)->exists()) {
+            if (! $currencyId || ! Currency::query()->whereKey($currencyId)->exists()) {
                 throw new SalesOrderException('Mata uang tidak valid.');
             }
 
@@ -152,7 +153,7 @@ class SalesService
     {
         $actor ??= Auth::user();
 
-        if (!in_array($salesOrder->status, [
+        if (! in_array($salesOrder->status, [
             SalesOrderStatus::DRAFT->value,
             SalesOrderStatus::QUOTE->value,
         ], true)) {
@@ -163,7 +164,7 @@ class SalesService
             $branch = $this->resolveBranch($payload['branch_id'] ?? null);
             $companyId = $branch->branchGroup?->company_id;
 
-            if (!$companyId) {
+            if (! $companyId) {
                 throw new SalesOrderException('Cabang belum terhubung dengan perusahaan.');
             }
 
@@ -173,7 +174,7 @@ class SalesService
             $priceList = $this->resolvePriceList($payload['price_list_id'] ?? null, $companyId);
             $currencyId = $payload['currency_id'] ?? $priceList?->currency_id;
 
-            if (!$currencyId || !Currency::query()->whereKey($currencyId)->exists()) {
+            if (! $currencyId || ! Currency::query()->whereKey($currencyId)->exists()) {
                 throw new SalesOrderException('Mata uang tidak valid.');
             }
 
@@ -248,7 +249,7 @@ class SalesService
 
     public function delete(SalesOrder $salesOrder): void
     {
-        if (!in_array($salesOrder->status, [
+        if (! in_array($salesOrder->status, [
             SalesOrderStatus::DRAFT->value,
             SalesOrderStatus::QUOTE->value,
         ], true)) {
@@ -282,7 +283,7 @@ class SalesService
     {
         $actor ??= Auth::user();
 
-        if (!in_array($salesOrder->status, [
+        if (! in_array($salesOrder->status, [
             SalesOrderStatus::DRAFT->value,
             SalesOrderStatus::QUOTE->value,
         ], true)) {
@@ -345,7 +346,7 @@ class SalesService
                 heldUntil: null,
                 depositAmount: 0,
                 sourceChannel: 'sales_order',
-                notes: 'Generated from Sales Order ' . $salesOrder->order_number,
+                notes: 'Generated from Sales Order '.$salesOrder->order_number,
                 lines: $linesDto
             );
 
@@ -377,7 +378,7 @@ class SalesService
             if ($result->availableQty < $line->quantity) {
                 $productName = $line->product->name ?? 'Product';
                 throw new SalesOrderException(
-                    "Kapasitas tidak tersedia untuk {$productName}. " .
+                    "Kapasitas tidak tersedia untuk {$productName}. ".
                     "Tersedia: {$result->availableQty}, Dibutuhkan: {$line->quantity}"
                 );
             }
@@ -424,7 +425,7 @@ class SalesService
 
     public function applyReservation(SalesOrder $salesOrder): SalesOrder
     {
-        if (!$salesOrder->reserve_stock) {
+        if (! $salesOrder->reserve_stock) {
             throw new SalesOrderException('Reservasi stok tidak diaktifkan untuk Sales Order ini.');
         }
 
@@ -445,7 +446,7 @@ class SalesService
 
         DB::transaction(function () use ($salesOrder, $strictness) {
             foreach ($salesOrder->lines as $line) {
-                if (!$line->reservation_location_id) {
+                if (! $line->reservation_location_id) {
                     throw new SalesOrderException('Lokasi pemenuhan wajib diisi untuk melakukan reservasi stok.');
                 }
 
@@ -472,7 +473,7 @@ class SalesService
 
     public function releaseReservation(SalesOrder $salesOrder): SalesOrder
     {
-        if (!$salesOrder->reservation_applied_at) {
+        if (! $salesOrder->reservation_applied_at) {
             return $salesOrder;
         }
 
@@ -519,7 +520,7 @@ class SalesService
     {
         $actor ??= Auth::user();
 
-        if (!in_array($salesOrder->status, [
+        if (! in_array($salesOrder->status, [
             SalesOrderStatus::CONFIRMED->value,
             SalesOrderStatus::PARTIALLY_DELIVERED->value,
         ], true)) {
@@ -537,19 +538,19 @@ class SalesService
             'currency',
         ]);
 
-        if (!$salesOrder->lines->count()) {
+        if (! $salesOrder->lines->count()) {
             throw new SalesOrderException('Sales Order tidak memiliki detail barang.');
         }
 
-        if (empty($payload['lines']) || !is_array($payload['lines'])) {
+        if (empty($payload['lines']) || ! is_array($payload['lines'])) {
             throw new SalesOrderException('Minimal satu baris pengiriman harus dipilih.');
         }
 
-        if (!isset($payload['delivery_date'])) {
+        if (! isset($payload['delivery_date'])) {
             throw new SalesOrderException('Tanggal pengiriman wajib diisi.');
         }
 
-        if (!isset($payload['location_id'])) {
+        if (! isset($payload['location_id'])) {
             throw new SalesOrderException('Lokasi pengiriman wajib dipilih.');
         }
 
@@ -583,6 +584,7 @@ class SalesService
                 /** @var SalesOrderLine $line */
                 $line = $plan['order_line'];
                 $product = $line->variant?->product ?? $line->product;
+
                 return $product && $product->hasCapability('inventory_tracked');
             });
 
@@ -604,7 +606,7 @@ class SalesService
             );
 
             $result = null;
-            if (!empty($inventoryItems)) {
+            if (! empty($inventoryItems)) {
                 $result = $this->inventoryService->issue($issueDto);
             }
 
@@ -678,7 +680,9 @@ class SalesService
                     // Get the relative index of this item in $inventoryItems
                     $inventoryIndex = 0;
                     foreach ($inventoryItems as $key => $val) {
-                        if ($key == $index) break;
+                        if ($key == $index) {
+                            break;
+                        }
                         $inventoryIndex++;
                     }
 
@@ -811,7 +815,7 @@ class SalesService
             if ($so->branch_id !== $branchId) {
                 throw new SalesOrderException('Semua Sales Order harus memiliki cabang yang sama.');
             }
-            if (!in_array($so->status, [
+            if (! in_array($so->status, [
                 SalesOrderStatus::CONFIRMED->value,
                 SalesOrderStatus::PARTIALLY_DELIVERED->value,
             ], true)) {
@@ -819,15 +823,15 @@ class SalesService
             }
         }
 
-        if (empty($payload['lines']) || !is_array($payload['lines'])) {
+        if (empty($payload['lines']) || ! is_array($payload['lines'])) {
             throw new SalesOrderException('Minimal satu baris pengiriman harus dipilih.');
         }
 
-        if (!isset($payload['delivery_date'])) {
+        if (! isset($payload['delivery_date'])) {
             throw new SalesOrderException('Tanggal pengiriman wajib diisi.');
         }
 
-        if (!isset($payload['location_id'])) {
+        if (! isset($payload['location_id'])) {
             throw new SalesOrderException('Lokasi pengiriman wajib dipilih.');
         }
 
@@ -860,7 +864,7 @@ class SalesService
 
             /** @var SalesOrderLine|null $soLine */
             $soLine = $allSOLines[$soLineId] ?? null;
-            if (!$soLine) {
+            if (! $soLine) {
                 throw new SalesOrderException("Baris Sales Order (ID: {$soLineId}) tidak ditemukan.");
             }
 
@@ -880,7 +884,7 @@ class SalesService
             $lineTotal = $this->roundMoney($quantity * (float) $soLine->unit_price);
 
             $product = $soLine->variant?->product ?? $soLine->product;
-            if (!$product || !$product->hasCapability('deliverable')) {
+            if (! $product || ! $product->hasCapability('deliverable')) {
                 continue;
             }
 
@@ -917,6 +921,7 @@ class SalesService
                 /** @var SalesOrderLine $line */
                 $line = $plan['order_line'];
                 $product = $line->variant?->product ?? $line->product;
+
                 return $product && $product->hasCapability('inventory_tracked');
             });
 
@@ -938,11 +943,13 @@ class SalesService
             );
 
             $result = null;
-            if (!empty($inventoryItems)) {
+            if (! empty($inventoryItems)) {
                 $result = $this->inventoryService->issue($issueDto);
             }
 
             $deliveryNumber = $this->generateDeliveryNumber($companyId, $branchId, $deliveryDate);
+
+            $firstSO = $salesOrders->first();
 
             $delivery = SalesDelivery::create([
                 'company_id' => $companyId,
@@ -954,6 +961,10 @@ class SalesService
                 'status' => SalesDeliveryStatus::DRAFT->value,
                 'delivery_date' => $deliveryDate,
                 'exchange_rate' => $exchangeRate,
+                'shipping_type' => $firstSO->shipping_type,
+                'shipping_provider_id' => $firstSO->shipping_provider_id,
+                'shipping_address_id' => $payload['shipping_address_id'] ?? $firstSO->shipping_address_id,
+                'invoice_address_id' => $payload['invoice_address_id'] ?? $firstSO->invoice_address_id,
                 'notes' => $payload['notes'] ?? null,
                 'created_by' => $actor?->getAuthIdentifier(),
             ]);
@@ -979,7 +990,9 @@ class SalesService
                 if ($isInventoryItem && $result) {
                     $inventoryIndex = 0;
                     foreach ($inventoryItems as $key => $val) {
-                        if ($key == $index) break;
+                        if ($key == $index) {
+                            break;
+                        }
                         $inventoryIndex++;
                     }
 
@@ -1070,6 +1083,21 @@ class SalesService
             $firstSO = $salesOrders->first();
             $this->dispatchDeliveryEvent($delivery, $firstSO, $totalCogs, $actor);
 
+            // Create shipping cost if provided
+            if (! empty($payload['shipping_cost']) && (float) $payload['shipping_cost'] > 0) {
+                \App\Models\SalesDeliveryCost::create([
+                    'sales_delivery_id' => $delivery->id,
+                    'cost_item_id' => $payload['shipping_cost_item_id'] ?? null,
+                    'description' => $payload['shipping_cost_description'] ?? 'Biaya Pengiriman',
+                    'amount' => $payload['shipping_cost'],
+                    'currency_id' => $delivery->currency_id,
+                    'exchange_rate' => $delivery->exchange_rate,
+                ]);
+
+                // Post GL entries for shipping cost
+                $this->createDeliveryCostEntries($delivery, $actor);
+            }
+
             return $delivery;
         });
     }
@@ -1096,15 +1124,15 @@ class SalesService
             'location.branch.branchGroup.company',
         ]);
 
-        if (!$this->canModifyDelivery($delivery)) {
+        if (! $this->canModifyDelivery($delivery)) {
             throw new SalesOrderException('Pengiriman tidak dapat diubah karena sudah digunakan pada invoice.');
         }
 
-        if (!isset($payload['location_id'])) {
+        if (! isset($payload['location_id'])) {
             throw new SalesOrderException('Lokasi pengiriman wajib dipilih.');
         }
 
-        if (!isset($payload['delivery_date'])) {
+        if (! isset($payload['delivery_date'])) {
             throw new SalesOrderException('Tanggal pengiriman wajib diisi.');
         }
 
@@ -1183,7 +1211,7 @@ class SalesService
                 }
 
                 $soLine = $allSOLines[$soLineId] ?? null;
-                if (!$soLine) {
+                if (! $soLine) {
                     throw new SalesOrderException("Baris Sales Order (ID: {$soLineId}) tidak ditemukan.");
                 }
 
@@ -1203,7 +1231,7 @@ class SalesService
                 $lineTotal = $this->roundMoney($quantity * (float) $soLine->unit_price);
 
                 $product = $soLine->variant?->product ?? $soLine->product;
-                if (!$product || !$product->hasCapability('deliverable')) {
+                if (! $product || ! $product->hasCapability('deliverable')) {
                     continue;
                 }
 
@@ -1224,6 +1252,7 @@ class SalesService
                 /** @var SalesOrderLine $line */
                 $line = $plan['order_line'];
                 $product = $line->variant?->product ?? $line->product;
+
                 return $product && $product->hasCapability('inventory_tracked');
             });
 
@@ -1246,7 +1275,7 @@ class SalesService
             );
 
             $result = null;
-            if (!empty($inventoryItems)) {
+            if (! empty($inventoryItems)) {
                 $result = $this->inventoryService->issue($issueDto);
             }
 
@@ -1268,7 +1297,9 @@ class SalesService
                 if ($isInventoryItem && $result) {
                     $inventoryIndex = 0;
                     foreach ($inventoryItems as $key => $val) {
-                        if ($key == $index) break;
+                        if ($key == $index) {
+                            break;
+                        }
                         $inventoryIndex++;
                     }
 
@@ -1333,7 +1364,6 @@ class SalesService
                 ]);
             }
 
-            
             // Sync all SO statuses
             foreach ($salesOrders as $so) {
                 $so->load('lines');
@@ -1373,7 +1403,7 @@ class SalesService
             'location.branch.branchGroup.company',
         ]);
 
-        if (!$this->canModifyDelivery($delivery)) {
+        if (! $this->canModifyDelivery($delivery)) {
             throw new SalesOrderException('Pengiriman tidak dapat dihapus karena sudah digunakan pada invoice.');
         }
 
@@ -1482,7 +1512,7 @@ class SalesService
     }
 
     /**
-     * @param array<int, array<string, mixed>> $lines
+     * @param  array<int, array<string, mixed>>  $lines
      * @return array{subtotal: float, tax_total: float, total_amount: float}
      */
     private function persistLines(
@@ -1506,7 +1536,7 @@ class SalesService
             $baseUom = null;
 
             // Handle both products with and without variants
-            if (!empty($line['product_variant_id'])) {
+            if (! empty($line['product_variant_id'])) {
                 $variant = ProductVariant::with([
                     'product.companies:id',
                     'product.taxCategory',
@@ -1526,7 +1556,7 @@ class SalesService
                 $baseUom = $product->defaultUom;
             }
 
-            if (!$product->companies->pluck('id')->contains($branch->branchGroup?->company_id)) {
+            if (! $product->companies->pluck('id')->contains($branch->branchGroup?->company_id)) {
                 throw new SalesOrderException('Produk tidak tersedia untuk perusahaan ini.');
             }
 
@@ -1535,7 +1565,7 @@ class SalesService
                 throw new SalesOrderException('Satuan tidak valid untuk perusahaan ini.');
             }
 
-            if (!$baseUom) {
+            if (! $baseUom) {
                 throw new SalesOrderException('Produk tidak memiliki satuan dasar yang valid.');
             }
 
@@ -1631,7 +1661,7 @@ class SalesService
         $salesOrder->costs()->delete();
 
         foreach ($costs as $cost) {
-            if (!isset($cost['amount']) || (float) $cost['amount'] <= 0) {
+            if (! isset($cost['amount']) || (float) $cost['amount'] <= 0) {
                 continue;
             }
 
@@ -1647,7 +1677,7 @@ class SalesService
     }
 
     /**
-     * @param array<int, array<string, mixed>> $linesPayload
+     * @param  array<int, array<string, mixed>>  $linesPayload
      * @return array<int, array<string, mixed>>
      */
     private function prepareDeliveryLines(SalesOrder $salesOrder, array $linesPayload): array
@@ -1661,7 +1691,7 @@ class SalesService
         $prepared = [];
 
         foreach ($salesOrder->lines as $line) {
-            if (!$payloadMap->has($line->id)) {
+            if (! $payloadMap->has($line->id)) {
                 continue;
             }
 
@@ -1686,7 +1716,7 @@ class SalesService
             }
 
             $product = $line->variant?->product ?? $line->product;
-            if (!$product || !$product->hasCapability('deliverable')) {
+            if (! $product || ! $product->hasCapability('deliverable')) {
                 continue;
             }
 
@@ -1708,7 +1738,7 @@ class SalesService
 
     private function consumeReservation(SalesOrderLine $line, float $quantityBase): void
     {
-        if ($quantityBase <= 0 || !$line->reservation_location_id) {
+        if ($quantityBase <= 0 || ! $line->reservation_location_id) {
             return;
         }
 
@@ -1741,7 +1771,7 @@ class SalesService
 
         $hasRemaining = $salesOrder->lines->contains(function ($line) {
             $product = $line->variant?->product ?? $line->product;
-            if (!$product || !$product->hasCapability('deliverable')) {
+            if (! $product || ! $product->hasCapability('deliverable')) {
                 return false;
             }
 
@@ -1756,7 +1786,7 @@ class SalesService
             return;
         }
 
-        if (!in_array($currentStatus, [SalesOrderStatus::DELIVERED, SalesOrderStatus::CLOSED], true)) {
+        if (! in_array($currentStatus, [SalesOrderStatus::DELIVERED, SalesOrderStatus::CLOSED], true)) {
             $salesOrder->transitionTo(SalesOrderStatus::DELIVERED, $actor);
         }
     }
@@ -1788,7 +1818,7 @@ class SalesService
             ->orderByDesc('delivery_number')
             ->value('delivery_number');
 
-        if (!$latest) {
+        if (! $latest) {
             return 1;
         }
 
@@ -1833,6 +1863,58 @@ class SalesService
         });
     }
 
+    private function createDeliveryCostEntries(SalesDelivery $delivery, ?Authenticatable $actor): void
+    {
+        $delivery->load('costs.costItem');
+
+        $validCosts = $delivery->costs->filter(function ($cost) {
+            return $cost->costItem
+                && $cost->costItem->debit_account_id
+                && $cost->costItem->credit_account_id
+                && (float) $cost->amount > 0;
+        });
+
+        if ($validCosts->isEmpty()) {
+            return;
+        }
+
+        $journal = \App\Models\Journal::create([
+            'branch_id' => $delivery->branch_id,
+            'user_global_id' => $actor?->getAuthIdentifier(),
+            'date' => $delivery->delivery_date,
+            'journal_type' => 'sales',
+            'reference_number' => $delivery->delivery_number,
+            'description' => "Delivery Costs - {$delivery->delivery_number}",
+        ]);
+
+        foreach ($validCosts as $cost) {
+            $amount = (float) $cost->amount;
+            $amountBase = $amount * (float) $cost->exchange_rate;
+
+            // Debit expense account
+            $journal->journalEntries()->create([
+                'account_id' => $cost->costItem->debit_account_id,
+                'debit' => $amountBase,
+                'credit' => 0,
+                'currency_id' => $cost->currency_id,
+                'exchange_rate' => $cost->exchange_rate,
+                'debit_foreign' => $amount,
+                'credit_foreign' => 0,
+            ]);
+
+            // Credit offset account
+            $journal->journalEntries()->create([
+                'account_id' => $cost->costItem->credit_account_id,
+                'debit' => 0,
+                'credit' => $amountBase,
+                'currency_id' => $cost->currency_id,
+                'exchange_rate' => $cost->exchange_rate,
+                'debit_foreign' => 0,
+                'credit_foreign' => $amount,
+            ]);
+        }
+    }
+
     private function resolveCustomer(int $partnerId, int $companyId): Partner
     {
         /** @var Partner $partner */
@@ -1841,11 +1923,11 @@ class SalesService
         $isCustomer = $partner->roles->pluck('role')->contains('customer');
         $belongsToCompany = $partner->companies->pluck('id')->contains($companyId);
 
-        if (!$isCustomer) {
+        if (! $isCustomer) {
             throw new SalesOrderException('Partner terpilih bukan pelanggan.');
         }
 
-        if (!$belongsToCompany) {
+        if (! $belongsToCompany) {
             throw new SalesOrderException('Pelanggan tidak terdaftar pada perusahaan ini.');
         }
 
@@ -1854,7 +1936,7 @@ class SalesService
 
     private function resolveBranch(?int $branchId): Branch
     {
-        if (!$branchId) {
+        if (! $branchId) {
             throw new SalesOrderException('Cabang wajib dipilih.');
         }
 
@@ -1863,7 +1945,7 @@ class SalesService
 
     private function resolvePriceList(?int $priceListId, int $companyId): ?PriceList
     {
-        if (!$priceListId) {
+        if (! $priceListId) {
             return null;
         }
 
@@ -1958,7 +2040,7 @@ class SalesService
 
     private function assertCompanyMatch(?int $requestedCompanyId, int $branchCompanyId): void
     {
-        if (!$requestedCompanyId) {
+        if (! $requestedCompanyId) {
             throw new SalesOrderException('Perusahaan wajib dipilih.');
         }
 
@@ -1995,7 +2077,7 @@ class SalesService
             ->orderByDesc('order_number')
             ->value('order_number');
 
-        if (!$latest) {
+        if (! $latest) {
             return 1;
         }
 
@@ -2022,7 +2104,7 @@ class SalesService
 
     private function resolveReservationLocation(?int $locationId, int $branchId, bool $reserveStock): ?int
     {
-        if (!$locationId) {
+        if (! $locationId) {
             if ($reserveStock) {
                 throw new SalesOrderException('Lokasi pemenuhan wajib dipilih saat reservasi stok aktif.');
             }
@@ -2050,7 +2132,7 @@ class SalesService
             ->lockForUpdate()
             ->first();
 
-        if (!$item) {
+        if (! $item) {
             $item = InventoryItem::create([
                 'product_variant_id' => $line->product_variant_id,
                 'location_id' => $locationId,
@@ -2095,5 +2177,3 @@ class SalesService
         return $baseQty * $ratio;
     }
 }
-
-

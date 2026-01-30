@@ -29,6 +29,14 @@ const props = defineProps({
     customers: Array,
     locations: Array,
     filters: Object,
+    costItems: {
+        type: Array,
+        default: () => [],
+    },
+    shippingTypeOptions: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const today = new Date().toISOString().split('T')[0];
@@ -84,6 +92,11 @@ const form = useForm({
     notes: '',
     lines: buildInitialLines(),
     shipping_address_id: null,
+    shipping_type: null,
+    shipping_provider_id: null,
+    shipping_cost: 0,
+    shipping_cost_item_id: null,
+    shipping_cost_description: '',
 });
 
 const allSoLines = computed(() => {
@@ -302,6 +315,20 @@ watch(
     { immediate: true }
 );
 
+// Helper methods for shipping display
+function getShippingTypeLabel(type) {
+    if (!type) return '-';
+    return props.shippingTypeOptions[type] || type;
+}
+
+function getShippingProviderName() {
+    if (!form.shipping_provider_id || !props.selectedSalesOrders || props.selectedSalesOrders.length === 0) {
+        return '-';
+    }
+    const firstSO = props.selectedSalesOrders[0];
+    return firstSO.shipping_provider?.name || '-';
+}
+
 // Auto-select on mount
 onMounted(() => {
     // Auto-select company if only one
@@ -319,6 +346,12 @@ onMounted(() => {
     if (selectedCustomerId.value) {
         fetchPartnerAddresses(selectedCustomerId.value);
     }
+    // Populate shipping info from first selected SO
+    if (props.selectedSalesOrders && props.selectedSalesOrders.length > 0) {
+        const firstSO = props.selectedSalesOrders[0];
+        form.shipping_type = firstSO.shipping_type;
+        form.shipping_provider_id = firstSO.shipping_provider_id;
+    }
 });
 
 const salesOrderOptions = computed(() => {
@@ -335,6 +368,15 @@ const locationOptions = computed(() => {
         label: loc.name,
         description: loc.code,
     }));
+});
+
+const costItemOptions = computed(() => {
+    return (props.costItems || [])
+        .filter(ci => ci.is_active)
+        .map(ci => ({
+            value: ci.id,
+            label: `${ci.code} - ${ci.name}`,
+        }));
 });
 
 function filteredLinesPayload(lines) {
@@ -460,6 +502,48 @@ const customerTableHeaders = [
                     label="Catatan:"
                     :error="form.errors.notes"
                 />
+
+                <!-- Shipping Information (read-only, inherited from SO) -->
+                <div v-if="props.selectedSalesOrders && props.selectedSalesOrders.length > 0" class="grid grid-cols-2 gap-4 mt-4">
+                    <AppInput
+                        :model-value="getShippingTypeLabel(form.shipping_type)"
+                        label="Tipe Pengiriman:"
+                        readonly
+                        disabled
+                    />
+                    <AppInput
+                        :model-value="getShippingProviderName()"
+                        label="Penyedia Pengiriman:"
+                        readonly
+                        disabled
+                    />
+                </div>
+
+                <!-- Actual Shipping Cost -->
+                <div class="grid grid-cols-3 gap-4 mt-4">
+                    <AppSelect
+                        v-model="form.shipping_cost_item_id"
+                        :options="costItemOptions"
+                        label="Item Biaya Pengiriman:"
+                        placeholder="Pilih Cost Item"
+                        :error="form.errors?.shipping_cost_item_id"
+                    />
+                    <AppInput
+                        v-model="form.shipping_cost"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        label="Biaya Pengiriman Aktual:"
+                        placeholder="0.00"
+                        :error="form.errors?.shipping_cost"
+                    />
+                    <AppInput
+                        v-model="form.shipping_cost_description"
+                        label="Deskripsi:"
+                        placeholder="Biaya Pengiriman"
+                        :error="form.errors?.shipping_cost_description"
+                    />
+                </div>
             </div>
 
             <div class="w-1/3 bg-gray-100 p-4 rounded-lg text-sm">

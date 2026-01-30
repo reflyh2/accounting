@@ -127,10 +127,11 @@ watch(() => page.props.flash, (newFlash, oldFlash) => {
 
 // Add this computed property to check if any settings route is active
 const isSettingsActive = computed(() => {
-    return route().current('companies.*') 
-        || route().current('branches.*') 
+    return route().current('companies.*')
+        || route().current('branches.*')
         || route().current('branch-groups.*')
         || route().current('partners.*')
+        || route().current('shipping-providers.*')
         || route().current('roles.*')
         || route().current('users.*')
         || route().current('tax-jurisdictions.*')
@@ -766,13 +767,18 @@ const onboardingStep = computed(() => {
                             />
                         </DisclosureButton>
                         <DisclosurePanel class="mt-1 space-y-1 text-sm">
-                            <ResponsiveNavLink :href="route('general-settings.index')" :active="route().current('general-settings.*')" class="pl-11">
+                            <ResponsiveNavLink
+                                v-if="canViewCompanies"
+                                :href="route('general-settings.index')"
+                                :active="route().current('general-settings.*')"
+                                class="pl-11"
+                            >
                                 General
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink 
+                            <ResponsiveNavLink
                                 v-if="canViewCompanies"
-                                :href="route('companies.index')" 
-                                :active="route().current('companies.*') || route().current('branches.*') || route().current('branch-groups.*')" 
+                                :href="route('companies.index')"
+                                :active="route().current('companies.*') || route().current('branches.*') || route().current('branch-groups.*')"
                                 class="pl-11"
                             >
                                 Perusahaan
@@ -780,13 +786,21 @@ const onboardingStep = computed(() => {
                             <ResponsiveNavLink v-if="canViewPartners" :href="route('partners.index')" :active="route().current('partners.*')" class="pl-11">
                                 Partner Bisnis
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink 
+                            <ResponsiveNavLink
+                                v-if="canViewCompanies"
+                                :href="route('shipping-providers.index')"
+                                :active="route().current('shipping-providers.*')"
+                                class="pl-11"
+                            >
+                                Penyedia Pengiriman
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
                                 v-if="canViewRoles"
-                                :href="route('roles.index')" 
+                                :href="route('roles.index')"
                                 :active="
                                     route().current('roles.*')
                                     || route().current('users.*')
-                                " 
+                                "
                                 class="pl-11"
                             >
                                 Hak Akses Pengguna
@@ -1864,28 +1878,41 @@ const onboardingStep = computed(() => {
                                 <div class="absolute left-full top-0 w-64 bg-white shadow-lg rounded-md border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-10" style="margin-left: 8px;">
                                     <div class="p-2">
                                         <div class="font-medium text-gray-800 px-2 py-1 border-b border-gray-200 mb-2">Pengaturan</div>
-                                        <NavLink :href="route('general-settings.index')" :active="route().current('general-settings.*')" class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded">
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('general-settings.index')"
+                                            :active="route().current('general-settings.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
                                             General
                                         </NavLink>
-                                        <NavLink 
+                                        <NavLink
                                             v-if="canViewCompanies"
-                                            :href="route('companies.index')" 
+                                            :href="route('companies.index')"
                                             :active="
-                                                route().current('companies.*') 
-                                                || route().current('branches.*') 
+                                                route().current('companies.*')
+                                                || route().current('branches.*')
                                                 || route().current('branch-groups.*')
-                                            " 
+                                            "
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Perusahaan
                                         </NavLink>
                                         <NavLink v-if="canViewPartners" :href="route('partners.index')"
-                                            :active="route().current('partners.*')" 
+                                            :active="route().current('partners.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Partner Bisnis
                                         </NavLink>
-                                        <NavLink 
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('shipping-providers.index')"
+                                            :active="route().current('shipping-providers.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Penyedia Pengiriman
+                                        </NavLink>
+                                        <NavLink
                                             v-if="canViewRoles"
                                             :href="route('roles.index')" 
                                             :active="
@@ -1951,34 +1978,47 @@ const onboardingStep = computed(() => {
                                         />
                                     </DisclosureButton>
                                     <DisclosurePanel class="mt-2 space-y-2 pl-8">
-                                        <NavLink :href="route('general-settings.index')" :active="route().current('general-settings.*')" class="flex items-center">
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('general-settings.index')"
+                                            :active="route().current('general-settings.*')"
+                                            class="flex items-center"
+                                        >
                                             General
                                         </NavLink>
-                                        <NavLink 
+                                        <NavLink
                                             v-if="canViewCompanies"
-                                            :href="route('companies.index')" 
+                                            :href="route('companies.index')"
                                             :active="
-                                                route().current('companies.*') 
-                                                || route().current('branches.*') 
+                                                route().current('companies.*')
+                                                || route().current('branches.*')
                                                 || route().current('branch-groups.*')
-                                            " 
+                                            "
                                             class="flex items-center"
                                         >
                                             Perusahaan
                                         </NavLink>
                                         <NavLink v-if="canViewPartners" :href="route('partners.index')"
-                                            :active="route().current('partners.*')" 
+                                            :active="route().current('partners.*')"
                                             class="flex items-center"
                                         >
                                             Partner Bisnis
                                         </NavLink>
-                                        <NavLink 
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('shipping-providers.index')"
+                                            :active="route().current('shipping-providers.*')"
+                                            class="flex items-center"
+                                        >
+                                            Penyedia Pengiriman
+                                        </NavLink>
+                                        <NavLink
                                             v-if="canViewRoles"
-                                            :href="route('roles.index')" 
+                                            :href="route('roles.index')"
                                             :active="
                                                 route().current('roles.*')
                                                 || route().current('users.*')
-                                            " 
+                                            "
                                             class="flex items-center"
                                         >
                                             Hak Akses Pengguna

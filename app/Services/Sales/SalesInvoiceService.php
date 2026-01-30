@@ -841,11 +841,13 @@ class SalesInvoiceService
         );
 
         $invoiceBaseAmount = $this->roundCost(($totals['total_amount'] * $exchangeRate));
+        $shippingBase = $this->roundCost((float) $invoice->shipping_charge * $exchangeRate);
 
         $payload->setLines(
             array_filter([
                 AccountingEntry::debit('accounts_receivable', $invoiceBaseAmount),
                 AccountingEntry::credit('sales_revenue', $totals['delivery_value_base']),
+                $shippingBase > 0 ? AccountingEntry::credit('shipping_revenue', $shippingBase) : null,
                 $totals['revenue_variance'] !== 0.0
                     ? ($totals['revenue_variance'] > 0
                         ? AccountingEntry::credit('revenue_variance', abs($totals['revenue_variance']))
@@ -891,12 +893,14 @@ class SalesInvoiceService
 
         $baseAmount = $this->roundCost($totalAmount * $exchangeRate);
         $taxBase = $this->roundCost((float) $invoice->tax_total * $exchangeRate);
+        $shippingBase = $this->roundCost((float) $invoice->shipping_charge * $exchangeRate);
         $revenueBase = $this->roundCost((float) $invoice->subtotal * $exchangeRate);
 
         $payload->setLines(array_filter([
             AccountingEntry::debit('accounts_receivable', $baseAmount),
             AccountingEntry::credit('sales_revenue', $revenueBase),
             $taxBase > 0 ? AccountingEntry::credit('tax_payable', $taxBase) : null,
+            $shippingBase > 0 ? AccountingEntry::credit('shipping_revenue', $shippingBase) : null,
         ]));
 
         rescue(function () use ($payload) {

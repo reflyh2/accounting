@@ -9,15 +9,15 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\CostItem;
 use App\Models\Currency;
+use App\Models\DocumentTemplate;
 use App\Models\Location;
 use App\Models\Partner;
 use App\Models\Product;
 use App\Models\SalesOrder;
-use App\Models\DocumentTemplate;
 use App\Models\Uom;
 use App\Models\User;
-use App\Services\Sales\SalesService;
 use App\Services\DocumentTemplateService;
+use App\Services\Sales\SalesService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -102,7 +102,7 @@ class SalesOrderController extends Controller
         $order = $filters['order'] ?? 'desc';
         $allowedSorts = ['order_date', 'order_number', 'status', 'total_amount'];
 
-        if (!in_array($sort, $allowedSorts, true)) {
+        if (! in_array($sort, $allowedSorts, true)) {
             $sort = 'order_date';
         }
 
@@ -378,6 +378,10 @@ class SalesOrderController extends Controller
             'costItems' => CostItem::where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'code', 'name', 'company_id']),
+            'shippingProviders' => \App\Models\ShippingProvider::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'code', 'name', 'type']),
+            'shippingTypeOptions' => \App\Enums\ShippingProviderType::options(),
             'users' => User::orderBy('name')
                 ->get(['global_id', 'name', 'email'])
                 ->map(fn (User $user) => [
@@ -427,5 +431,3 @@ class SalesOrderController extends Controller
         ]);
     }
 }
-
-

@@ -14,11 +14,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SalesOrder extends Model
 {
+    use Auditable;
+    use DocumentStateMachine;
+    use HasAccessLevelScope;
     use HasFactory;
     use SoftDeletes;
-    use DocumentStateMachine;
-    use Auditable;
-    use HasAccessLevelScope;
 
     protected $guarded = [];
 
@@ -37,6 +37,7 @@ class SalesOrder extends Model
         'canceled_at' => 'datetime',
         'subtotal' => 'decimal:2',
         'tax_total' => 'decimal:2',
+        'estimated_shipping_charge' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'exchange_rate' => 'decimal:6',
     ];
@@ -98,6 +99,11 @@ class SalesOrder extends Model
         return $this->belongsTo(CompanyBankAccount::class);
     }
 
+    public function shippingProvider()
+    {
+        return $this->belongsTo(ShippingProvider::class);
+    }
+
     public function lines()
     {
         return $this->hasMany(SalesOrderLine::class)->orderBy('line_number');
@@ -133,5 +139,3 @@ class SalesOrder extends Model
         return $this->belongsTo(User::class, 'sales_person_id', 'global_id');
     }
 }
-
-

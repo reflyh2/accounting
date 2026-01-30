@@ -17,11 +17,11 @@ use App\Http\Controllers\AssetFinancingAgreementController;
 use App\Http\Controllers\AssetFinancingPaymentController;
 use App\Http\Controllers\AssetFinancingScheduleController;
 use App\Http\Controllers\AssetInvoicePaymentController;
+use App\Http\Controllers\AssetMaintenanceController;
 use App\Http\Controllers\AssetPurchaseController;
 use App\Http\Controllers\AssetRentalController;
 use App\Http\Controllers\AssetSalesController;
 use App\Http\Controllers\AssetTransferController;
-use App\Http\Controllers\AssetMaintenanceController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
@@ -39,12 +39,16 @@ use App\Http\Controllers\CashBankBookController;
 use App\Http\Controllers\CashPaymentJournalController;
 use App\Http\Controllers\CashReceiptJournalController;
 use App\Http\Controllers\CompanyController;
-use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\CompanyDefaultAccountsController;
 use App\Http\Controllers\ComponentIssueController;
 use App\Http\Controllers\ComponentScrapController;
+use App\Http\Controllers\Costing\CostAllocationController;
+use App\Http\Controllers\Costing\CostEntryController;
+use App\Http\Controllers\Costing\CostItemController;
+use App\Http\Controllers\Costing\CostPoolController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\ExternalPayableAgingController;
 use App\Http\Controllers\ExternalPayableCardController;
 use App\Http\Controllers\ExternalPayableController;
@@ -60,7 +64,6 @@ use App\Http\Controllers\GeneralLedgerController;
 use App\Http\Controllers\GeneralSettingsController;
 use App\Http\Controllers\GlEventConfigurationController;
 use App\Http\Controllers\GoodsReceiptController;
-use App\Http\Controllers\OperationalReconciliationController;
 use App\Http\Controllers\IncomeReportController;
 use App\Http\Controllers\InternalDebtAgingController;
 use App\Http\Controllers\InternalDebtController;
@@ -70,6 +73,7 @@ use App\Http\Controllers\Inventory\ReceiveController;
 use App\Http\Controllers\Inventory\ShipController;
 use App\Http\Controllers\Inventory\TransferController;
 use App\Http\Controllers\JournalController;
+use App\Http\Controllers\OperationalReconciliationController;
 use App\Http\Controllers\PartnerBankAccountController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\ProductCategoryController;
@@ -79,24 +83,20 @@ use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\PurchasePlanController;
 use App\Http\Controllers\PurchaseReportController;
 use App\Http\Controllers\PurchaseReturnController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SalesDeliveryController;
 use App\Http\Controllers\SalesInvoiceController;
 use App\Http\Controllers\SalesOrderController;
 use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\SalesReturnController;
-use App\Http\Controllers\RoleController;
+use App\Http\Controllers\ShippingProviderController;
+use App\Http\Controllers\TaxCategoryController;
+use App\Http\Controllers\TaxComponentController;
+use App\Http\Controllers\TaxJurisdictionController;
+use App\Http\Controllers\TaxRuleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkOrderController;
-use App\Http\Controllers\TaxJurisdictionController;
-use App\Http\Controllers\TaxComponentController;
-use App\Http\Controllers\TaxCategoryController;
-use App\Http\Controllers\TaxRuleController;
-use App\Http\Controllers\Costing\CostEntryController;
-use App\Http\Controllers\Costing\CostPoolController;
-use App\Http\Controllers\Costing\CostItemController;
-use App\Http\Controllers\Costing\CostAllocationController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 use Stancl\Tenancy\Features\UserImpersonation;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomainOrSubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -313,6 +313,13 @@ Route::middleware([
         Route::get('partners/export-csv', [PartnerController::class, 'exportCSV'])->name('partners.export-csv');
         Route::get('partners/export-pdf', [PartnerController::class, 'exportPDF'])->name('partners.export-pdf');
         Route::resource('partners', PartnerController::class);
+
+        // Shipping Providers
+        Route::delete('shipping-providers/bulk-delete', [ShippingProviderController::class, 'bulkDelete'])->name('shipping-providers.bulk-delete');
+        Route::get('shipping-providers/export-xlsx', [ShippingProviderController::class, 'exportXLSX'])->name('shipping-providers.export-xlsx');
+        Route::get('shipping-providers/export-csv', [ShippingProviderController::class, 'exportCSV'])->name('shipping-providers.export-csv');
+        Route::get('shipping-providers/export-pdf', [ShippingProviderController::class, 'exportPDF'])->name('shipping-providers.export-pdf');
+        Route::resource('shipping-providers', ShippingProviderController::class);
 
         // Company Bank Accounts
         Route::resource('company-bank-accounts', \App\Http\Controllers\CompanyBankAccountController::class);
@@ -609,18 +616,17 @@ Route::middleware([
         // Costing Routes
         Route::prefix('costing')->name('costing.')->group(function () {
             Route::resource('cost-entries', CostEntryController::class)->only(['index', 'show']);
-            
+
             Route::delete('cost-pools/bulk-delete', [CostPoolController::class, 'bulkDelete'])->name('cost-pools.bulk-delete');
             Route::resource('cost-pools', CostPoolController::class);
-            
+
             Route::resource('cost-items', CostItemController::class);
-            
+
             Route::get('cost-allocations/batch', [CostAllocationController::class, 'batch'])->name('cost-allocations.batch');
             Route::post('cost-allocations/run-batch', [CostAllocationController::class, 'runBatch'])->name('cost-allocations.run-batch');
             Route::resource('cost-allocations', CostAllocationController::class)->only(['index', 'show']);
         });
 
-        
         Route::delete('goods-receipts/bulk-delete', [GoodsReceiptController::class, 'bulkDelete'])->name('goods-receipts.bulk-delete');
         Route::get('goods-receipts/export-xlsx', [GoodsReceiptController::class, 'exportXLSX'])->name('goods-receipts.export-xlsx');
         Route::get('goods-receipts/export-csv', [GoodsReceiptController::class, 'exportCSV'])->name('goods-receipts.export-csv');

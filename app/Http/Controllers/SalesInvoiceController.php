@@ -392,6 +392,7 @@ class SalesInvoiceController extends Controller
                 'lines.*.unit_price' => 'required|numeric|min:0',
                 'lines.*.discount_rate' => 'nullable|numeric|min:0|max:100',
                 'lines.*.tax_rate' => 'nullable|numeric|min:0',
+                'shipping_charge' => 'nullable|numeric|min:0',
             ]);
 
             $validated['sales_order_ids'] = [];
@@ -431,6 +432,7 @@ class SalesInvoiceController extends Controller
                 'lines.*.unit_price' => 'required|numeric|min:0',
                 'lines.*.discount_rate' => 'nullable|numeric|min:0|max:100',
                 'lines.*.tax_rate' => 'nullable|numeric|min:0',
+                'shipping_charge' => 'nullable|numeric|min:0',
             ]);
         }
 
@@ -628,6 +630,7 @@ class SalesInvoiceController extends Controller
             'is_direct_invoice' => $invoice->salesOrders->isEmpty(),
             'subtotal' => (float) $invoice->subtotal,
             'tax_total' => (float) $invoice->tax_total,
+            'shipping_charge' => (float) $invoice->shipping_charge,
             'total_amount' => (float) $invoice->total_amount,
             'currency_code' => $invoice->currency?->code,
         ];
@@ -648,6 +651,7 @@ class SalesInvoiceController extends Controller
             'exchange_rate' => (float) $invoice->exchange_rate,
             'subtotal' => (float) $invoice->subtotal,
             'tax_total' => (float) $invoice->tax_total,
+            'shipping_charge' => (float) $invoice->shipping_charge,
             'total_amount' => (float) $invoice->total_amount,
             'delivery_value_base' => (float) $invoice->delivery_value_base,
             'revenue_variance' => (float) $invoice->revenue_variance,
@@ -874,6 +878,7 @@ class SalesInvoiceController extends Controller
                 'status' => $salesInvoice->status,
                 'subtotal' => (float) $salesInvoice->subtotal,
                 'tax_total' => (float) $salesInvoice->tax_total,
+                'shipping_charge' => (float) $salesInvoice->shipping_charge,
                 'total_amount' => (float) $salesInvoice->total_amount,
                 'exchange_rate' => (float) $salesInvoice->exchange_rate,
                 'notes' => $salesInvoice->notes,

@@ -57,6 +57,8 @@ const mappedSalesOrder = {
                     :costItems="formOptions.costItems"
                     :users="formOptions.users"
                     :filters="filters"
+                    :shippingProviders="formOptions.shippingProviders"
+                    :shippingTypeOptions="formOptions.shippingTypeOptions"
                     mode="edit"
                     submit-label="Perbarui Sales Order"
                 />

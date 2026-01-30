@@ -38,6 +38,8 @@ const props = defineProps({
                     :costItems="formOptions.costItems"
                     :filters="filters"
                     :users="formOptions.users"
+                    :shippingProviders="formOptions.shippingProviders"
+                    :shippingTypeOptions="formOptions.shippingTypeOptions"
                     mode="create"
                     submit-label="Simpan Sales Order"
                 />

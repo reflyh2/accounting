@@ -81,6 +81,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    shippingProviders: {
+        type: Array,
+        default: () => [],
+    },
+    shippingTypeOptions: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const form = useForm({
@@ -113,6 +121,9 @@ const form = useForm({
     sales_person_id: props.salesOrder?.sales_person_id || page.props.auth?.user?.global_id || null,
     shipping_address_id: props.salesOrder?.shipping_address_id || null,
     invoice_address_id: props.salesOrder?.invoice_address_id || null,
+    shipping_type: props.salesOrder?.shipping_type || null,
+    shipping_provider_id: props.salesOrder?.shipping_provider_id || null,
+    estimated_shipping_charge: props.salesOrder?.estimated_shipping_charge || 0,
     create_another: false,
 });
 
@@ -165,6 +176,16 @@ const filteredLocations = computed(() => {
         return props.locations;
     }
     return props.locations.filter((location) => location.branch_id === form.branch_id);
+});
+
+const filteredShippingProviders = computed(() => {
+    if (!form.shipping_type) {
+        return [];
+    }
+
+    return props.shippingProviders
+        .filter(sp => sp.type === form.shipping_type)
+        .map(sp => ({ value: sp.id, label: sp.name }));
 });
 
 const variantLookup = computed(() => {
@@ -270,7 +291,7 @@ const totals = computed(() => {
     );
 });
 
-const grandTotal = computed(() => totals.value.subtotal + totals.value.tax);
+const grandTotal = computed(() => totals.value.subtotal + totals.value.tax + parseFloat(form.estimated_shipping_charge || 0));
 
 // Determine if we have stock-based or booking-based products in the lines
 const hasStockProducts = computed(() => {
@@ -781,6 +802,7 @@ function submitForm(createAnother = false) {
     <form @submit.prevent="submitForm(false)" class="space-y-4">
         <div class="flex justify-between">
             <div class="w-2/3 max-w-2xl mr-8">
+                <!-- Basic Information -->
                 <div class="grid grid-cols-2 gap-4">
                     <AppSelect
                         v-model="selectedCompany"
@@ -801,9 +823,7 @@ function submitForm(createAnother = false) {
                         :disabled="mode === 'edit' || !form.company_id"
                         required
                     />
-                </div>
 
-                <div class="grid grid-cols-2 gap-4 mt-4">
                     <AppInput
                         v-model="form.order_date"
                         type="date"
@@ -811,23 +831,6 @@ function submitForm(createAnother = false) {
                         required
                         :error="form.errors?.order_date"
                     />
-
-                    <div>
-                        <AppPopoverSearch
-                            v-model="form.partner_id"
-                            label="Pelanggan:"
-                            placeholder="Pilih Pelanggan"
-                            hint="Gunakan pencarian untuk menemukan pelanggan berdasarkan perusahaan yang dipilih."
-                            :url="customerSearchUrl"
-                            :tableHeaders="customerTableHeaders"
-                            :displayKeys="['code', 'name']"
-                            :initialDisplayValue="selectedCustomerLabel"
-                            :disabled="!form.company_id"
-                            modalTitle="Pilih Pelanggan"
-                            required
-                            :error="form.errors?.partner_id"
-                        />
-                    </div>
 
                     <AppSelect
                         v-model="form.sales_person_id"
@@ -837,26 +840,6 @@ function submitForm(createAnother = false) {
                         :error="form.errors?.sales_person_id"
                     />
 
-                    <AppSelect
-                        v-model="form.shipping_address_id"
-                        :options="[{ value: null, label: 'Sama dengan alamat utama' }, ...partnerAddresses.map((addr) => ({ value: addr.id, label: addr.name + ' - ' + addr.address }))]"
-                        label="Alamat Pengiriman:"
-                        :placeholder="partnerAddresses.length ? 'Pilih Alamat Pengiriman' : 'Partner tidak memiliki alamat tambahan'"
-                        :error="form.errors?.shipping_address_id"
-                        :disabled="!form.partner_id || partnerAddresses.length === 0"
-                    />
-
-                    <AppSelect
-                        v-model="form.invoice_address_id"
-                        :options="[{ value: null, label: 'Sama dengan alamat utama' }, ...partnerAddresses.map((addr) => ({ value: addr.id, label: addr.name + ' - ' + addr.address }))]"
-                        label="Alamat Tagihan:"
-                        :placeholder="partnerAddresses.length ? 'Pilih Alamat Tagihan' : 'Partner tidak memiliki alamat tambahan'"
-                        :error="form.errors?.invoice_address_id"
-                        :disabled="!form.partner_id || partnerAddresses.length === 0"
-                    />
-                </div>
-
-                <div class="grid grid-cols-2 gap-4 mt-4">
                     <AppSelect
                         v-model="form.currency_id"
                         :options="currencies.map((currency) => ({ value: currency.id, label: `${currency.code} — ${currency.name}` }))"
@@ -876,96 +859,176 @@ function submitForm(createAnother = false) {
                     />
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 mt-4">
-                    <AppInput
-                        v-if="hasStockProducts"
-                        v-model="form.expected_delivery_date"
-                        type="date"
-                        label="Estimasi Kirim:"
-                        :error="form.errors?.expected_delivery_date"
-                    />
+                <!-- Customer & Sales Information -->
+                <div class="mt-4 border-t pt-4">
+                    <h3 class="text-lg font-semibold mb-3">Informasi Pelanggan & Penjualan</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <AppPopoverSearch
+                                v-model="form.partner_id"
+                                label="Pelanggan:"
+                                placeholder="Pilih Pelanggan"
+                                hint="Gunakan pencarian untuk menemukan pelanggan berdasarkan perusahaan yang dipilih."
+                                :url="customerSearchUrl"
+                                :tableHeaders="customerTableHeaders"
+                                :displayKeys="['code', 'name']"
+                                :initialDisplayValue="selectedCustomerLabel"
+                                :disabled="!form.company_id"
+                                modalTitle="Pilih Pelanggan"
+                                required
+                                :error="form.errors?.partner_id"
+                            />
+                        </div>
 
-                    <AppSelect
-                        v-model="form.sales_channel"
-                        :options="channelOptions"
-                        label="Channel Penjualan:"
-                        :error="form.errors?.sales_channel"
-                    />
+                        <AppSelect
+                            v-model="form.sales_channel"
+                            :options="channelOptions"
+                            label="Channel Penjualan:"
+                            :error="form.errors?.sales_channel"
+                        />
+
+                        <AppInput
+                            v-model="form.customer_reference"
+                            label="Referensi Pelanggan:"
+                            placeholder="Nomor referensi (opsional)"
+                            :error="form.errors?.customer_reference"
+                        />
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 mt-4">
-                    <AppInput
-                        v-model="form.quote_valid_until"
-                        type="date"
-                        label="Berlaku Sampai:"
-                        :error="form.errors?.quote_valid_until"
-                    />
+                <!-- Address Information -->
+                <div class="mt-4 border-t pt-4">
+                    <h3 class="text-lg font-semibold mb-3">Alamat</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <AppSelect
+                            v-model="form.shipping_address_id"
+                            :options="[{ value: null, label: 'Sama dengan alamat utama' }, ...partnerAddresses.map((addr) => ({ value: addr.id, label: addr.name + ' - ' + addr.address }))]"
+                            label="Alamat Pengiriman:"
+                            :placeholder="partnerAddresses.length ? 'Pilih Alamat Pengiriman' : 'Partner tidak memiliki alamat tambahan'"
+                            :error="form.errors?.shipping_address_id"
+                            :disabled="!form.partner_id || partnerAddresses.length === 0"
+                        />
 
-                    <AppInput
-                        v-model="form.customer_reference"
-                        label="Referensi Pelanggan:"
-                        placeholder="Nomor referensi (opsional)"
-                        :error="form.errors?.customer_reference"
-                    />
+                        <AppSelect
+                            v-model="form.invoice_address_id"
+                            :options="[{ value: null, label: 'Sama dengan alamat utama' }, ...partnerAddresses.map((addr) => ({ value: addr.id, label: addr.name + ' - ' + addr.address }))]"
+                            label="Alamat Tagihan:"
+                            :placeholder="partnerAddresses.length ? 'Pilih Alamat Tagihan' : 'Partner tidak memiliki alamat tambahan'"
+                            :error="form.errors?.invoice_address_id"
+                            :disabled="!form.partner_id || partnerAddresses.length === 0"
+                        />
+                    </div>
                 </div>
 
-                <div class="mt-4">
-                    <AppInput
-                        v-model="form.payment_terms"
-                        label="Syarat Pembayaran:"
-                        placeholder="Net 30, COD, dll"
-                        :error="form.errors?.payment_terms"
-                    />
+                <!-- Shipping Information -->
+                <div class="mt-4 border-t pt-4">
+                    <h3 class="text-lg font-semibold mb-3">Informasi Pengiriman</h3>
+                    <div class="grid grid-cols-3 gap-4">
+                        <AppSelect
+                            v-model="form.shipping_type"
+                            :options="Object.entries(props.shippingTypeOptions).map(([value, label]) => ({ value, label }))"
+                            label="Tipe Pengiriman:"
+                            placeholder="Pilih Tipe Pengiriman"
+                            :error="form.errors?.shipping_type"
+                        />
+
+                        <AppSelect
+                            v-if="form.shipping_type"
+                            v-model="form.shipping_provider_id"
+                            :options="filteredShippingProviders"
+                            label="Penyedia Pengiriman:"
+                            placeholder="Pilih Penyedia"
+                            :error="form.errors?.shipping_provider_id"
+                        />
+
+                        <AppInput
+                            v-if="form.shipping_provider_id"
+                            v-model="form.estimated_shipping_charge"
+                            numberFormat="true"
+                            label="Estimasi Biaya Pengiriman:"
+                            placeholder="0.00"
+                            :error="form.errors?.estimated_shipping_charge"
+                        />
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 mt-4">
-                    <AppSelect
-                        v-model="form.payment_method"
-                        :options="paymentMethodOptions"
-                        label="Metode Pembayaran:"
-                        :error="form.errors?.payment_method"
-                    />
+                <!-- Delivery & Quote Information -->
+                <div class="mt-4 border-t pt-4">
+                    <h3 class="text-lg font-semibold mb-3">Pengiriman & Penawaran</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <AppInput
+                            v-if="hasStockProducts"
+                            v-model="form.expected_delivery_date"
+                            type="date"
+                            label="Estimasi Kirim:"
+                            :error="form.errors?.expected_delivery_date"
+                        />
 
-                    <AppSelect
-                        v-if="form.payment_method === 'transfer'"
-                        v-model="form.company_bank_account_id"
-                        :options="filteredBankAccounts"
-                        label="Rekening Bank Perusahaan:"
-                        :error="form.errors?.company_bank_account_id"
-                        placeholder="Pilih Rekening Bank"
-                    />
+                        <AppInput
+                            v-model="form.quote_valid_until"
+                            type="date"
+                            label="Berlaku Sampai:"
+                            :error="form.errors?.quote_valid_until"
+                        />
+                    </div>
+
+                    <div v-if="hasStockProducts" class="mt-4 bg-gray-50 border border-gray-200 p-3 rounded">
+                        <AppCheckbox v-model:checked="form.reserve_stock" label="Reservasi stok ketika order dikonfirmasi" />
+                        <p class="text-xs text-gray-500 mt-1">
+                            Saat diaktifkan, stok akan otomatis disisihkan setelah Sales Order dikonfirmasi.
+                        </p>
+                    </div>
                 </div>
 
-                <!-- Midtrans Code -->
-                <div v-if="form.payment_method === 'midtrans'" class="grid grid-cols-2 gap-4">
-                    <AppInput
-                        v-model="form.midtrans_code"
-                        label="Kode Midtrans:"
-                        :error="form.errors?.midtrans_code"
-                        placeholder="Masukkan kode Midtrans"
-                        required
-                    />
+                <!-- Payment Information -->
+                <div class="mt-4 border-t pt-4">
+                    <h3 class="text-lg font-semibold mb-3">Informasi Pembayaran</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <AppInput
+                            v-model="form.payment_terms"
+                            label="Syarat Pembayaran:"
+                            placeholder="Net 30, COD, dll"
+                            :error="form.errors?.payment_terms"
+                        />
+
+                        <AppSelect
+                            v-model="form.payment_method"
+                            :options="paymentMethodOptions"
+                            label="Metode Pembayaran:"
+                            :error="form.errors?.payment_method"
+                        />
+
+                        <AppSelect
+                            v-if="form.payment_method === 'transfer'"
+                            v-model="form.company_bank_account_id"
+                            :options="filteredBankAccounts"
+                            label="Rekening Bank Perusahaan:"
+                            :error="form.errors?.company_bank_account_id"
+                            placeholder="Pilih Rekening Bank"
+                        />
+
+                        <AppInput
+                            v-if="form.payment_method === 'midtrans'"
+                            v-model="form.midtrans_code"
+                            label="Kode Midtrans:"
+                            :error="form.errors?.midtrans_code"
+                            placeholder="Masukkan kode Midtrans"
+                            required
+                        />
+
+                        <AppInput
+                            v-if="form.payment_method === 'paypal'"
+                            v-model="form.paypal_code"
+                            label="Kode Paypal:"
+                            :error="form.errors?.paypal_code"
+                            placeholder="Masukkan kode Paypal"
+                            required
+                        />
+                    </div>
                 </div>
 
-                <!-- Paypal Code -->
-                <div v-if="form.payment_method === 'paypal'" class="grid grid-cols-2 gap-4">
-                    <AppInput
-                        v-model="form.paypal_code"
-                        label="Kode Paypal:"
-                        :error="form.errors?.paypal_code"
-                        placeholder="Masukkan kode Paypal"
-                        required
-                    />
-                </div>
-
-                <div v-if="hasStockProducts" class="mt-4 bg-gray-50 border border-gray-200 p-3 rounded">
-                    <AppCheckbox v-model:checked="form.reserve_stock" label="Reservasi stok ketika order dikonfirmasi" />
-                    <p class="text-xs text-gray-500 mt-1">
-                        Saat diaktifkan, stok akan otomatis disisihkan setelah Sales Order dikonfirmasi.
-                    </p>
-                </div>
-
-                <div class="mt-4">
+                <!-- Additional Notes -->
+                <div class="mt-4 border-t pt-4">
                     <AppTextarea
                         v-model="form.notes"
                         label="Catatan:"
@@ -977,18 +1040,53 @@ function submitForm(createAnother = false) {
             </div>
 
             <div class="w-1/3 bg-gray-100 p-4 rounded-lg text-sm">
-                <h3 class="text-lg font-semibold mb-2">Informasi Sales Order</h3>
-                <p class="mb-2">Sales Order adalah dokumen yang digunakan untuk mencatat pesanan pelanggan. Pastikan informasi yang dimasukkan akurat.</p>
-                <ul class="list-disc list-inside">
-                    <li>Pilih perusahaan yang sesuai</li>
-                    <li>Pilih cabang yang sesuai</li>
-                    <li>Pilih pelanggan yang akan menerima SO</li>
-                    <li>Pilih mata uang dan kurs yang sesuai</li>
-                    <li>Tanggal SO adalah tanggal pembuatan sales order</li>
-                    <li>Estimasi kirim adalah perkiraan kapan barang akan dikirim</li>
-                    <li>Channel menentukan harga yang digunakan dari daftar harga</li>
-                    <li>Tambahkan baris untuk setiap item yang dipesan</li>
-                </ul>
+                <h3 class="text-lg font-semibold mb-2">Panduan Sales Order</h3>
+                <p class="mb-3">Sales Order mencatat pesanan pelanggan dengan detail lengkap.</p>
+
+                <div class="mb-3">
+                    <p class="font-medium mb-1">Informasi Dasar:</p>
+                    <ul class="list-disc list-inside text-xs space-y-1">
+                        <li>Pilih perusahaan dan cabang yang sesuai</li>
+                        <li>Tentukan tanggal SO dan mata uang transaksi</li>
+                        <li>Tentukan sales person untuk tracking komisi</li>
+                        <li>Kurs otomatis terisi, sesuaikan jika perlu</li>
+                    </ul>
+                </div>
+
+                <div class="mb-3">
+                    <p class="font-medium mb-1">Pelanggan & Penjualan:</p>
+                    <ul class="list-disc list-inside text-xs space-y-1">
+                        <li>Cari dan pilih pelanggan</li>
+                        <li>Channel menentukan harga dari daftar harga</li>
+                    </ul>
+                </div>
+
+                <div class="mb-3">
+                    <p class="font-medium mb-1">Pengiriman:</p>
+                    <ul class="list-disc list-inside text-xs space-y-1">
+                        <li>Pilih tipe pengiriman (internal/eksternal)</li>
+                        <li>Tentukan penyedia jasa pengiriman</li>
+                        <li>Estimasi biaya untuk ditagihkan ke customer</li>
+                    </ul>
+                </div>
+
+                <div class="mb-3">
+                    <p class="font-medium mb-1">Pembayaran:</p>
+                    <ul class="list-disc list-inside text-xs space-y-1">
+                        <li>Atur syarat pembayaran (Net 30, COD, dll)</li>
+                        <li>Pilih metode pembayaran yang digunakan</li>
+                        <li>Isi kode pembayaran jika diperlukan</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <p class="font-medium mb-1">Tips:</p>
+                    <ul class="list-disc list-inside text-xs space-y-1">
+                        <li>Reservasi stok untuk menjamin ketersediaan</li>
+                        <li>Tanggal berlaku sampai untuk penawaran</li>
+                        <li>Tambahkan catatan untuk instruksi khusus</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
@@ -1163,6 +1261,11 @@ function submitForm(createAnother = false) {
                     <tr class="text-sm">
                         <th class="border border-gray-300 px-4 py-2 text-right" :colspan="6 + (hasStockProducts ? 2 : 0) + (hasBookingProducts ? 2 : 0)">Total Pajak</th>
                         <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.tax) }}</th>
+                        <th class="border border-gray-300 px-4 py-2"></th>
+                    </tr>
+                    <tr class="text-sm">
+                        <th class="border border-gray-300 px-4 py-2 text-right" :colspan="6 + (hasStockProducts ? 2 : 0) + (hasBookingProducts ? 2 : 0)">Biaya Pengiriman</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(parseFloat(form.estimated_shipping_charge || 0)) }}</th>
                         <th class="border border-gray-300 px-4 py-2"></th>
                     </tr>
                     <tr class="text-sm font-semibold">
