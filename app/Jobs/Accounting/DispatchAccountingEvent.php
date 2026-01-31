@@ -39,6 +39,21 @@ class DispatchAccountingEvent implements ShouldQueue
 
         $payload = AccountingEventPayload::fromArray($log->payload);
 
+        // Debug: Log payload reconstruction
+        \Log::info('DispatchAccountingEvent: Payload reconstructed', [
+            'log_id' => $log->id,
+            'event_code' => $payload->code->value,
+            'lines_count' => count($payload->lines()),
+            'lines' => array_map(function($entry) {
+                return [
+                    'role' => $entry->role,
+                    'direction' => $entry->direction,
+                    'amount' => $entry->amount,
+                    'meta' => $entry->meta,
+                ];
+            }, $payload->lines()),
+        ]);
+
         $publisher = $publisherFactory->make();
 
         try {

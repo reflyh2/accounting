@@ -6,6 +6,7 @@ use App\Enums\Documents\SalesDeliveryStatus;
 use App\Enums\Documents\SalesOrderStatus;
 use App\Exceptions\InventoryException;
 use App\Exceptions\SalesOrderException;
+use App\Models\Account;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\DocumentTemplate;
@@ -183,6 +184,11 @@ class SalesDeliveryController extends Controller
             'costItems' => \App\Models\CostItem::where('is_active', true)
                 ->orderBy('code')
                 ->get(['id', 'code', 'name']),
+            'shippingProviders' => \App\Models\ShippingProvider::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'type']),
+            'shippingTypeOptions' => \App\Enums\ShippingProviderType::options(),
+            'cashBankAccounts' => $this->cashBankAccountOptions(),
             'filters' => Session::get('sales_deliveries.index_filters', []),
         ]);
     }
@@ -198,9 +204,11 @@ class SalesDeliveryController extends Controller
             'delivery_date' => ['required', 'date'],
             'location_id' => ['required', 'exists:locations,id'],
             'notes' => ['nullable', 'string', 'max:1000'],
-            'shipping_cost' => ['nullable', 'numeric', 'min:0'],
-            'shipping_cost_item_id' => ['nullable', 'exists:cost_items,id', 'required_with:shipping_cost'],
-            'shipping_cost_description' => ['nullable', 'string', 'max:255'],
+            'shipping_type' => ['nullable', 'string'],
+            'shipping_provider_id' => ['nullable', 'exists:shipping_providers,id'],
+            'estimated_shipping_charge' => ['nullable', 'numeric', 'min:0'],
+            'actual_shipping_charge' => ['nullable', 'numeric', 'min:0'],
+            'shipping_charge_credit_account_id' => ['nullable', 'exists:accounts,id'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.sales_order_line_id' => ['required', 'exists:sales_order_lines,id'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
@@ -227,7 +235,6 @@ class SalesDeliveryController extends Controller
             'currency',
             'location',
             'shippingProvider',
-            'costs.costItem',
             'lines.variant.product',
             'lines.uom',
             'lines.baseUom',
@@ -273,6 +280,14 @@ class SalesDeliveryController extends Controller
             'selectedSalesOrders' => $selectedSalesOrders,
             'selectedPartnerId' => $salesDelivery->partner_id,
             'locations' => $locations,
+            'costItems' => \App\Models\CostItem::where('is_active', true)
+                ->orderBy('code')
+                ->get(['id', 'code', 'name']),
+            'shippingProviders' => \App\Models\ShippingProvider::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'type']),
+            'shippingTypeOptions' => \App\Enums\ShippingProviderType::options(),
+            'cashBankAccounts' => $this->cashBankAccountOptions(),
             'filters' => Session::get('sales_deliveries.index_filters', []),
         ]);
     }
@@ -284,6 +299,10 @@ class SalesDeliveryController extends Controller
             'shipping_address_id' => ['nullable', 'exists:partner_addresses,id'],
             'location_id' => ['required', 'exists:locations,id'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'shipping_type' => ['nullable', 'string'],
+            'shipping_provider_id' => ['nullable', 'exists:shipping_providers,id'],
+            'actual_shipping_charge' => ['nullable', 'numeric', 'min:0'],
+            'shipping_charge_credit_account_id' => ['nullable', 'exists:accounts,id'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.sales_order_line_id' => ['required', 'exists:sales_order_lines,id'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
@@ -394,6 +413,7 @@ class SalesDeliveryController extends Controller
                 'name' => $delivery->shippingProvider->name,
                 'type' => $delivery->shippingProvider->type,
             ] : null,
+            'actual_shipping_charge' => (float) $delivery->actual_shipping_charge,
             'sales_orders' => $delivery->salesOrders->map(fn ($so) => [
                 'id' => $so->id,
                 'order_number' => $so->order_number,
@@ -566,6 +586,7 @@ class SalesDeliveryController extends Controller
                     'name' => $salesOrder->shippingProvider->name,
                     'type' => $salesOrder->shippingProvider->type,
                 ] : null,
+                'estimated_shipping_charge' => $salesOrder->estimated_shipping_charge,
                 'lines' => $lines,
             ];
         }
@@ -642,6 +663,20 @@ class SalesDeliveryController extends Controller
         return collect(SalesDeliveryStatus::cases())
             ->mapWithKeys(fn (SalesDeliveryStatus $status) => [
                 $status->value => $status->label(),
+            ])
+            ->toArray();
+    }
+
+    private function cashBankAccountOptions(): array
+    {
+        return Account::withoutGlobalScopes()
+            ->where('type', 'kas_bank')
+            ->where('is_parent', false)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name'])
+            ->map(fn ($account) => [
+                'value' => $account->id,
+                'label' => "{$account->code} - {$account->name}",
             ])
             ->toArray();
     }
@@ -766,9 +801,16 @@ class SalesDeliveryController extends Controller
         return [
             'id' => $delivery->id,
             'delivery_number' => $delivery->delivery_number,
+            'company_id' => $delivery->company_id,
+            'branch_id' => $delivery->branch_id,
             'delivery_date' => optional($delivery->delivery_date)?->toDateString(),
             'location_id' => $delivery->location_id,
             'notes' => $delivery->notes,
+            'shipping_address_id' => $delivery->shipping_address_id,
+            'shipping_type' => $delivery->shipping_type,
+            'shipping_provider_id' => $delivery->shipping_provider_id,
+            'actual_shipping_charge' => $delivery->actual_shipping_charge,
+            'shipping_charge_credit_account_id' => $delivery->shipping_charge_credit_account_id,
             'partner' => $delivery->partner ? [
                 'id' => $delivery->partner->id,
                 'name' => $delivery->partner->name,

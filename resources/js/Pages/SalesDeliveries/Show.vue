@@ -92,6 +92,10 @@ const deleteSalesDelivery = () => {
                                 <p>{{ delivery.currency?.code }} {{ formatNumber(delivery.total_amount) }}</p>
                             </div>
                             <div>
+                                <p class="font-semibold">Total Shipping Charge:</p>
+                                <p>{{ delivery.currency?.code }} {{ formatNumber(delivery.actual_shipping_charge) }}</p>
+                            </div>
+                            <div>
                                 <p class="font-semibold">Total COGS:</p>
                                 <p>{{ delivery.currency?.code }} {{ formatNumber(delivery.total_cogs) }}</p>
                             </div>
@@ -140,7 +144,7 @@ const deleteSalesDelivery = () => {
                                             {{ formatNumber(line.quantity, 3) }} {{ line.uom }}
                                         </td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">
-                                            {{ formatNumber(line.unit_cost_base) }} {{ line.base_uom }}
+                                            {{ formatNumber(line.unit_cost_base) }}/{{ line.base_uom }}
                                         </td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">
                                             {{ formatNumber(line.cogs_total) }}

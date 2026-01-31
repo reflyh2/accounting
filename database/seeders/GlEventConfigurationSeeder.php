@@ -2,16 +2,16 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Enums\AccountingEventCode;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\GlEventConfiguration;
 use App\Models\GlEventConfigurationLine;
+use Illuminate\Database\Seeder;
 
 /**
  * GlEventConfigurationSeeder - Seeds default GL event configurations for a new tenant.
- * 
+ *
  * This seeder must run AFTER AccountSeeder to ensure accounts exist.
  * It creates default journal entry mappings for each accounting event type.
  */
@@ -24,7 +24,7 @@ class GlEventConfigurationSeeder extends Seeder
     {
         // Get existing company - should be created by SetupTenantDatabase before this seeder runs
         $company = Company::withoutGlobalScopes()->first();
-        if (!$company) {
+        if (! $company) {
             throw new \RuntimeException('GlEventConfigurationSeeder requires a company to exist. Run SetupTenantDatabase first.');
         }
 
@@ -36,18 +36,18 @@ class GlEventConfigurationSeeder extends Seeder
             'Transaksi Dalam Pelaksanaan',
             'Persediaan Bahan Baku',
             'Persediaan Barang Setengah Jadi',
-            
+
             // Liability accounts
             'Hutang Usaha dari Pembelian',
             'Hutang Pembelian Belum Difakturkan',
-            
+
             // Revenue accounts
             'Penjualan Barang',
-            
+
             // COGS accounts
             'Harga Pokok Penjualan',
             'Retur Pembelian',
-            
+
             // Expense accounts
             'Koreksi Persediaan',
         ]);
@@ -98,6 +98,9 @@ class GlEventConfigurationSeeder extends Seeder
                 'lines' => [
                     ['role' => 'cogs', 'direction' => 'debit', 'account_name' => 'Harga Pokok Penjualan'],
                     ['role' => 'inventory', 'direction' => 'credit', 'account_name' => 'Persediaan Barang Dagang'],
+                    // Shipping charge roles - shipping_charge_credit uses account_id override from delivery
+                    ['role' => 'shipping_charge', 'direction' => 'debit', 'account_name' => 'Koreksi Persediaan'],
+                    ['role' => 'shipping_charge_credit', 'direction' => 'credit', 'account_name' => 'Piutang Usaha'],
                 ],
             ],
             AccountingEventCode::SALES_DELIVERY_REVERSED->value => [
@@ -105,6 +108,9 @@ class GlEventConfigurationSeeder extends Seeder
                 'lines' => [
                     ['role' => 'inventory', 'direction' => 'debit', 'account_name' => 'Persediaan Barang Dagang'],
                     ['role' => 'cogs', 'direction' => 'credit', 'account_name' => 'Harga Pokok Penjualan'],
+                    // Shipping charge reversal roles - shipping_charge_credit uses account_id override from delivery
+                    ['role' => 'shipping_charge', 'direction' => 'credit', 'account_name' => 'Koreksi Persediaan'],
+                    ['role' => 'shipping_charge_credit', 'direction' => 'debit', 'account_name' => 'Piutang Usaha'],
                 ],
             ],
             AccountingEventCode::SALES_RETURN_POSTED->value => [
@@ -119,6 +125,9 @@ class GlEventConfigurationSeeder extends Seeder
                 'lines' => [
                     ['role' => 'receivable', 'direction' => 'debit', 'account_name' => 'Piutang Usaha'],
                     ['role' => 'revenue', 'direction' => 'credit', 'account_name' => 'Penjualan Barang'],
+                    // Shipping charge roles - both use default GL Event Configuration accounts
+                    ['role' => 'shipping_charge_revenue', 'direction' => 'credit', 'account_name' => 'Penjualan Barang'],
+                    ['role' => 'shipping_charge_receivable', 'direction' => 'debit', 'account_name' => 'Piutang Usaha'],
                 ],
             ],
 
@@ -174,7 +183,7 @@ class GlEventConfigurationSeeder extends Seeder
 
             foreach ($config['lines'] as $line) {
                 $account = $accounts[$line['account_name']] ?? null;
-                
+
                 if ($account) {
                     GlEventConfigurationLine::create([
                         'gl_event_configuration_id' => $glEventConfig->id,
@@ -193,12 +202,12 @@ class GlEventConfigurationSeeder extends Seeder
     private function getAccountsByName(array $accountNames): array
     {
         $accounts = Account::whereIn('name', $accountNames)->get();
-        
+
         $result = [];
         foreach ($accounts as $account) {
             $result[$account->name] = $account;
         }
-        
+
         return $result;
     }
 }

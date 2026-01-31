@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class Company extends Model
 {
@@ -38,6 +38,7 @@ class Company extends Model
         'default_interbranch_payable_account_id',
         'default_intercompany_receivable_account_id',
         'default_intercompany_payable_account_id',
+        'default_shipping_charge_account_id',
         'costing_policy',
         'reservation_strictness',
         'default_backflush',
@@ -65,7 +66,7 @@ class Company extends Model
      */
     public function getLogoUrlAttribute(): ?string
     {
-        if (!$this->logo_path) {
+        if (! $this->logo_path) {
             return null;
         }
 
@@ -90,13 +91,13 @@ class Company extends Model
         static::addGlobalScope('userCompanies', function ($builder) {
             if (Auth::check()) {
                 $userId = Auth::user()->global_id;
-                
+
                 // Skip scope if user doesn't exist in tenant DB yet (e.g., during seeding)
                 $user = User::find($userId);
-                if (!$user) {
+                if (! $user) {
                     return;
                 }
-                
+
                 $builder->whereHas('branchGroups.branches.users', function ($query) use ($userId) {
                     $query->where('users.global_id', $userId);
                 });
@@ -196,6 +197,11 @@ class Company extends Model
     public function defaultIntercompanyPayableAccount()
     {
         return $this->belongsTo(Account::class, 'default_intercompany_payable_account_id');
+    }
+
+    public function defaultShippingChargeAccount()
+    {
+        return $this->belongsTo(Account::class, 'default_shipping_charge_account_id');
     }
 
     public function defaultTaxJurisdiction()

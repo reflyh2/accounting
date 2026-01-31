@@ -13,6 +13,7 @@ use App\Models\Currency;
 use App\Models\DocumentTemplate;
 use App\Models\Partner;
 use App\Models\Product;
+use App\Models\SalesDelivery;
 use App\Models\SalesDeliveryLine;
 use App\Models\SalesInvoice;
 use App\Models\SalesOrder;
@@ -132,18 +133,22 @@ class SalesInvoiceController extends Controller
         $selectedIds = array_filter(array_map('intval', $selectedIds));
 
         $selectedSalesOrders = [];
+        $totalShippingCharge = 0;
 
         if (! empty($selectedIds)) {
             $selectedSalesOrders = $this->salesOrdersDetail($selectedIds);
             if (! empty($selectedSalesOrders) && ! $selectedPartnerId) {
                 $selectedPartnerId = $selectedSalesOrders[0]['partner']['id'] ?? null;
             }
+            // Calculate total shipping charge from all deliveries
+            $totalShippingCharge = $this->calculateShippingChargeFromSalesOrders($selectedIds);
         }
 
         return Inertia::render('SalesInvoices/Create', [
             'salesOrders' => $this->availableSalesOrders($selectedIds, $selectedPartnerId),
             'selectedSalesOrders' => $selectedSalesOrders,
             'selectedPartnerId' => $selectedPartnerId,
+            'totalShippingCharge' => $totalShippingCharge,
             'customers' => $this->customerOptions(),
             'primaryCurrency' => Currency::where('is_primary', true)->first(),
             'companies' => $this->companyOptions(),
@@ -238,14 +243,18 @@ class SalesInvoiceController extends Controller
         $isDirectInvoice = $salesInvoice->salesOrders->isEmpty();
 
         $selectedSalesOrders = [];
+        $totalShippingCharge = 0;
         if (! $isDirectInvoice) {
-            $selectedSalesOrders = $this->salesOrdersDetail($salesInvoice->salesOrders->pluck('id')->toArray());
+            $salesOrderIds = $salesInvoice->salesOrders->pluck('id')->toArray();
+            $selectedSalesOrders = $this->salesOrdersDetail($salesOrderIds);
+            $totalShippingCharge = $this->calculateShippingChargeFromSalesOrders($salesOrderIds);
         }
 
         return Inertia::render('SalesInvoices/Edit', [
             'invoice' => $this->transformInvoiceForEdit($salesInvoice),
             'isDirectInvoice' => $isDirectInvoice,
             'selectedSalesOrders' => $selectedSalesOrders,
+            'totalShippingCharge' => $totalShippingCharge,
             'selectedPartnerId' => $salesInvoice->partner_id,
             'customers' => $this->customerOptions(),
             'primaryCurrency' => Currency::where('is_primary', true)->first(),
@@ -572,6 +581,29 @@ class SalesInvoiceController extends Controller
         return $result;
     }
 
+    private function calculateShippingChargeFromSalesOrders(array $salesOrderIds): float
+    {
+        if (empty($salesOrderIds)) {
+            return 0;
+        }
+
+        // Get all unique sales deliveries from the selected sales orders
+        $deliveryIds = SalesDeliveryLine::whereHas('salesOrderLine', function ($query) use ($salesOrderIds) {
+            $query->whereIn('sales_order_id', $salesOrderIds);
+        })
+            ->distinct()
+            ->pluck('sales_delivery_id')
+            ->toArray();
+
+        if (empty($deliveryIds)) {
+            return 0;
+        }
+
+        // Sum up all shipping charges from these deliveries
+        return (float) SalesDelivery::whereIn('id', $deliveryIds)
+            ->sum('actual_shipping_charge');
+    }
+
     private function availableSalesOrders(array $selectedIds = [], ?int $partnerId = null): array
     {
         if (! $partnerId) {
@@ -704,6 +736,7 @@ class SalesInvoiceController extends Controller
             'tax_invoice_code' => $invoice->tax_invoice_code?->value,
             'exchange_rate' => (float) $invoice->exchange_rate,
             'notes' => $invoice->notes,
+            'shipping_charge' => (float) $invoice->shipping_charge,
             'company_id' => $invoice->company_id,
             'branch_id' => $invoice->branch_id,
             'partner_id' => $invoice->partner_id,

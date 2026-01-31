@@ -843,18 +843,23 @@ class SalesInvoiceService
         $invoiceBaseAmount = $this->roundCost(($totals['total_amount'] * $exchangeRate));
         $shippingBase = $this->roundCost((float) $invoice->shipping_charge * $exchangeRate);
 
-        $payload->setLines(
-            array_filter([
-                AccountingEntry::debit('accounts_receivable', $invoiceBaseAmount),
-                AccountingEntry::credit('sales_revenue', $totals['delivery_value_base']),
-                $shippingBase > 0 ? AccountingEntry::credit('shipping_revenue', $shippingBase) : null,
-                $totals['revenue_variance'] !== 0.0
-                    ? ($totals['revenue_variance'] > 0
-                        ? AccountingEntry::credit('revenue_variance', abs($totals['revenue_variance']))
-                        : AccountingEntry::debit('revenue_variance', abs($totals['revenue_variance'])))
-                    : null,
-            ])
-        );
+        $entries = array_filter([
+            AccountingEntry::debit('receivable', $invoiceBaseAmount),
+            AccountingEntry::credit('revenue', $totals['delivery_value_base']),
+            $totals['revenue_variance'] !== 0.0
+                ? ($totals['revenue_variance'] > 0
+                    ? AccountingEntry::credit('revenue_variance', abs($totals['revenue_variance']))
+                    : AccountingEntry::debit('revenue_variance', abs($totals['revenue_variance'])))
+                : null,
+        ]);
+
+        // Add shipping charge entries if applicable - both use GL Event Configuration accounts
+        if ($shippingBase > 0) {
+            $entries[] = AccountingEntry::debit('shipping_charge_receivable', $shippingBase);
+            $entries[] = AccountingEntry::credit('shipping_charge_revenue', $shippingBase);
+        }
+
+        $payload->setLines($entries);
 
         rescue(function () use ($payload) {
             $this->accountingEventBus->dispatch($payload);
@@ -896,12 +901,19 @@ class SalesInvoiceService
         $shippingBase = $this->roundCost((float) $invoice->shipping_charge * $exchangeRate);
         $revenueBase = $this->roundCost((float) $invoice->subtotal * $exchangeRate);
 
-        $payload->setLines(array_filter([
-            AccountingEntry::debit('accounts_receivable', $baseAmount),
-            AccountingEntry::credit('sales_revenue', $revenueBase),
+        $entries = array_filter([
+            AccountingEntry::debit('receivable', $baseAmount),
+            AccountingEntry::credit('revenue', $revenueBase),
             $taxBase > 0 ? AccountingEntry::credit('tax_payable', $taxBase) : null,
-            $shippingBase > 0 ? AccountingEntry::credit('shipping_revenue', $shippingBase) : null,
-        ]));
+        ]);
+
+        // Add shipping charge entries if applicable - both use GL Event Configuration accounts
+        if ($shippingBase > 0) {
+            $entries[] = AccountingEntry::debit('shipping_charge_receivable', $shippingBase);
+            $entries[] = AccountingEntry::credit('shipping_charge_revenue', $shippingBase);
+        }
+
+        $payload->setLines($entries);
 
         rescue(function () use ($payload) {
             $this->accountingEventBus->dispatch($payload);

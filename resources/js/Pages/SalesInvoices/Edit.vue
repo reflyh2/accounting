@@ -9,6 +9,7 @@ defineProps({
     isDirectInvoice: Boolean,
     selectedSalesOrders: Array,
     selectedPartnerId: Number,
+    totalShippingCharge: Number,
     customers: Array,
     primaryCurrency: Object,
     products: Array,
@@ -45,6 +46,7 @@ defineProps({
                             :invoice="invoice"
                             :selectedSalesOrders="selectedSalesOrders"
                             :selectedPartnerId="selectedPartnerId"
+                            :totalShippingCharge="totalShippingCharge"
                             :customers="customers"
                             :primaryCurrency="primaryCurrency"
                             :products="products"

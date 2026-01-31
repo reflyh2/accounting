@@ -15,6 +15,7 @@ return new class extends Migration
             $table->string('shipping_type', 30)->nullable()->after('invoice_address_id');
             $table->foreignId('shipping_provider_id')->nullable()->after('shipping_type')
                 ->constrained('shipping_providers')->onUpdate('cascade')->onDelete('restrict');
+            $table->decimal('actual_shipping_charge', 18, 2)->nullable()->after('shipping_provider_id');
         });
     }
 
@@ -25,7 +26,7 @@ return new class extends Migration
     {
         Schema::table('sales_deliveries', function (Blueprint $table) {
             $table->dropForeign(['shipping_provider_id']);
-            $table->dropColumn(['shipping_type', 'shipping_provider_id']);
+            $table->dropColumn(['shipping_type', 'shipping_provider_id', 'actual_shipping_charge']);
         });
     }
 };

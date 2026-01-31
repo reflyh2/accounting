@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Company;
 use App\Models\Account;
+use App\Models\Company;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Session;
+use Inertia\Inertia;
 
 class CompanyDefaultAccountsController extends Controller
 {
     public function edit(Request $request, Company $company)
     {
         $filters = Session::get('companies.index_filters', []);
-        
+
         return Inertia::render('Companies/DefaultAccounts', [
             'company' => $company->load([
                 'defaultReceivableAccount',
@@ -24,10 +24,11 @@ class CompanyDefaultAccountsController extends Controller
                 'defaultInterbranchReceivableAccount',
                 'defaultInterbranchPayableAccount',
                 'defaultIntercompanyReceivableAccount',
-                'defaultIntercompanyPayableAccount'
+                'defaultIntercompanyPayableAccount',
+                'defaultShippingChargeAccount',
             ]),
-            'accounts' => Account::where(function($query) use ($company) {
-                $query->whereHas('companies', function($q) use ($company) {
+            'accounts' => Account::where(function ($query) use ($company) {
+                $query->whereHas('companies', function ($q) use ($company) {
                     $q->where('companies.id', $company->id);
                 });
             })->get(),
@@ -47,6 +48,7 @@ class CompanyDefaultAccountsController extends Controller
             'default_interbranch_payable_account_id' => 'nullable|exists:accounts,id',
             'default_intercompany_receivable_account_id' => 'nullable|exists:accounts,id',
             'default_intercompany_payable_account_id' => 'nullable|exists:accounts,id',
+            'default_shipping_charge_account_id' => 'nullable|exists:accounts,id',
         ]);
 
         $company->update($validated);

@@ -9,6 +9,7 @@ defineProps({
     salesOrders: Array,
     selectedSalesOrders: Array,
     selectedPartnerId: Number,
+    totalShippingCharge: Number,
     customers: Array,
     primaryCurrency: Object,
     products: Array,
@@ -44,6 +45,7 @@ defineProps({
                             :salesOrders="salesOrders"
                             :selectedSalesOrders="selectedSalesOrders"
                             :selectedPartnerId="selectedPartnerId"
+                            :totalShippingCharge="totalShippingCharge"
                             :customers="customers"
                             :primaryCurrency="primaryCurrency"
                             :products="products"

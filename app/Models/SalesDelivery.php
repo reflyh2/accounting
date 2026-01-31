@@ -68,6 +68,11 @@ class SalesDelivery extends Model
         return $this->belongsTo(ShippingProvider::class);
     }
 
+    public function shippingChargeCreditAccount()
+    {
+        return $this->belongsTo(Account::class, 'shipping_charge_credit_account_id');
+    }
+
     public function inventoryTransaction()
     {
         return $this->belongsTo(InventoryTransaction::class);
@@ -76,11 +81,6 @@ class SalesDelivery extends Model
     public function lines()
     {
         return $this->hasMany(SalesDeliveryLine::class)->orderBy('id');
-    }
-
-    public function costs()
-    {
-        return $this->hasMany(SalesDeliveryCost::class);
     }
 
     public function creator()

@@ -107,6 +107,10 @@ class SalesService
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'sales_person_id' => $payload['sales_person_id'] ?? $actor?->getAuthIdentifier(),
                 'shipping_address_id' => $payload['shipping_address_id'] ?? null,
+                'invoice_address_id' => $payload['invoice_address_id'] ?? null,
+                'shipping_type' => $payload['shipping_type'] ?? null,
+                'shipping_provider_id' => $payload['shipping_provider_id'] ?? null,
+                'estimated_shipping_charge' => $payload['estimated_shipping_charge'] ?? 0,
                 'created_by' => $actor?->getAuthIdentifier(),
             ]);
 
@@ -203,6 +207,10 @@ class SalesService
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'sales_person_id' => $payload['sales_person_id'] ?? $salesOrder->sales_person_id,
                 'shipping_address_id' => $payload['shipping_address_id'] ?? null,
+                'invoice_address_id' => $payload['invoice_address_id'] ?? null,
+                'shipping_type' => $payload['shipping_type'] ?? null,
+                'shipping_provider_id' => $payload['shipping_provider_id'] ?? null,
+                'estimated_shipping_charge' => $payload['estimated_shipping_charge'] ?? 0,
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 
@@ -765,7 +773,9 @@ class SalesService
                 'location',
             ]);
 
-            $this->dispatchDeliveryEvent($delivery, $salesOrder, $totalCogs, $actor);
+            $shippingCharge = ! empty($payload['actual_shipping_charge']) ? (float) $payload['actual_shipping_charge'] : 0;
+            $shippingChargeCreditAccountId = $delivery->shipping_charge_credit_account_id;
+            $this->dispatchDeliveryEvent($delivery, $salesOrder, $totalCogs, $shippingCharge, $shippingChargeCreditAccountId, $actor);
 
             return $delivery;
         });
@@ -961,8 +971,10 @@ class SalesService
                 'status' => SalesDeliveryStatus::DRAFT->value,
                 'delivery_date' => $deliveryDate,
                 'exchange_rate' => $exchangeRate,
-                'shipping_type' => $firstSO->shipping_type,
-                'shipping_provider_id' => $firstSO->shipping_provider_id,
+                'shipping_type' => $payload['shipping_type'] ?? $firstSO->shipping_type,
+                'shipping_provider_id' => $payload['shipping_provider_id'] ?? $firstSO->shipping_provider_id,
+                'actual_shipping_charge' => $payload['actual_shipping_charge'] ?? $firstSO->estimated_shipping_charge,
+                'shipping_charge_credit_account_id' => $payload['shipping_charge_credit_account_id'] ?? null,
                 'shipping_address_id' => $payload['shipping_address_id'] ?? $firstSO->shipping_address_id,
                 'invoice_address_id' => $payload['invoice_address_id'] ?? $firstSO->invoice_address_id,
                 'notes' => $payload['notes'] ?? null,
@@ -1081,22 +1093,9 @@ class SalesService
 
             // Dispatch accounting event for first SO (for backwards compat)
             $firstSO = $salesOrders->first();
-            $this->dispatchDeliveryEvent($delivery, $firstSO, $totalCogs, $actor);
-
-            // Create shipping cost if provided
-            if (! empty($payload['shipping_cost']) && (float) $payload['shipping_cost'] > 0) {
-                \App\Models\SalesDeliveryCost::create([
-                    'sales_delivery_id' => $delivery->id,
-                    'cost_item_id' => $payload['shipping_cost_item_id'] ?? null,
-                    'description' => $payload['shipping_cost_description'] ?? 'Biaya Pengiriman',
-                    'amount' => $payload['shipping_cost'],
-                    'currency_id' => $delivery->currency_id,
-                    'exchange_rate' => $delivery->exchange_rate,
-                ]);
-
-                // Post GL entries for shipping cost
-                $this->createDeliveryCostEntries($delivery, $actor);
-            }
+            $shippingCharge = ! empty($payload['actual_shipping_charge']) ? (float) $payload['actual_shipping_charge'] : 0;
+            $shippingChargeCreditAccountId = $delivery->shipping_charge_credit_account_id;
+            $this->dispatchDeliveryEvent($delivery, $firstSO, $totalCogs, $shippingCharge, $shippingChargeCreditAccountId, $actor);
 
             return $delivery;
         });
@@ -1346,6 +1345,10 @@ class SalesService
                 'delivery_date' => $deliveryDate,
                 'notes' => $payload['notes'] ?? null,
                 'shipping_address_id' => $payload['shipping_address_id'] ?? null,
+                'shipping_type' => $payload['shipping_type'] ?? null,
+                'shipping_provider_id' => $payload['shipping_provider_id'] ?? null,
+                'actual_shipping_charge' => $payload['actual_shipping_charge'] ?? null,
+                'shipping_charge_credit_account_id' => $payload['shipping_charge_credit_account_id'] ?? null,
                 'inventory_transaction_id' => $result?->transaction->id,
                 'status' => SalesDeliveryStatus::POSTED->value,
                 'posted_at' => now(),
@@ -1383,7 +1386,9 @@ class SalesService
 
             // Dispatch accounting event
             $firstSO = $salesOrders->first();
-            $this->dispatchDeliveryEvent($delivery, $firstSO, $totalCogs, $actor);
+            $shippingCharge = ! empty($payload['actual_shipping_charge']) ? (float) $payload['actual_shipping_charge'] : 0;
+            $shippingChargeCreditAccountId = $delivery->shipping_charge_credit_account_id;
+            $this->dispatchDeliveryEvent($delivery, $firstSO, $totalCogs, $shippingCharge, $shippingChargeCreditAccountId, $actor);
 
             return $delivery;
         });
@@ -1439,7 +1444,11 @@ class SalesService
 
             // Update SO statuses
             foreach ($delivery->salesOrders as $so) {
-                $so->loadMissing('lines');
+                // Force reload lines to get updated quantities
+                $so->load([
+                    'lines.variant.product.capabilities',
+                    'lines.product.capabilities',
+                ]);
                 $this->syncSalesOrderDeliveryStatus($so, $actor);
             }
 
@@ -1460,8 +1469,10 @@ class SalesService
     private function dispatchDeliveryReversalEvent(SalesDelivery $delivery, ?Authenticatable $actor = null): void
     {
         $cogsAmount = (float) $delivery->total_cogs;
+        $shippingCharge = (float) $delivery->actual_shipping_charge;
 
-        if ($cogsAmount <= 0) {
+        // Only dispatch if there's something to reverse
+        if ($cogsAmount <= 0 && $shippingCharge <= 0) {
             return;
         }
 
@@ -1485,13 +1496,36 @@ class SalesService
             ],
         );
 
-        $normalizedAmount = $this->roundCost($cogsAmount);
+        $entries = [];
 
-        // Reverse the original entries: credit COGS, debit inventory
-        $payload->setLines([
-            AccountingEntry::debit('inventory', $normalizedAmount),
-            AccountingEntry::credit('cost_of_goods_sold', $normalizedAmount),
-        ]);
+        // Reverse COGS entries if applicable
+        if ($cogsAmount > 0) {
+            $normalizedCogsAmount = $this->roundCost($cogsAmount);
+            $entries[] = AccountingEntry::debit('inventory', $normalizedCogsAmount);
+            $entries[] = AccountingEntry::credit('cogs', $normalizedCogsAmount);
+        }
+
+        // Reverse shipping charge entries if applicable
+        if ($shippingCharge > 0) {
+            $normalizedShippingAmount = $this->roundMoney($shippingCharge);
+
+            // Credit shipping_charge (reverse the debit)
+            $entries[] = AccountingEntry::credit('shipping_charge', $normalizedShippingAmount);
+
+            // Debit the credit account (reverse the credit)
+            // If user selected a specific account, use it; otherwise use GL Event Configuration
+            if ($delivery->shipping_charge_credit_account_id) {
+                $entries[] = AccountingEntry::debit(
+                    'shipping_charge_credit',
+                    $normalizedShippingAmount,
+                    ['account_id' => $delivery->shipping_charge_credit_account_id]
+                );
+            } else {
+                $entries[] = AccountingEntry::debit('shipping_charge_credit', $normalizedShippingAmount);
+            }
+        }
+
+        $payload->setLines($entries);
 
         rescue(function () use ($payload) {
             $this->accountingEventBus->dispatch($payload);
@@ -1769,6 +1803,19 @@ class SalesService
             'lines.product.capabilities',
         ]);
 
+        // Check if there are any deliverable items at all
+        $hasDeliverableItems = $salesOrder->lines->contains(function ($line) {
+            $product = $line->variant?->product ?? $line->product;
+
+            return $product && $product->hasCapability('deliverable');
+        });
+
+        // If no deliverable items, don't change status
+        if (! $hasDeliverableItems) {
+            return;
+        }
+
+        // Check if any deliverable items have remaining quantity
         $hasRemaining = $salesOrder->lines->contains(function ($line) {
             $product = $line->variant?->product ?? $line->product;
             if (! $product || ! $product->hasCapability('deliverable')) {
@@ -1778,16 +1825,32 @@ class SalesService
             return ((float) $line->quantity_base - (float) $line->quantity_delivered_base) > self::QTY_TOLERANCE;
         });
 
-        if ($hasRemaining) {
-            if ($currentStatus === SalesOrderStatus::CONFIRMED) {
-                $salesOrder->transitionTo(SalesOrderStatus::PARTIALLY_DELIVERED, $actor);
+        // Check if any deliverable items have been partially delivered
+        $hasDelivered = $salesOrder->lines->contains(function ($line) {
+            $product = $line->variant?->product ?? $line->product;
+            if (! $product || ! $product->hasCapability('deliverable')) {
+                return false;
             }
 
-            return;
-        }
+            return (float) $line->quantity_delivered_base > self::QTY_TOLERANCE;
+        });
 
-        if (! in_array($currentStatus, [SalesOrderStatus::DELIVERED, SalesOrderStatus::CLOSED], true)) {
-            $salesOrder->transitionTo(SalesOrderStatus::DELIVERED, $actor);
+        // Determine the correct status
+        if ($hasRemaining && $hasDelivered) {
+            // Some items delivered, some remaining -> PARTIALLY_DELIVERED
+            if ($currentStatus !== SalesOrderStatus::PARTIALLY_DELIVERED && $currentStatus !== SalesOrderStatus::CLOSED) {
+                $salesOrder->transitionTo(SalesOrderStatus::PARTIALLY_DELIVERED, $actor);
+            }
+        } elseif ($hasRemaining && ! $hasDelivered) {
+            // Nothing delivered yet -> CONFIRMED
+            if ($currentStatus === SalesOrderStatus::PARTIALLY_DELIVERED || $currentStatus === SalesOrderStatus::DELIVERED) {
+                $salesOrder->transitionTo(SalesOrderStatus::CONFIRMED, $actor);
+            }
+        } elseif (! $hasRemaining) {
+            // Everything delivered -> DELIVERED
+            if (! in_array($currentStatus, [SalesOrderStatus::DELIVERED, SalesOrderStatus::CLOSED], true)) {
+                $salesOrder->transitionTo(SalesOrderStatus::DELIVERED, $actor);
+            }
         }
     }
 
@@ -1832,29 +1895,57 @@ class SalesService
         SalesDelivery $delivery,
         SalesOrder $salesOrder,
         float $totalCogs,
+        float $shippingCharge = 0,
+        ?int $shippingChargeCreditAccountId = null,
         ?Authenticatable $actor = null
     ): void {
-        if ($totalCogs <= 0) {
+        if ($totalCogs <= 0 && $shippingCharge <= 0) {
             return;
         }
 
-        $payload = AccountingEventBuilder::forDocument(AccountingEventCode::SALES_DELIVERY_POSTED, [
+        $eventBuilder = AccountingEventBuilder::forDocument(AccountingEventCode::SALES_DELIVERY_POSTED, [
             'company_id' => $salesOrder->company_id,
             'branch_id' => $salesOrder->branch_id,
             'document_type' => 'sales_delivery',
             'document_id' => $delivery->id,
             'document_number' => $delivery->delivery_number,
-            'currency_code' => $salesOrder->currency?->code ?? 'IDR',
+            'currency_code' => $salesOrder->currency ? $salesOrder->currency->code : 'IDR',
             'exchange_rate' => (float) $salesOrder->exchange_rate,
             'occurred_at' => CarbonImmutable::parse($delivery->delivery_date ?? now()),
-            'actor_id' => $actor?->getAuthIdentifier(),
+            'actor_id' => $actor ? $actor->getAuthIdentifier() : null,
             'meta' => [
                 'sales_order_id' => $salesOrder->id,
                 'inventory_transaction_id' => $delivery->inventory_transaction_id,
             ],
-        ])->debit('cogs', $this->roundCost($totalCogs))
-            ->credit('inventory', $this->roundCost($totalCogs))
-            ->build();
+        ]);
+
+        // Add COGS entries if applicable
+        if ($totalCogs > 0) {
+            $eventBuilder->debit('cogs', $this->roundCost($totalCogs))
+                ->credit('inventory', $this->roundCost($totalCogs));
+        }
+
+        // Add shipping charge entries if applicable
+        if ($shippingCharge > 0) {
+            // Debit shipping_charge role (account resolved via GL Event Configuration)
+            $eventBuilder->debit('shipping_charge', $this->roundMoney($shippingCharge));
+
+            // Credit - use selected account if provided, otherwise fall back to GL Event Configuration
+            if ($shippingChargeCreditAccountId) {
+                // User selected a specific account - override GL Event Configuration
+                $shippingCreditEntry = \App\Domain\Accounting\DTO\AccountingEntry::credit(
+                    'shipping_charge_credit',
+                    $this->roundMoney($shippingCharge),
+                    ['account_id' => $shippingChargeCreditAccountId]
+                );
+                $eventBuilder->withEntries([$shippingCreditEntry]);
+            } else {
+                // No account selected - use GL Event Configuration
+                $eventBuilder->credit('shipping_charge_credit', $this->roundMoney($shippingCharge));
+            }
+        }
+
+        $payload = $eventBuilder->build();
 
         rescue(function () use ($payload) {
             $this->accountingEventBus->dispatch($payload);

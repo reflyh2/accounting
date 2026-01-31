@@ -22,6 +22,7 @@ const form = useForm({
     default_interbranch_payable_account_id: props.company.default_interbranch_payable_account_id,
     default_intercompany_receivable_account_id: props.company.default_intercompany_receivable_account_id,
     default_intercompany_payable_account_id: props.company.default_intercompany_payable_account_id,
+    default_shipping_charge_account_id: props.company.default_shipping_charge_account_id,
 });
 
 const submitted = ref(false);
@@ -57,6 +58,10 @@ const cogsAccounts = computed(() => {
 
 const retainedEarningsAccounts = computed(() => {
     return props.accounts.filter(account => account.type === 'modal' && account.is_parent === false);
+});
+
+const expenseAccounts = computed(() => {
+    return props.accounts.filter(account => (account.type === 'beban' || account.type === 'beban_pokok_penjualan') && account.is_parent === false);
 });
 </script>
 
@@ -147,6 +152,14 @@ const retainedEarningsAccounts = computed(() => {
                                 label="Akun Hutang Antar Perusahaan Standar:"
                                 placeholder="Pilih akun hutang antar perusahaan standar"
                                 :error="form.errors.default_intercompany_payable_account_id"
+                            />
+
+                            <AppSelect
+                                v-model="form.default_shipping_charge_account_id"
+                                :options="expenseAccounts.map(account => ({ value: account.id, label: `${account.code} - ${account.name}` }))"
+                                label="Akun Biaya Pengiriman Standar:"
+                                placeholder="Pilih akun biaya pengiriman standar"
+                                :error="form.errors.default_shipping_charge_account_id"
                             />
 
                             <div class="mt-4">

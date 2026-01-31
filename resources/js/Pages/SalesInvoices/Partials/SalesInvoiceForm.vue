@@ -23,6 +23,10 @@ const props = defineProps({
         default: () => [],
     },
     selectedPartnerId: Number,
+    totalShippingCharge: {
+        type: Number,
+        default: 0,
+    },
     customers: {
         type: Array,
         default: () => [],
@@ -187,7 +191,7 @@ const form = useForm({
     costs: buildInitialCosts(),
     costs: buildInitialCosts(),
     invoice_address_id: props.invoice?.invoice_address_id || null,
-    shipping_charge: props.invoice?.shipping_charge || 0,
+    shipping_charge: props.invoice?.shipping_charge || props.totalShippingCharge || 0,
 });
 
 // Watch for company changes - reload branches, customers, SOs
@@ -825,201 +829,221 @@ function submitForm(createAnother = false) {
 <template>
     <form @submit.prevent="submitForm(false)" class="space-y-4">
         <div class="flex justify-between">
-            <div class="w-2/3 max-w-2xl mr-8">
-                <!-- Company & Branch -->
-                <div class="grid grid-cols-2 gap-4">
-                    <AppSelect
-                        v-model="selectedCompany"
-                        :options="companyOptions"
-                        label="Perusahaan:"
-                        placeholder="Pilih Perusahaan"
-                        :error="form.errors.company_id"
-                        :disabled="isEditMode"
-                        required
-                    />
-                    
-                    <AppSelect
-                        v-model="form.branch_id"
-                        :options="branchOptions"
-                        label="Cabang:"
-                        placeholder="Pilih Cabang"
-                        :error="form.errors.branch_id"
-                        :disabled="isEditMode || !selectedCompany"
-                        required
-                    />
+            <div class="w-2/3 max-w-2xl mr-8 space-y-6">
+
+                <!-- SECTION 1: Basic Information -->
+                <div class="space-y-4">
+                    <h3 class="text-base font-semibold text-gray-700 border-b pb-2">Informasi Dasar</h3>
+
+                    <!-- Company & Branch -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <AppSelect
+                            v-model="selectedCompany"
+                            :options="companyOptions"
+                            label="Perusahaan:"
+                            placeholder="Pilih Perusahaan"
+                            :error="form.errors.company_id"
+                            :disabled="isEditMode"
+                            required
+                        />
+
+                        <AppSelect
+                            v-model="form.branch_id"
+                            :options="branchOptions"
+                            label="Cabang:"
+                            placeholder="Pilih Cabang"
+                            :error="form.errors.branch_id"
+                            :disabled="isEditMode || !selectedCompany"
+                            required
+                        />
+                    </div>
+
+                    <!-- Customer & Sales Order -->
+                    <div class="grid grid-cols-1 gap-4">
+                        <AppPopoverSearch
+                            v-model="selectedCustomerId"
+                            :url="customerSearchUrl"
+                            :displayKeys="['name']"
+                            :tableHeaders="customerTableHeaders"
+                            :initialDisplayValue="selectedCustomerName"
+                            label="Customer:"
+                            placeholder="Pilih Customer"
+                            modalTitle="Pilih Customer"
+                            :disabled="isEditMode || !form.branch_id"
+                            :error="form.errors.partner_id"
+                            required
+                        />
+
+                        <AppSelect
+                            v-model="selectedSoIds"
+                            :options="salesOrderOptions"
+                            label="Sales Order:"
+                            placeholder="Pilih Sales Order (Opsional - kosongkan untuk Direct Invoice)"
+                            :error="form.errors.sales_order_ids"
+                            :multiple="true"
+                            :disabled="!selectedCustomerId || isEditMode"
+                        />
+                    </div>
                 </div>
 
-                <!-- Currency & Customer -->
-                <div class="grid grid-cols-2 gap-4">
-                    <AppSelect
-                        v-model="form.currency_id"
-                        :options="currencyOptions"
-                        label="Mata Uang:"
-                        placeholder="Pilih Mata Uang"
-                        :error="form.errors.currency_id"
-                        :disabled="isEditMode"
-                        required
-                    />
+                <!-- SECTION 2: Document Details -->
+                <div class="space-y-4">
+                    <h3 class="text-base font-semibold text-gray-700 border-b pb-2">Detail Dokumen</h3>
 
-                    <AppPopoverSearch
-                        v-model="selectedCustomerId"
-                        :url="customerSearchUrl"
-                        :displayKeys="['name']"
-                        :tableHeaders="customerTableHeaders"
-                        :initialDisplayValue="selectedCustomerName"
-                        label="Customer:"
-                        placeholder="Pilih Customer"
-                        modalTitle="Pilih Customer"
-                        :disabled="isEditMode || !form.branch_id"
-                        :error="form.errors.partner_id"
-                        required
-                    />
+                    <!-- Dates -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <AppInput
+                            v-model="form.invoice_date"
+                            type="date"
+                            label="Tanggal Faktur:"
+                            :error="form.errors.invoice_date"
+                            required
+                        />
+
+                        <AppInput
+                            v-model="form.due_date"
+                            type="date"
+                            label="Jatuh Tempo:"
+                            :error="form.errors.due_date"
+                        />
+                    </div>
+
+                    <!-- Invoice Numbers & Tax Code -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <AppInput
+                            v-model="form.customer_invoice_number"
+                            label="No. Faktur Customer:"
+                            :error="form.errors.customer_invoice_number"
+                            placeholder="Nomor referensi dari customer"
+                        />
+
+                        <AppSelect
+                            v-model="form.tax_invoice_code"
+                            :options="taxInvoiceCodeSelectOptions"
+                            label="Kode Faktur Pajak:"
+                            :error="form.errors.tax_invoice_code"
+                        />
+                    </div>
+
+                    <!-- Address -->
+                    <div class="grid grid-cols-1 gap-4">
+                        <AppSelect
+                            v-model="form.invoice_address_id"
+                            :options="[{ value: null, label: 'Sama dengan alamat utama' }, ...partnerAddresses.map((addr) => ({ value: addr.id, label: addr.name + ' - ' + addr.address }))]"
+                            label="Alamat Tagihan:"
+                            :placeholder="partnerAddresses.length ? 'Pilih Alamat Tagihan' : 'Partner tidak memiliki alamat tambahan'"
+                            :error="form.errors.invoice_address_id"
+                            :disabled="!selectedCustomerId || partnerAddresses.length === 0"
+                        />
+                    </div>
                 </div>
 
-                <!-- Sales Orders -->
-                <div class="grid grid-cols-1">
-                    <AppSelect
-                        v-model="selectedSoIds"
-                        :options="salesOrderOptions"
-                        label="Sales Order:"
-                        placeholder="Pilih Sales Order (Opsional - kosongkan untuk Direct Invoice)"
-                        :error="form.errors.sales_order_ids"
-                        :multiple="true"
-                        :disabled="!selectedCustomerId || isEditMode"
-                    />
+                <!-- SECTION 3: Financial Settings -->
+                <div class="space-y-4">
+                    <h3 class="text-base font-semibold text-gray-700 border-b pb-2">Pengaturan Keuangan</h3>
+
+                    <!-- Currency & Exchange Rate -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <AppSelect
+                            v-model="form.currency_id"
+                            :options="currencyOptions"
+                            label="Mata Uang:"
+                            placeholder="Pilih Mata Uang"
+                            :error="form.errors.currency_id"
+                            :disabled="isEditMode"
+                            required
+                        />
+
+                        <AppInput
+                            v-model="form.exchange_rate"
+                            label="Kurs:"
+                            :error="form.errors.exchange_rate"
+                            :numberFormat="true"
+                            required
+                        />
+                    </div>
+
+                    <!-- Shipping Charge -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <AppInput
+                            v-model="form.shipping_charge"
+                            :numberFormat="true"
+                            label="Biaya Pengiriman:"
+                            placeholder="0.00"
+                            hint="Biaya pengiriman yang ditagihkan ke customer"
+                            :error="form.errors?.shipping_charge"
+                        />
+                    </div>
                 </div>
 
-                <!-- Addresses -->
-                <div class="grid grid-cols-2 gap-4">
-                    <AppSelect
-                        v-model="form.invoice_address_id"
-                        :options="[{ value: null, label: 'Sama dengan alamat utama' }, ...partnerAddresses.map((addr) => ({ value: addr.id, label: addr.name + ' - ' + addr.address }))]"
-                        label="Alamat Tagihan:"
-                        :placeholder="partnerAddresses.length ? 'Pilih Alamat Tagihan' : 'Partner tidak memiliki alamat tambahan'"
-                        :error="form.errors.invoice_address_id"
-                        :disabled="!selectedCustomerId || partnerAddresses.length === 0"
-                    />
+                <!-- SECTION 4: Payment Information -->
+                <div class="space-y-4">
+                    <h3 class="text-base font-semibold text-gray-700 border-b pb-2">Informasi Pembayaran</h3>
+
+                    <!-- Payment Method & Bank Account -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <AppSelect
+                            v-model="form.payment_method"
+                            :options="paymentMethodOptions"
+                            label="Metode Pembayaran:"
+                            placeholder="Pilih Metode"
+                            :error="form.errors.payment_method"
+                        />
+
+                        <AppSelect
+                            v-if="form.payment_method === 'transfer'"
+                            v-model="form.company_bank_account_id"
+                            :options="filteredBankAccounts"
+                            label="Rekening Bank Perusahaan:"
+                            placeholder="Pilih Rekening"
+                            :error="form.errors.company_bank_account_id"
+                        />
+                    </div>
+
+                    <!-- Payment Codes -->
+                    <div v-if="form.payment_method === 'midtrans'" class="grid grid-cols-2 gap-4">
+                        <AppInput
+                            v-model="form.midtrans_code"
+                            label="Kode Midtrans:"
+                            :error="form.errors.midtrans_code"
+                            placeholder="Masukkan kode Midtrans"
+                            hint="Kode unik untuk pembayaran Midtrans"
+                            required
+                        />
+                    </div>
+
+                    <div v-if="form.payment_method === 'paypal'" class="grid grid-cols-2 gap-4">
+                        <AppInput
+                            v-model="form.paypal_code"
+                            label="Kode Paypal:"
+                            :error="form.errors.paypal_code"
+                            placeholder="Masukkan kode Paypal"
+                            hint="Kode Paypal dapat digunakan untuk beberapa invoice"
+                            required
+                        />
+                    </div>
                 </div>
 
+                <!-- SECTION 5: Additional Information -->
+                <div class="space-y-4">
+                    <h3 class="text-base font-semibold text-gray-700 border-b pb-2">Informasi Tambahan</h3>
 
-                <!-- Dates -->
-                <div class="grid grid-cols-2 gap-4">
-                    <AppInput
-                        v-model="form.invoice_date"
-                        type="date"
-                        label="Tanggal Faktur:"
-                        :error="form.errors.invoice_date"
-                        required
-                    />
+                    <!-- Salesperson -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <AppSelect
+                            v-model="form.sales_person_id"
+                            :options="users"
+                            label="Sales Person:"
+                            placeholder="Pilih Sales Person"
+                            :error="form.errors?.sales_person_id"
+                        />
+                    </div>
 
-                    <AppInput
-                        v-model="form.due_date"
-                        type="date"
-                        label="Jatuh Tempo:"
-                        :error="form.errors.due_date"
-                    />
-                </div>
-
-                <!-- Customer Invoice Number & Tax Invoice Code -->
-                <div class="grid grid-cols-2 gap-4">
-                    <AppInput
-                        v-model="form.customer_invoice_number"
-                        label="No. Faktur Customer:"
-                        :error="form.errors.customer_invoice_number"
-                        placeholder="Nomor referensi dari customer"
-                    />
-
-                    <AppSelect
-                        v-model="form.tax_invoice_code"
-                        :options="taxInvoiceCodeSelectOptions"
-                        label="Kode Faktur Pajak:"
-                        :error="form.errors.tax_invoice_code"
-                    />
-                </div>
-
-                <!-- Exchange Rate -->
-                <div class="grid grid-cols-2 gap-4">
-                    <AppInput
-                        v-model="form.exchange_rate"
-                        label="Kurs:"
-                        :error="form.errors.exchange_rate"
-                        :numberFormat="true"
-                        required
-                    />
-                </div>
-
-                <!-- Payment Details -->
-                <div class="grid grid-cols-2 gap-4">
-                    <AppSelect
-                        v-model="form.payment_method"
-                        :options="paymentMethodOptions"
-                        label="Metode Pembayaran:"
-                        placeholder="Pilih Metode"
-                        :error="form.errors.payment_method"
-                    />
-
-                    <AppSelect
-                        v-if="form.payment_method === 'transfer'"
-                        v-model="form.company_bank_account_id"
-                        :options="filteredBankAccounts"
-                        label="Rekening Bank Perusahaan:"
-                        placeholder="Pilih Rekening"
-                        :error="form.errors.company_bank_account_id"
-                    />
-                </div>
-
-                <!-- Midtrans Code - Required for Midtrans payment method -->
-                <div v-if="form.payment_method === 'midtrans'" class="grid grid-cols-2 gap-4">
-                    <AppInput
-                        v-model="form.midtrans_code"
-                        label="Kode Midtrans:"
-                        :error="form.errors.midtrans_code"
-                        placeholder="Masukkan kode Midtrans"
-                        hint="Kode unik untuk pembayaran Midtrans"
-                        required
-                    />
-                </div>
-
-                <!-- Paypal Code - Required for Paypal payment method -->
-                <div v-if="form.payment_method === 'paypal'" class="grid grid-cols-2 gap-4">
-                    <AppInput
-                        v-model="form.paypal_code"
-                        label="Kode Paypal:"
-                        :error="form.errors.paypal_code"
-                        placeholder="Masukkan kode Paypal"
-                        hint="Kode Paypal dapat digunakan untuk beberapa invoice"
-                        required
-                    />
-                </div>
-
-                <!-- Salesperson -->
-                <div class="grid grid-cols-2 gap-4">
-                    <AppSelect
-                        v-model="form.sales_person_id"
-                        :options="users"
-                        label="Sales Person:"
-                        placeholder="Pilih Sales Person"
-                        :error="form.errors?.sales_person_id"
-                    />
-                </div>
-
-                <AppTextarea
-                    v-model="form.notes"
-                    label="Catatan:"
-                    :error="form.errors.notes"
-                />
-
-                <!-- Shipping Charge -->
-                <div class="grid grid-cols-2 gap-4 mt-4">
-                    <AppInput
-                        v-model="form.shipping_charge"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        label="Biaya Pengiriman:"
-                        placeholder="0.00"
-                        hint="Biaya pengiriman yang ditagihkan ke customer"
-                        :error="form.errors?.shipping_charge"
+                    <!-- Notes -->
+                    <AppTextarea
+                        v-model="form.notes"
+                        label="Catatan:"
+                        :error="form.errors.notes"
                     />
                 </div>
             </div>

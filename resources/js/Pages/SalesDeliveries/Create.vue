@@ -23,6 +23,7 @@ const props = defineProps({
     costItems: Array,
     shippingTypeOptions: Array,
     shippingProviders: Array,
+    cashBankAccounts: Array,
     filters: Object,
 });
 </script>
@@ -42,18 +43,20 @@ const props = defineProps({
                             <AppBackLink :href="route('sales-deliveries.index', filters)" text="Kembali ke Daftar Pengiriman" />
                         </div>
                         <SalesDeliveryForm
+                            mode="create"
                             :companies="companies"
                             :branches="branches"
-                            :salesOrders="salesOrders"
-                            :selectedSalesOrders="selectedSalesOrders"
-                            :selectedCompanyId="selectedCompanyId"
-                            :selectedBranchId="selectedBranchId"
-                            :selectedPartnerId="selectedPartnerId"
+                            :sales-orders="salesOrders"
+                            :selected-sales-orders="selectedSalesOrders"
+                            :selected-company-id="selectedCompanyId"
+                            :selected-branch-id="selectedBranchId"
+                            :selected-partner-id="selectedPartnerId"
                             :customers="customers"
                             :locations="locations"
-                            :costItems="costItems"
-                            :shippingTypeOptions="shippingTypeOptions"
-                            :shippingProviders="shippingProviders"
+                            :cost-items="costItems"
+                            :shipping-type-options="shippingTypeOptions"
+                            :shipping-providers="shippingProviders"
+                            :cash-bank-accounts="cashBankAccounts"
                             :filters="filters"
                         />
                     </div>

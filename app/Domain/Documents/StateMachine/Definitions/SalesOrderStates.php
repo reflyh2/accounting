@@ -19,10 +19,12 @@ final class SalesOrderStates
             ->allow(DocumentStateTransition::make(SalesOrderStatus::PARTIALLY_DELIVERED, SalesOrderStatus::DELIVERED))
             ->allow(DocumentStateTransition::make(SalesOrderStatus::DELIVERED, SalesOrderStatus::CLOSED))
             ->allow(DocumentStateTransition::make(SalesOrderStatus::PARTIALLY_DELIVERED, SalesOrderStatus::CLOSED))
+            // Reverse transitions (when deliveries are deleted)
+            ->allow(DocumentStateTransition::make(SalesOrderStatus::DELIVERED, SalesOrderStatus::PARTIALLY_DELIVERED))
+            ->allow(DocumentStateTransition::make(SalesOrderStatus::DELIVERED, SalesOrderStatus::CONFIRMED))
+            ->allow(DocumentStateTransition::make(SalesOrderStatus::PARTIALLY_DELIVERED, SalesOrderStatus::CONFIRMED))
             ->allow(DocumentStateTransition::make(SalesOrderStatus::DRAFT, SalesOrderStatus::CANCELED))
             ->allow(DocumentStateTransition::make(SalesOrderStatus::QUOTE, SalesOrderStatus::CANCELED))
             ->allow(DocumentStateTransition::make(SalesOrderStatus::CONFIRMED, SalesOrderStatus::CANCELED));
     }
 }
-
-

@@ -153,7 +153,7 @@ Route::get('/users', function () {
 
 ## Do Things the Laravel Way
 
-- Use `php artisan make:` commands to create new files (i.e. migrations, controllers, models, etc.). You can list available Artisan commands using the `list-artisan-commands` tool.
+- Use `./vendor/bin/sail artisan make:` commands to create new files (i.e. migrations, controllers, models, etc.). You can list available Artisan commands using the `list-artisan-commands` tool.
 - If you're creating a generic PHP class, use `artisan make:class`.
 - Pass `--no-interaction` to all Artisan commands to ensure they work without user input. You should also pass the correct `--options` to ensure correct behavior.
 
@@ -165,7 +165,7 @@ Route::get('/users', function () {
 - Use Laravel's query builder for very complex database operations.
 
 ### Model Creation
-- When creating new models, create useful factories and seeders for them too. Ask the user if they need any other things, using `list-artisan-commands` to check the available options to `php artisan make:model`.
+- When creating new models, create useful factories and seeders for them too. Ask the user if they need any other things, using `list-artisan-commands` to check the available options to `./vendor/bin/sail artisan make:model`.
 
 ### APIs & Eloquent Resources
 - For APIs, default to using Eloquent API Resources and API versioning unless existing API routes do not, then you should follow existing application convention.
@@ -189,7 +189,7 @@ Route::get('/users', function () {
 ### Testing
 - When creating models for tests, use the factories for the models. Check if the factory has custom states that can be used before manually setting up the model.
 - Faker: Use methods such as `$this->faker->word()` or `fake()->randomDigit()`. Follow existing conventions whether to use `$this->faker` or `fake()`.
-- When creating tests, make use of `php artisan make:test [options] <name>` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
+- When creating tests, make use of `./vendor/bin/sail artisan make:test [options] <name>` to create a feature test, and pass `--unit` to create a unit test. Most tests should be feature tests.
 
 ### Vite Error
 - If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
@@ -218,9 +218,9 @@ Route::get('/users', function () {
 
 ### New Artisan Commands
 - List Artisan commands using Boost's MCP tool, if available. New commands available in Laravel 11:
-    - `php artisan make:enum`
-    - `php artisan make:class`
-    - `php artisan make:interface`
+    - `./vendor/bin/sail artisan make:enum`
+    - `./vendor/bin/sail artisan make:class`
+    - `./vendor/bin/sail artisan make:interface`
 
 
 === pint/core rules ===
@@ -239,7 +239,7 @@ Route::get('/users', function () {
 - If you need to verify a feature is working, write or update a Unit / Feature test.
 
 ### Pest Tests
-- All tests must be written using Pest. Use `php artisan make:test --pest <name>`.
+- All tests must be written using Pest. Use `./vendor/bin/sail artisan make:test --pest <name>`.
 - You must not remove any tests or test files from the tests directory without approval. These are not temporary or helper files - these are core to the application.
 - Tests should test all of the happy paths, failure paths, and weird paths.
 - Tests live in the `tests/Feature` and `tests/Unit` directories.
@@ -252,9 +252,9 @@ it('is true', function () {
 
 ### Running Tests
 - Run the minimal number of tests using an appropriate filter before finalizing code edits.
-- To run all tests: `php artisan test`.
-- To run all tests in a file: `php artisan test tests/Feature/ExampleTest.php`.
-- To filter on a particular test name: `php artisan test --filter=testName` (recommended after making a change to a related file).
+- To run all tests: `./vendor/bin/sail artisan test`.
+- To run all tests in a file: `./vendor/bin/sail artisan test tests/Feature/ExampleTest.php`.
+- To filter on a particular test name: `./vendor/bin/sail artisan test --filter=testName` (recommended after making a change to a related file).
 - When the tests relating to your changes are passing, ask the user if they would like to run the entire test suite to ensure everything is still passing.
 
 ### Pest Assertions
@@ -378,5 +378,5 @@ it('has emails', function (string $email) {
 ## Test Enforcement
 
 - Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
-- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test` with a specific filename or filter.
+- Run the minimum number of tests needed to ensure code quality and speed. Use `./vendor/bin/sail artisan test` with a specific filename or filter.
 </laravel-boost-guidelines>

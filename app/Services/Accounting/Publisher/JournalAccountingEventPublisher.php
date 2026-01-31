@@ -9,7 +9,6 @@ use App\Models\AccountingEventLog;
 use App\Models\GlEventConfiguration;
 use App\Models\Journal;
 use Illuminate\Support\Facades\DB;
-use Throwable;
 
 class JournalAccountingEventPublisher implements AccountingEventPublisher
 {
@@ -17,7 +16,7 @@ class JournalAccountingEventPublisher implements AccountingEventPublisher
     {
         DB::transaction(function () use ($payload) {
             $config = $this->resolveConfiguration($payload);
-            
+
             $journal = $this->createJournal($payload);
 
             foreach ($payload->lines() as $entry) {
@@ -33,13 +32,13 @@ class JournalAccountingEventPublisher implements AccountingEventPublisher
             ->where('is_active', true);
 
         if ($payload->branchId) {
-             $branchConfig = (clone $query)
+            $branchConfig = (clone $query)
                 ->where('branch_id', $payload->branchId)
                 ->first();
 
-             if ($branchConfig) {
-                 return $branchConfig;
-             }
+            if ($branchConfig) {
+                return $branchConfig;
+            }
         }
 
         // Fallback to company configuration
@@ -66,8 +65,8 @@ class JournalAccountingEventPublisher implements AccountingEventPublisher
 
         return Journal::create([
             'branch_id' => $payload->branchId,
-            'user_global_id' => $payload->actorId ?: 'system', // Ideally we'd have a system user ID or similar. 
-                                                              // The user will need to ensure actorId is populated or 'system' exists.
+            'user_global_id' => $payload->actorId ?: 'system', // Ideally we'd have a system user ID or similar.
+            // The user will need to ensure actorId is populated or 'system' exists.
             'date' => $payload->occurredAt->format('Y-m-d'),
             'journal_type' => $journalType,
             'reference_number' => $payload->documentNumber,
@@ -76,22 +75,48 @@ class JournalAccountingEventPublisher implements AccountingEventPublisher
     }
 
     private function createJournalEntry(
-        Journal $journal, 
-        AccountingEntry $entry, 
+        Journal $journal,
+        AccountingEntry $entry,
         GlEventConfiguration $config,
         AccountingEventPayload $payload
     ): void {
-        // Find account mapping for the role
-        $mapping = $config->lines->first(function ($line) use ($entry) {
-            return $line->role === $entry->role;
-        });
+        // Check if account_id is provided in entry meta (override)
+        $accountId = $entry->meta['account_id'] ?? null;
 
-        if (!$mapping) {
-            throw new AccountingEventException(sprintf(
-                'No account mapping found for role [%s] in GL Event Configuration [%s].',
-                $entry->role,
-                $config->id
-            ));
+        \Log::info('createJournalEntry: Processing entry', [
+            'journal_id' => $journal->id,
+            'role' => $entry->role,
+            'direction' => $entry->direction,
+            'amount' => $entry->amount,
+            'meta' => $entry->meta,
+            'meta_account_id' => $accountId,
+        ]);
+
+        if (! $accountId) {
+            // Find account mapping for the role from GL Event Configuration
+            $mapping = $config->lines->first(function ($line) use ($entry) {
+                return $line->role === $entry->role;
+            });
+
+            if (! $mapping) {
+                throw new AccountingEventException(sprintf(
+                    'No account mapping found for role [%s] in GL Event Configuration [%s].',
+                    $entry->role,
+                    $config->id
+                ));
+            }
+
+            $accountId = $mapping->account_id;
+
+            \Log::info('createJournalEntry: Using GL Event Configuration account', [
+                'role' => $entry->role,
+                'account_id' => $accountId,
+            ]);
+        } else {
+            \Log::info('createJournalEntry: Using meta override account', [
+                'role' => $entry->role,
+                'account_id' => $accountId,
+            ]);
         }
 
         $amount = $entry->amount;
@@ -100,7 +125,7 @@ class JournalAccountingEventPublisher implements AccountingEventPublisher
         $currencyId = $this->getCurrencyId($payload->currencyCode);
 
         $journal->journalEntries()->create([
-            'account_id' => $mapping->account_id,
+            'account_id' => $accountId,
             'debit' => $entry->direction === 'debit' ? $amount : 0,
             'credit' => $entry->direction === 'credit' ? $amount : 0,
             'currency_id' => $currencyId,
@@ -140,12 +165,13 @@ class JournalAccountingEventPublisher implements AccountingEventPublisher
         }
 
         $id = DB::table('currencies')->where('code', $code)->value('id');
-        
-        if (!$id) {
-             throw new AccountingEventException("Currency code [{$code}] not found.");
+
+        if (! $id) {
+            throw new AccountingEventException("Currency code [{$code}] not found.");
         }
 
         $cache[$code] = $id;
+
         return $id;
     }
 }

@@ -13,6 +13,14 @@ import { ArchiveBoxArrowDownIcon } from '@heroicons/vue/24/outline';
 import { formatNumber } from '@/utils/numberFormat';
 
 const props = defineProps({
+    mode: {
+        type: String,
+        default: 'create', // 'create' or 'edit'
+    },
+    delivery: {
+        type: Object,
+        default: null,
+    },
     companies: {
         type: Array,
         default: () => [],
@@ -33,9 +41,17 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    shippingProviders: {
+        type: Array,
+        default: () => [],
+    },
     shippingTypeOptions: {
         type: Object,
         default: () => ({}),
+    },
+    cashBankAccounts: {
+        type: Array,
+        default: () => [],
     },
 });
 
@@ -68,7 +84,8 @@ function buildInitialLines() {
     const lines = [];
     for (const so of (props.selectedSalesOrders || [])) {
         for (const line of so.lines) {
-            const hasDeliverable = (line.capabilities || []).includes('deliverable');
+            // Check if capabilities array includes 'deliverable'
+            const hasDeliverable = Array.isArray(line.capabilities) && line.capabilities.includes('deliverable');
             if (line.remaining_quantity > 0 && hasDeliverable) {
                 lines.push({
                     sales_order_line_id: line.id,
@@ -83,27 +100,27 @@ function buildInitialLines() {
 const selectedSoIds = ref((props.selectedSalesOrders || []).map(so => so.id));
 
 const form = useForm({
-    company_id: selectedCompany.value,
-    branch_id: selectedBranch.value,
-    partner_id: selectedCustomerId.value,
+    company_id: props.mode === 'edit' ? props.delivery?.company_id : selectedCompany.value,
+    branch_id: props.mode === 'edit' ? props.delivery?.branch_id : selectedBranch.value,
+    partner_id: props.mode === 'edit' ? props.delivery?.partner?.id : selectedCustomerId.value,
     sales_order_ids: selectedSoIds.value,
-    delivery_date: today,
-    location_id: props.locations?.[0]?.id ?? null,
-    notes: '',
+    delivery_date: props.mode === 'edit' ? props.delivery?.delivery_date : today,
+    location_id: props.mode === 'edit' ? props.delivery?.location_id : (props.locations?.[0]?.id ?? null),
+    notes: props.mode === 'edit' ? (props.delivery?.notes || '') : '',
     lines: buildInitialLines(),
-    shipping_address_id: null,
-    shipping_type: null,
-    shipping_provider_id: null,
-    shipping_cost: 0,
-    shipping_cost_item_id: null,
-    shipping_cost_description: '',
+    shipping_address_id: props.mode === 'edit' ? props.delivery?.shipping_address_id : null,
+    shipping_type: props.mode === 'edit' ? props.delivery?.shipping_type : null,
+    shipping_provider_id: props.mode === 'edit' ? props.delivery?.shipping_provider_id : null,
+    actual_shipping_charge: props.mode === 'edit' ? (props.delivery?.actual_shipping_charge || 0) : 0,
+    shipping_charge_credit_account_id: props.mode === 'edit' ? props.delivery?.shipping_charge_credit_account_id : null,
 });
 
 const allSoLines = computed(() => {
     const lines = [];
     for (const so of (props.selectedSalesOrders || [])) {
         for (const line of so.lines) {
-            const hasDeliverable = (line.capabilities || []).includes('deliverable');
+            // Check if capabilities array includes 'deliverable'
+            const hasDeliverable = Array.isArray(line.capabilities) && line.capabilities.includes('deliverable');
             if (hasDeliverable) {
                 lines.push({
                     ...line,
@@ -178,7 +195,12 @@ watch(selectedCompany, (newCompanyId) => {
     selectedCustomerName.value = '';
     selectedSoIds.value = [];
     form.lines = [];
-    
+    form.shipping_address_id = null;
+    form.shipping_type = null;
+    form.shipping_provider_id = null;
+    form.actual_shipping_charge = 0;
+    form.shipping_charge_credit_account_id = null;
+
     router.reload({
         only: ['branches', 'customers', 'salesOrders', 'selectedSalesOrders', 'locations'],
         data: { company_id: newCompanyId },
@@ -205,10 +227,15 @@ watch(selectedBranch, (newBranchId) => {
         selectedCustomerName.value = '';
         selectedSoIds.value = [];
         form.lines = [];
-        
+        form.shipping_address_id = null;
+        form.shipping_type = null;
+        form.shipping_provider_id = null;
+        form.actual_shipping_charge = 0;
+        form.shipping_charge_credit_account_id = null;
+
         router.reload({
             only: ['customers', 'salesOrders', 'selectedSalesOrders', 'locations'],
-            data: { 
+            data: {
                 company_id: selectedCompany.value,
                 branch_id: newBranchId,
             },
@@ -236,9 +263,14 @@ async function fetchPartnerAddresses(partnerId) {
 watch(selectedCustomerId, (newId) => {
     form.partner_id = newId;
     fetchPartnerAddresses(newId);
-    // Clear selected SOs when customer changes
+    // Clear selected SOs and shipping info when customer changes
     selectedSoIds.value = [];
     form.lines = [];
+    form.shipping_address_id = null;
+    form.shipping_type = null;
+    form.shipping_provider_id = null;
+    form.actual_shipping_charge = 0;
+    form.shipping_charge_credit_account_id = null;
     router.get(route('sales-deliveries.create'), {
         company_id: selectedCompany.value,
         branch_id: selectedBranch.value,
@@ -264,20 +296,59 @@ watch(selectedSoIds, (newIds) => {
             preserveScroll: true,
             only: ['selectedSalesOrders', 'locations'],
         });
+    } else {
+        // Reset lines and shipping info when sales orders are cleared
+        form.lines = [];
+        form.shipping_address_id = null;
+        form.shipping_type = null;
+        form.shipping_provider_id = null;
+        form.actual_shipping_charge = 0;
+        form.shipping_charge_credit_account_id = null;
+
+        // Need to reload to clear selectedSalesOrders prop
+        router.get(route('sales-deliveries.create'), {
+            company_id: selectedCompany.value,
+            branch_id: selectedBranch.value,
+            partner_id: selectedCustomerId.value,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['selectedSalesOrders', 'locations'],
+        });
     }
 }, { deep: true, immediate: false });
 
-// Watch for selectedSalesOrders prop changes to populate lines
+// Watch for selectedSalesOrders prop changes to populate lines and shipping info
 watch(
     () => props.selectedSalesOrders,
     (newSOs) => {
-        if (newSOs && newSOs.length > 0) {
-            repopulateLinesFromSOs();
-            // Autoload addresses from first SO if available
-            const firstSO = newSOs[0];
-            if (firstSO) {
-                form.shipping_address_id = firstSO.shipping_address_id || null;
+        if (!newSOs || newSOs.length === 0) {
+            // Reset everything when no sales orders are selected
+            form.lines = [];
+            if (props.mode !== 'edit') {
+                form.shipping_address_id = null;
+                form.shipping_type = null;
+                form.shipping_provider_id = null;
+                form.actual_shipping_charge = 0;
+                form.shipping_charge_credit_account_id = null;
             }
+            return;
+        }
+
+        const deliverableCount = repopulateLinesFromSOs();
+
+        // Show alert if no deliverable products
+        if (deliverableCount === 0 && newSOs.length > 0) {
+            alert('Sales Order yang dipilih tidak memiliki produk yang dapat dikirim (deliverable).');
+        }
+
+        // Auto-populate shipping info from first SO
+        const firstSO = newSOs[0];
+        if (props.mode !== 'edit') {
+            form.shipping_address_id = firstSO?.shipping_address_id || null;
+            form.shipping_type = firstSO?.shipping_type || null;
+            form.shipping_provider_id = firstSO?.shipping_provider_id || null;
+            form.actual_shipping_charge = firstSO?.estimated_shipping_charge || 0;
         }
     },
     { immediate: true }
@@ -286,22 +357,30 @@ watch(
 function repopulateLinesFromSOs() {
     if (!props.selectedSalesOrders || props.selectedSalesOrders.length === 0) {
         form.lines = [];
-        return;
+        return 0;
     }
-
+    
     const newLines = [];
+    let deliverableCount = 0;
+    
     for (const so of props.selectedSalesOrders) {
-        for (const line of (so.lines || [])) {
-            const hasDeliverable = (line.capabilities || []).includes('deliverable');
-            if (line.remaining_quantity > 0 && hasDeliverable) {
-                newLines.push({
-                    sales_order_line_id: line.id,
-                    quantity: line.remaining_quantity,
-                });
-            }
+        for (const line of so.lines) {
+            const hasDeliverable = Array.isArray(line.capabilities) && line.capabilities.includes('deliverable');
+            if (!hasDeliverable) continue;
+            
+            deliverableCount++;
+            const remaining = line.remaining_quantity || 0;
+            
+            newLines.push({
+                sales_order_line_id: line.id,
+                quantity: remaining,
+                max_quantity: remaining,
+            });
         }
     }
+    
     form.lines = newLines;
+    return deliverableCount;
 }
 
 // Watch for locations prop changes - auto-select if only one
@@ -379,6 +458,16 @@ const costItemOptions = computed(() => {
         }));
 });
 
+const filteredShippingProviders = computed(() => {
+    if (!form.shipping_type) {
+        return [];
+    }
+
+    return props.shippingProviders
+        .filter(sp => sp.type === form.shipping_type)
+        .map(sp => ({ value: sp.id, label: sp.name }));
+});
+
 function filteredLinesPayload(lines) {
    return lines.filter(line => Number(line.quantity) > 0);
 }
@@ -394,10 +483,17 @@ function submitForm() {
       lines: filteredLinesPayload(data.lines),
    }));
 
-   form.post(route('sales-deliveries.store'), {
-      preserveScroll: true,
-      onFinish: () => form.transform(data => data),
-   });
+   if (props.mode === 'edit') {
+      form.put(route('sales-deliveries.update', props.delivery.id), {
+         preserveScroll: true,
+         onFinish: () => form.transform(data => data),
+      });
+   } else {
+      form.post(route('sales-deliveries.store'), {
+         preserveScroll: true,
+         onFinish: () => form.transform(data => data),
+      });
+   }
 }
 
 // Customer table headers for AppPopoverSearch
@@ -412,8 +508,14 @@ const customerTableHeaders = [
     <form @submit.prevent="submitForm" class="space-y-4">
         <div class="flex justify-between">
             <div class="w-2/3 max-w-2xl mr-8">
-                <!-- Company & Branch -->
-                <div class="grid grid-cols-2 gap-4">
+                <!-- Edit Mode: Delivery Header -->
+                <div v-if="mode === 'edit'" class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 class="font-semibold text-blue-800">{{ delivery.delivery_number }}</h3>
+                    <p class="text-sm text-blue-600">Customer: {{ delivery.partner?.name }}</p>
+                </div>
+
+               <!-- Create Mode: Company & Branch -->
+                <div v-if="mode === 'create'" class="grid grid-cols-2 gap-4">
                     <AppSelect
                         v-model="selectedCompany"
                         :options="companies"
@@ -434,8 +536,8 @@ const customerTableHeaders = [
                     />
                 </div>
 
-                <!-- Customer -->
-                <div class="grid grid-cols-1">
+                <!-- Create Mode: Customer -->
+                <div v-if="mode === 'create'" class="grid grid-cols-1">
                     <AppPopoverSearch
                         v-model="selectedCustomerId"
                         :url="route('api.customers-with-sos')"
@@ -451,8 +553,8 @@ const customerTableHeaders = [
                     />
                 </div>
 
-                <!-- Sales Orders -->
-                <div class="grid grid-cols-1">
+                <!-- Create Mode: Sales Orders -->
+                <div v-if="mode === 'create'" class="grid grid-cols-1">
                     <AppSelect
                         v-model="selectedSoIds"
                         :options="salesOrderOptions"
@@ -503,57 +605,65 @@ const customerTableHeaders = [
                     :error="form.errors.notes"
                 />
 
-                <!-- Shipping Information (read-only, inherited from SO) -->
-                <div v-if="props.selectedSalesOrders && props.selectedSalesOrders.length > 0" class="grid grid-cols-2 gap-4 mt-4">
-                    <AppInput
-                        :model-value="getShippingTypeLabel(form.shipping_type)"
-                        label="Tipe Pengiriman:"
-                        readonly
-                        disabled
-                    />
-                    <AppInput
-                        :model-value="getShippingProviderName()"
-                        label="Penyedia Pengiriman:"
-                        readonly
-                        disabled
-                    />
+                <!-- Shipping Information -->
+                <div class="mt-4 border-t pt-4">
+                    <h3 class="text-lg font-semibold mb-3">Informasi Pengiriman</h3>
+                    <div class="grid grid-cols-3 gap-4">
+                        <AppSelect
+                            v-model="form.shipping_type"
+                            :options="Object.entries(props.shippingTypeOptions).map(([value, label]) => ({ value, label }))"
+                            label="Tipe Pengiriman:"
+                            placeholder="Pilih Tipe Pengiriman"
+                            :error="form.errors?.shipping_type"
+                        />
+
+                        <AppSelect
+                            v-if="form.shipping_type"
+                            v-model="form.shipping_provider_id"
+                            :options="filteredShippingProviders"
+                            label="Penyedia Pengiriman:"
+                            placeholder="Pilih Penyedia"
+                            :error="form.errors?.shipping_provider_id"
+                        />
+
+                        <AppInput
+                            v-if="form.shipping_provider_id"
+                            v-model="form.actual_shipping_charge"
+                            numberFormat="true"
+                            label="Biaya Pengiriman Aktual:"
+                            placeholder="0.00"
+                            :error="form.errors?.actual_shipping_charge"
+                        />
+                    </div>
+                    <div v-if="form.actual_shipping_charge > 0" class="grid grid-cols-2 gap-4 mt-2">
+                        <AppSelect
+                            v-model="form.shipping_charge_credit_account_id"
+                            :options="props.cashBankAccounts"
+                            label="Akun Kredit Biaya Pengiriman:"
+                            placeholder="Pilih Akun Kas/Bank"
+                            :error="form.errors?.shipping_charge_credit_account_id"
+                        />
+                        <div class="text-sm text-gray-500 self-end pb-2">
+                            Pilih akun kas/bank untuk jurnal biaya pengiriman
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Actual Shipping Cost -->
-                <div class="grid grid-cols-3 gap-4 mt-4">
-                    <AppSelect
-                        v-model="form.shipping_cost_item_id"
-                        :options="costItemOptions"
-                        label="Item Biaya Pengiriman:"
-                        placeholder="Pilih Cost Item"
-                        :error="form.errors?.shipping_cost_item_id"
-                    />
-                    <AppInput
-                        v-model="form.shipping_cost"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        label="Biaya Pengiriman Aktual:"
-                        placeholder="0.00"
-                        :error="form.errors?.shipping_cost"
-                    />
-                    <AppInput
-                        v-model="form.shipping_cost_description"
-                        label="Deskripsi:"
-                        placeholder="Biaya Pengiriman"
-                        :error="form.errors?.shipping_cost_description"
-                    />
-                </div>
             </div>
 
             <div class="w-1/3 bg-gray-100 p-4 rounded-lg text-sm">
-                <h3 class="text-lg font-semibold mb-2">Informasi Pengiriman</h3>
-                <p class="mb-2">Pengiriman penjualan mencatat barang yang dikirim ke customer berdasarkan Sales Order.</p>
+                <h3 class="text-lg font-semibold mb-2">{{ mode === 'edit' ? 'Informasi Edit' : 'Informasi Pengiriman' }}</h3>
+                <p class="mb-2" v-if="mode === 'edit'">Anda sedang mengedit pengiriman yang sudah ada. Perubahan akan memperbarui stok inventory.</p>
+                <p class="mb-2" v-else>Pengiriman penjualan mencatat barang yang dikirim ke customer berdasarkan Sales Order.</p>
                 <ul class="list-disc list-inside">
-                    <li>Pilih perusahaan dan cabang terlebih dahulu</li>
-                    <li>Pilih customer untuk melihat SO yang tersedia</li>
-                    <li>Pilih satu atau lebih Sales Order</li>
-                    <li>Atur jumlah barang yang akan dikirim</li>
+                    <li v-if="mode === 'edit'">Ubah jumlah barang yang dikirim</li>
+                    <li v-if="mode === 'edit'">Ubah tanggal atau lokasi pengiriman</li>
+                    <li v-if="mode === 'edit'">Ubah informasi pengiriman</li>
+                    <li v-if="mode === 'edit'">Stok akan disesuaikan secara otomatis</li>
+                    <li v-if="mode === 'create'">Pilih perusahaan dan cabang terlebih dahulu</li>
+                    <li v-if="mode === 'create'">Pilih customer untuk melihat SO yang tersedia</li>
+                    <li v-if="mode === 'create'">Pilih satu atau lebih Sales Order</li>
+                    <li v-if="mode === 'create'">Atur jumlah barang yang akan dikirim</li>
                 </ul>
             </div>
         </div>
@@ -639,7 +749,8 @@ const customerTableHeaders = [
             </div>
 
             <div v-else class="text-center py-8 text-gray-500">
-                <p v-if="!selectedCustomerId">Pilih Customer terlebih dahulu untuk melihat Sales Order yang tersedia.</p>
+                <p v-if="mode === 'edit'">Tidak ada baris pengiriman yang tersedia.</p>
+                <p v-else-if="!selectedCustomerId">Pilih Customer terlebih dahulu untuk melihat Sales Order yang tersedia.</p>
                 <p v-else-if="salesOrderOptions.length === 0">Tidak ada Sales Order yang tersedia untuk customer ini.</p>
                 <p v-else>Pilih Sales Order untuk melihat detail barang yang dapat dikirim.</p>
             </div>
@@ -647,9 +758,12 @@ const customerTableHeaders = [
 
         <div class="mt-4 flex items-center">
             <AppPrimaryButton type="submit" class="mr-2" :disabled="form.processing || !hasSelectedQuantity">
-                Posting Pengiriman
+                {{ mode === 'edit' ? 'Simpan Perubahan' : 'Posting Pengiriman' }}
             </AppPrimaryButton>
-            <AppSecondaryButton @click="$inertia.visit(route('sales-deliveries.index', filters))">
+            <AppSecondaryButton v-if="mode === 'edit'" @click="$inertia.visit(route('sales-deliveries.show', delivery.id))">
+                Batal
+            </AppSecondaryButton>
+            <AppSecondaryButton v-else @click="$inertia.visit(route('sales-deliveries.index', filters))">
                 Batal
             </AppSecondaryButton>
         </div>
