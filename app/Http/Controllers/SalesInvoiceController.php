@@ -687,6 +687,8 @@ class SalesInvoiceController extends Controller
             'total_amount' => (float) $invoice->total_amount,
             'delivery_value_base' => (float) $invoice->delivery_value_base,
             'revenue_variance' => (float) $invoice->revenue_variance,
+            'payment_method' => $invoice->payment_method,
+            'payment_method_label' => $invoice->payment_method ? \App\Enums\PaymentMethod::from($invoice->payment_method)->label() : null,
             'partner' => $invoice->partner ? [
                 'id' => $invoice->partner->id,
                 'name' => $invoice->partner->name,

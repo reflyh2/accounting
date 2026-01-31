@@ -206,7 +206,7 @@ watch(selectedCompany, (newCompanyId) => {
         form.lines = [];
         
         router.reload({
-            only: ['branches', 'customers', 'salesOrders', 'selectedSalesOrders'],
+            only: ['branches', 'customers', 'salesOrders', 'selectedSalesOrders', 'totalShippingCharge'],
             data: { company_id: newCompanyId },
         });
     }
@@ -231,8 +231,8 @@ watch(() => form.branch_id, (newBranchId) => {
         form.lines = [];
         
         router.reload({
-            only: ['customers', 'salesOrders', 'selectedSalesOrders'],
-            data: { 
+            only: ['customers', 'salesOrders', 'selectedSalesOrders', 'totalShippingCharge'],
+            data: {
                 company_id: selectedCompany.value,
                 branch_id: newBranchId,
                 currency_id: form.currency_id,
@@ -248,8 +248,8 @@ watch(() => form.currency_id, (newCurrencyId) => {
         form.lines = [];
         
         router.reload({
-            only: ['salesOrders', 'selectedSalesOrders'],
-            data: { 
+            only: ['salesOrders', 'selectedSalesOrders', 'totalShippingCharge'],
+            data: {
                 company_id: selectedCompany.value,
                 branch_id: form.branch_id,
                 currency_id: newCurrencyId,
@@ -283,8 +283,8 @@ watch(selectedCustomerId, (newId) => {
     if (!isEditMode.value) {
         selectedSoIds.value = [];
         router.reload({
-            only: ['salesOrders', 'selectedSalesOrders'],
-            data: { 
+            only: ['salesOrders', 'selectedSalesOrders', 'totalShippingCharge'],
+            data: {
                 company_id: selectedCompany.value,
                 branch_id: form.branch_id,
                 currency_id: form.currency_id,
@@ -333,7 +333,7 @@ watch(selectedSoIds, (newIds, oldIds) => {
         }, {
             preserveState: true,
             preserveScroll: true,
-            only: ['selectedSalesOrders'],
+            only: ['selectedSalesOrders', 'totalShippingCharge'],
             onSuccess: (page) => {
                 const newSOs = page.props.selectedSalesOrders || [];
                 if (newSOs.length > 0) {
@@ -369,6 +369,16 @@ watch(
         }
     },
     { immediate: true }
+);
+
+// Watch for totalShippingCharge prop changes to update form shipping charge
+watch(
+    () => props.totalShippingCharge,
+    (newShippingCharge) => {
+        if (!isEditMode.value) {
+            form.shipping_charge = newShippingCharge || 0;
+        }
+    }
 );
 
 function repopulateLinesFromSOs() {

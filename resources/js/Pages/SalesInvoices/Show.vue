@@ -36,10 +36,6 @@ const deleteInvoice = () => {
         },
     });
 };
-
-const postInvoice = () => {
-    form.post(route('sales-invoices.post', props.invoice.id));
-};
 </script>
 
 <template>
@@ -110,6 +106,10 @@ const postInvoice = () => {
                                 <p class="font-semibold">Kode Faktur Pajak:</p>
                                 <p>{{ invoice.tax_invoice_code_label }}</p>
                             </div>
+                            <div v-if="invoice.payment_method_label">
+                                <p class="font-semibold">Metode Pembayaran:</p>
+                                <p>{{ invoice.payment_method_label }}</p>
+                            </div>
                         </div>
                         <div class="mt-6">
                             <h4 class="text-lg font-semibold mb-2">Detail Faktur</h4>
@@ -151,6 +151,11 @@ const postInvoice = () => {
                                         <td class="border border-gray-300 px-4 py-2 text-right font-semibold">{{ formatNumber(invoice.tax_total) }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">-</td>
                                     </tr>
+                                    <tr v-if="invoice.shipping_charge && invoice.shipping_charge > 0">
+                                        <td colspan="7" class="border border-gray-300 px-4 py-2 font-semibold text-right">Biaya Kirim</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right font-semibold">{{ formatNumber(invoice.shipping_charge) }}</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">-</td>
+                                    </tr>
                                     <tr>
                                         <td colspan="7" class="border border-gray-300 px-4 py-2 font-semibold text-right">Total</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right font-semibold" :colspan="hasOtherCurrency ? 2 : 1">{{ formatNumber(invoice.total_amount) }}</td>
@@ -160,6 +165,7 @@ const postInvoice = () => {
                         </div>
 
                         <div v-if="invoice.costs && invoice.costs.length > 0" class="mt-6">
+                            <h4 class="text-lg font-semibold mb-2">Biaya Tambahan</h4>
                             <table class="w-full border-collapse border border-gray-300 text-sm">
                                 <thead>
                                     <tr>
@@ -181,6 +187,11 @@ const postInvoice = () => {
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <div v-if="invoice.notes" class="mt-6">
+                            <h4 class="text-lg font-semibold mb-2">Catatan</h4>
+                            <p class="text-gray-700 whitespace-pre-line">{{ invoice.notes }}</p>
                         </div>
                     </div>
                 </div>

@@ -123,6 +123,7 @@ class SalesInvoiceService
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'sales_person_id' => $payload['sales_person_id'] ?? $actor?->getAuthIdentifier(),
                 'invoice_address_id' => $payload['invoice_address_id'] ?? null,
+                'shipping_charge' => $payload['shipping_charge'] ?? 0,
                 'created_by' => $actor?->getAuthIdentifier(),
             ]);
 
@@ -130,7 +131,8 @@ class SalesInvoiceService
                 $invoice->salesOrders()->attach($salesOrders->pluck('id'));
             }
 
-            $totals = $this->persistInvoiceLines($invoice, $preparedLines);
+            $shippingCharge = (float) ($payload['shipping_charge'] ?? 0);
+            $totals = $this->persistInvoiceLines($invoice, $preparedLines, $shippingCharge);
 
             $invoice->update([
                 'subtotal' => $totals['subtotal'],
@@ -188,7 +190,8 @@ class SalesInvoiceService
             }
 
             $invoice->lines()->delete();
-            $totals = $this->persistInvoiceLines($invoice, $preparedLines);
+            $shippingCharge = (float) ($payload['shipping_charge'] ?? 0);
+            $totals = $this->persistInvoiceLines($invoice, $preparedLines, $shippingCharge);
 
             $invoice->update([
                 'invoice_date' => $invoiceDate,
@@ -201,6 +204,7 @@ class SalesInvoiceService
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'sales_person_id' => $payload['sales_person_id'] ?? $invoice->sales_person_id,
                 'invoice_address_id' => $payload['invoice_address_id'] ?? null,
+                'shipping_charge' => $shippingCharge,
                 'subtotal' => $totals['subtotal'],
                 'tax_total' => $totals['tax_total'],
                 'total_amount' => $totals['total_amount'],
@@ -335,7 +339,7 @@ class SalesInvoiceService
                     ]);
             }
 
-            $totals = $this->calculateTotals($prepared);
+            $totals = $this->calculateTotals($prepared, (float) $invoice->shipping_charge);
 
             $invoice->update([
                 'subtotal' => $totals['subtotal'],
@@ -387,10 +391,12 @@ class SalesInvoiceService
                 $taxTotal += (float) $line->tax_amount;
             }
 
+            $shippingCharge = (float) $invoice->shipping_charge;
+
             $totals = [
                 'subtotal' => $this->roundMoney($subtotal),
                 'tax_total' => $this->roundMoney($taxTotal),
-                'total_amount' => $this->roundMoney($subtotal + $taxTotal),
+                'total_amount' => $this->roundMoney($subtotal + $taxTotal + $shippingCharge),
                 'delivery_value_base' => 0.0,
                 'revenue_variance' => 0.0,
             ];
@@ -682,7 +688,7 @@ class SalesInvoiceService
         return $prepared;
     }
 
-    private function persistInvoiceLines(SalesInvoice $invoice, array $preparedLines): array
+    private function persistInvoiceLines(SalesInvoice $invoice, array $preparedLines, float $shippingCharge = 0.0): array
     {
         $subtotal = 0.0;
         $taxTotal = 0.0;
@@ -716,7 +722,7 @@ class SalesInvoiceService
         return [
             'subtotal' => $this->roundMoney($subtotal),
             'tax_total' => $this->roundMoney($taxTotal),
-            'total_amount' => $this->roundMoney($subtotal + $taxTotal),
+            'total_amount' => $this->roundMoney($subtotal + $taxTotal + $shippingCharge),
         ];
     }
 
@@ -784,7 +790,7 @@ class SalesInvoiceService
         }
     }
 
-    private function calculateTotals(array $lines): array
+    private function calculateTotals(array $lines, float $shippingCharge = 0.0): array
     {
         $subtotal = 0.0;
         $taxTotal = 0.0;
@@ -801,7 +807,7 @@ class SalesInvoiceService
         return [
             'subtotal' => $this->roundMoney($subtotal),
             'tax_total' => $this->roundMoney($taxTotal),
-            'total_amount' => $this->roundMoney($subtotal + $taxTotal),
+            'total_amount' => $this->roundMoney($subtotal + $taxTotal + $shippingCharge),
             'delivery_value_base' => $this->roundCost($deliveryValue),
             'revenue_variance' => $this->roundMoney($revenueVariance),
         ];
@@ -1065,6 +1071,12 @@ class SalesInvoiceService
         $totalAmount = (float) $invoice->total_amount;
         $exchangeRate = (float) ($invoice->exchange_rate ?? 1);
 
+        // Build notes with invoice information
+        $notes = "Dibuat dari Faktur Penjualan: {$invoice->invoice_number}";
+        if ($invoice->notes) {
+            $notes .= "\n\n".$invoice->notes;
+        }
+
         $externalDebt = ExternalDebt::create([
             'type' => 'receivable',
             'branch_id' => $invoice->branch_id,
@@ -1079,7 +1091,7 @@ class SalesInvoiceService
             'debt_account_id' => $debtAccountId,
             'status' => 'open',
             'reference_number' => $invoice->customer_invoice_number,
-            'notes' => $invoice->notes,
+            'notes' => $notes,
             'source_type' => SalesInvoice::class,
             'source_id' => $invoice->id,
             'created_by' => $actor?->getAuthIdentifier(),
