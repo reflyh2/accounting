@@ -1,5 +1,5 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 import SalesDeliveryForm from './Partials/SalesDeliveryForm.vue';
 
