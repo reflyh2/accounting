@@ -57,7 +57,7 @@ class SalesInvoiceService
 
             $salesOrders = collect();
             if (! empty($soIds)) {
-                $salesOrders = SalesOrder::with(['branch.branchGroup', 'currency', 'partner'])
+                $salesOrders = SalesOrder::with(['branch.branchGroup', 'currency', 'partner', 'paymentTerm'])
                     ->whereIn('id', $soIds)
                     ->get();
 
@@ -84,6 +84,15 @@ class SalesInvoiceService
 
             $invoiceDate = Carbon::parse($payload['invoice_date']);
             $exchangeRate = (float) ($payload['exchange_rate'] ?? $firstSo?->exchange_rate ?? 1);
+
+            // Calculate due_date if not provided
+            $dueDate = null;
+            if (! empty($payload['due_date'])) {
+                $dueDate = Carbon::parse($payload['due_date']);
+            } elseif ($firstSo && $firstSo->paymentTerm) {
+                // Auto-calculate from payment term
+                $dueDate = $invoiceDate->copy()->addDays($firstSo->paymentTerm->days);
+            }
 
             if ($salesOrders->isNotEmpty()) {
                 $preparedLines = $this->prepareLines(
@@ -114,7 +123,7 @@ class SalesInvoiceService
                     $invoiceDate
                 ),
                 'invoice_date' => $invoiceDate,
-                'due_date' => isset($payload['due_date']) ? Carbon::parse($payload['due_date']) : null,
+                'due_date' => $dueDate,
                 'customer_invoice_number' => $payload['customer_invoice_number'] ?? null,
                 'tax_invoice_code' => $payload['tax_invoice_code'] ?? '01',
                 'exchange_rate' => $exchangeRate,
@@ -195,7 +204,7 @@ class SalesInvoiceService
 
             $invoice->update([
                 'invoice_date' => $invoiceDate,
-                'due_date' => isset($payload['due_date']) ? Carbon::parse($payload['due_date']) : null,
+                'due_date' => ! empty($payload['due_date']) ? Carbon::parse($payload['due_date']) : null,
                 'customer_invoice_number' => $payload['customer_invoice_number'] ?? null,
                 'tax_invoice_code' => $payload['tax_invoice_code'] ?? $invoice->tax_invoice_code ?? '01',
                 'exchange_rate' => $exchangeRate,

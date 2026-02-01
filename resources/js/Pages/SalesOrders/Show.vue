@@ -150,7 +150,15 @@ function deleteOrder() {
                                 <p><span class="text-gray-500 text-sm">Tanggal Order:</span> {{ new Date(salesOrder.order_date).toLocaleDateString('id-ID') }}</p>
                                 <p><span class="text-gray-500 text-sm">Perkiraan Kirim:</span> {{ salesOrder.expected_delivery_date ? new Date(salesOrder.expected_delivery_date).toLocaleDateString('id-ID') : '—' }}</p>
                                 <p><span class="text-gray-500 text-sm">Referensi Pelanggan:</span> {{ salesOrder.customer_reference || '—' }}</p>
-                                <p><span class="text-gray-500 text-sm">Syarat Pembayaran:</span> {{ salesOrder.payment_terms || '—' }}</p>
+                                <p v-if="salesOrder.payment_term">
+                                    <span class="text-gray-500 text-sm">Syarat Pembayaran:</span> {{ salesOrder.payment_term.name }} ({{ salesOrder.payment_term.days }} hari)
+                                </p>
+                                <p v-else-if="salesOrder.payment_terms">
+                                    <span class="text-gray-500 text-sm">Syarat Pembayaran:</span> {{ salesOrder.payment_terms }}
+                                </p>
+                                <p v-else>
+                                    <span class="text-gray-500 text-sm">Syarat Pembayaran:</span> —
+                                </p>
                                 <p><span class="text-gray-500 text-sm">Channel:</span> {{ salesOrder.sales_channel || '—' }}</p>
                             </div>
                             <div class="bg-white border border-gray-200 rounded p-4 space-y-2">

@@ -10,6 +10,7 @@ class SalesOrderCost extends Model
 
     protected $casts = [
         'amount' => 'decimal:4',
+        'percentage' => 'decimal:2',
         'exchange_rate' => 'decimal:6',
     ];
 

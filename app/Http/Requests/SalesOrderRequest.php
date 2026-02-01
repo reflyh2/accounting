@@ -29,7 +29,7 @@ class SalesOrderRequest extends FormRequest
             'quote_valid_until' => ['nullable', 'date'],
             'customer_reference' => ['nullable', 'string', 'max:120'],
             'sales_channel' => ['nullable', 'string', 'max:120'],
-            'payment_terms' => ['nullable', 'string', 'max:120'],
+            'payment_term_id' => ['nullable', 'exists:payment_terms,id'],
             'exchange_rate' => ['nullable', 'numeric', 'min:0.0001'],
             'reserve_stock' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
@@ -55,6 +55,8 @@ class SalesOrderRequest extends FormRequest
             'costs.*.description' => ['nullable', 'string', 'max:255'],
             'costs.*.cost_item_id' => ['nullable', 'exists:cost_items,id'],
             'costs.*.amount' => ['required', 'numeric', 'min:0'],
+            'costs.*.percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'costs.*.apply_timing' => ['nullable', 'string', 'in:before_tax,after_tax'],
             'costs.*.currency_id' => ['nullable', 'exists:currencies,id'],
             'costs.*.exchange_rate' => ['nullable', 'numeric', 'min:0.0001'],
         ];

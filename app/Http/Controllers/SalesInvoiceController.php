@@ -460,6 +460,8 @@ class SalesInvoiceController extends Controller
             'costs.*.description' => 'nullable|string|max:255',
             'costs.*.cost_item_id' => 'nullable|exists:cost_items,id',
             'costs.*.amount' => 'required|numeric|min:0',
+            'costs.*.percentage' => 'nullable|numeric|min:0|max:100',
+            'costs.*.apply_timing' => 'nullable|string|in:before_tax,after_tax',
             'costs.*.currency_id' => 'nullable|exists:currencies,id',
             'costs.*.exchange_rate' => 'nullable|numeric|min:0.0001',
         ]);
@@ -478,6 +480,7 @@ class SalesInvoiceController extends Controller
             'partner',
             'branch.branchGroup.company',
             'currency',
+            'paymentTerm',
             'lines.uom',
             'lines.baseUom',
             'costs.costItem',
@@ -564,6 +567,12 @@ class SalesInvoiceController extends Controller
                 'sales_person_id' => $salesOrder->sales_person_id,
                 'shipping_address_id' => $salesOrder->shipping_address_id,
                 'invoice_address_id' => $salesOrder->invoice_address_id,
+                'payment_term' => $salesOrder->paymentTerm ? [
+                    'id' => $salesOrder->paymentTerm->id,
+                    'code' => $salesOrder->paymentTerm->code,
+                    'name' => $salesOrder->paymentTerm->name,
+                    'days' => $salesOrder->paymentTerm->days,
+                ] : null,
                 'lines' => $lines,
                 'costs' => $salesOrder->costs->map(fn ($cost) => [
                     'id' => $cost->id,

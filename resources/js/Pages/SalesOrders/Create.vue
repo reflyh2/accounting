@@ -34,6 +34,7 @@ const props = defineProps({
                     :locations="formOptions.locations"
                     :channels="formOptions.channels"
                     :paymentMethods="formOptions.paymentMethods"
+                    :paymentTerms="formOptions.paymentTerms"
                     :companyBankAccounts="formOptions.companyBankAccounts"
                     :costItems="formOptions.costItems"
                     :filters="filters"

@@ -11,7 +11,7 @@ import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
 import AppCheckbox from '@/Components/AppCheckbox.vue';
 import AppHint from '@/Components/AppHint.vue';
-import { PlusCircleIcon, TrashIcon } from '@heroicons/vue/24/solid';
+import { PlusCircleIcon, TrashIcon, ArrowPathIcon } from '@heroicons/vue/24/solid';
 import { formatNumber } from '@/utils/numberFormat';
 
 const page = usePage();
@@ -89,6 +89,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    paymentTerms: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const form = useForm({
@@ -101,7 +105,7 @@ const form = useForm({
     quote_valid_until: props.salesOrder?.quote_valid_until || '',
     customer_reference: props.salesOrder?.customer_reference || '',
     sales_channel: props.salesOrder?.sales_channel || null,
-    payment_terms: props.salesOrder?.payment_terms || '',
+    payment_term_id: props.salesOrder?.payment_term_id || null,
     exchange_rate: props.salesOrder?.exchange_rate || 1,
     reserve_stock: props.salesOrder?.reserve_stock ?? false,
     notes: props.salesOrder?.notes || '',
@@ -115,6 +119,8 @@ const form = useForm({
         description: c.description,
         cost_item_id: c.cost_item_id,
         amount: c.amount,
+        percentage: c.percentage,
+        apply_timing: c.apply_timing || 'before_tax',
         currency_id: c.currency_id,
         exchange_rate: c.exchange_rate,
     })) || [],
@@ -186,6 +192,18 @@ const filteredShippingProviders = computed(() => {
     return props.shippingProviders
         .filter(sp => sp.type === form.shipping_type)
         .map(sp => ({ value: sp.id, label: sp.name }));
+});
+
+const filteredPaymentTerms = computed(() => {
+    if (!form.company_id) {
+        return [];
+    }
+    return props.paymentTerms
+        .filter(pt => pt.company_id === form.company_id)
+        .map(pt => ({
+            value: pt.id,
+            label: `${pt.code} - ${pt.name} (${pt.days} hari)`
+        }));
 });
 
 const variantLookup = computed(() => {
@@ -450,6 +468,8 @@ function createEmptyCost() {
         description: '',
         cost_item_id: null,
         amount: 0,
+        percentage: null,
+        apply_timing: 'before_tax',
         currency_id: form.currency_id,
         exchange_rate: form.exchange_rate || 1,
     };
@@ -462,6 +482,53 @@ function addCost() {
 function removeCost(index) {
     form.costs.splice(index, 1);
 }
+
+function calculateCostAmountFromPercentage(cost) {
+    if (!cost.percentage || cost.percentage === 0) {
+        return;
+    }
+
+    const baseAmount = cost.apply_timing === 'after_tax'
+        ? totals.value.subtotal + totals.value.tax
+        : totals.value.subtotal;
+
+    cost.amount = (baseAmount * (Number(cost.percentage) / 100)).toFixed(4);
+}
+
+function calculateCostPercentageFromAmount(cost) {
+    if (!cost.amount || cost.amount === 0) {
+        cost.percentage = null;
+        return;
+    }
+
+    const baseAmount = cost.apply_timing === 'after_tax'
+        ? totals.value.subtotal + totals.value.tax
+        : totals.value.subtotal;
+
+    if (baseAmount === 0) {
+        cost.percentage = null;
+        return;
+    }
+
+    cost.percentage = ((Number(cost.amount) / baseAmount) * 100).toFixed(2);
+}
+
+function handleCostPercentageChange(cost) {
+    calculateCostAmountFromPercentage(cost);
+}
+
+function handleCostAmountChange(cost) {
+    calculateCostPercentageFromAmount(cost);
+}
+
+function handleCostTimingChange(cost) {
+    if (cost.percentage && cost.percentage !== 0) {
+        calculateCostAmountFromPercentage(cost);
+    } else if (cost.amount && cost.amount !== 0) {
+        calculateCostPercentageFromAmount(cost);
+    }
+}
+
 
 function removeLine(index) {
     if (form.lines.length === 1) {
@@ -984,11 +1051,12 @@ function submitForm(createAnother = false) {
                 <div class="mt-4 border-t pt-4">
                     <h3 class="text-lg font-semibold mb-3">Informasi Pembayaran</h3>
                     <div class="grid grid-cols-2 gap-4">
-                        <AppInput
-                            v-model="form.payment_terms"
+                        <AppSelect
+                            v-model="form.payment_term_id"
+                            :options="filteredPaymentTerms"
                             label="Syarat Pembayaran:"
-                            placeholder="Net 30, COD, dll"
-                            :error="form.errors?.payment_terms"
+                            placeholder="Pilih Payment Term"
+                            :error="form.errors?.payment_term_id"
                         />
 
                         <AppSelect
@@ -1290,6 +1358,8 @@ function submitForm(createAnother = false) {
                     <tr class="bg-gray-100">
                         <th class="border border-gray-300 px-2 py-1.5 min-w-40">Biaya</th>
                         <th class="border border-gray-300 px-2 py-1.5 min-w-48">Catatan</th>
+                        <th class="border border-gray-300 px-2 py-1.5 min-w-24">Persentase (%)</th>
+                        <th class="border border-gray-300 px-2 py-1.5 min-w-32">Kalkulasi Dari</th>
                         <th class="border border-gray-300 px-2 py-1.5 min-w-28">Jumlah</th>
                         <th class="border border-gray-300 px-2 py-1.5 w-10"></th>
                     </tr>
@@ -1315,11 +1385,61 @@ function submitForm(createAnother = false) {
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5">
                             <AppInput
+                                v-model="cost.percentage"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                placeholder="0"
+                                :error="form.errors?.[`costs.${index}.percentage`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                :prefix="true"
+                                @input="handleCostPercentageChange(cost)"
+                            >
+                                <template #prefix-slot>
+                                    <button
+                                        type="button"
+                                        @click.stop="calculateCostPercentageFromAmount(cost)"
+                                        class="w-full h-full text-main-600 hover:text-main-800 rounded transition-colors"
+                                        title="Hitung ulang persentase dari jumlah"
+                                    >
+                                        <ArrowPathIcon class="w-4 h-4" />
+                                    </button>
+                                </template>
+                            </AppInput>
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5">
+                            <AppSelect
+                                v-model="cost.apply_timing"
+                                :options="[
+                                    { value: 'before_tax', label: 'Sebelum Pajak' },
+                                    { value: 'after_tax', label: 'Sesudah Pajak' }
+                                ]"
+                                :error="form.errors?.[`costs.${index}.apply_timing`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                @update:modelValue="handleCostTimingChange(cost)"
+                            />
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5">
+                            <AppInput
                                 v-model="cost.amount"
                                 :numberFormat="true"
                                 :error="form.errors?.[`costs.${index}.amount`]"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
-                            />
+                                :prefix="true"
+                                @input="handleCostAmountChange(cost)"
+                            >
+                                <template #prefix-slot>
+                                    <button
+                                        type="button"
+                                        @click.stop="calculateCostAmountFromPercentage(cost)"
+                                        class="w-full h-full text-main-600 hover:text-main-800 rounded transition-colors"
+                                        title="Hitung ulang jumlah dari persentase"
+                                    >
+                                        <ArrowPathIcon class="w-4 h-4" />
+                                    </button>
+                                </template>
+                            </AppInput>
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5 text-center">
                             <button type="button" @click="removeCost(index)" class="text-red-500 hover:text-red-700">

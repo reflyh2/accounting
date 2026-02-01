@@ -53,6 +53,7 @@ const mappedSalesOrder = {
                     :locations="formOptions.locations"
                     :channels="formOptions.channels"
                     :paymentMethods="formOptions.paymentMethods"
+                    :paymentTerms="formOptions.paymentTerms"
                     :companyBankAccounts="formOptions.companyBankAccounts"
                     :costItems="formOptions.costItems"
                     :users="formOptions.users"

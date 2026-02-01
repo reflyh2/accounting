@@ -9,7 +9,7 @@ import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
-import { TrashIcon, PlusCircleIcon } from '@heroicons/vue/24/outline';
+import { TrashIcon, PlusCircleIcon, ArrowPathIcon } from '@heroicons/vue/24/outline';
 import { formatNumber } from '@/utils/numberFormat';
 
 const props = defineProps({
@@ -121,6 +121,10 @@ if (isEditMode.value && props.invoice?.partner) {
 }
 
 const selectedSoIds = ref((props.selectedSalesOrders || []).map(so => so.id));
+
+const paymentTermsHint = computed(() => {
+    return 'Dihitung otomatis dari Payment Term (${props.selectedSalesOrders[0].payment_term.name}). Dapat diubah manual.';
+});
 
 // Build initial lines from selected SOs or existing invoice
 function buildInitialLines() {
@@ -381,6 +385,26 @@ watch(
     }
 );
 
+// Watch for invoice_date or selected sales orders changes to auto-calculate due_date
+watch(
+    [() => form.invoice_date, () => props.selectedSalesOrders],
+    () => {
+        if (form.invoice_date && !isEditMode.value && props.selectedSalesOrders?.length > 0) {
+            calculateDueDate();
+        }
+    },
+    { immediate: true }
+);
+
+function calculateDueDate() {
+    const firstSo = props.selectedSalesOrders[0];
+    if (firstSo?.payment_term?.days !== undefined) {
+        const invoiceDate = new Date(form.invoice_date);
+        invoiceDate.setDate(invoiceDate.getDate() + firstSo.payment_term.days);
+        form.due_date = invoiceDate.toISOString().split('T')[0];
+    }
+}
+
 function repopulateLinesFromSOs() {
     if (isEditMode.value) return;
 
@@ -435,6 +459,8 @@ function repopulateLinesFromSOs() {
                 description: cost.description,
                 cost_item_id: cost.cost_item_id,
                 amount: Number(cost.amount),
+                percentage: cost.percentage,
+                apply_timing: cost.apply_timing || 'before_tax',
                 currency_id: cost.currency_id,
                 exchange_rate: Number(cost.exchange_rate),
             });
@@ -490,6 +516,8 @@ function buildInitialCosts() {
             description: cost.description,
             cost_item_id: cost.cost_item_id,
             amount: Number(cost.amount),
+            percentage: cost.percentage,
+            apply_timing: cost.apply_timing || 'before_tax',
             currency_id: cost.currency_id,
             exchange_rate: Number(cost.exchange_rate),
         }));
@@ -503,6 +531,8 @@ function buildInitialCosts() {
                 description: cost.description,
                 cost_item_id: cost.cost_item_id,
                 amount: Number(cost.amount),
+                percentage: cost.percentage,
+                apply_timing: cost.apply_timing || 'before_tax',
                 currency_id: cost.currency_id,
                 exchange_rate: Number(cost.exchange_rate),
             });
@@ -516,6 +546,8 @@ function createEmptyCost() {
         description: '',
         cost_item_id: null,
         amount: 0,
+        percentage: null,
+        apply_timing: 'before_tax',
         currency_id: form.currency_id,
         exchange_rate: form.exchange_rate || 1,
     };
@@ -528,6 +560,53 @@ function addCost() {
 function removeCost(index) {
     form.costs.splice(index, 1);
 }
+
+function calculateCostAmountFromPercentage(cost) {
+    if (!cost.percentage || cost.percentage === 0) {
+        return;
+    }
+
+    const baseAmount = cost.apply_timing === 'after_tax'
+        ? totals.value.subtotal + totals.value.tax
+        : totals.value.subtotal;
+
+    cost.amount = (baseAmount * (Number(cost.percentage) / 100)).toFixed(4);
+}
+
+function calculateCostPercentageFromAmount(cost) {
+    if (!cost.amount || cost.amount === 0) {
+        cost.percentage = null;
+        return;
+    }
+
+    const baseAmount = cost.apply_timing === 'after_tax'
+        ? totals.value.subtotal + totals.value.tax
+        : totals.value.subtotal;
+
+    if (baseAmount === 0) {
+        cost.percentage = null;
+        return;
+    }
+
+    cost.percentage = ((Number(cost.amount) / baseAmount) * 100).toFixed(2);
+}
+
+function handleCostPercentageChange(cost) {
+    calculateCostAmountFromPercentage(cost);
+}
+
+function handleCostAmountChange(cost) {
+    calculateCostPercentageFromAmount(cost);
+}
+
+function handleCostTimingChange(cost) {
+    if (cost.percentage && cost.percentage !== 0) {
+        calculateCostAmountFromPercentage(cost);
+    } else if (cost.amount && cost.amount !== 0) {
+        calculateCostPercentageFromAmount(cost);
+    }
+}
+
 
 function removeLine(index) {
     if (form.lines.length === 1 && isDirectInvoice.value) {
@@ -910,12 +989,15 @@ function submitForm(createAnother = false) {
                             required
                         />
 
-                        <AppInput
-                            v-model="form.due_date"
-                            type="date"
-                            label="Jatuh Tempo:"
-                            :error="form.errors.due_date"
-                        />
+                        <div>
+                            <AppInput
+                                v-model="form.due_date"
+                                type="date"
+                                label="Jatuh Tempo:"
+                                :hint="!isEditMode && props.selectedSalesOrders?.length > 0 && props.selectedSalesOrders[0]?.payment_term ? paymentTermsHint : null"
+                                :error="form.errors.due_date"
+                            />
+                        </div>
                     </div>
 
                     <!-- Invoice Numbers & Tax Code -->
@@ -1262,6 +1344,8 @@ function submitForm(createAnother = false) {
                     <tr class="bg-gray-100">
                         <th class="border border-gray-300 px-2 py-1.5 min-w-40">Biaya</th>
                         <th class="border border-gray-300 px-2 py-1.5 min-w-48">Catatan</th>
+                        <th class="border border-gray-300 px-2 py-1.5 min-w-24">Persentase (%)</th>
+                        <th class="border border-gray-300 px-2 py-1.5 min-w-32">Kalkulasi Dari</th>
                         <th class="border border-gray-300 px-2 py-1.5 min-w-28">Jumlah</th>
                         <th class="border border-gray-300 px-2 py-1.5 w-10"></th>
                     </tr>
@@ -1287,11 +1371,61 @@ function submitForm(createAnother = false) {
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5">
                             <AppInput
+                                v-model="cost.percentage"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                placeholder="0"
+                                :error="form.errors?.[`costs.${index}.percentage`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                :prefix="true"
+                                @input="handleCostPercentageChange(cost)"
+                            >
+                                <template #prefix-slot>
+                                    <button
+                                        type="button"
+                                        @click.stop="calculateCostPercentageFromAmount(cost)"
+                                        class="w-full h-full text-main-600 hover:text-main-800 rounded transition-colors"
+                                        title="Hitung ulang persentase dari jumlah"
+                                    >
+                                        <ArrowPathIcon class="w-4 h-4" />
+                                    </button>
+                                </template>
+                            </AppInput>
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5">
+                            <AppSelect
+                                v-model="cost.apply_timing"
+                                :options="[
+                                    { value: 'before_tax', label: 'Sebelum Pajak' },
+                                    { value: 'after_tax', label: 'Sesudah Pajak' }
+                                ]"
+                                :error="form.errors?.[`costs.${index}.apply_timing`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                @update:modelValue="handleCostTimingChange(cost)"
+                            />
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5">
+                            <AppInput
                                 v-model="cost.amount"
                                 :numberFormat="true"
                                 :error="form.errors?.[`costs.${index}.amount`]"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
-                            />
+                                :prefix="true"
+                                @input="handleCostAmountChange(cost)"
+                            >
+                                <template #prefix-slot>
+                                    <button
+                                        type="button"
+                                        @click.stop="calculateCostAmountFromPercentage(cost)"
+                                        class="w-full h-full text-main-600 hover:text-main-800 rounded transition-colors"
+                                        title="Hitung ulang jumlah dari persentase"
+                                    >
+                                        <ArrowPathIcon class="w-4 h-4" />
+                                    </button>
+                                </template>
+                            </AppInput>
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5 text-center">
                             <button type="button" @click="removeCost(index)" class="text-red-500 hover:text-red-700">

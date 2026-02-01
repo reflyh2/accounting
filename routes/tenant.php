@@ -213,6 +213,11 @@ Route::middleware([
         Route::get('/general-settings', [GeneralSettingsController::class, 'index'])->name('general-settings.index');
         Route::put('/general-settings', [GeneralSettingsController::class, 'update'])->name('general-settings.update');
 
+        // Settings Routes
+        Route::prefix('settings')->name('settings.')->group(function () {
+            Route::resource('payment-terms', \App\Http\Controllers\Settings\PaymentTermController::class);
+        });
+
         // Onboarding Routes
         Route::prefix('onboarding')->name('onboarding.')->group(function () {
             Route::get('/status', [\App\Http\Controllers\OnboardingController::class, 'getStatus'])->name('status');

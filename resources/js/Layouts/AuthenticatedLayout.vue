@@ -795,6 +795,14 @@ const onboardingStep = computed(() => {
                                 Penyedia Pengiriman
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewCompanies"
+                                :href="route('settings.payment-terms.index')"
+                                :active="route().current('settings.payment-terms.*')"
+                                class="pl-11"
+                            >
+                                Payment Terms
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
                                 v-if="canViewRoles"
                                 :href="route('roles.index')"
                                 :active="
@@ -1913,12 +1921,20 @@ const onboardingStep = computed(() => {
                                             Penyedia Pengiriman
                                         </NavLink>
                                         <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('settings.payment-terms.index')"
+                                            :active="route().current('settings.payment-terms.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Payment Terms
+                                        </NavLink>
+                                        <NavLink
                                             v-if="canViewRoles"
-                                            :href="route('roles.index')" 
+                                            :href="route('roles.index')"
                                             :active="
                                                 route().current('roles.*')
                                                 || route().current('users.*')
-                                            " 
+                                            "
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Hak Akses Pengguna
@@ -2011,6 +2027,14 @@ const onboardingStep = computed(() => {
                                             class="flex items-center"
                                         >
                                             Penyedia Pengiriman
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('settings.payment-terms.index')"
+                                            :active="route().current('settings.payment-terms.*')"
+                                            class="flex items-center"
+                                        >
+                                            Payment Terms
                                         </NavLink>
                                         <NavLink
                                             v-if="canViewRoles"

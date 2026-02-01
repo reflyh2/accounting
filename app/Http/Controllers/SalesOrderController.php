@@ -151,6 +151,7 @@ class SalesOrderController extends Controller
             'partner',
             'branch.branchGroup.company',
             'currency',
+            'paymentTerm',
             'lines.variant.product',
             'lines.uom',
             'lines.baseUom',
@@ -168,6 +169,7 @@ class SalesOrderController extends Controller
     public function edit(SalesOrder $salesOrder): Response
     {
         $salesOrder->load([
+            'paymentTerm',
             'lines.variant',
             'lines.uom',
             'lines.baseUom',
@@ -382,6 +384,9 @@ class SalesOrderController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'code', 'name', 'type']),
             'shippingTypeOptions' => \App\Enums\ShippingProviderType::options(),
+            'paymentTerms' => \App\Models\PaymentTerm::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'code', 'name', 'days', 'company_id']),
             'users' => User::orderBy('name')
                 ->get(['global_id', 'name', 'email'])
                 ->map(fn (User $user) => [

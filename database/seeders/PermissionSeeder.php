@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 
 class PermissionSeeder extends Seeder
 {
@@ -23,6 +23,7 @@ class PermissionSeeder extends Seeder
                 'accounting-periods',
                 'approval-workflows',
                 'partners',
+                'payment-terms',
             ],
             // Purchase module - includes document workflow actions
             'purchase' => [
@@ -93,9 +94,9 @@ class PermissionSeeder extends Seeder
                 // Create standard CRUD permissions for all modules
                 foreach ($crudActions as $action) {
                     $permissionName = "{$group}.{$route}.{$action}";
-                    
+
                     // Check if the permission already exists
-                    if (!Permission::where('name', $permissionName)->exists()) {
+                    if (! Permission::where('name', $permissionName)->exists()) {
                         Permission::create(['name' => $permissionName]);
                     }
                 }
@@ -104,8 +105,8 @@ class PermissionSeeder extends Seeder
                 if (in_array($group, $documentModules)) {
                     foreach ($documentActions as $action) {
                         $permissionName = "{$group}.{$route}.{$action}";
-                        
-                        if (!Permission::where('name', $permissionName)->exists()) {
+
+                        if (! Permission::where('name', $permissionName)->exists()) {
                             Permission::create(['name' => $permissionName]);
                         }
                     }
@@ -128,7 +129,7 @@ class PermissionSeeder extends Seeder
         // Assign Super Admin Role to first user (if exists)
         // Note: When called from TenantSetupSeeder, user may be created separately
         $firstUser = User::first();
-        if ($firstUser && !$firstUser->hasRole('Super Administrator')) {
+        if ($firstUser && ! $firstUser->hasRole('Super Administrator')) {
             $firstUser->roles()->attach($superAdminRole);
         }
     }

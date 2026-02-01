@@ -104,6 +104,11 @@ class SalesOrder extends Model
         return $this->belongsTo(ShippingProvider::class);
     }
 
+    public function paymentTerm()
+    {
+        return $this->belongsTo(PaymentTerm::class);
+    }
+
     public function lines()
     {
         return $this->hasMany(SalesOrderLine::class)->orderBy('line_number');
