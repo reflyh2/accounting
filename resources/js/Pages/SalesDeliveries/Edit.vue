@@ -17,7 +17,7 @@ defineProps({
 </script>
 
 <template>
-    <AppLayout title="Edit Pengiriman Penjualan">
+    <AuthenticatedLayout title="Edit Pengiriman Penjualan">
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 Edit Pengiriman Penjualan
@@ -45,5 +45,5 @@ defineProps({
                 </div>
             </div>
         </div>
-    </AppLayout>
+    </AuthenticatedLayout>
 </template>
