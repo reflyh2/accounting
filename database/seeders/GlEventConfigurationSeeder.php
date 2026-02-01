@@ -171,23 +171,30 @@ class GlEventConfigurationSeeder extends Seeder
             ],
         ];
 
-        // Create GL event configurations with their lines
+        $accountNames = collect($eventConfigurations)->pluck('lines.*.account_name')->flatten()->unique()->toArray();
+        $accounts = $this->getAccountsByName($accountNames);
+
         foreach ($eventConfigurations as $eventCode => $config) {
-            $glEventConfig = GlEventConfiguration::create([
-                'company_id' => $company->id,
-                'branch_id' => null, // Company-wide configuration
-                'event_code' => $eventCode,
-                'is_active' => true,
-                'description' => $config['description'],
-            ]);
+            $glEventConfig = GlEventConfiguration::updateOrCreate(
+                [
+                    'company_id' => $company->id,
+                    'event_code' => $eventCode,
+                ],
+                [
+                    'branch_id' => null,
+                    'description' => $config['description'],
+                    'is_active' => true,
+                ]
+            );
 
             foreach ($config['lines'] as $line) {
                 $account = $accounts[$line['account_name']] ?? null;
 
                 if ($account) {
-                    GlEventConfigurationLine::create([
+                    GlEventConfigurationLine::firstOrCreate([
                         'gl_event_configuration_id' => $glEventConfig->id,
                         'role' => $line['role'],
+                    ], [
                         'direction' => $line['direction'],
                         'account_id' => $account->id,
                     ]);
