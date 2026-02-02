@@ -78,7 +78,7 @@ class CompanyController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'legal_name' => 'nullable|string|max:255',
-            'tax_id' => 'nullable|string|max:unique:companies,tax_id',
+            'tax_id' => 'nullable|string|max:255|unique:companies,tax_id',
             'business_registration_number' => 'nullable|string|max:255|unique:companies,business_registration_number',
             'address' => 'required|string',
             'city' => 'required|string|max:255',
