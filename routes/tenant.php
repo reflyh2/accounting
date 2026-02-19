@@ -73,6 +73,7 @@ use App\Http\Controllers\Inventory\ReceiveController;
 use App\Http\Controllers\Inventory\ShipController;
 use App\Http\Controllers\Inventory\TransferController;
 use App\Http\Controllers\JournalController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OperationalReconciliationController;
 use App\Http\Controllers\PartnerBankAccountController;
 use App\Http\Controllers\PartnerController;
@@ -272,6 +273,12 @@ Route::middleware([
         Route::put('/branch-groups/{branchGroup}', [BranchGroupController::class, 'update'])->name('branch-groups.update');
         Route::delete('/branch-groups/{branchGroup}', [BranchGroupController::class, 'destroy'])->name('branch-groups.destroy');
         Route::get('/branch-groups/{branchGroup}', [BranchGroupController::class, 'show'])->name('branch-groups.show');
+
+        Route::delete('/locations/bulk-delete', [LocationController::class, 'bulkDelete'])->name('locations.bulk-delete');
+        Route::get('locations/export-xlsx', [LocationController::class, 'exportXLSX'])->name('locations.export-xlsx');
+        Route::get('locations/export-csv', [LocationController::class, 'exportCSV'])->name('locations.export-csv');
+        Route::get('locations/export-pdf', [LocationController::class, 'exportPDF'])->name('locations.export-pdf');
+        Route::resource('locations', LocationController::class);
 
         Route::delete('/roles/bulk-delete', [RoleController::class, 'bulkDelete'])->name('roles.bulk-delete');
         Route::get('roles/export-xlsx', [RoleController::class, 'exportXLSX'])->name('roles.export-xlsx');

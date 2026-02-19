@@ -140,7 +140,8 @@ const isSettingsActive = computed(() => {
         || route().current('company-bank-accounts.*')
         || route().current('tax-rules.*')
         || route().current('gl-event-configurations.*')
-        || route().current('document-templates.*');
+        || route().current('document-templates.*')
+        || route().current('locations.*');
 });
 
 const isAccountingActive = computed(() => {
@@ -837,13 +838,21 @@ const onboardingStep = computed(() => {
                             >
                                 Pajak
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink 
+                            <ResponsiveNavLink
                                 v-if="canViewCompanies"
-                                :href="route('document-templates.index')" 
-                                :active="route().current('document-templates.*')" 
+                                :href="route('document-templates.index')"
+                                :active="route().current('document-templates.*')"
                                 class="pl-11"
                             >
                                 Template Dokumen
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                v-if="canViewCompanies"
+                                :href="route('locations.index')"
+                                :active="route().current('locations.*')"
+                                class="pl-11"
+                            >
+                                Lokasi
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -1968,17 +1977,25 @@ const onboardingStep = computed(() => {
                                         >
                                             Pajak
                                         </NavLink>
-                                        <NavLink 
+                                        <NavLink
                                             v-if="canViewCompanies"
-                                            :href="route('document-templates.index')" 
-                                            :active="route().current('document-templates.*')" 
+                                            :href="route('document-templates.index')"
+                                            :active="route().current('document-templates.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Template Dokumen
                                         </NavLink>
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('locations.index')"
+                                            :active="route().current('locations.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Lokasi
+                                        </NavLink>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Invisible bridge to maintain hover -->
                                 <div class="absolute left-full top-0 w-2 h-full opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto z-10"></div>
                             </template>
@@ -2076,13 +2093,21 @@ const onboardingStep = computed(() => {
                                         >
                                             Pajak
                                         </NavLink>
-                                        <NavLink 
+                                        <NavLink
                                             v-if="canViewCompanies"
-                                            :href="route('document-templates.index')" 
-                                            :active="route().current('document-templates.*')" 
+                                            :href="route('document-templates.index')"
+                                            :active="route().current('document-templates.*')"
                                             class="flex items-center"
                                         >
                                             Template Dokumen
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('locations.index')"
+                                            :active="route().current('locations.*')"
+                                            class="flex items-center"
+                                        >
+                                            Lokasi
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
