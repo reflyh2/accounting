@@ -7,17 +7,15 @@ use App\Domain\Accounting\DTO\AccountingEventPayload;
 use App\Enums\AccountingEventCode;
 use App\Enums\CostEntrySource;
 use App\Enums\CostModel;
+use App\Enums\DebtStatus;
 use App\Enums\Documents\InvoiceStatus;
 use App\Enums\Documents\PurchaseOrderStatus;
 use App\Events\Debt\ExternalDebtCreated;
 use App\Exceptions\PurchaseInvoiceException;
-use App\Models\Branch;
 use App\Models\Company;
 use App\Models\ExternalDebt;
 use App\Models\GoodsReceiptLine;
 use App\Models\InventoryTransaction;
-use App\Models\InventoryTransactionLine;
-use App\Models\ProductVariant;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseInvoiceLine;
 use App\Models\PurchaseOrder;
@@ -40,14 +38,14 @@ use Throwable;
 class PurchaseInvoiceService
 {
     private const QTY_TOLERANCE = 0.0005;
+
     private const COST_SCALE = 6;
 
     public function __construct(
         private readonly AccountingEventBus $accountingEventBus,
         private readonly InventoryService $inventoryService,
         private readonly CostingService $costingService,
-    ) {
-    }
+    ) {}
 
     public function create(array $payload, ?Authenticatable $actor = null): PurchaseInvoice
     {
@@ -55,13 +53,13 @@ class PurchaseInvoiceService
 
         return DB::transaction(function () use ($payload, $actor) {
             $poIds = $payload['purchase_order_ids'] ?? [];
-            if (!is_array($poIds)) {
+            if (! is_array($poIds)) {
                 $poIds = $poIds ? [$poIds] : [];
             }
             $poIds = array_unique(array_filter(array_map('intval', $poIds)));
 
             $purchaseOrders = collect();
-            if (!empty($poIds)) {
+            if (! empty($poIds)) {
                 $purchaseOrders = PurchaseOrder::with(['branch.branchGroup', 'currency', 'partner'])
                     ->whereIn('id', $poIds)
                     ->get();
@@ -83,7 +81,7 @@ class PurchaseInvoiceService
             $partnerId = $firstPo?->partner_id ?? $payload['partner_id'] ?? null;
             $currencyId = $firstPo?->currency_id ?? $payload['currency_id'] ?? null;
 
-            if (!$companyId || !$branchId || !$partnerId || !$currencyId) {
+            if (! $companyId || ! $branchId || ! $partnerId || ! $currencyId) {
                 throw new PurchaseInvoiceException('Data perusahaan, cabang, pemasok, dan mata uang wajib diisi.');
             }
 
@@ -159,26 +157,26 @@ class PurchaseInvoiceService
         return DB::transaction(function () use ($invoice, $payload, $actor) {
             $invoice->load('purchaseOrders');
             $existingPoIds = $invoice->purchaseOrders->pluck('id')->toArray();
-            
+
             $newPoIds = $payload['purchase_order_ids'] ?? [];
-            if (!is_array($newPoIds)) {
+            if (! is_array($newPoIds)) {
                 $newPoIds = $newPoIds ? [$newPoIds] : [];
             }
             $newPoIds = array_unique(array_filter(array_map('intval', $newPoIds)));
 
             // Validate that we are not switching between Direct and PO-based blindly, or allow it
             // Logic: simpler to just re-validate everything.
-            
+
             $purchaseOrders = collect();
-            if (!empty($newPoIds)) {
+            if (! empty($newPoIds)) {
                 $purchaseOrders = PurchaseOrder::with(['branch.branchGroup', 'currency', 'partner'])
                     ->whereIn('id', $newPoIds)
                     ->get();
-                
+
                 if ($purchaseOrders->count() !== count($newPoIds)) {
                     throw new PurchaseInvoiceException('Beberapa Purchase Order tidak ditemukan.');
                 }
-                
+
                 $this->validatePurchaseOrdersConsistency($purchaseOrders);
                 foreach ($purchaseOrders as $po) {
                     $this->assertPurchaseOrderInvoiceable($po);
@@ -248,6 +246,246 @@ class PurchaseInvoiceService
         });
     }
 
+    public function unpost(PurchaseInvoice $invoice, ?Authenticatable $actor = null): PurchaseInvoice
+    {
+        $this->assertPosted($invoice);
+        $this->assertNoPayments($invoice);
+        $actor ??= Auth::user();
+
+        return DB::transaction(function () use ($invoice, $actor) {
+            $invoice->load([
+                'purchaseOrders.lines',
+                'lines.purchaseOrderLine',
+                'lines.goodsReceiptLine',
+                'currency',
+                'externalDebt',
+            ]);
+
+            if ($invoice->purchaseOrders->isNotEmpty()) {
+                $this->unpostPoInvoice($invoice, $actor);
+            } else {
+                $this->unpostDirectInvoice($invoice, $actor);
+            }
+
+            return $invoice->fresh([
+                'purchaseOrders.partner',
+                'lines.goodsReceiptLine.goodsReceipt',
+                'lines.purchaseOrderLine',
+            ]);
+        });
+    }
+
+    private function unpostPoInvoice(PurchaseInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $poLineIds = $invoice->lines->pluck('purchase_order_line_id')->filter()->unique()->values();
+        $grnLineIds = $invoice->lines->pluck('goods_receipt_line_id')->filter()->unique()->values();
+
+        $lockedPoLines = PurchaseOrderLine::whereIn('id', $poLineIds)
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        $lockedGrnLines = GoodsReceiptLine::whereIn('id', $grnLineIds)
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        foreach ($invoice->lines as $line) {
+            $poLine = $lockedPoLines->get($line->purchase_order_line_id);
+            if ($poLine) {
+                $poLine->quantity_invoiced = $this->roundQuantity(
+                    max(0, (float) $poLine->quantity_invoiced - (float) $line->quantity)
+                );
+                $poLine->quantity_invoiced_base = $this->roundQuantity(
+                    max(0, (float) $poLine->quantity_invoiced_base - (float) $line->quantity_base)
+                );
+                $poLine->amount_invoiced = $this->roundMoney(
+                    max(0, (float) $poLine->amount_invoiced - (float) $line->line_total)
+                );
+                $poLine->save();
+            }
+
+            $grnLine = $lockedGrnLines->get($line->goods_receipt_line_id);
+            if ($grnLine) {
+                $grnLine->quantity_invoiced = $this->roundQuantity(
+                    max(0, (float) $grnLine->quantity_invoiced - (float) $line->quantity)
+                );
+                $grnLine->quantity_invoiced_base = $this->roundQuantity(
+                    max(0, (float) $grnLine->quantity_invoiced_base - (float) $line->quantity_base)
+                );
+                $grnLine->amount_invoiced = $this->roundMoney(
+                    max(0, (float) $grnLine->amount_invoiced - (float) $line->line_total)
+                );
+                $grnLine->save();
+            }
+        }
+
+        // Reopen POs that were closed by this invoice
+        foreach ($invoice->purchaseOrders as $po) {
+            $po->refresh();
+            $po->loadMissing('lines');
+            $this->reopenPurchaseOrderIfNeeded($po, $actor);
+        }
+
+        // Dispatch reversal accounting event
+        $this->dispatchApReversedEvent($invoice, $actor);
+
+        // Delete cost entries for non-inventory items
+        $this->deleteCostEntries($invoice);
+
+        // Delete external debt
+        $this->deleteExternalDebt($invoice);
+
+        $invoice->update([
+            'status' => InvoiceStatus::DRAFT->value,
+            'posted_at' => null,
+            'posted_by' => null,
+            'updated_by' => $actor?->getAuthIdentifier(),
+        ]);
+    }
+
+    private function unpostDirectInvoice(PurchaseInvoice $invoice, ?Authenticatable $actor): void
+    {
+        // Reverse inventory transaction
+        if ($invoice->inventory_transaction_id) {
+            $transaction = InventoryTransaction::find($invoice->inventory_transaction_id);
+            if ($transaction) {
+                $this->inventoryService->deleteTransaction($transaction);
+            }
+        }
+
+        // Dispatch reversal accounting event
+        $this->dispatchApReversedEvent($invoice, $actor);
+
+        // Delete cost entries for non-inventory items
+        $this->deleteCostEntries($invoice);
+
+        // Delete external debt
+        $this->deleteExternalDebt($invoice);
+
+        $invoice->update([
+            'status' => InvoiceStatus::DRAFT->value,
+            'inventory_transaction_id' => null,
+            'posted_at' => null,
+            'posted_by' => null,
+            'updated_by' => $actor?->getAuthIdentifier(),
+        ]);
+    }
+
+    private function reopenPurchaseOrderIfNeeded(PurchaseOrder $po, ?Authenticatable $actor): void
+    {
+        if ($po->status !== PurchaseOrderStatus::CLOSED->value) {
+            return;
+        }
+
+        // Determine the correct status: RECEIVED or PARTIALLY_RECEIVED
+        $allReceived = $po->lines->every(function (PurchaseOrderLine $line) {
+            return ((float) $line->quantity_received - (float) $line->quantity_returned) >= ((float) $line->quantity - self::QTY_TOLERANCE);
+        });
+
+        $newStatus = $allReceived ? PurchaseOrderStatus::RECEIVED : PurchaseOrderStatus::PARTIALLY_RECEIVED;
+        $po->transitionTo($newStatus, $actor, $this->makerCheckerContext($po->company_id));
+    }
+
+    private function dispatchApReversedEvent(PurchaseInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $exchangeRate = (float) $invoice->exchange_rate;
+        $totalAmount = (float) $invoice->total_amount;
+        $totalAmountBase = $this->roundCost($totalAmount * $exchangeRate);
+
+        if ($totalAmountBase <= 0) {
+            return;
+        }
+
+        $currencyCode = $invoice->currency?->code ?? 'IDR';
+        $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::PURCHASE_AP_REVERSED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'purchase_invoice',
+            $invoice->id,
+            $invoice->invoice_number,
+            $currencyCode,
+            $exchangeRate,
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+            ['reversal' => true]
+        );
+
+        if ($invoice->purchaseOrders->isNotEmpty()) {
+            $grnValueBase = (float) $invoice->grn_value_base;
+            $ppvAmount = (float) $invoice->ppv_amount;
+
+            $payload->setLines(
+                array_filter([
+                    AccountingEntry::credit('goods_received_not_invoiced', $grnValueBase),
+                    $ppvAmount !== 0.0
+                        ? ($ppvAmount > 0
+                            ? AccountingEntry::credit('purchase_price_variance', abs($ppvAmount))
+                            : AccountingEntry::debit('purchase_price_variance', abs($ppvAmount)))
+                        : null,
+                    AccountingEntry::debit('accounts_payable', $totalAmountBase),
+                ])
+            );
+        } else {
+            $payload->setLines([
+                AccountingEntry::credit('merchandise_inventory', $totalAmountBase),
+                AccountingEntry::debit('accounts_payable', $totalAmountBase),
+            ]);
+        }
+
+        $this->dispatchAccountingEvent($payload);
+    }
+
+    private function deleteCostEntries(PurchaseInvoice $invoice): void
+    {
+        $lineIds = $invoice->lines->pluck('id')->toArray();
+        if (! empty($lineIds)) {
+            \App\Models\CostEntry::where('source_type', CostEntrySource::PURCHASE_INVOICE)
+                ->whereIn('source_id', $lineIds)
+                ->delete();
+        }
+    }
+
+    private function deleteExternalDebt(PurchaseInvoice $invoice): void
+    {
+        if ($invoice->externalDebt) {
+            // Delete associated journal if exists
+            if ($invoice->externalDebt->journal_id) {
+                $journal = \App\Models\Journal::find($invoice->externalDebt->journal_id);
+                if ($journal) {
+                    $journal->journalEntries()->delete();
+                    $journal->delete();
+                }
+            }
+            $invoice->externalDebt->forceDelete();
+            $invoice->update(['external_debt_id' => null]);
+        }
+    }
+
+    private function assertPosted(PurchaseInvoice $invoice): void
+    {
+        if ($invoice->status !== InvoiceStatus::POSTED->value) {
+            throw new PurchaseInvoiceException('Hanya faktur yang sudah diposting yang dapat di-unpost.');
+        }
+    }
+
+    private function assertNoPayments(PurchaseInvoice $invoice): void
+    {
+        $invoice->loadMissing('externalDebt');
+
+        if (! $invoice->externalDebt) {
+            return;
+        }
+
+        $debtStatus = $invoice->externalDebt->status;
+        if (in_array($debtStatus, [DebtStatus::PARTIALLY_PAID, DebtStatus::PAID, DebtStatus::CLOSED], true)) {
+            throw new PurchaseInvoiceException('Faktur tidak dapat di-unpost karena sudah memiliki pembayaran.');
+        }
+    }
+
     public function post(PurchaseInvoice $invoice, ?Authenticatable $actor = null): PurchaseInvoice
     {
         $this->assertDraft($invoice);
@@ -265,7 +503,7 @@ class PurchaseInvoiceService
             if ($invoice->purchaseOrders->isNotEmpty()) {
                 return $this->postPoInvoice($invoice, $actor);
             }
-            
+
             return $this->postDirectInvoice($invoice, $actor);
         });
     }
@@ -290,7 +528,7 @@ class PurchaseInvoiceService
         foreach ($prepared as $line) {
             /** @var PurchaseOrderLine $poLine */
             $poLine = $lockedPoLines->get($line['purchase_order_line_id']);
-            if (!$poLine) {
+            if (! $poLine) {
                 throw new PurchaseInvoiceException('Baris PO tidak ditemukan saat posting faktur.');
             }
 
@@ -390,13 +628,13 @@ class PurchaseInvoiceService
 
         // Resolve location first
         $locationId = (int) $invoice->branch->default_location_id;
-        if (!$locationId) {
-             /** @var \App\Models\Location|null $loc */
-             $loc = \App\Models\Location::where('branch_id', $invoice->branch_id)->first();
-             if (!$loc) {
-                 throw new PurchaseInvoiceException('Cabang tidak memiliki lokasi penyimpanan.');
-             }
-             $locationId = $loc->id;
+        if (! $locationId) {
+            /** @var \App\Models\Location|null $loc */
+            $loc = \App\Models\Location::where('branch_id', $invoice->branch_id)->first();
+            if (! $loc) {
+                throw new PurchaseInvoiceException('Cabang tidak memiliki lokasi penyimpanan.');
+            }
+            $locationId = $loc->id;
         }
 
         $receiptDto = new ReceiptDTO(
@@ -409,7 +647,7 @@ class PurchaseInvoiceService
         );
 
         $txnResult = $this->inventoryService->receipt($receiptDto);
-        
+
         $invoice->update([
             'status' => InvoiceStatus::POSTED->value,
             'inventory_transaction_id' => $txnResult->transaction->id,
@@ -476,18 +714,26 @@ class PurchaseInvoiceService
             $lineSubtotal = $quantity * $unitPrice;
             $taxAmount = $lineSubtotal * ($taxRate / 100);
 
-            if ($quantity <= 0) throw new PurchaseInvoiceException('Jumlah faktur harus lebih dari nol.');
-            if ($unitPrice < 0) throw new PurchaseInvoiceException('Harga satuan tidak boleh bernilai negatif.');
+            if ($quantity <= 0) {
+                throw new PurchaseInvoiceException('Jumlah faktur harus lebih dari nol.');
+            }
+            if ($unitPrice < 0) {
+                throw new PurchaseInvoiceException('Harga satuan tidak boleh bernilai negatif.');
+            }
 
             /** @var PurchaseOrderLine|null $poLine */
             $poLine = $poLines->get($purchaseOrderLineId);
-            if (!$poLine) throw new PurchaseInvoiceException('Baris Purchase Order tidak ditemukan.');
+            if (! $poLine) {
+                throw new PurchaseInvoiceException('Baris Purchase Order tidak ditemukan.');
+            }
 
-            if (!$goodsReceiptLineId) throw new PurchaseInvoiceException('Baris penerimaan harus dipilih.');
+            if (! $goodsReceiptLineId) {
+                throw new PurchaseInvoiceException('Baris penerimaan harus dipilih.');
+            }
 
             /** @var GoodsReceiptLine|null $receiptLine */
             $receiptLine = $receiptLines->get($goodsReceiptLineId);
-            if (!$receiptLine || (int) $receiptLine->purchase_order_line_id !== $poLine->id) {
+            if (! $receiptLine || (int) $receiptLine->purchase_order_line_id !== $poLine->id) {
                 throw new PurchaseInvoiceException('Baris penerimaan tidak sah untuk PO tersebut.');
             }
 
@@ -525,13 +771,16 @@ class PurchaseInvoiceService
                 'tax_amount' => $this->roundMoney($taxAmount),
             ];
         }
+
         return $prepared;
     }
 
     private function prepareDirectLines(array $lines, float $exchangeRate): array
     {
-        if (empty($lines)) return [];
-        
+        if (empty($lines)) {
+            return [];
+        }
+
         $prepared = [];
         $lineNumber = 1;
 
@@ -545,9 +794,15 @@ class PurchaseInvoiceService
             $variantId = $payloadLine['product_variant_id'] ?? null;
             $uomId = $payloadLine['uom_id'] ?? null;
 
-            if (!$variantId || !$uomId) throw new PurchaseInvoiceException('Produk dan Satuan harus dipilih.');
-            if ($quantity <= 0) throw new PurchaseInvoiceException('Jumlah faktur harus lebih dari nol.');
-            if ($unitPrice < 0) throw new PurchaseInvoiceException('Harga satuan tidak boleh bernilai negatif.');
+            if (! $variantId || ! $uomId) {
+                throw new PurchaseInvoiceException('Produk dan Satuan harus dipilih.');
+            }
+            if ($quantity <= 0) {
+                throw new PurchaseInvoiceException('Jumlah faktur harus lebih dari nol.');
+            }
+            if ($unitPrice < 0) {
+                throw new PurchaseInvoiceException('Harga satuan tidak boleh bernilai negatif.');
+            }
 
             // Fetch UOM label if possible, or just use ID
             $uomLabel = isset($payloadLine['uom_label']) ? $payloadLine['uom_label'] : null;
@@ -611,7 +866,7 @@ class PurchaseInvoiceService
             'total_amount' => $this->roundMoney($subtotal + $taxTotal),
         ];
     }
-    
+
     private function preparePostingLines(PurchaseInvoice $invoice): array
     {
         $prepared = [];
@@ -619,7 +874,9 @@ class PurchaseInvoiceService
             $receiptLine = $line->goodsReceiptLine;
             $poLine = $line->purchaseOrderLine;
 
-            if (!$receiptLine || !$poLine) throw new PurchaseInvoiceException('Detail faktur tidak memiliki referensi yang lengkap.');
+            if (! $receiptLine || ! $poLine) {
+                throw new PurchaseInvoiceException('Detail faktur tidak memiliki referensi yang lengkap.');
+            }
 
             $quantity = (float) $line->quantity;
             $quantityBase = $this->deriveBaseQuantity($quantity, $receiptLine, $poLine);
@@ -644,6 +901,7 @@ class PurchaseInvoiceService
                 'ppv_amount' => $ppvAmount,
             ];
         }
+
         return $prepared;
     }
 
@@ -673,6 +931,7 @@ class PurchaseInvoiceService
             $grnValue += $line['grn_value_base'];
             $ppvTotal += $line['ppv_amount'];
         }
+
         return [
             'subtotal' => $this->roundMoney($subtotal),
             'tax_total' => $this->roundMoney($taxTotal),
@@ -684,7 +943,9 @@ class PurchaseInvoiceService
 
     private function dispatchApPostedEvent(PurchaseInvoice $invoice, array $totals, ?Authenticatable $actor = null): void
     {
-        if ($totals['subtotal'] <= 0) return;
+        if ($totals['subtotal'] <= 0) {
+            return;
+        }
 
         $currencyCode = $invoice->currency?->code ?? 'IDR';
         $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
@@ -725,7 +986,7 @@ class PurchaseInvoiceService
 
         $this->dispatchAccountingEvent($payload);
     }
-    
+
     private function dispatchDirectApPostedEvent(PurchaseInvoice $invoice, ?Authenticatable $actor): void
     {
         $currencyCode = $invoice->currency?->code ?? 'IDR';
@@ -733,7 +994,7 @@ class PurchaseInvoiceService
         $exchangeRate = (float) $invoice->exchange_rate;
         $totalAmount = (float) $invoice->total_amount;
         $totalAmountBase = $this->roundCost($totalAmount * $exchangeRate);
-        
+
         // Use generic AP Posted but map 'merchandise_inventory'
         $payload = new AccountingEventPayload(
             AccountingEventCode::PURCHASE_AP_POSTED,
@@ -769,17 +1030,17 @@ class PurchaseInvoiceService
         // PPV = (lineTotalBase + taxAmountBase) - grnValueBase
         // So PPV *includes* Tax difference if any?
         // If tax is recoverable, it should be Debited to VAT In account.
-        // But here PPV calculation seems to absorb tax? 
+        // But here PPV calculation seems to absorb tax?
         // $ppvAmount = ($lineTotalBase + ($taxAmount * rate)) - $grnValueBase
         // This implies the full amount (inc tax) is being balanced against GRN value + PPV.
         // So AP (Credit) = GRN (Debit) + PPV (Debit).
         // If so, for Direct:
         // AP (Credit) = Inventory (Debit) ?
         // Yes, if we consider the inventory value = cost entered.
-        
+
         $payload->setLines([
             AccountingEntry::debit('merchandise_inventory', $totalAmountBase),
-            AccountingEntry::credit('accounts_payable', $totalAmountBase)
+            AccountingEntry::credit('accounts_payable', $totalAmountBase),
         ]);
 
         $this->dispatchAccountingEvent($payload);
@@ -801,20 +1062,26 @@ class PurchaseInvoiceService
             return (((float) $line->quantity_received - (float) $line->quantity_returned) - (float) $line->quantity_invoiced) > self::QTY_TOLERANCE;
         });
 
-        if ($hasPending) return;
-        if (!in_array($purchaseOrder->status, [PurchaseOrderStatus::RECEIVED->value, PurchaseOrderStatus::PARTIALLY_RECEIVED->value], true)) return;
+        if ($hasPending) {
+            return;
+        }
+        if (! in_array($purchaseOrder->status, [PurchaseOrderStatus::RECEIVED->value, PurchaseOrderStatus::PARTIALLY_RECEIVED->value], true)) {
+            return;
+        }
 
         $purchaseOrder->transitionTo(PurchaseOrderStatus::CLOSED, $actor, $this->makerCheckerContext($purchaseOrder->company_id));
     }
 
     private function assertDraft(PurchaseInvoice $invoice): void
     {
-        if ($invoice->status !== InvoiceStatus::DRAFT->value) throw new PurchaseInvoiceException('Faktur ini sudah diposting dan tidak dapat diubah.');
+        if ($invoice->status !== InvoiceStatus::DRAFT->value) {
+            throw new PurchaseInvoiceException('Faktur ini sudah diposting dan tidak dapat diubah.');
+        }
     }
 
     private function assertPurchaseOrderInvoiceable(PurchaseOrder $purchaseOrder): void
     {
-        if (!in_array($purchaseOrder->status, [PurchaseOrderStatus::PARTIALLY_RECEIVED->value, PurchaseOrderStatus::RECEIVED->value, PurchaseOrderStatus::CLOSED->value], true)) {
+        if (! in_array($purchaseOrder->status, [PurchaseOrderStatus::PARTIALLY_RECEIVED->value, PurchaseOrderStatus::RECEIVED->value, PurchaseOrderStatus::CLOSED->value], true)) {
             throw new PurchaseInvoiceException("PO {$purchaseOrder->order_number} belum memiliki penerimaan.");
         }
     }
@@ -856,6 +1123,7 @@ class PurchaseInvoiceService
         } elseif ((float) $poLine->quantity > 0 && (float) $poLine->quantity_base > 0) {
             $ratio = (float) $poLine->quantity_base / (float) $poLine->quantity;
         }
+
         return $this->roundQuantity($quantity * $ratio);
     }
 
@@ -864,9 +1132,20 @@ class PurchaseInvoiceService
         return ['enforceMakerChecker' => (bool) config('purchasing.maker_checker.enforce', false)];
     }
 
-    private function roundMoney(float $value): float { return round($value, 2); }
-    private function roundQuantity(float $value): float { return round($value, 3); }
-    private function roundCost(float $value): float { return round($value, self::COST_SCALE); }
+    private function roundMoney(float $value): float
+    {
+        return round($value, 2);
+    }
+
+    private function roundQuantity(float $value): float
+    {
+        return round($value, 3);
+    }
+
+    private function roundCost(float $value): float
+    {
+        return round($value, self::COST_SCALE);
+    }
 
     /**
      * Create an External Debt record for the posted Purchase Invoice.
@@ -877,12 +1156,12 @@ class PurchaseInvoiceService
         $invoice->loadMissing(['branch.branchGroup.company', 'partner', 'currency']);
 
         $company = $invoice->branch?->branchGroup?->company;
-        if (!$company) {
+        if (! $company) {
             return; // Cannot create external debt without company context
         }
 
         $debtAccountId = $company->default_payable_account_id;
-        if (!$debtAccountId) {
+        if (! $debtAccountId) {
             return; // Cannot create external debt without a default payable account
         }
 
@@ -928,7 +1207,7 @@ class PurchaseInvoiceService
 
     /**
      * Create cost entries for non-inventory (non inventory_layer) items in a purchase invoice.
-     * 
+     *
      * For products with cost_model != 'inventory_layer', we create a CostEntry to track
      * the cost for margin analysis and potential allocation.
      */
@@ -938,14 +1217,14 @@ class PurchaseInvoiceService
 
         foreach ($invoice->lines as $line) {
             $product = $line->productVariant?->product;
-            
-            if (!$product) {
+
+            if (! $product) {
                 continue;
             }
 
             // Check if this product uses inventory layer costing
             $costModel = CostModel::tryFrom($product->cost_model);
-            
+
             // If it's inventory_layer, skip - inventory module handles this
             if ($costModel === CostModel::INVENTORY_LAYER) {
                 continue;
@@ -976,4 +1255,3 @@ class PurchaseInvoiceService
         }
     }
 }
-

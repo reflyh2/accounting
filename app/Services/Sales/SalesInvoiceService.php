@@ -247,6 +247,261 @@ class SalesInvoiceService
     }
 
     /**
+     * Unpost a posted sales invoice, reversing all posting side effects.
+     */
+    public function unpost(SalesInvoice $invoice, ?Authenticatable $actor = null): SalesInvoice
+    {
+        $this->assertPosted($invoice);
+        $this->assertNoPayments($invoice);
+        $actor ??= Auth::user();
+
+        return DB::transaction(function () use ($invoice, $actor) {
+            $invoice->load([
+                'salesOrders.lines',
+                'lines.salesOrderLine',
+                'lines.salesDeliveryLine',
+                'currency',
+                'externalDebt',
+                'costs.costItem',
+            ]);
+
+            $isDirectInvoice = $invoice->salesOrders->isEmpty();
+
+            if ($isDirectInvoice) {
+                $this->unpostDirectInvoice($invoice, $actor);
+            } else {
+                $this->unpostSoInvoice($invoice, $actor);
+            }
+
+            return $invoice->fresh([
+                'salesOrders.partner',
+                'lines.salesOrderLine',
+                'lines.salesDeliveryLine.salesDelivery',
+            ]);
+        });
+    }
+
+    private function unpostSoInvoice(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $soLineIds = $invoice->lines->pluck('sales_order_line_id')->filter()->unique()->values();
+        $sdLineIds = $invoice->lines->pluck('sales_delivery_line_id')->filter()->unique()->values();
+
+        $lockedSoLines = SalesOrderLine::whereIn('id', $soLineIds)
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        $lockedSdLines = SalesDeliveryLine::whereIn('id', $sdLineIds)
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        foreach ($invoice->lines as $line) {
+            $soLine = $lockedSoLines->get($line->sales_order_line_id);
+            if ($soLine) {
+                $soLine->quantity_invoiced = $this->roundQuantity(
+                    max(0, (float) $soLine->quantity_invoiced - (float) $line->quantity)
+                );
+                $soLine->quantity_invoiced_base = $this->roundQuantity(
+                    max(0, (float) $soLine->quantity_invoiced_base - (float) $line->quantity_base)
+                );
+                $soLine->amount_invoiced = $this->roundMoney(
+                    max(0, (float) $soLine->amount_invoiced - (float) $line->line_total)
+                );
+                $soLine->save();
+            }
+
+            $sdLine = $lockedSdLines->get($line->sales_delivery_line_id);
+            if ($sdLine) {
+                $sdLine->quantity_invoiced = $this->roundQuantity(
+                    max(0, (float) $sdLine->quantity_invoiced - (float) $line->quantity)
+                );
+                $sdLine->quantity_invoiced_base = $this->roundQuantity(
+                    max(0, (float) $sdLine->quantity_invoiced_base - (float) $line->quantity_base)
+                );
+                $sdLine->amount_invoiced = $this->roundMoney(
+                    max(0, (float) $sdLine->amount_invoiced - (float) $line->line_total)
+                );
+                $sdLine->save();
+            }
+        }
+
+        // Reopen SOs that were closed by this invoice
+        foreach ($invoice->salesOrders as $so) {
+            $so->refresh();
+            $so->loadMissing('lines');
+            $this->reopenSalesOrderIfNeeded($so, $actor);
+        }
+
+        // Dispatch reversal accounting event
+        $this->dispatchArReversedEvent($invoice, $actor);
+
+        // Delete cost entry journals
+        $this->deleteCostEntryJournals($invoice);
+
+        // Delete external debt
+        $this->deleteExternalDebt($invoice);
+
+        $invoice->update([
+            'status' => InvoiceStatus::DRAFT->value,
+            'posted_at' => null,
+            'posted_by' => null,
+            'updated_by' => $actor?->getAuthIdentifier(),
+        ]);
+    }
+
+    private function unpostDirectInvoice(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        // Dispatch reversal accounting event
+        $this->dispatchArReversedEvent($invoice, $actor);
+
+        // Delete cost entry journals
+        $this->deleteCostEntryJournals($invoice);
+
+        // Delete external debt
+        $this->deleteExternalDebt($invoice);
+
+        $invoice->update([
+            'status' => InvoiceStatus::DRAFT->value,
+            'posted_at' => null,
+            'posted_by' => null,
+            'updated_by' => $actor?->getAuthIdentifier(),
+        ]);
+    }
+
+    private function reopenSalesOrderIfNeeded(SalesOrder $so, ?Authenticatable $actor): void
+    {
+        if ($so->status !== SalesOrderStatus::CLOSED->value) {
+            return;
+        }
+
+        $allDelivered = $so->lines->every(function (SalesOrderLine $line) {
+            return (float) $line->quantity_delivered >= ((float) $line->quantity - self::QTY_TOLERANCE);
+        });
+
+        $newStatus = $allDelivered ? SalesOrderStatus::DELIVERED : SalesOrderStatus::PARTIALLY_DELIVERED;
+        $so->transitionTo($newStatus, $actor, $this->makerCheckerContext($so->company_id));
+    }
+
+    private function dispatchArReversedEvent(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $exchangeRate = (float) $invoice->exchange_rate;
+        $totalAmount = (float) $invoice->total_amount;
+        $totalAmountBase = $this->roundCost($totalAmount * $exchangeRate);
+
+        if ($totalAmountBase <= 0) {
+            return;
+        }
+
+        $currencyCode = $invoice->currency?->code ?? 'IDR';
+        $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::SALES_AR_REVERSED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'sales_invoice',
+            $invoice->id,
+            $invoice->invoice_number,
+            $currencyCode,
+            $exchangeRate,
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+            ['reversal' => true]
+        );
+
+        $isDirectInvoice = $invoice->salesOrders->isEmpty();
+        $shippingBase = $this->roundCost((float) $invoice->shipping_charge * $exchangeRate);
+
+        if ($isDirectInvoice) {
+            $revenueBase = $this->roundCost((float) $invoice->subtotal * $exchangeRate);
+            $taxBase = $this->roundCost((float) $invoice->tax_total * $exchangeRate);
+
+            $entries = array_filter([
+                AccountingEntry::credit('receivable', $totalAmountBase),
+                AccountingEntry::debit('revenue', $revenueBase),
+                $taxBase > 0 ? AccountingEntry::debit('tax_payable', $taxBase) : null,
+            ]);
+        } else {
+            $deliveryValueBase = (float) $invoice->delivery_value_base;
+            $revenueVariance = (float) $invoice->revenue_variance;
+
+            $entries = array_filter([
+                AccountingEntry::credit('receivable', $totalAmountBase),
+                AccountingEntry::debit('revenue', $deliveryValueBase),
+                $revenueVariance !== 0.0
+                    ? ($revenueVariance > 0
+                        ? AccountingEntry::debit('revenue_variance', abs($revenueVariance))
+                        : AccountingEntry::credit('revenue_variance', abs($revenueVariance)))
+                    : null,
+            ]);
+        }
+
+        if ($shippingBase > 0) {
+            $entries[] = AccountingEntry::credit('shipping_charge_receivable', $shippingBase);
+            $entries[] = AccountingEntry::debit('shipping_charge_revenue', $shippingBase);
+        }
+
+        $payload->setLines($entries);
+
+        rescue(function () use ($payload) {
+            $this->accountingEventBus->dispatch($payload);
+        }, static function (Throwable $throwable) {
+            report($throwable);
+        });
+    }
+
+    private function deleteCostEntryJournals(SalesInvoice $invoice): void
+    {
+        // Delete journals created by createCostEntries
+        $journals = \App\Models\Journal::where('reference_number', $invoice->invoice_number)
+            ->where('journal_type', 'sales')
+            ->where('description', 'like', 'Direct Costs%')
+            ->get();
+
+        foreach ($journals as $journal) {
+            $journal->journalEntries()->delete();
+            $journal->delete();
+        }
+    }
+
+    private function deleteExternalDebt(SalesInvoice $invoice): void
+    {
+        if ($invoice->externalDebt) {
+            if ($invoice->externalDebt->journal_id) {
+                $journal = \App\Models\Journal::find($invoice->externalDebt->journal_id);
+                if ($journal) {
+                    $journal->journalEntries()->delete();
+                    $journal->delete();
+                }
+            }
+            $invoice->externalDebt->forceDelete();
+            $invoice->update(['external_debt_id' => null]);
+        }
+    }
+
+    private function assertPosted(SalesInvoice $invoice): void
+    {
+        if ($invoice->status !== InvoiceStatus::POSTED->value) {
+            throw new SalesInvoiceException('Hanya faktur yang sudah diposting yang dapat di-unpost.');
+        }
+    }
+
+    private function assertNoPayments(SalesInvoice $invoice): void
+    {
+        $invoice->loadMissing('externalDebt');
+
+        if (! $invoice->externalDebt) {
+            return;
+        }
+
+        $debtStatus = $invoice->externalDebt->status;
+        if (in_array($debtStatus, [\App\Enums\DebtStatus::PARTIALLY_PAID, \App\Enums\DebtStatus::PAID, \App\Enums\DebtStatus::CLOSED], true)) {
+            throw new SalesInvoiceException('Faktur tidak dapat di-unpost karena sudah memiliki pembayaran.');
+        }
+    }
+
+    /**
      * Post a sales invoice, updating SO/SD line invoiced quantities.
      */
     public function post(SalesInvoice $invoice, ?Authenticatable $actor = null): SalesInvoice

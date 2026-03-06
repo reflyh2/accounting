@@ -17,6 +17,7 @@ const props = defineProps({
     statusOptions: Object,
     paymentMethods: Array,
     canPost: Boolean,
+    canUnpost: Boolean,
     canEdit: Boolean,
     canDelete: Boolean,
 });
@@ -51,6 +52,15 @@ function postInvoice() {
         preserveScroll: true,
     });
 }
+
+const showUnpostModal = ref(false);
+
+function unpostInvoice() {
+    actionForm.post(route('purchase-invoices.unpost', props.invoice.id), {
+        preserveScroll: true,
+        onSuccess: () => (showUnpostModal.value = false),
+    });
+}
 </script>
 
 <template>
@@ -70,6 +80,14 @@ function postInvoice() {
                             <AppPrimaryButton v-if="canPost" @click="postInvoice" :disabled="actionForm.processing">
                                 Posting Faktur
                             </AppPrimaryButton>
+                            <button
+                                v-if="canUnpost"
+                                @click="showUnpostModal = true"
+                                :disabled="actionForm.processing"
+                                class="inline-flex items-center px-4 py-2 bg-amber-500 border border-transparent rounded font-semibold text-xs text-white uppercase tracking-widest hover:bg-amber-600 active:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 transition ease-in-out duration-150 disabled:opacity-50"
+                            >
+                                Unpost Faktur
+                            </button>
                             <a :href="route('purchase-invoices.print', invoice.id)" target="_blank">
                                 <AppPrintButton title="Print" />
                             </a>
@@ -224,6 +242,15 @@ function postInvoice() {
             title="Hapus Faktur"
             @close="showDeleteModal = false"
             @confirm="deleteInvoice"
+        />
+
+        <DeleteConfirmationModal
+            :show="showUnpostModal"
+            title="Unpost Faktur"
+            message="Apakah Anda yakin ingin meng-unpost faktur ini? Semua jurnal akuntansi, hutang, dan perubahan kuantitas akan dikembalikan."
+            confirmButtonText="Ya, Unpost"
+            @close="showUnpostModal = false"
+            @confirm="unpostInvoice"
         />
     </AuthenticatedLayout>
 </template>

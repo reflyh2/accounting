@@ -7,12 +7,14 @@ enum AccountingEventCode: string
     case PURCHASE_GRN_POSTED = 'purchase.grn_posted';
     case PURCHASE_GRN_REVERSED = 'purchase.grn_reversed';
     case PURCHASE_AP_POSTED = 'purchase.ap_posted';
+    case PURCHASE_AP_REVERSED = 'purchase.ap_reversed';
     case PURCHASE_RETURN_POSTED = 'purchase.return_posted';
     case PURCHASE_RETURN_REVERSED = 'purchase.return_reversed';
     case SALES_DELIVERY_POSTED = 'sales.delivery_posted';
     case SALES_DELIVERY_REVERSED = 'sales.delivery_reversed';
     case SALES_RETURN_POSTED = 'sales.return_posted';
     case SALES_AR_POSTED = 'sales.ar_posted';
+    case SALES_AR_REVERSED = 'sales.ar_reversed';
     case MFG_ISSUE_POSTED = 'mfg.issue_posted';
     case MFG_RECEIPT_POSTED = 'mfg.receipt_posted';
     case MFG_VARIANCE_POSTED = 'mfg.variance_posted';
@@ -25,12 +27,14 @@ enum AccountingEventCode: string
             self::PURCHASE_GRN_POSTED => 'Purchase GRN Posted',
             self::PURCHASE_GRN_REVERSED => 'Purchase GRN Reversed',
             self::PURCHASE_AP_POSTED => 'Purchase AP Posted',
+            self::PURCHASE_AP_REVERSED => 'Purchase AP Reversed',
             self::PURCHASE_RETURN_POSTED => 'Purchase Return Posted',
             self::PURCHASE_RETURN_REVERSED => 'Purchase Return Reversed',
             self::SALES_DELIVERY_POSTED => 'Sales Delivery Posted',
             self::SALES_DELIVERY_REVERSED => 'Sales Delivery Reversed',
             self::SALES_RETURN_POSTED => 'Sales Return Posted',
             self::SALES_AR_POSTED => 'Sales AR Posted',
+            self::SALES_AR_REVERSED => 'Sales AR Reversed',
             self::MFG_ISSUE_POSTED => 'Manufacturing Issue Posted',
             self::MFG_RECEIPT_POSTED => 'Manufacturing Receipt Posted',
             self::MFG_VARIANCE_POSTED => 'Manufacturing Variance Posted',
@@ -39,4 +43,3 @@ enum AccountingEventCode: string
         };
     }
 }
-

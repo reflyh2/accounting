@@ -26,6 +26,9 @@ final class PurchaseOrderStates
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::PARTIALLY_RECEIVED, PurchaseOrderStatus::CLOSED))
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::RECEIVED, PurchaseOrderStatus::PARTIALLY_RECEIVED))
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::RECEIVED, PurchaseOrderStatus::CLOSED))
+            // Reverse transitions (when invoices are unposted)
+            ->allow(DocumentStateTransition::make(PurchaseOrderStatus::CLOSED, PurchaseOrderStatus::RECEIVED))
+            ->allow(DocumentStateTransition::make(PurchaseOrderStatus::CLOSED, PurchaseOrderStatus::PARTIALLY_RECEIVED))
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::DRAFT, PurchaseOrderStatus::CANCELED))
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::APPROVED, PurchaseOrderStatus::CANCELED))
             ->allow(DocumentStateTransition::make(PurchaseOrderStatus::SENT, PurchaseOrderStatus::CANCELED));
@@ -43,7 +46,7 @@ final class PurchaseOrderStates
             // 2. Company setting
             // 3. Global config fallback
             $shouldEnforce = $context['enforceMakerChecker'] ?? null;
-            
+
             if ($shouldEnforce === null) {
                 // Check company setting if document has company relationship
                 if (method_exists($document, 'company') && $document->company) {
@@ -53,11 +56,11 @@ final class PurchaseOrderStates
                 }
             }
 
-            if (!$shouldEnforce) {
+            if (! $shouldEnforce) {
                 return true;
             }
 
-            if (!$actor) {
+            if (! $actor) {
                 throw new DocumentStateException('Dokumen membutuhkan checker yang sah untuk persetujuan.');
             }
 
@@ -71,5 +74,3 @@ final class PurchaseOrderStates
         };
     }
 }
-
-

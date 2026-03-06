@@ -220,6 +220,7 @@ class SalesInvoiceController extends Controller
             'primaryCurrency' => Currency::where('is_primary', true)->first(),
             'statusOptions' => $this->statusOptions(),
             'canPost' => $salesInvoice->status === InvoiceStatus::DRAFT->value,
+            'canUnpost' => $salesInvoice->status === InvoiceStatus::POSTED->value,
             'canEdit' => $salesInvoice->status === InvoiceStatus::DRAFT->value,
             'canDelete' => $salesInvoice->status === InvoiceStatus::DRAFT->value,
         ]);
@@ -324,6 +325,18 @@ class SalesInvoiceController extends Controller
 
         return Redirect::route('sales-invoices.show', $salesInvoice->id)
             ->with('success', 'Faktur penjualan berhasil diposting.');
+    }
+
+    public function unpost(Request $request, SalesInvoice $salesInvoice): RedirectResponse
+    {
+        try {
+            $this->invoiceService->unpost($salesInvoice, $request->user());
+        } catch (\App\Exceptions\SalesInvoiceException $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        }
+
+        return Redirect::route('sales-invoices.show', $salesInvoice->id)
+            ->with('success', 'Faktur penjualan berhasil di-unpost.');
     }
 
     public function exportXLSX(Request $request)

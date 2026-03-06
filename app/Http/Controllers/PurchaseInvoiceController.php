@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Documents\InvoiceStatus;
+use App\Enums\Documents\PurchaseOrderStatus;
 use App\Enums\PaymentMethod;
 use App\Exports\PurchaseInvoicesExport;
 use App\Models\Branch;
@@ -12,11 +13,9 @@ use App\Models\GoodsReceiptLine;
 use App\Models\Partner;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseOrder;
-use App\Enums\Documents\PurchaseOrderStatus;
 use App\Services\Purchasing\PurchaseInvoiceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
@@ -27,8 +26,7 @@ class PurchaseInvoiceController extends Controller
 {
     public function __construct(
         private readonly PurchaseInvoiceService $invoiceService,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -42,7 +40,7 @@ class PurchaseInvoiceController extends Controller
             'branch.branchGroup.company',
         ]);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('lower(invoice_number) like ?', ["%{$search}%"])
@@ -53,27 +51,27 @@ class PurchaseInvoiceController extends Controller
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereIn('company_id', (array) $filters['company_id']);
         }
 
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', (array) $filters['branch_id']);
         }
 
-        if (!empty($filters['partner_id'])) {
+        if (! empty($filters['partner_id'])) {
             $query->whereIn('partner_id', (array) $filters['partner_id']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->whereIn('status', (array) $filters['status']);
         }
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('invoice_date', '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('invoice_date', '<=', $filters['to_date']);
         }
 
@@ -106,7 +104,7 @@ class PurchaseInvoiceController extends Controller
     {
         $selectedPartnerId = $request->integer('partner_id') ?: null;
         $selectedIds = $request->input('purchase_order_ids', []);
-        if (!is_array($selectedIds)) {
+        if (! is_array($selectedIds)) {
             $selectedIds = $selectedIds ? [$selectedIds] : [];
         }
         $selectedIds = array_filter(array_map('intval', $selectedIds));
@@ -114,9 +112,9 @@ class PurchaseInvoiceController extends Controller
         $selectedPurchaseOrders = [];
         $partnerBankAccounts = [];
 
-        if (!empty($selectedIds)) {
+        if (! empty($selectedIds)) {
             $selectedPurchaseOrders = $this->purchaseOrdersDetail($selectedIds);
-            if (!empty($selectedPurchaseOrders) && !$selectedPartnerId) {
+            if (! empty($selectedPurchaseOrders) && ! $selectedPartnerId) {
                 $selectedPartnerId = $selectedPurchaseOrders[0]['partner']['id'] ?? null;
             }
         }
@@ -139,7 +137,7 @@ class PurchaseInvoiceController extends Controller
             'uoms' => $formOptions['uoms'],
             'companies' => $this->companyOptions(),
             'branches' => $this->branchOptions(),
-            'currencies' => Currency::select('id', 'code', 'name')->get()->map(fn($c) => ['value' => $c->id, 'label' => $c->code . ' - ' . $c->name]),
+            'currencies' => Currency::select('id', 'code', 'name')->get()->map(fn ($c) => ['value' => $c->id, 'label' => $c->code.' - '.$c->name]),
             'filters' => Session::get('purchase_invoices.index_filters', []),
         ]);
     }
@@ -182,6 +180,7 @@ class PurchaseInvoiceController extends Controller
             'statusOptions' => $this->statusOptions(),
             'paymentMethods' => $this->paymentMethodOptions(),
             'canPost' => $purchaseInvoice->status === InvoiceStatus::DRAFT->value,
+            'canUnpost' => $purchaseInvoice->status === InvoiceStatus::POSTED->value,
             'canEdit' => $purchaseInvoice->status === InvoiceStatus::DRAFT->value,
             'canDelete' => $purchaseInvoice->status === InvoiceStatus::DRAFT->value,
         ]);
@@ -203,7 +202,7 @@ class PurchaseInvoiceController extends Controller
         $selectedPartnerId = $purchaseInvoice->partner_id;
         $selectedIds = $purchaseInvoice->purchaseOrders->pluck('id')->toArray();
         $selectedPurchaseOrders = $this->purchaseOrdersDetail($selectedIds);
-        
+
         $partnerBankAccounts = Partner::find($selectedPartnerId)?->bankAccounts()->where('is_active', true)->get() ?? [];
         $formOptions = $this->formOptions();
 
@@ -221,7 +220,7 @@ class PurchaseInvoiceController extends Controller
             'uoms' => $formOptions['uoms'],
             'companies' => $this->companyOptions(),
             'branches' => $this->branchOptions(),
-            'currencies' => Currency::select('id', 'code', 'name')->get()->map(fn($c) => ['value' => $c->id, 'label' => $c->code . ' - ' . $c->name]),
+            'currencies' => Currency::select('id', 'code', 'name')->get()->map(fn ($c) => ['value' => $c->id, 'label' => $c->code.' - '.$c->name]),
         ]);
     }
 
@@ -269,7 +268,7 @@ class PurchaseInvoiceController extends Controller
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('purchase-invoices.index') . ($currentQuery ? '?' . $currentQuery : '');
+            $redirectUrl = route('purchase-invoices.index').($currentQuery ? '?'.$currentQuery : '');
 
             return Redirect::to($redirectUrl)
                 ->with('success', 'Faktur pembelian berhasil dihapus.');
@@ -287,6 +286,18 @@ class PurchaseInvoiceController extends Controller
 
         return Redirect::route('purchase-invoices.show', $purchaseInvoice->id)
             ->with('success', 'Faktur pembelian berhasil diposting.');
+    }
+
+    public function unpost(PurchaseInvoice $purchaseInvoice, Request $request): RedirectResponse
+    {
+        try {
+            $this->invoiceService->unpost($purchaseInvoice, $request->user());
+        } catch (\App\Exceptions\PurchaseInvoiceException $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        }
+
+        return Redirect::route('purchase-invoices.show', $purchaseInvoice->id)
+            ->with('success', 'Faktur pembelian berhasil di-unpost.');
     }
 
     /**
@@ -312,18 +323,21 @@ class PurchaseInvoiceController extends Controller
     public function exportXLSX(Request $request)
     {
         $invoices = $this->getFilteredInvoices($request->all());
+
         return Excel::download(new PurchaseInvoicesExport($invoices), 'purchase-invoices.xlsx');
     }
 
     public function exportCSV(Request $request)
     {
         $invoices = $this->getFilteredInvoices($request->all());
+
         return Excel::download(new PurchaseInvoicesExport($invoices), 'purchase-invoices.csv', \Maatwebsite\Excel\Excel::CSV);
     }
 
     public function exportPDF(Request $request)
     {
         $invoices = $this->getFilteredInvoices($request->all());
+
         return Excel::download(new PurchaseInvoicesExport($invoices), 'purchase-invoices.pdf', \Maatwebsite\Excel\Excel::MPDF);
     }
 
@@ -352,7 +366,7 @@ class PurchaseInvoiceController extends Controller
             'lines.*.tax_rate' => 'nullable|numeric|min:0',
         ];
 
-        if (!$isDirect) {
+        if (! $isDirect) {
             $rules['lines.*.purchase_order_line_id'] = 'required|exists:purchase_order_lines,id';
             $rules['lines.*.goods_receipt_line_id'] = 'required|exists:goods_receipt_lines,id';
         } else {
@@ -365,6 +379,7 @@ class PurchaseInvoiceController extends Controller
         $validated['lines'] = collect($validated['lines'])
             ->map(function ($line) {
                 $line['tax_amount'] = $line['tax_amount'] ?? 0;
+
                 return $line;
             })
             ->toArray();
@@ -381,7 +396,7 @@ class PurchaseInvoiceController extends Controller
             'currency',
         ]);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('lower(invoice_number) like ?', ["%{$search}%"])
@@ -389,13 +404,13 @@ class PurchaseInvoiceController extends Controller
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereIn('company_id', (array) $filters['company_id']);
         }
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', (array) $filters['branch_id']);
         }
-        if (!empty($filters['partner_id'])) {
+        if (! empty($filters['partner_id'])) {
             $query->whereIn('partner_id', (array) $filters['partner_id']);
         }
 
@@ -421,10 +436,10 @@ class PurchaseInvoiceController extends Controller
             ->values()
             ->toArray();
     }
-    
+
     private function companyOptions()
     {
-        return Company::orderBy('name')->get()->map(fn($item) => [
+        return Company::orderBy('name')->get()->map(fn ($item) => [
             'value' => $item->id,
             'label' => $item->name,
         ])->values()->toArray();
@@ -437,7 +452,7 @@ class PurchaseInvoiceController extends Controller
             ->get()
             ->map(fn ($branch) => [
                 'value' => $branch->id,
-                'label' => $branch->name . ($branch->branchGroup?->company ? ' (' . $branch->branchGroup->company->name . ')' : ''),
+                'label' => $branch->name.($branch->branchGroup?->company ? ' ('.$branch->branchGroup->company->name.')' : ''),
             ])
             ->values()
             ->toArray();
@@ -506,7 +521,7 @@ class PurchaseInvoiceController extends Controller
             // Load GRN line's UOM for conversion check
             $receiptLines = GoodsReceiptLine::with(['goodsReceipt', 'uom'])
                 ->whereHas('goodsReceipt', function ($q) use ($purchaseOrder) {
-                    $q->whereHas('purchaseOrders', function($q) use ($purchaseOrder) {
+                    $q->whereHas('purchaseOrders', function ($q) use ($purchaseOrder) {
                         $q->where('purchase_orders.id', $purchaseOrder->id);
                     });
                 })
@@ -516,7 +531,9 @@ class PurchaseInvoiceController extends Controller
             $lines = [];
             foreach ($receiptLines as $line) {
                 $poLine = $purchaseOrder->lines->firstWhere('id', $line->purchase_order_line_id);
-                if (!$poLine) continue;
+                if (! $poLine) {
+                    continue;
+                }
 
                 // Calculate remaining quantities based on GRN line
                 $remainingGrn = max(0.0, (float) $line->quantity - (float) $line->quantity_invoiced - (float) $line->quantity_returned);
@@ -524,7 +541,9 @@ class PurchaseInvoiceController extends Controller
                 $available = min($remainingGrn, $remainingPo);
                 static $QTY_TOLERANCE = 0.0005;
 
-                if ($available <= $QTY_TOLERANCE) continue;
+                if ($available <= $QTY_TOLERANCE) {
+                    continue;
+                }
 
                 // Check if GRN line UOM differs from PO line UOM
                 $grnUomId = (int) $line->uom_id;
@@ -558,7 +577,9 @@ class PurchaseInvoiceController extends Controller
                 ];
             }
 
-            if (empty($lines)) continue;
+            if (empty($lines)) {
+                continue;
+            }
 
             $result[] = [
                 'id' => $purchaseOrder->id,
@@ -580,15 +601,14 @@ class PurchaseInvoiceController extends Controller
             ];
         }
 
-
         return $result;
     }
 
-
-
     private function availablePurchaseOrders(array $selectedIds = [], ?int $partnerId = null)
     {
-        if (!$partnerId) return collect();
+        if (! $partnerId) {
+            return collect();
+        }
 
         $query = PurchaseOrder::query()
             ->with(['partner', 'branch.branchGroup.company', 'lines'])
@@ -604,10 +624,10 @@ class PurchaseInvoiceController extends Controller
         $purchaseOrders = $query->get();
 
         // Include selected IDs even if not in query
-        if (!empty($selectedIds)) {
+        if (! empty($selectedIds)) {
             $existingIds = $purchaseOrders->pluck('id')->toArray();
             $missingIds = array_diff($selectedIds, $existingIds);
-            if (!empty($missingIds)) {
+            if (! empty($missingIds)) {
                 $additional = PurchaseOrder::with(['partner', 'branch.branchGroup.company', 'lines'])
                     ->whereIn('id', $missingIds)
                     ->get();
@@ -616,13 +636,13 @@ class PurchaseInvoiceController extends Controller
         }
 
         return $purchaseOrders->map(function (PurchaseOrder $purchaseOrder) {
-             // Calculate approximate remaining quantity for display, or just show summary
-             return [
+            // Calculate approximate remaining quantity for display, or just show summary
+            return [
                 'id' => $purchaseOrder->id,
                 'order_number' => $purchaseOrder->order_number,
                 'order_date' => optional($purchaseOrder->order_date)->format('d/m/Y'),
                 'total_amount' => (float) $purchaseOrder->total_amount,
-             ];
+            ];
         });
     }
 

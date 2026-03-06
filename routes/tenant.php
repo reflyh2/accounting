@@ -700,6 +700,8 @@ Route::middleware([
         Route::get('purchase-invoices/export-pdf', [PurchaseInvoiceController::class, 'exportPDF'])->name('purchase-invoices.export-pdf');
         Route::post('purchase-invoices/{purchase_invoice}/post', [PurchaseInvoiceController::class, 'post'])
             ->name('purchase-invoices.post');
+        Route::post('purchase-invoices/{purchase_invoice}/unpost', [PurchaseInvoiceController::class, 'unpost'])
+            ->name('purchase-invoices.unpost');
         Route::get('purchase-invoices/{purchase_invoice}/print', [PurchaseInvoiceController::class, 'print'])
             ->name('purchase-invoices.print');
         Route::resource('purchase-invoices', PurchaseInvoiceController::class);
@@ -709,6 +711,8 @@ Route::middleware([
         Route::get('sales-invoices/export-pdf', [SalesInvoiceController::class, 'exportPDF'])->name('sales-invoices.export-pdf');
         Route::post('sales-invoices/{sales_invoice}/post', [SalesInvoiceController::class, 'post'])
             ->name('sales-invoices.post');
+        Route::post('sales-invoices/{sales_invoice}/unpost', [SalesInvoiceController::class, 'unpost'])
+            ->name('sales-invoices.unpost');
         Route::get('sales-invoices/{sales_invoice}/print', [SalesInvoiceController::class, 'print'])
             ->name('sales-invoices.print');
         Route::resource('sales-invoices', SalesInvoiceController::class);
