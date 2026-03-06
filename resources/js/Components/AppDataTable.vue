@@ -82,6 +82,14 @@ const props = defineProps({
     showFilterLabels: {
         type: Boolean,
         default: true
+    },
+    canEdit: {
+        type: Function,
+        default: () => true
+    },
+    canDelete: {
+        type: Function,
+        default: () => true
     }
 });
 
@@ -358,10 +366,10 @@ function handleCreate() {
                     <Link v-if="viewRoute" :href="getRoute(viewRoute, { id: item.id })">
                         <AppViewButton title="Detail" />
                     </Link>
-                    <Link v-if="editRoute" :href="getRoute(editRoute, { id: item.id })">
+                    <Link v-if="editRoute && canEdit(item)" :href="getRoute(editRoute, { id: item.id })">
                         <AppEditButton title="Ubah" />
                     </Link>
-                    <AppDeleteButton v-if="deleteRoute" @click="confirmDelete(item.id)" title="Hapus" />
+                    <AppDeleteButton v-if="deleteRoute && canDelete(item)" @click="confirmDelete(item.id)" title="Hapus" />
                 </div>
             </template>
         </AppTable>

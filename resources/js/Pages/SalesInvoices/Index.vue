@@ -193,6 +193,8 @@ function handleFilter(newFilters) {
                         :indexRoute="{ name: 'sales-invoices.index' }"
                         :downloadOptions="downloadOptions"
                         downloadBaseRoute="sales-invoices"
+                        :canEdit="(item) => item.status === 'draft'"
+                        :canDelete="(item) => item.status === 'draft'"
                         :sortable="sortableColumns"
                         :defaultSort="defaultSort"
                         :currentSort="currentSort"

@@ -187,6 +187,8 @@ function handleBulkDelete(ids) {
                         routeName="purchase-invoices.index"
                         itemKey="id"
                         searchPlaceholder="Cari nomor faktur atau PO..."
+                        :canEdit="(item) => item.status === 'draft'"
+                        :canDelete="(item) => item.status === 'draft'"
                         :enableBulkActions="true"
                         @sort="handleSort"
                         @filter="handleFilter"
