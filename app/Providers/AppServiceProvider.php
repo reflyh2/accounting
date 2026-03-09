@@ -13,6 +13,8 @@ use App\Models\PurchaseInvoice;
 use App\Models\SalesInvoice;
 use App\Services\Accounting\Publisher\AccountingEventPublisherFactory;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -32,6 +34,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Reconnect tenant database between queue jobs to avoid stale
+        // prepared statements when running through PgBouncer transaction pooling.
+        Queue::looping(function () {
+            if (DB::connection()->getDriverName() === 'pgsql') {
+                DB::reconnect();
+            }
+        });
+
         // Register morph map for polymorphic relationships
         Relation::morphMap([
             // CostEntrySource types
@@ -48,4 +58,3 @@ class AppServiceProvider extends ServiceProvider
         ]);
     }
 }
-

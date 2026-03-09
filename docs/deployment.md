@@ -7,13 +7,11 @@ This document provides step-by-step instructions for deploying FinfasPro to AWS 
 ```
 ┌─────────────────────┐     ┌─────────────────────────────────┐
 │   Application EC2   │────▶│       PostgreSQL EC2            │
-│  (Laravel + Nginx)  │     │  ┌───────────┐  ┌────────────┐  │
+│ (Laravel + Apache)  │     │  ┌───────────┐  ┌────────────┐  │
 └─────────────────────┘     │  │ PgBouncer │─▶│ PostgreSQL │  │
-         │                  │  │  (:6432)  │  │  (:5432)   │  │
-         ▼                  │  └───────────┘  └────────────┘  │
-    ┌─────────┐             └─────────────────────────────────┘
-    │  Redis  │ (on App Server)
-    └─────────┘
+                            │  │  (:6432)  │  │  (:5432)   │  │
+                            │  └───────────┘  └────────────┘  │
+                            └─────────────────────────────────┘
 ```
 
 ---
@@ -206,13 +204,13 @@ sudo apt update && sudo apt upgrade -y
 sudo add-apt-repository ppa:ondrej/php -y
 sudo apt update
 
-# Install PHP and extensions (for Apache, use libapache2-mod-php instead of php-fpm)
+# Install PHP and extensions
 sudo apt install -y php8.3 php8.3-cli php8.3-common php8.3-pgsql \
     php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip php8.3-bcmath \
-    php8.3-gd php8.3-intl php8.3-redis libapache2-mod-php8.3
+    php8.3-gd php8.3-intl libapache2-mod-php8.3
 
-# Install Apache2, Redis, and utilities
-sudo apt install -y apache2 redis-server git unzip supervisor
+# Install Apache2 and utilities
+sudo apt install -y apache2 git unzip supervisor
 
 # Install Node.js 20.x
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -265,12 +263,10 @@ DB_DATABASE=finfaspro_central
 DB_USERNAME=finfaspro
 DB_PASSWORD=YOUR_SECURE_PASSWORD
 
-# Session & Cache (local Redis)
-SESSION_DRIVER=redis
-CACHE_STORE=redis
-QUEUE_CONNECTION=redis
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
+# Session, Cache & Queue (database driver)
+SESSION_DRIVER=database
+CACHE_STORE=database
+QUEUE_CONNECTION=database
 
 # Tenancy database connection (via PgBouncer)
 TENANCY_DATABASE_HOST=YOUR_DB_SERVER_PRIVATE_IP
@@ -391,7 +387,7 @@ sudo nano /etc/supervisor/conf.d/finfaspro-worker.conf
 ```ini
 [program:finfaspro-worker]
 process_name=%(program_name)s_%(process_num)02d
-command=php /var/www/finfaspro/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+command=php /var/www/finfaspro/artisan queue:work database --sleep=3 --tries=3 --max-time=3600
 autostart=true
 autorestart=true
 user=www-data
@@ -451,7 +447,7 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 sudo supervisorctl restart finfaspro-worker:*
-sudo systemctl restart php8.3-fpm
+sudo systemctl restart apache2
 ```
 
 ---
