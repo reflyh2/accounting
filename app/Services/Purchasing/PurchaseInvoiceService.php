@@ -1165,9 +1165,9 @@ class PurchaseInvoiceService
             return; // Cannot create external debt without a default payable account
         }
 
-        // For offset account, use GRNI or inventory account based on company config
-        // For simplicity, we'll use the same payable account or null
-        $offsetAccountId = $company->default_cogs_account_id ?? $debtAccountId;
+        // Offset account is informational only — GL journals are handled by accounting events.
+        // Use the payable account as a safe default since no dedicated GRNI default exists.
+        $offsetAccountId = $debtAccountId;
 
         $totalAmount = (float) $invoice->total_amount;
         $exchangeRate = (float) ($invoice->exchange_rate ?? 1);

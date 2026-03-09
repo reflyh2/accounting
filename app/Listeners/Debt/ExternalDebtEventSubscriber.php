@@ -3,10 +3,12 @@
 namespace App\Listeners\Debt;
 
 use App\Events\Debt\ExternalDebtCreated;
-use App\Events\Debt\ExternalDebtUpdated;
 use App\Events\Debt\ExternalDebtDeleted;
+use App\Events\Debt\ExternalDebtUpdated;
 use App\Models\ExternalDebt;
 use App\Models\Journal;
+use App\Models\PurchaseInvoice;
+use App\Models\SalesInvoice;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Support\Facades\DB;
 
@@ -19,12 +21,20 @@ class ExternalDebtEventSubscriber
 
     public function handleExternalDebtUpdated(ExternalDebtUpdated $event): void
     {
+        if ($this->hasOwnAccountingEvent($event->debt)) {
+            return;
+        }
+
         $this->deleteJournalForExternalDebt($event->debt);
         $this->createJournalForExternalDebt($event->debt);
     }
 
     public function handleExternalDebtDeleted(ExternalDebtDeleted $event): void
     {
+        if ($this->hasOwnAccountingEvent($event->debt)) {
+            return;
+        }
+
         $this->deleteJournalForExternalDebt($event->debt);
     }
 
@@ -37,11 +47,27 @@ class ExternalDebtEventSubscriber
         ];
     }
 
+    /**
+     * Source types that already create their own GL journals via accounting events.
+     * Skip journal creation to avoid double-booking.
+     */
+    private function hasOwnAccountingEvent(ExternalDebt $debt): bool
+    {
+        return in_array($debt->source_type, [
+            PurchaseInvoice::class,
+            SalesInvoice::class,
+        ]);
+    }
+
     private function createJournalForExternalDebt(ExternalDebt $debt): void
     {
+        if ($this->hasOwnAccountingEvent($debt)) {
+            return;
+        }
+
         $debt->loadMissing(['branch.branchGroup.company', 'currency']);
 
-        if (!$debt->debt_account_id) {
+        if (! $debt->debt_account_id) {
             throw new \Exception('Akun hutang/piutang tidak ditentukan.');
         }
 
@@ -59,7 +85,7 @@ class ExternalDebtEventSubscriber
                 $creditAccountId = $debt->offset_account_id;
             }
 
-            if (!$debitAccountId || !$creditAccountId) {
+            if (! $debitAccountId || ! $creditAccountId) {
                 // If offset is missing, we cannot build a balanced journal
                 throw new \Exception('Akun lawan belum ditentukan untuk membuat jurnal otomatis.');
             }
@@ -71,7 +97,7 @@ class ExternalDebtEventSubscriber
                 'user_global_id' => $debt->created_by,
                 'journal_type' => $journalType,
                 'date' => $debt->issue_date,
-                'description' => ($debt->type === 'payable' ? 'Pengakuan Hutang' : 'Pengakuan Piutang') . " #{$debt->number}",
+                'description' => ($debt->type === 'payable' ? 'Pengakuan Hutang' : 'Pengakuan Piutang')." #{$debt->number}",
                 'reference_number' => $debt->number,
             ]);
 
@@ -104,15 +130,16 @@ class ExternalDebtEventSubscriber
 
     private function deleteJournalForExternalDebt(ExternalDebt $debt): void
     {
-        if (!$debt->journal_id) {
+        if (! $debt->journal_id) {
             return;
         }
 
         DB::transaction(function () use ($debt) {
             $journal = Journal::find($debt->journal_id);
-            if (!$journal) {
+            if (! $journal) {
                 $debt->journal_id = null;
                 $debt->saveQuietly();
+
                 return;
             }
 
@@ -127,5 +154,3 @@ class ExternalDebtEventSubscriber
         });
     }
 }
-
-

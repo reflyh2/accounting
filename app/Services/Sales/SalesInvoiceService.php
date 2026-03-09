@@ -1329,8 +1329,9 @@ class SalesInvoiceService
             return; // Cannot create external debt without a default receivable account
         }
 
-        // For offset account, use revenue account based on company config
-        $offsetAccountId = $company->default_revenue_account_id ?? $debtAccountId;
+        // Offset account is informational only — GL journals are handled by accounting events.
+        // Use the receivable account as a safe default.
+        $offsetAccountId = $debtAccountId;
 
         $totalAmount = (float) $invoice->total_amount;
         $exchangeRate = (float) ($invoice->exchange_rate ?? 1);
