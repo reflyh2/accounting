@@ -161,13 +161,16 @@ const isAccountingActive = computed(() => {
         || route().current('cash-bank-book.*')
         || route().current('income.*')
         || route().current('balance-sheet.*')
+        || route().current('operational-reconciliation.*')
+        || route().current('trial-balance.*')
+        || route().current('journal-report.*')
+        || route().current('cash-flow.*')
         || route().current('external-payable-aging.*')
         || route().current('external-payable-mutation.*')
         || route().current('external-payable-card.*')
         || route().current('external-receivable-aging.*')
         || route().current('external-receivable-mutation.*')
-        || route().current('external-receivable-card.*')
-        || route().current('operational-reconciliation.*');
+        || route().current('external-receivable-card.*');
 });
 
 const isCostingActive = computed(() => {
@@ -205,7 +208,8 @@ const isInventoryActive = computed(() => {
     return route().current('inventory.receipts.*')
         || route().current('inventory.shipments.*')
         || route().current('inventory.adjustments.*')
-        || route().current('inventory.transfers.*');
+        || route().current('inventory.transfers.*')
+        || route().current('inventory-reports.*');
 });
 
 const isPurchasingActive = computed(() => {
@@ -598,6 +602,13 @@ const onboardingStep = computed(() => {
                             >
                                 Transfer Antar Lokasi
                             </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('inventory-reports.index')"
+                                :active="route().current('inventory-reports.*')"
+                                class="pl-11"
+                            >
+                                Laporan Persediaan
+                            </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
 
@@ -649,23 +660,33 @@ const onboardingStep = computed(() => {
                             >
                                 Hutang / Piutang Internal
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('operational-reconciliation.index')" 
+                            <ResponsiveNavLink :href="route('operational-reconciliation.index')"
                                 :active="
-                                    route().current('general-ledger.*') 
-                                    || route().current('cash-bank-book.*') 
-                                    || route().current('income.*') 
+                                    route().current('general-ledger.*')
+                                    || route().current('cash-bank-book.*')
+                                    || route().current('income.*')
                                     || route().current('balance-sheet.*')
-                                    || route().current('external-payable-aging.*')
+                                    || route().current('operational-reconciliation.*')
+                                    || route().current('trial-balance.*')
+                                    || route().current('journal-report.*')
+                                    || route().current('cash-flow.*')
+                                "
+                                class="pl-11"
+                            >
+                                Laporan Akuntansi
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('external-payable-aging.index')"
+                                :active="
+                                    route().current('external-payable-aging.*')
                                     || route().current('external-payable-mutation.*')
                                     || route().current('external-payable-card.*')
                                     || route().current('external-receivable-aging.*')
                                     || route().current('external-receivable-mutation.*')
                                     || route().current('external-receivable-card.*')
-                                    || route().current('operational-reconciliation.*')
-                                " 
+                                "
                                 class="pl-11"
                             >
-                                Laporan Akuntansi
+                                Laporan Hutang / Piutang
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -1458,6 +1479,13 @@ const onboardingStep = computed(() => {
                                         >
                                             Transfer Antar Lokasi
                                         </NavLink>
+                                        <NavLink
+                                            :href="route('inventory-reports.index')"
+                                            :active="route().current('inventory-reports.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Laporan Persediaan
+                                        </NavLink>
                                     </div>
                                 </div>
 
@@ -1506,6 +1534,13 @@ const onboardingStep = computed(() => {
                                             class="flex items-center"
                                         >
                                             Transfer Antar Lokasi
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('inventory-reports.index')"
+                                            :active="route().current('inventory-reports.*')"
+                                            class="flex items-center"
+                                        >
+                                            Laporan Persediaan
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
@@ -1563,29 +1598,41 @@ const onboardingStep = computed(() => {
                                         >
                                             Hutang / Piutang Internal
                                         </NavLink>
-                                        <NavLink 
+                                        <NavLink
                                             v-if="canViewJournals"
-                                            :href="route('operational-reconciliation.index')" 
+                                            :href="route('operational-reconciliation.index')"
                                             :active="
-                                                route().current('operational-reconciliation.*') 
-                                                || route().current('general-ledger.*') 
-                                                || route().current('cash-bank-book.*') 
+                                                route().current('operational-reconciliation.*')
+                                                || route().current('general-ledger.*')
+                                                || route().current('cash-bank-book.*')
                                                 || route().current('income.*')
                                                 || route().current('balance-sheet.*')
-                                                || route().current('external-payable-aging.*')
+                                                || route().current('trial-balance.*')
+                                                || route().current('journal-report.*')
+                                                || route().current('cash-flow.*')
+                                            "
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Laporan Akuntansi
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewJournals"
+                                            :href="route('external-payable-aging.index')"
+                                            :active="
+                                                route().current('external-payable-aging.*')
                                                 || route().current('external-payable-mutation.*')
                                                 || route().current('external-payable-card.*')
                                                 || route().current('external-receivable-aging.*')
                                                 || route().current('external-receivable-mutation.*')
                                                 || route().current('external-receivable-card.*')
-                                            " 
+                                            "
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
-                                            Laporan Akuntansi
+                                            Laporan Hutang / Piutang
                                         </NavLink>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Invisible bridge to maintain hover -->
                                 <div class="absolute left-full top-0 w-2 h-full opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto z-10"></div>
                             </template>
@@ -1641,25 +1688,37 @@ const onboardingStep = computed(() => {
                                         >
                                             Hutang / Piutang Internal
                                         </NavLink>
-                                        <NavLink 
+                                        <NavLink
                                             v-if="canViewJournals"
-                                            :href="route('operational-reconciliation.index')" 
+                                            :href="route('operational-reconciliation.index')"
                                             :active="
-                                                route().current('operational-reconciliation.*') 
-                                                || route().current('general-ledger.*') 
-                                                || route().current('cash-bank-book.*') 
+                                                route().current('operational-reconciliation.*')
+                                                || route().current('general-ledger.*')
+                                                || route().current('cash-bank-book.*')
                                                 || route().current('income.*')
                                                 || route().current('balance-sheet.*')
-                                                || route().current('external-payable-aging.*')
+                                                || route().current('trial-balance.*')
+                                                || route().current('journal-report.*')
+                                                || route().current('cash-flow.*')
+                                            "
+                                            class="flex items-center"
+                                        >
+                                            Laporan Akuntansi
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewJournals"
+                                            :href="route('external-payable-aging.index')"
+                                            :active="
+                                                route().current('external-payable-aging.*')
                                                 || route().current('external-payable-mutation.*')
                                                 || route().current('external-payable-card.*')
                                                 || route().current('external-receivable-aging.*')
                                                 || route().current('external-receivable-mutation.*')
                                                 || route().current('external-receivable-card.*')
-                                            " 
+                                            "
                                             class="flex items-center"
                                         >
-                                            Laporan Akuntansi
+                                            Laporan Hutang / Piutang
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>

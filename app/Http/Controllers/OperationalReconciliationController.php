@@ -4,15 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Branch;
 use App\Models\Company;
-use App\Models\FinishedGoodsReceipt;
-use App\Models\GoodsReceipt;
-use App\Models\GoodsReceiptLine;
-use App\Models\PurchaseInvoice;
-use App\Models\SalesDelivery;
-use App\Models\SalesInvoice;
-use App\Models\SalesOrder;
-use App\Models\WorkOrder;
-use Carbon\Carbon;
+use App\Models\JournalEntry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -35,353 +27,260 @@ class OperationalReconciliationController extends Controller
 
         $query = Branch::query();
         if (! empty($filters['company_id'])) {
-            $query->whereHas('branchGroup', function ($q) use ($filters) {
-                $q->whereIn('company_id', $filters['company_id']);
-            });
+            $query->whereHas('branchGroup', fn ($q) => $q->whereIn('company_id', $filters['company_id']));
         }
         $branches = $query->orderBy('name', 'asc')->get();
 
-        $kpis = $this->calculateKPIs($filters);
+        $summaryData = $this->getSummaryData($filters);
+        $chartData = $this->getChartData($filters);
 
-        return Inertia::render('Reports/OperationalReconciliation', [
+        return Inertia::render('Reports/AccountingOverview', [
             'companies' => $companies,
             'branches' => $branches,
             'filters' => $filters,
-            'kpis' => $kpis,
+            'summaryData' => $summaryData,
+            'chartData' => $chartData,
         ]);
     }
 
-    private function calculateKPIs(array $filters): array
+    private function getSummaryData(array $filters): array
     {
-        $companyIds = $filters['company_id'] ?? [];
-        $branchIds = $filters['branch_id'] ?? [];
         $startDate = $filters['start_date'];
         $endDate = $filters['end_date'];
 
+        $periodBalances = $this->getAccountBalancesForPeriod($startDate, $endDate, $filters);
+        $cumulativeBalances = $this->getAccountBalancesCumulative($endDate, $filters);
+
+        // Income statement figures (period)
+        $revenue = $this->sumByTypes($periodBalances, ['pendapatan']);
+        $otherRevenue = $this->sumByTypes($periodBalances, ['pendapatan_lainnya']);
+        $cogs = $this->sumByTypes($periodBalances, ['beban_pokok_penjualan']);
+        $operationalExpenses = $this->sumByTypes($periodBalances, ['beban_operasional']);
+        $otherExpenses = $this->sumByTypes($periodBalances, ['beban_lainnya']);
+        $depreciation = $this->sumByTypes($periodBalances, ['beban_penyusutan']);
+        $amortization = $this->sumByTypes($periodBalances, ['beban_amortisasi']);
+
+        $grossProfit = $revenue - $cogs;
+        $totalExpenses = $operationalExpenses + $otherExpenses + $depreciation + $amortization;
+        $netProfit = $grossProfit + $otherRevenue - $totalExpenses;
+        $grossMargin = $revenue > 0 ? ($grossProfit / $revenue) * 100 : 0;
+        $netMargin = $revenue > 0 ? ($netProfit / $revenue) * 100 : 0;
+
+        // Balance sheet figures (cumulative to end date)
+        $totalAssets = $this->sumByTypes($cumulativeBalances, [
+            'kas_bank', 'piutang_usaha', 'piutang_usaha_lainnya', 'persediaan',
+            'biaya_dibayar_dimuka', 'aset_tetap', 'aset_tidak_berwujud',
+            'investasi_jangka_panjang', 'aset_lainnya',
+        ]);
+
+        $totalLiabilities = $this->sumByTypes($cumulativeBalances, [
+            'hutang_usaha', 'hutang_usaha_lainnya',
+            'liabilitas_jangka_pendek', 'liabilitas_jangka_panjang',
+            'pendapatan_diterima_dimuka',
+        ]);
+
+        $totalEquity = $this->sumByTypes($cumulativeBalances, ['modal', 'laba_ditahan']);
+
+        $cashAndBank = $this->sumByTypes($cumulativeBalances, ['kas_bank']);
+        $receivables = $this->sumByTypes($cumulativeBalances, ['piutang_usaha', 'piutang_usaha_lainnya']);
+        $payables = $this->sumByTypes($cumulativeBalances, ['hutang_usaha', 'hutang_usaha_lainnya']);
+        $inventory = $this->sumByTypes($cumulativeBalances, ['persediaan']);
+
         return [
-            'grni_aging' => $this->calculateGrniAging($companyIds, $branchIds),
-            'cogs_vs_revenue' => $this->calculateCogsVsRevenue($companyIds, $branchIds, $startDate, $endDate),
-            'wo_lead_time' => $this->calculateWoLeadTime($companyIds, $branchIds, $startDate, $endDate),
-            'purchase_cycle_time' => $this->calculatePurchaseCycleTime($companyIds, $branchIds, $startDate, $endDate),
-            'grn_to_ap_lag' => $this->calculateGrnToApLag($companyIds, $branchIds, $startDate, $endDate),
-            'ppv_totals' => $this->calculatePpvTotals($companyIds, $branchIds, $startDate, $endDate),
-            'sales_fill_rate' => $this->calculateSalesFillRate($companyIds, $branchIds, $startDate, $endDate),
-            'on_time_delivery' => $this->calculateOnTimeDelivery($companyIds, $branchIds, $startDate, $endDate),
-            'material_usage_variance' => $this->calculateMaterialUsageVariance($companyIds, $branchIds, $startDate, $endDate),
-            'fg_unit_cost_trend' => $this->calculateFgUnitCostTrend($companyIds, $branchIds, $startDate, $endDate),
+            // Income statement
+            'revenue' => $revenue,
+            'cogs' => $cogs,
+            'gross_profit' => $grossProfit,
+            'gross_margin' => round($grossMargin, 1),
+            'operational_expenses' => $operationalExpenses,
+            'other_revenue' => $otherRevenue,
+            'other_expenses' => $otherExpenses,
+            'depreciation' => $depreciation + $amortization,
+            'total_expenses' => $totalExpenses,
+            'net_profit' => $netProfit,
+            'net_margin' => round($netMargin, 1),
+
+            // Balance sheet
+            'total_assets' => $totalAssets,
+            'total_liabilities' => $totalLiabilities,
+            'total_equity' => $totalEquity,
+            'cash_and_bank' => $cashAndBank,
+            'receivables' => $receivables,
+            'payables' => $payables,
+            'inventory' => $inventory,
         ];
     }
 
-    private function calculateGrniAging(array $companyIds, array $branchIds): array
+    private function getChartData(array $filters): array
     {
-        $query = GoodsReceiptLine::with(['goodsReceipt.purchaseOrder', 'goodsReceipt.company', 'goodsReceipt.branch'])
-            ->whereHas('goodsReceipt', function ($q) use ($companyIds, $branchIds) {
-                $q->where('status', 'posted');
-                if (! empty($companyIds)) {
-                    $q->whereIn('company_id', $companyIds);
+        return [
+            'monthlyProfitTrend' => $this->getMonthlyProfitTrend($filters),
+            'expenseBreakdown' => $this->getExpenseBreakdown($filters),
+            'assetComposition' => $this->getAssetComposition($filters),
+            'revenueVsCogs' => $this->getRevenueVsCogsTrend($filters),
+        ];
+    }
+
+    private function getMonthlyProfitTrend(array $filters): array
+    {
+        $endDate = $filters['end_date'];
+        $labels = [];
+        $revenueData = [];
+        $profitData = [];
+
+        // Last 6 months
+        for ($i = 5; $i >= 0; $i--) {
+            $monthStart = date('Y-m-01', strtotime("-{$i} months", strtotime($endDate)));
+            $monthEnd = date('Y-m-t', strtotime($monthStart));
+            $labels[] = date('M Y', strtotime($monthStart));
+
+            $balances = $this->getAccountBalancesForPeriod($monthStart, $monthEnd, $filters);
+            $rev = $this->sumByTypes($balances, ['pendapatan']);
+            $cogs = $this->sumByTypes($balances, ['beban_pokok_penjualan']);
+            $expenses = $this->sumByTypes($balances, ['beban_operasional', 'beban_lainnya', 'beban_penyusutan', 'beban_amortisasi']);
+            $otherRev = $this->sumByTypes($balances, ['pendapatan_lainnya']);
+
+            $revenueData[] = $rev;
+            $profitData[] = $rev + $otherRev - $cogs - $expenses;
+        }
+
+        return [
+            'labels' => $labels,
+            'datasets' => [
+                ['label' => 'Pendapatan', 'data' => $revenueData],
+                ['label' => 'Laba Bersih', 'data' => $profitData],
+            ],
+        ];
+    }
+
+    private function getExpenseBreakdown(array $filters): array
+    {
+        $balances = $this->getAccountBalancesForPeriod($filters['start_date'], $filters['end_date'], $filters);
+
+        $categories = [
+            'HPP' => $this->sumByTypes($balances, ['beban_pokok_penjualan']),
+            'Operasional' => $this->sumByTypes($balances, ['beban_operasional']),
+            'Penyusutan' => $this->sumByTypes($balances, ['beban_penyusutan', 'beban_amortisasi']),
+            'Lainnya' => $this->sumByTypes($balances, ['beban_lainnya']),
+        ];
+
+        // Remove zero values
+        $categories = array_filter($categories, fn ($v) => $v > 0);
+
+        return [
+            'labels' => array_keys($categories),
+            'data' => array_values($categories),
+        ];
+    }
+
+    private function getAssetComposition(array $filters): array
+    {
+        $balances = $this->getAccountBalancesCumulative($filters['end_date'], $filters);
+
+        $categories = [
+            'Kas & Bank' => $this->sumByTypes($balances, ['kas_bank']),
+            'Piutang' => $this->sumByTypes($balances, ['piutang_usaha', 'piutang_usaha_lainnya']),
+            'Persediaan' => $this->sumByTypes($balances, ['persediaan']),
+            'Aset Tetap' => $this->sumByTypes($balances, ['aset_tetap', 'aset_tidak_berwujud']),
+            'Lainnya' => $this->sumByTypes($balances, ['biaya_dibayar_dimuka', 'investasi_jangka_panjang', 'aset_lainnya']),
+        ];
+
+        $categories = array_filter($categories, fn ($v) => $v > 0);
+
+        return [
+            'labels' => array_keys($categories),
+            'data' => array_values($categories),
+        ];
+    }
+
+    private function getRevenueVsCogsTrend(array $filters): array
+    {
+        $endDate = $filters['end_date'];
+        $labels = [];
+        $revenueData = [];
+        $cogsData = [];
+        $marginData = [];
+
+        for ($i = 5; $i >= 0; $i--) {
+            $monthStart = date('Y-m-01', strtotime("-{$i} months", strtotime($endDate)));
+            $monthEnd = date('Y-m-t', strtotime($monthStart));
+            $labels[] = date('M Y', strtotime($monthStart));
+
+            $balances = $this->getAccountBalancesForPeriod($monthStart, $monthEnd, $filters);
+            $rev = $this->sumByTypes($balances, ['pendapatan']);
+            $cogs = $this->sumByTypes($balances, ['beban_pokok_penjualan']);
+
+            $revenueData[] = $rev;
+            $cogsData[] = $cogs;
+            $marginData[] = $rev > 0 ? round((($rev - $cogs) / $rev) * 100, 1) : 0;
+        }
+
+        return [
+            'labels' => $labels,
+            'datasets' => [
+                ['label' => 'Pendapatan', 'data' => $revenueData],
+                ['label' => 'HPP', 'data' => $cogsData],
+            ],
+            'marginData' => $marginData,
+        ];
+    }
+
+    // ─── Helpers ───
+
+    private function getAccountBalancesForPeriod(string $startDate, string $endDate, array $filters)
+    {
+        return JournalEntry::join('accounts', 'journal_entries.account_id', '=', 'accounts.id')
+            ->where('accounts.is_parent', false)
+            ->whereHas('journal', function ($q) use ($startDate, $endDate, $filters) {
+                $q->whereBetween('date', [$startDate, $endDate])
+                    ->where('journal_type', '!=', 'retained_earnings');
+                if (! empty($filters['company_id'])) {
+                    $q->whereHas('branch.branchGroup', fn ($sub) => $sub->whereIn('company_id', $filters['company_id']));
                 }
-                if (! empty($branchIds)) {
-                    $q->whereIn('branch_id', $branchIds);
+                if (! empty($filters['branch_id'])) {
+                    $q->whereIn('branch_id', $filters['branch_id']);
                 }
             })
-            ->whereRaw('quantity_invoiced_base < quantity_base');
-
-        $lines = $query->get();
-
-        $aging = [
-            '0-30' => ['count' => 0, 'value' => 0],
-            '31-60' => ['count' => 0, 'value' => 0],
-            '61-90' => ['count' => 0, 'value' => 0],
-            '90+' => ['count' => 0, 'value' => 0],
-        ];
-
-        foreach ($lines as $line) {
-            $receiptDate = $line->goodsReceipt->receipt_date;
-            $daysAged = Carbon::parse($receiptDate)->diffInDays(now());
-            $outstandingQty = $line->quantity_base - $line->quantity_invoiced_base;
-            $outstandingValue = $outstandingQty * $line->unit_cost_base;
-
-            if ($daysAged <= 30) {
-                $aging['0-30']['count']++;
-                $aging['0-30']['value'] += $outstandingValue;
-            } elseif ($daysAged <= 60) {
-                $aging['31-60']['count']++;
-                $aging['31-60']['value'] += $outstandingValue;
-            } elseif ($daysAged <= 90) {
-                $aging['61-90']['count']++;
-                $aging['61-90']['value'] += $outstandingValue;
-            } else {
-                $aging['90+']['count']++;
-                $aging['90+']['value'] += $outstandingValue;
-            }
-        }
-
-        return [
-            'summary' => $aging,
-            'total_value' => array_sum(array_column($aging, 'value')),
-            'total_count' => array_sum(array_column($aging, 'count')),
-        ];
+            ->select(
+                'accounts.type',
+                'accounts.balance_type',
+                DB::raw('SUM(journal_entries.primary_currency_debit) as total_debit'),
+                DB::raw('SUM(journal_entries.primary_currency_credit) as total_credit')
+            )
+            ->groupBy('accounts.type', 'accounts.balance_type')
+            ->get();
     }
 
-    private function calculateCogsVsRevenue(array $companyIds, array $branchIds, string $startDate, string $endDate): array
+    private function getAccountBalancesCumulative(string $endDate, array $filters)
     {
-        $deliveryQuery = SalesDelivery::whereBetween('delivery_date', [$startDate, $endDate])
-            ->where('status', 'posted');
-        $invoiceQuery = SalesInvoice::whereBetween('invoice_date', [$startDate, $endDate])
-            ->where('status', 'posted');
-
-        if (! empty($companyIds)) {
-            $deliveryQuery->whereIn('company_id', $companyIds);
-            $invoiceQuery->whereIn('company_id', $companyIds);
-        }
-        if (! empty($branchIds)) {
-            $deliveryQuery->whereIn('branch_id', $branchIds);
-            $invoiceQuery->whereIn('branch_id', $branchIds);
-        }
-
-        $totalCogs = $deliveryQuery->sum('total_cogs');
-        $totalRevenue = $invoiceQuery->sum('subtotal');
-
-        return [
-            'total_cogs' => $totalCogs,
-            'total_revenue' => $totalRevenue,
-            'margin' => $totalRevenue - $totalCogs,
-            'margin_percentage' => $totalRevenue > 0 ? (($totalRevenue - $totalCogs) / $totalRevenue) * 100 : 0,
-        ];
-    }
-
-    private function calculateWoLeadTime(array $companyIds, array $branchIds, string $startDate, string $endDate): array
-    {
-        $query = WorkOrder::where('status', 'completed')
-            ->whereNotNull('actual_start_date')
-            ->whereNotNull('actual_end_date')
-            ->whereBetween('actual_end_date', [$startDate, $endDate]);
-
-        if (! empty($companyIds)) {
-            $query->whereIn('company_id', $companyIds);
-        }
-        if (! empty($branchIds)) {
-            $query->whereIn('branch_id', $branchIds);
-        }
-
-        $workOrders = $query->get();
-
-        $leadTimes = $workOrders->map(function ($wo) {
-            return Carbon::parse($wo->actual_start_date)->diffInDays($wo->actual_end_date);
-        });
-
-        return [
-            'average' => $leadTimes->avg() ?? 0,
-            'min' => $leadTimes->min() ?? 0,
-            'max' => $leadTimes->max() ?? 0,
-            'count' => $workOrders->count(),
-        ];
-    }
-
-    private function calculatePurchaseCycleTime(array $companyIds, array $branchIds, string $startDate, string $endDate): array
-    {
-        $query = GoodsReceipt::with('purchaseOrder')
-            ->where('status', 'posted')
-            ->whereBetween('receipt_date', [$startDate, $endDate])
-            ->whereNotNull('purchase_order_id');
-
-        if (! empty($companyIds)) {
-            $query->whereIn('company_id', $companyIds);
-        }
-        if (! empty($branchIds)) {
-            $query->whereIn('branch_id', $branchIds);
-        }
-
-        $receipts = $query->get();
-
-        $cycleTimes = $receipts->map(function ($grn) {
-            if (! $grn->purchaseOrder || ! $grn->purchaseOrder->order_date) {
-                return null;
-            }
-
-            return Carbon::parse($grn->purchaseOrder->order_date)->diffInDays($grn->receipt_date);
-        })->filter();
-
-        return [
-            'average' => $cycleTimes->avg() ?? 0,
-            'min' => $cycleTimes->min() ?? 0,
-            'max' => $cycleTimes->max() ?? 0,
-            'count' => $receipts->count(),
-        ];
-    }
-
-    private function calculateGrnToApLag(array $companyIds, array $branchIds, string $startDate, string $endDate): array
-    {
-        $query = PurchaseInvoice::with(['purchaseOrders.goodsReceipts'])
-            ->where('status', 'posted')
-            ->whereBetween('invoice_date', [$startDate, $endDate])
-            ->whereHas('purchaseOrders');
-
-        if (! empty($companyIds)) {
-            $query->whereIn('company_id', $companyIds);
-        }
-        if (! empty($branchIds)) {
-            $query->whereIn('branch_id', $branchIds);
-        }
-
-        $invoices = $query->get();
-
-        $lags = collect();
-        foreach ($invoices as $invoice) {
-            foreach ($invoice->purchaseOrders as $purchaseOrder) {
-                $latestGrn = $purchaseOrder->goodsReceipts()
-                    ->where('status', 'posted')
-                    ->orderBy('receipt_date', 'desc')
-                    ->first();
-
-                if ($latestGrn) {
-                    $lags->push(Carbon::parse($latestGrn->receipt_date)->diffInDays($invoice->invoice_date));
+        return JournalEntry::join('accounts', 'journal_entries.account_id', '=', 'accounts.id')
+            ->where('accounts.is_parent', false)
+            ->whereHas('journal', function ($q) use ($endDate, $filters) {
+                $q->where('date', '<=', $endDate)
+                    ->where('journal_type', '!=', 'retained_earnings');
+                if (! empty($filters['company_id'])) {
+                    $q->whereHas('branch.branchGroup', fn ($sub) => $sub->whereIn('company_id', $filters['company_id']));
                 }
-            }
-        }
-
-        return [
-            'average' => $lags->avg() ?? 0,
-            'min' => $lags->min() ?? 0,
-            'max' => $lags->max() ?? 0,
-            'count' => $invoices->count(),
-        ];
-    }
-
-    private function calculatePpvTotals(array $companyIds, array $branchIds, string $startDate, string $endDate): array
-    {
-        $query = PurchaseInvoice::where('status', 'posted')
-            ->whereBetween('invoice_date', [$startDate, $endDate]);
-
-        if (! empty($companyIds)) {
-            $query->whereIn('company_id', $companyIds);
-        }
-        if (! empty($branchIds)) {
-            $query->whereIn('branch_id', $branchIds);
-        }
-
-        $favorable = $query->where('ppv_amount', '<', 0)->sum(DB::raw('ABS(ppv_amount)'));
-        $unfavorable = $query->where('ppv_amount', '>', 0)->sum('ppv_amount');
-        $net = $unfavorable - $favorable;
-
-        return [
-            'favorable' => $favorable,
-            'unfavorable' => $unfavorable,
-            'net' => $net,
-            'count' => $query->count(),
-        ];
-    }
-
-    private function calculateSalesFillRate(array $companyIds, array $branchIds, string $startDate, string $endDate): array
-    {
-        $orderQuery = SalesOrder::whereBetween('order_date', [$startDate, $endDate])
-            ->where('status', 'confirmed');
-        $deliveryQuery = SalesDelivery::whereBetween('delivery_date', [$startDate, $endDate])
-            ->where('status', 'posted');
-
-        if (! empty($companyIds)) {
-            $orderQuery->whereIn('company_id', $companyIds);
-            $deliveryQuery->whereIn('company_id', $companyIds);
-        }
-        if (! empty($branchIds)) {
-            $orderQuery->whereIn('branch_id', $branchIds);
-            $deliveryQuery->whereIn('branch_id', $branchIds);
-        }
-
-        $totalOrdered = $orderQuery->sum('total_amount');
-        $totalDelivered = $deliveryQuery->sum('total_amount');
-
-        return [
-            'total_ordered' => $totalOrdered,
-            'total_delivered' => $totalDelivered,
-            'fill_rate' => $totalOrdered > 0 ? ($totalDelivered / $totalOrdered) * 100 : 0,
-        ];
-    }
-
-    private function calculateOnTimeDelivery(array $companyIds, array $branchIds, string $startDate, string $endDate): array
-    {
-        $query = SalesDelivery::with('salesOrders')
-            ->whereBetween('delivery_date', [$startDate, $endDate])
-            ->where('status', 'posted');
-
-        if (! empty($companyIds)) {
-            $query->whereIn('company_id', $companyIds);
-        }
-        if (! empty($branchIds)) {
-            $query->whereIn('branch_id', $branchIds);
-        }
-
-        $deliveries = $query->get();
-
-        $onTime = 0;
-        $late = 0;
-
-        foreach ($deliveries as $delivery) {
-            // Check against the earliest expected delivery date from all linked sales orders
-            $expectedDate = $delivery->salesOrders
-                ->pluck('expected_delivery_date')
-                ->filter()
-                ->min();
-
-            if ($expectedDate) {
-                if ($delivery->delivery_date <= $expectedDate) {
-                    $onTime++;
-                } else {
-                    $late++;
+                if (! empty($filters['branch_id'])) {
+                    $q->whereIn('branch_id', $filters['branch_id']);
                 }
-            }
-        }
-
-        $total = $onTime + $late;
-
-        return [
-            'on_time' => $onTime,
-            'late' => $late,
-            'total' => $total,
-            'on_time_percentage' => $total > 0 ? ($onTime / $total) * 100 : 0,
-        ];
+            })
+            ->select(
+                'accounts.type',
+                'accounts.balance_type',
+                DB::raw('SUM(journal_entries.primary_currency_debit) as total_debit'),
+                DB::raw('SUM(journal_entries.primary_currency_credit) as total_credit')
+            )
+            ->groupBy('accounts.type', 'accounts.balance_type')
+            ->get();
     }
 
-    private function calculateMaterialUsageVariance(array $companyIds, array $branchIds, string $startDate, string $endDate): array
+    private function sumByTypes($balances, array $types): float
     {
-        // This would require variance tracking in work orders
-        // For now, return placeholder structure
-        return [
-            'favorable' => 0,
-            'unfavorable' => 0,
-            'net' => 0,
-            'count' => 0,
-        ];
-    }
-
-    private function calculateFgUnitCostTrend(array $companyIds, array $branchIds, string $startDate, string $endDate): array
-    {
-        $query = FinishedGoodsReceipt::whereBetween('receipt_date', [$startDate, $endDate])
-            ->where('status', 'posted')
-            ->whereNotNull('unit_cost');
-
-        if (! empty($companyIds)) {
-            $query->whereIn('company_id', $companyIds);
-        }
-        if (! empty($branchIds)) {
-            $query->whereIn('branch_id', $branchIds);
-        }
-
-        $receipts = $query->orderBy('receipt_date')->get();
-
-        $trend = $receipts->groupBy(function ($receipt) {
-            return Carbon::parse($receipt->receipt_date)->format('Y-m');
-        })->map(function ($group) {
-            return [
-                'average_unit_cost' => $group->avg('unit_cost'),
-                'count' => $group->count(),
-            ];
+        return (float) $balances->whereIn('type', $types)->sum(function ($item) {
+            return $item->balance_type === 'debit'
+                ? $item->total_debit - $item->total_credit
+                : $item->total_credit - $item->total_debit;
         });
-
-        return [
-            'trend' => $trend,
-            'current_average' => $receipts->avg('unit_cost') ?? 0,
-        ];
     }
 }
-

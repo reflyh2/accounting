@@ -5,7 +5,7 @@ import ReportLayout from '@/Layouts/ReportLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppInput from '@/Components/AppInput.vue';
-import AccountingReportTabs from '@/Tabs/AccountingReportTabs.vue';
+import PayableReceivableReportTabs from '@/Tabs/PayableReceivableReportTabs.vue';
 import AppDropdown from '@/Components/AppDropdown.vue';
 import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
@@ -75,7 +75,7 @@ function downloadReport(format) {
     </template>
 
     <div class="mx-auto">
-      <AccountingReportTabs activeTab="external-payable-card.index" />
+      <PayableReceivableReportTabs activeTab="external-payable-card.index" />
 
       <div class="bg-white shadow-sm sm:rounded border border-gray-200">
         <div class="p-6 text-gray-900">

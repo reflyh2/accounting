@@ -36,6 +36,7 @@ use App\Http\Controllers\BillOfMaterialController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchGroupController;
 use App\Http\Controllers\CashBankBookController;
+use App\Http\Controllers\CashFlowController;
 use App\Http\Controllers\CashPaymentJournalController;
 use App\Http\Controllers\CashReceiptJournalController;
 use App\Http\Controllers\CompanyController;
@@ -72,7 +73,9 @@ use App\Http\Controllers\Inventory\AdjustmentController;
 use App\Http\Controllers\Inventory\ReceiveController;
 use App\Http\Controllers\Inventory\ShipController;
 use App\Http\Controllers\Inventory\TransferController;
+use App\Http\Controllers\InventoryReportController;
 use App\Http\Controllers\JournalController;
+use App\Http\Controllers\JournalReportController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OperationalReconciliationController;
 use App\Http\Controllers\PartnerBankAccountController;
@@ -95,6 +98,7 @@ use App\Http\Controllers\TaxCategoryController;
 use App\Http\Controllers\TaxComponentController;
 use App\Http\Controllers\TaxJurisdictionController;
 use App\Http\Controllers\TaxRuleController;
+use App\Http\Controllers\TrialBalanceController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkOrderController;
 use Illuminate\Support\Facades\Route;
@@ -364,6 +368,10 @@ Route::middleware([
 
         Route::get('operational-reconciliation', [OperationalReconciliationController::class, 'index'])->name('operational-reconciliation.index');
 
+        Route::get('trial-balance', [TrialBalanceController::class, 'index'])->name('trial-balance.index');
+        Route::get('journal-report', [JournalReportController::class, 'index'])->name('journal-report.index');
+        Route::get('cash-flow', [CashFlowController::class, 'index'])->name('cash-flow.index');
+
         // Purchasing Reports
         Route::get('purchasing-reports', [PurchaseReportController::class, 'index'])->name('purchasing-reports.index');
         Route::get('purchasing-reports/orders', [PurchaseReportController::class, 'purchaseOrders'])->name('purchasing-reports.orders');
@@ -378,6 +386,12 @@ Route::middleware([
         Route::get('sales-reports/deliveries', [SalesReportController::class, 'salesDeliveries'])->name('sales-reports.deliveries');
         Route::get('sales-reports/invoices', [SalesReportController::class, 'salesInvoices'])->name('sales-reports.invoices');
         Route::get('sales-reports/returns', [SalesReportController::class, 'salesReturns'])->name('sales-reports.returns');
+
+        // Inventory Reports
+        Route::get('inventory-reports', [InventoryReportController::class, 'index'])->name('inventory-reports.index');
+        Route::get('inventory-reports/stock-movement', [InventoryReportController::class, 'stockMovement'])->name('inventory-reports.stock-movement');
+        Route::get('inventory-reports/stock-valuation', [InventoryReportController::class, 'stockValuation'])->name('inventory-reports.stock-valuation');
+        Route::get('inventory-reports/stock-card', [InventoryReportController::class, 'stockCard'])->name('inventory-reports.stock-card');
 
         Route::get('external-payable-aging', [ExternalPayableAgingController::class, 'index'])->name('external-payable-aging.index');
         Route::get('external-payable-aging/download', [ExternalPayableAgingController::class, 'download'])->name('external-payable-aging.download');
