@@ -450,7 +450,7 @@ class SalesInvoiceController extends Controller
                 'invoice_address_id' => 'nullable|exists:partner_addresses,id',
                 'lines' => 'required|array|min:1',
                 'lines.*.sales_order_line_id' => 'required|exists:sales_order_lines,id',
-                'lines.*.sales_delivery_line_id' => 'required|exists:sales_delivery_lines,id',
+                'lines.*.sales_delivery_line_id' => 'nullable|exists:sales_delivery_lines,id',
                 'lines.*.description' => 'nullable|string',
                 'lines.*.quantity' => 'required|numeric|min:0.0001',
                 'lines.*.unit_price' => 'required|numeric|min:0',
@@ -498,6 +498,8 @@ class SalesInvoiceController extends Controller
             'paymentTerm',
             'lines.uom',
             'lines.baseUom',
+            'lines.product.capabilities',
+            'lines.variant.product.capabilities',
             'costs.costItem',
         ])->whereIn('id', $salesOrderIds)->get();
 
@@ -540,11 +542,60 @@ class SalesInvoiceController extends Controller
                     'delivery_date' => optional($line->salesDelivery?->delivery_date)?->format('d/m/Y'),
                     'description' => $soLine->description,
                     'uom_label' => $soLine->uom?->name,
+                    'secondary_quantity' => $soLine->secondary_quantity,
+                    'secondary_uom_label' => $soLine->secondary_uom_label,
                     'quantity' => $this->roundQuantity($available),
                     'available_quantity' => $this->roundQuantity($available),
                     'max_quantity' => $this->roundQuantity($available),
                     'ordered_quantity' => $this->roundQuantity((float) $soLine->quantity),
                     'delivered_quantity' => $this->roundQuantity((float) $soLine->quantity_delivered),
+                    'invoiced_quantity' => $this->roundQuantity((float) $soLine->quantity_invoiced),
+                    'unit_price' => (float) $soLine->unit_price,
+                    'discount_rate' => (float) $soLine->discount_rate,
+                    'discount_amount' => (float) $soLine->discount_amount,
+                    'tax_rate' => (float) $soLine->tax_rate,
+                    'tax_amount' => (float) $soLine->tax_amount,
+                ];
+            }
+
+            // Include non-deliverable SO lines (services without delivery requirement)
+            $deliveredSoLineIds = $deliveryLines->pluck('sales_order_line_id')->unique();
+            foreach ($salesOrder->lines as $soLine) {
+                $product = $soLine->variant?->product ?? $soLine->product;
+                $requiresDelivery = $product && $product->hasCapability('deliverable') && ! $soLine->resource_pool_id;
+
+                if ($requiresDelivery) {
+                    continue;
+                }
+
+                // Skip if already handled via delivery lines or booking logic
+                if ($deliveredSoLineIds->contains($soLine->id)) {
+                    continue;
+                }
+
+                $available = max(
+                    0.0,
+                    (float) $soLine->quantity - (float) $soLine->quantity_invoiced
+                );
+
+                if ($available <= self::QTY_TOLERANCE) {
+                    continue;
+                }
+
+                $lines[] = [
+                    'sales_order_line_id' => $soLine->id,
+                    'sales_delivery_line_id' => null,
+                    'delivery_number' => null,
+                    'delivery_date' => null,
+                    'description' => $soLine->description,
+                    'uom_label' => $soLine->uom?->name,
+                    'secondary_quantity' => $soLine->secondary_quantity,
+                    'secondary_uom_label' => $soLine->secondary_uom_label,
+                    'quantity' => $this->roundQuantity($available),
+                    'available_quantity' => $this->roundQuantity($available),
+                    'max_quantity' => $this->roundQuantity($available),
+                    'ordered_quantity' => $this->roundQuantity((float) $soLine->quantity),
+                    'delivered_quantity' => 0,
                     'invoiced_quantity' => $this->roundQuantity((float) $soLine->quantity_invoiced),
                     'unit_price' => (float) $soLine->unit_price,
                     'discount_rate' => (float) $soLine->discount_rate,
@@ -635,12 +686,29 @@ class SalesInvoiceController extends Controller
         }
 
         $query = SalesOrder::query()
-            ->with(['partner', 'branch.branchGroup.company', 'lines'])
+            ->with(['partner', 'branch.branchGroup.company', 'lines.product.capabilities', 'lines.variant.product.capabilities'])
             ->where('partner_id', $partnerId)
-            ->whereIn('status', [
-                SalesOrderStatus::PARTIALLY_DELIVERED->value,
-                SalesOrderStatus::DELIVERED->value,
-            ])
+            ->where(function ($q) {
+                $q->whereIn('status', [
+                    SalesOrderStatus::PARTIALLY_DELIVERED->value,
+                    SalesOrderStatus::DELIVERED->value,
+                ])
+                    ->orWhere(function ($q2) {
+                        // Include CONFIRMED SOs that have non-deliverable items
+                        $q2->where('status', SalesOrderStatus::CONFIRMED->value)
+                            ->whereHas('lines', function ($lineQuery) {
+                                $lineQuery->whereRaw('quantity > quantity_invoiced')
+                                    ->where(function ($productQuery) {
+                                        $productQuery->whereHas('product', function ($pq) {
+                                            $pq->whereDoesntHave('capabilities', function ($cq) {
+                                                $cq->where('capability', 'deliverable');
+                                            });
+                                        })
+                                            ->orWhereNotNull('resource_pool_id');
+                                    });
+                            });
+                    });
+            })
             ->orderByDesc('order_date')
             ->limit(50);
 

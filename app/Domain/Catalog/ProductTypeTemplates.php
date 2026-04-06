@@ -164,7 +164,7 @@ class ProductTypeTemplates
                 'kind' => 'service_professional',
                 'cost_model' => 'job_costing',
                 'attribute_set_code' => 'service_professional',
-                'capabilities' => ['deliverable'],
+                'capabilities' => [],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -186,7 +186,7 @@ class ProductTypeTemplates
                 'kind' => 'service_managed',
                 'cost_model' => 'hybrid',
                 'attribute_set_code' => 'service_managed',
-                'capabilities' => ['deliverable'],
+                'capabilities' => [],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -208,7 +208,7 @@ class ProductTypeTemplates
                 'kind' => 'service_labor',
                 'cost_model' => 'job_costing',
                 'attribute_set_code' => 'service_labor',
-                'capabilities' => ['deliverable'],
+                'capabilities' => [],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -252,7 +252,7 @@ class ProductTypeTemplates
                 'kind' => 'service_installation',
                 'cost_model' => 'job_costing',
                 'attribute_set_code' => 'service_installation',
-                'capabilities' => ['deliverable'],
+                'capabilities' => [],
                 'wizard' => [
                     'enabled' => true,
                     'steps' => [
@@ -714,6 +714,7 @@ class ProductTypeTemplates
                 return $template;
             }
         }
+
         return null;
     }
 
@@ -729,6 +730,7 @@ class ProductTypeTemplates
                 $templates[$code] = $template;
             }
         }
+
         return $templates;
     }
 
@@ -753,6 +755,7 @@ class ProductTypeTemplates
                 }
             }
         }
+
         return $result;
     }
 }

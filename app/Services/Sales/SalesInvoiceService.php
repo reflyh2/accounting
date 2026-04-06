@@ -376,10 +376,25 @@ class SalesInvoiceService
         }
 
         $allDelivered = $so->lines->every(function (SalesOrderLine $line) {
+            $product = $line->variant?->product ?? $line->product;
+            $requiresDelivery = $product && $product->hasCapability('deliverable') && ! $line->resource_pool_id;
+
+            if (! $requiresDelivery) {
+                return true;
+            }
+
             return (float) $line->quantity_delivered >= ((float) $line->quantity - self::QTY_TOLERANCE);
         });
 
-        $newStatus = $allDelivered ? SalesOrderStatus::DELIVERED : SalesOrderStatus::PARTIALLY_DELIVERED;
+        $hasAnyDelivery = $so->lines->contains(function (SalesOrderLine $line) {
+            return (float) $line->quantity_delivered > 0;
+        });
+
+        if (! $hasAnyDelivery) {
+            $newStatus = SalesOrderStatus::CONFIRMED;
+        } else {
+            $newStatus = $allDelivered ? SalesOrderStatus::DELIVERED : SalesOrderStatus::PARTIALLY_DELIVERED;
+        }
         $so->transitionTo($newStatus, $actor, $this->makerCheckerContext($so->company_id));
     }
 
@@ -780,7 +795,7 @@ class SalesInvoiceService
         // Build combined lookup of all SO lines
         $soLines = collect();
         foreach ($salesOrders as $so) {
-            foreach ($so->lines()->with(['uom', 'baseUom'])->get() as $line) {
+            foreach ($so->lines()->with(['uom', 'baseUom', 'product.capabilities', 'variant.product.capabilities'])->get() as $line) {
                 $soLines[$line->id] = $line;
             }
         }
@@ -819,11 +834,14 @@ class SalesInvoiceService
             /** @var SalesDeliveryLine|null $deliveryLine */
             $deliveryLine = $salesDeliveryLineId ? $deliveryLines->get($salesDeliveryLineId) : null;
 
+            $product = $soLine->variant?->product ?? $soLine->product;
+            $requiresDelivery = $product && $product->hasCapability('deliverable') && ! $soLine->resource_pool_id;
+
             if (! $deliveryLine) {
                 if ($salesDeliveryLineId) {
                     throw new SalesInvoiceException('Baris pengiriman tidak ditemukan referensinya.');
                 }
-                if (! $soLine->resource_pool_id) {
+                if ($requiresDelivery) {
                     throw new SalesInvoiceException('Baris pengiriman harus dipilih untuk item barang.');
                 }
             } elseif ((int) $deliveryLine->sales_order_line_id !== $soLine->id) {
@@ -842,16 +860,7 @@ class SalesInvoiceService
                 }
             }
 
-            if ($soLine->resource_pool_id) {
-                $soAvailable = max(
-                    0.0,
-                    (float) $soLine->quantity - (float) $soLine->quantity_invoiced
-                );
-
-                if (($quantity - $soAvailable) > self::QTY_TOLERANCE) {
-                    throw new SalesInvoiceException('Jumlah faktur melebihi sisa pesanan (booking).');
-                }
-            } else {
+            if ($requiresDelivery) {
                 $soAvailable = max(
                     0.0,
                     ((float) $soLine->quantity_delivered)
@@ -860,6 +869,15 @@ class SalesInvoiceService
 
                 if (($quantity - $soAvailable) > self::QTY_TOLERANCE) {
                     throw new SalesInvoiceException('Jumlah faktur melebihi sisa pengiriman SO.');
+                }
+            } else {
+                $soAvailable = max(
+                    0.0,
+                    (float) $soLine->quantity - (float) $soLine->quantity_invoiced
+                );
+
+                if (($quantity - $soAvailable) > self::QTY_TOLERANCE) {
+                    throw new SalesInvoiceException('Jumlah faktur melebihi sisa pesanan.');
                 }
             }
 
@@ -873,13 +891,17 @@ class SalesInvoiceService
             $lineTotal = $this->roundMoney($grossTotal - $discountAmount);
             $taxAmount = $this->roundMoney($lineTotal * ($taxRate / 100));
             $lineTotalBase = $this->roundCost($lineTotal * $exchangeRate);
-            $deliveryValueBase = $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base);
-            $revenueVariance = $this->roundMoney(($lineTotalBase + ($taxAmount * $exchangeRate)) - $deliveryValueBase);
+            $deliveryValueBase = $deliveryLine
+                ? $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base)
+                : 0.0;
+            $revenueVariance = $deliveryLine
+                ? $this->roundMoney(($lineTotalBase + ($taxAmount * $exchangeRate)) - $deliveryValueBase)
+                : 0.0;
 
             $prepared[] = [
                 'line_number' => $lineNumber++,
                 'sales_order_line_id' => $soLine->id,
-                'sales_delivery_line_id' => $deliveryLine->id,
+                'sales_delivery_line_id' => $deliveryLine?->id,
                 'description' => $payloadLine['description'] ?? $soLine->description,
                 'uom_label' => $soLine->uom?->name,
                 'quantity' => $this->roundQuantity($quantity),
@@ -1013,7 +1035,7 @@ class SalesInvoiceService
             $deliveryLine = $line->salesDeliveryLine;
             $soLine = $line->salesOrderLine;
 
-            if (! $deliveryLine || ! $soLine) {
+            if (! $soLine && ! $deliveryLine) {
                 throw new SalesInvoiceException('Detail faktur tidak memiliki referensi yang lengkap.');
             }
 
@@ -1023,13 +1045,17 @@ class SalesInvoiceService
             $lineTotalBase = $this->roundCost($lineTotal * (float) $invoice->exchange_rate);
             $taxAmount = (float) $line->tax_amount;
             $taxAmountBase = $this->roundCost($taxAmount * (float) $invoice->exchange_rate);
-            $deliveryValueBase = $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base);
-            $revenueVariance = $this->roundMoney(($lineTotalBase + $taxAmountBase) - $deliveryValueBase);
+            $deliveryValueBase = $deliveryLine
+                ? $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base)
+                : 0.0;
+            $revenueVariance = $deliveryLine
+                ? $this->roundMoney(($lineTotalBase + $taxAmountBase) - $deliveryValueBase)
+                : 0.0;
 
             $prepared[] = [
                 'line_id' => $line->id,
-                'sales_order_line_id' => $soLine->id,
-                'sales_delivery_line_id' => $deliveryLine->id,
+                'sales_order_line_id' => $soLine?->id,
+                'sales_delivery_line_id' => $deliveryLine?->id,
                 'quantity' => $this->roundQuantity($quantity),
                 'quantity_base' => $quantityBase,
                 'line_total' => $lineTotal,
@@ -1046,11 +1072,21 @@ class SalesInvoiceService
 
     private function assertLineStillAvailable(array $line, SalesOrderLine $soLine, ?SalesDeliveryLine $sdLine): void
     {
-        $remainingSo = max(
-            0.0,
-            ((float) $soLine->quantity_delivered)
-                - (float) $soLine->quantity_invoiced
-        );
+        $product = $soLine->variant?->product ?? $soLine->product;
+        $requiresDelivery = $product && $product->hasCapability('deliverable') && ! $soLine->resource_pool_id;
+
+        if ($requiresDelivery) {
+            $remainingSo = max(
+                0.0,
+                ((float) $soLine->quantity_delivered)
+                    - (float) $soLine->quantity_invoiced
+            );
+        } else {
+            $remainingSo = max(
+                0.0,
+                (float) $soLine->quantity - (float) $soLine->quantity_invoiced
+            );
+        }
 
         if (($line['quantity'] - $remainingSo) > self::QTY_TOLERANCE) {
             throw new SalesInvoiceException('Jumlah faktur sudah tidak tersedia pada SO.');
@@ -1214,9 +1250,18 @@ class SalesInvoiceService
         $actor ??= Auth::user();
 
         $hasPending = $salesOrder->lines->contains(function (SalesOrderLine $line) {
+            $product = $line->variant?->product ?? $line->product;
+            $requiresDelivery = $product && $product->hasCapability('deliverable') && ! $line->resource_pool_id;
+
+            if ($requiresDelivery) {
+                return (
+                    ((float) $line->quantity_delivered)
+                        - (float) $line->quantity_invoiced
+                ) > self::QTY_TOLERANCE;
+            }
+
             return (
-                ((float) $line->quantity_delivered)
-                    - (float) $line->quantity_invoiced
+                (float) $line->quantity - (float) $line->quantity_invoiced
             ) > self::QTY_TOLERANCE;
         });
 
@@ -1227,6 +1272,7 @@ class SalesInvoiceService
         if (! in_array($salesOrder->status, [
             SalesOrderStatus::DELIVERED->value,
             SalesOrderStatus::PARTIALLY_DELIVERED->value,
+            SalesOrderStatus::CONFIRMED->value,
         ], true)) {
             return;
         }
@@ -1288,12 +1334,12 @@ class SalesInvoiceService
 
     private function deriveBaseQuantity(
         float $quantity,
-        SalesDeliveryLine $deliveryLine,
+        ?SalesDeliveryLine $deliveryLine,
         SalesOrderLine $soLine
     ): float {
         $ratio = 1.0;
 
-        if ((float) $deliveryLine->quantity > 0 && (float) $deliveryLine->quantity_base > 0) {
+        if ($deliveryLine && (float) $deliveryLine->quantity > 0 && (float) $deliveryLine->quantity_base > 0) {
             $ratio = (float) $deliveryLine->quantity_base / (float) $deliveryLine->quantity;
         } elseif ((float) $soLine->quantity > 0 && (float) $soLine->quantity_base > 0) {
             $ratio = (float) $soLine->quantity_base / (float) $soLine->quantity;
