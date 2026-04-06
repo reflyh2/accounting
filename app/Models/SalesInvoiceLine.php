@@ -16,6 +16,7 @@ class SalesInvoiceLine extends Model
     protected $casts = [
         'quantity' => 'decimal:3',
         'quantity_base' => 'decimal:3',
+        'secondary_quantity' => 'decimal:3',
         'unit_price' => 'decimal:4',
         'unit_cost' => 'decimal:4',
         'cost_total' => 'decimal:4',

@@ -293,10 +293,12 @@ const totals = computed(() => {
     return form.lines.reduce(
         (carry, line) => {
             const quantity = Number(line.quantity) || 0;
+            const secondaryQty = line.secondary_quantity ? Number(line.secondary_quantity) : null;
+            const effectiveQty = secondaryQty !== null ? quantity * secondaryQty : quantity;
             const price = Number(line.unit_price) || 0;
             const discountRate = Number(line.discount_rate) || 0;
             const taxRate = Number(line.tax_rate) || 0;
-            const lineGross = quantity * price;
+            const lineGross = effectiveQty * price;
             const lineDiscountAmt = lineGross * (discountRate / 100);
             const lineSubtotal = lineGross - lineDiscountAmt;
             const lineTax = lineSubtotal * (taxRate / 100);
@@ -447,6 +449,8 @@ function createEmptyLine() {
         product_variant_id: null,
         uom_id: null,
         quantity: 1,
+        secondary_quantity: null,
+        secondary_uom_label: '',
         unit_price: 0,
         discount_rate: 0,
         tax_rate: 0,
@@ -817,20 +821,26 @@ function availabilityLabel(index) {
     return `On hand: ${formatNumber(snapshot.on_hand)} • Reserved: ${formatNumber(snapshot.reserved)} • Tersedia: ${formatNumber(snapshot.available)}`;
 }
 
-function lineSubtotal(line) {
+function lineEffectiveQuantity(line) {
     const quantity = Number(line.quantity) || 0;
+    const secondaryQty = line.secondary_quantity ? Number(line.secondary_quantity) : null;
+    return secondaryQty !== null ? quantity * secondaryQty : quantity;
+}
+
+function lineSubtotal(line) {
+    const effectiveQty = lineEffectiveQuantity(line);
     const price = Number(line.unit_price) || 0;
     const discountRate = Number(line.discount_rate) || 0;
-    const gross = quantity * price;
+    const gross = effectiveQty * price;
     const discount = gross * (discountRate / 100);
     return gross - discount;
 }
 
 function lineDiscount(line) {
-    const quantity = Number(line.quantity) || 0;
+    const effectiveQty = lineEffectiveQuantity(line);
     const price = Number(line.unit_price) || 0;
     const discountRate = Number(line.discount_rate) || 0;
-    return (quantity * price) * (discountRate / 100);
+    return (effectiveQty * price) * (discountRate / 100);
 }
 
 function lineTax(line) {
@@ -1168,6 +1178,8 @@ function submitForm(createAnother = false) {
                         <th class="border border-gray-300 text-sm min-w-48 lg:min-w-48 px-1.5 py-1.5">Produk</th>
                         <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Satuan</th>
                         <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty</th>
+                        <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty 2</th>
+                        <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Satuan 2</th>
                         <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Harga Satuan</th>
                         <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Diskon (%)</th>
                         <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Pajak (%)</th>
@@ -1224,6 +1236,23 @@ function submitForm(createAnother = false) {
                                 :numberFormat="true"
                                 required
                                 :error="form.errors?.[`lines.${index}.quantity`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                            <AppInput
+                                v-model="line.secondary_quantity"
+                                :numberFormat="true"
+                                placeholder="-"
+                                :error="form.errors?.[`lines.${index}.secondary_quantity`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                            <AppInput
+                                v-model="line.secondary_uom_label"
+                                placeholder="-"
+                                :error="form.errors?.[`lines.${index}.secondary_uom_label`]"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>

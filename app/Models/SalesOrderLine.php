@@ -14,6 +14,7 @@ class SalesOrderLine extends Model
     protected $casts = [
         'quantity' => 'decimal:3',
         'quantity_base' => 'decimal:3',
+        'secondary_quantity' => 'decimal:3',
         'unit_price' => 'decimal:4',
         'discount_rate' => 'decimal:2',
         'discount_amount' => 'decimal:2',
@@ -78,5 +79,3 @@ class SalesOrderLine extends Model
         return $this->belongsTo(BookingLine::class);
     }
 }
-
-

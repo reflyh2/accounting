@@ -411,6 +411,8 @@ class SalesInvoiceController extends Controller
                 'lines.*.description' => 'required|string',
                 'lines.*.uom_label' => 'nullable|string',
                 'lines.*.quantity' => 'required|numeric|min:0.0001',
+                'lines.*.secondary_quantity' => 'nullable|numeric|min:0.0001',
+                'lines.*.secondary_uom_label' => 'nullable|string|max:40',
                 'lines.*.unit_price' => 'required|numeric|min:0',
                 'lines.*.discount_rate' => 'nullable|numeric|min:0|max:100',
                 'lines.*.tax_rate' => 'nullable|numeric|min:0',

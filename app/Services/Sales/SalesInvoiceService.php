@@ -864,7 +864,11 @@ class SalesInvoiceService
             }
 
             $quantityBase = $this->deriveBaseQuantity($quantity, $deliveryLine, $soLine);
-            $grossTotal = $this->roundMoney($quantity * $unitPrice);
+            $secondaryQuantity = $soLine->secondary_quantity !== null
+                ? (float) $soLine->secondary_quantity
+                : null;
+            $effectiveQuantity = $secondaryQuantity !== null ? $quantity * $secondaryQuantity : $quantity;
+            $grossTotal = $this->roundMoney($effectiveQuantity * $unitPrice);
             $discountAmount = $this->roundMoney($grossTotal * ($discountRate / 100));
             $lineTotal = $this->roundMoney($grossTotal - $discountAmount);
             $taxAmount = $this->roundMoney($lineTotal * ($taxRate / 100));
@@ -880,6 +884,8 @@ class SalesInvoiceService
                 'uom_label' => $soLine->uom?->name,
                 'quantity' => $this->roundQuantity($quantity),
                 'quantity_base' => $quantityBase,
+                'secondary_quantity' => $secondaryQuantity,
+                'secondary_uom_label' => $soLine->secondary_uom_label,
                 'unit_price' => $unitPrice,
                 'discount_rate' => $discountRate,
                 'discount_amount' => $discountAmount,
@@ -921,7 +927,12 @@ class SalesInvoiceService
                 throw new SalesInvoiceException('Harga satuan tidak boleh negatif.');
             }
 
-            $grossTotal = $this->roundMoney($quantity * $unitPrice);
+            $secondaryQuantity = isset($payloadLine['secondary_quantity']) && $payloadLine['secondary_quantity'] !== null
+                ? $this->roundQuantity((float) $payloadLine['secondary_quantity'])
+                : null;
+            $secondaryUomLabel = $payloadLine['secondary_uom_label'] ?? null;
+            $effectiveQuantity = $secondaryQuantity !== null ? $quantity * $secondaryQuantity : $quantity;
+            $grossTotal = $this->roundMoney($effectiveQuantity * $unitPrice);
             $discountAmount = $this->roundMoney($grossTotal * ($discountRate / 100));
             $lineTotal = $this->roundMoney($grossTotal - $discountAmount);
             $taxAmount = $this->roundMoney($lineTotal * ($taxRate / 100));
@@ -937,6 +948,8 @@ class SalesInvoiceService
                 'uom_label' => $payloadLine['uom_label'] ?? null,
                 'quantity' => $this->roundQuantity($quantity),
                 'quantity_base' => $this->roundQuantity($quantity),
+                'secondary_quantity' => $secondaryQuantity,
+                'secondary_uom_label' => $secondaryUomLabel,
                 'unit_price' => $unitPrice,
                 'discount_rate' => $discountRate,
                 'discount_amount' => $discountAmount,
@@ -971,6 +984,8 @@ class SalesInvoiceService
                 'uom_label' => $line['uom_label'],
                 'quantity' => $line['quantity'],
                 'quantity_base' => $line['quantity_base'],
+                'secondary_quantity' => $line['secondary_quantity'] ?? null,
+                'secondary_uom_label' => $line['secondary_uom_label'] ?? null,
                 'unit_price' => $line['unit_price'],
                 'discount_rate' => $line['discount_rate'] ?? 0,
                 'discount_amount' => $line['discount_amount'] ?? 0,

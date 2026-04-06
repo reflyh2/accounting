@@ -499,6 +499,8 @@ function addDirectLine() {
         description: '',
         uom_label: '',
         quantity: 1,
+        secondary_quantity: null,
+        secondary_uom_label: '',
         unit_price: 0,
         discount_rate: 0,
         discount_amount: 0,
@@ -697,20 +699,26 @@ async function syncVariant(line, lineIndex) {
 }
 
 // Line calculation functions
-function lineSubtotal(line) {
+function lineEffectiveQuantity(line) {
     const quantity = Number(line.quantity) || 0;
+    const secondaryQty = line.secondary_quantity ? Number(line.secondary_quantity) : null;
+    return secondaryQty !== null ? quantity * secondaryQty : quantity;
+}
+
+function lineSubtotal(line) {
+    const effectiveQty = lineEffectiveQuantity(line);
     const price = Number(line.unit_price) || 0;
     const discountRate = Number(line.discount_rate) || 0;
-    const gross = quantity * price;
+    const gross = effectiveQty * price;
     const discount = gross * (discountRate / 100);
     return gross - discount;
 }
 
 function lineDiscount(line) {
-    const quantity = Number(line.quantity) || 0;
+    const effectiveQty = lineEffectiveQuantity(line);
     const price = Number(line.unit_price) || 0;
     const discountRate = Number(line.discount_rate) || 0;
-    return quantity * price * (discountRate / 100);
+    return effectiveQty * price * (discountRate / 100);
 }
 
 function lineTax(line) {
@@ -724,11 +732,13 @@ const totals = computed(() => {
     return form.lines.reduce(
         (carry, line) => {
             const quantity = Number(line.quantity) || 0;
+            const secondaryQty = line.secondary_quantity ? Number(line.secondary_quantity) : null;
+            const effectiveQty = secondaryQty !== null ? quantity * secondaryQty : quantity;
             const price = Number(line.unit_price) || 0;
             const discountRate = Number(line.discount_rate) || 0;
             const taxRate = Number(line.tax_rate) || 0;
 
-            const lineGross = quantity * price;
+            const lineGross = effectiveQty * price;
             const lineDiscount = lineGross * (discountRate / 100);
             const lineSubtotal = lineGross - lineDiscount;
             const lineTax = lineSubtotal * (taxRate / 100);
@@ -1165,6 +1175,8 @@ function submitForm(createAnother = false) {
                             <th class="border border-gray-300 text-sm min-w-48 lg:min-w-48 px-1.5 py-1.5">Deskripsi</th>
                             <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Satuan</th>
                             <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty</th>
+                            <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty 2</th>
+                            <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Satuan 2</th>
                             <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Harga Satuan</th>
                             <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Diskon (%)</th>
                             <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Pajak (%)</th>
@@ -1237,10 +1249,31 @@ function submitForm(createAnother = false) {
                                     :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                                 />
                             </td>
-                            
+
+                            <!-- Qty 2 -->
+                            <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                                <AppInput
+                                    v-model="line.secondary_quantity"
+                                    :numberFormat="true"
+                                    placeholder="-"
+                                    :error="form.errors?.[`lines.${index}.secondary_quantity`]"
+                                    :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                />
+                            </td>
+
+                            <!-- Satuan 2 -->
+                            <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                                <AppInput
+                                    v-model="line.secondary_uom_label"
+                                    placeholder="-"
+                                    :error="form.errors?.[`lines.${index}.secondary_uom_label`]"
+                                    :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                />
+                            </td>
+
                             <!-- Harga Satuan -->
                             <td class="border border-gray-300 px-1.5 py-1.5 align-top">
-                                <AppInput 
+                                <AppInput
                                     v-model="line.unit_price" 
                                     :numberFormat="true"
                                     required

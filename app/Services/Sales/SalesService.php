@@ -711,6 +711,8 @@ class SalesService
                     'base_uom_id' => $plan['order_line']->base_uom_id,
                     'quantity' => $plan['quantity'],
                     'quantity_base' => $plan['quantity_base'],
+                    'secondary_quantity' => $plan['order_line']->secondary_quantity,
+                    'secondary_uom_label' => $plan['order_line']->secondary_uom_label,
                     'unit_price' => $plan['unit_price'],
                     'unit_cost_base' => $unitCostBase,
                     'line_total' => $plan['line_total'],
@@ -1025,6 +1027,8 @@ class SalesService
                     'base_uom_id' => $plan['order_line']->base_uom_id,
                     'quantity' => $plan['quantity'],
                     'quantity_base' => $plan['quantity_base'],
+                    'secondary_quantity' => $plan['order_line']->secondary_quantity,
+                    'secondary_uom_label' => $plan['order_line']->secondary_uom_label,
                     'unit_price' => $plan['unit_price'],
                     'unit_cost_base' => $unitCostBase,
                     'line_total' => $plan['line_total'],
@@ -1319,6 +1323,8 @@ class SalesService
                     'base_uom_id' => $plan['order_line']->base_uom_id,
                     'quantity' => $plan['quantity'],
                     'quantity_base' => $plan['quantity_base'],
+                    'secondary_quantity' => $plan['order_line']->secondary_quantity,
+                    'secondary_uom_label' => $plan['order_line']->secondary_uom_label,
                     'unit_price' => $plan['unit_price'],
                     'unit_cost_base' => $unitCostBase,
                     'line_total' => $plan['line_total'],
@@ -1636,7 +1642,12 @@ class SalesService
             );
 
             $discountRate = (float) ($line['discount_rate'] ?? 0);
-            $lineGross = $this->roundMoney($quantity * $unitPrice);
+            $secondaryQuantity = isset($line['secondary_quantity']) && $line['secondary_quantity'] !== null
+                ? $this->roundQuantity((float) $line['secondary_quantity'])
+                : null;
+            $secondaryUomLabel = $line['secondary_uom_label'] ?? null;
+            $effectiveQuantity = $secondaryQuantity !== null ? $quantity * $secondaryQuantity : $quantity;
+            $lineGross = $this->roundMoney($effectiveQuantity * $unitPrice);
             $discountAmount = $this->roundMoney($lineGross * ($discountRate / 100));
             $lineSubtotal = $this->roundMoney($lineGross - $discountAmount);
             $lineTax = $this->roundMoney($lineSubtotal * ($taxRate / 100));
@@ -1657,6 +1668,8 @@ class SalesService
                 'base_uom_id' => $baseUom->id,
                 'quantity' => $quantity,
                 'quantity_base' => $quantityBase,
+                'secondary_quantity' => $secondaryQuantity,
+                'secondary_uom_label' => $secondaryUomLabel,
                 'unit_price' => $unitPrice,
                 'discount_rate' => $discountRate,
                 'discount_amount' => $discountAmount,
@@ -1754,12 +1767,17 @@ class SalesService
                 continue;
             }
 
+            $secondaryQuantity = $line->secondary_quantity !== null
+                ? (float) $line->secondary_quantity
+                : null;
+            $effectiveQuantity = $secondaryQuantity !== null ? $quantity * $secondaryQuantity : $quantity;
+
             $prepared[] = [
                 'order_line' => $line,
                 'quantity' => $quantity,
                 'quantity_base' => $quantityBase,
                 'unit_price' => (float) $line->unit_price,
-                'line_total' => $this->roundMoney($quantity * (float) $line->unit_price),
+                'line_total' => $this->roundMoney($effectiveQuantity * (float) $line->unit_price),
             ];
         }
 

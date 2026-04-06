@@ -14,6 +14,7 @@ class SalesDeliveryLine extends Model
     protected $casts = [
         'quantity' => 'decimal:3',
         'quantity_base' => 'decimal:3',
+        'secondary_quantity' => 'decimal:3',
         'quantity_returned' => 'decimal:3',
         'quantity_invoiced' => 'decimal:3',
         'quantity_invoiced_base' => 'decimal:3',
@@ -55,5 +56,3 @@ class SalesDeliveryLine extends Model
         return $this->belongsTo(Uom::class, 'base_uom_id');
     }
 }
-
-
