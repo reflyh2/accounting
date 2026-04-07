@@ -16,6 +16,14 @@ const hasOtherCurrency = computed(() => {
     return props.invoice?.lines?.some(line => line.currency_id != page.props.primaryCurrency.id);
 });
 
+const hasSecondaryQuantity = computed(() => {
+    return props.invoice?.lines?.some(line => line.secondary_quantity != null);
+});
+
+const footerColspan = computed(() => {
+    return hasSecondaryQuantity.value ? 9 : 7;
+});
+
 const props = defineProps({
     invoice: Object,
     filters: Object,
@@ -139,6 +147,8 @@ const deleteInvoice = () => {
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Deskripsi</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Satuan</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Qty</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2" v-if="hasSecondaryQuantity">Qty 2</th>
+                                        <th class="bg-gray-100 border border-gray-300 px-4 py-2" v-if="hasSecondaryQuantity">Satuan 2</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Harga</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Diskon (%)</th>
                                         <th class="bg-gray-100 border border-gray-300 px-4 py-2">Pajak (%)</th>
@@ -152,6 +162,8 @@ const deleteInvoice = () => {
                                         <td class="border border-gray-300 px-4 py-2">{{ line.description }}</td>
                                         <td class="border border-gray-300 px-4 py-2">{{ line.uom_label }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.quantity) }}</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasSecondaryQuantity">{{ line.secondary_quantity ? formatNumber(line.secondary_quantity) : '—' }}</td>
+                                        <td class="border border-gray-300 px-4 py-2" v-if="hasSecondaryQuantity">{{ line.secondary_uom_label || '—' }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.unit_price) }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.discount_rate) }}%</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(line.tax_rate) }}%</td>
@@ -161,22 +173,22 @@ const deleteInvoice = () => {
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="7" class="border border-gray-300 px-4 py-2 font-semibold text-right">Subtotal</td>
+                                        <td :colspan="footerColspan" class="border border-gray-300 px-4 py-2 font-semibold text-right">Subtotal</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right font-semibold">{{ formatNumber(invoice.subtotal) }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">-</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="7" class="border border-gray-300 px-4 py-2 font-semibold text-right">Total Pajak</td>
+                                        <td :colspan="footerColspan" class="border border-gray-300 px-4 py-2 font-semibold text-right">Total Pajak</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right font-semibold">{{ formatNumber(invoice.tax_total) }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">-</td>
                                     </tr>
                                     <tr v-if="invoice.shipping_charge && invoice.shipping_charge > 0">
-                                        <td colspan="7" class="border border-gray-300 px-4 py-2 font-semibold text-right">Biaya Kirim</td>
+                                        <td :colspan="footerColspan" class="border border-gray-300 px-4 py-2 font-semibold text-right">Biaya Kirim</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right font-semibold">{{ formatNumber(invoice.shipping_charge) }}</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right" v-if="hasOtherCurrency">-</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="7" class="border border-gray-300 px-4 py-2 font-semibold text-right">Total</td>
+                                        <td :colspan="footerColspan" class="border border-gray-300 px-4 py-2 font-semibold text-right">Total</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right font-semibold" :colspan="hasOtherCurrency ? 2 : 1">{{ formatNumber(invoice.total_amount) }}</td>
                                     </tr>
                                 </tfoot>

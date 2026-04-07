@@ -27,6 +27,10 @@ const showDeleteConfirmation = ref(false);
 const cancelReason = ref('');
 const processing = ref(false);
 
+const hasSecondaryQuantity = computed(() => {
+    return props.salesOrder?.lines?.some(line => line.secondary_quantity != null);
+});
+
 const canQuote = computed(() => props.allowedTransitions?.includes('quote'));
 const canConfirm = computed(() => props.allowedTransitions?.includes('confirmed'));
 const canCancel = computed(() => props.allowedTransitions?.includes('canceled'));
@@ -201,6 +205,8 @@ function deleteOrder() {
                                         <th class="px-4 py-2 text-right font-medium text-gray-600">Qty Terkirim</th>
                                         <th class="px-4 py-2 text-right font-medium text-gray-600">Sisa</th>
                                         <th class="px-4 py-2 text-left font-medium text-gray-600">Satuan</th>
+                                        <th class="px-4 py-2 text-right font-medium text-gray-600" v-if="hasSecondaryQuantity">Qty 2</th>
+                                        <th class="px-4 py-2 text-left font-medium text-gray-600" v-if="hasSecondaryQuantity">Satuan 2</th>
                                         <th class="px-4 py-2 text-right font-medium text-gray-600">Harga</th>
                                         <th class="px-4 py-2 text-right font-medium text-gray-600">Pajak</th>
                                         <th class="px-4 py-2 text-right font-medium text-gray-600">Total</th>
@@ -223,6 +229,8 @@ function deleteOrder() {
                                             }}
                                         </td>
                                         <td class="px-4 py-3">{{ line.uom?.code }}</td>
+                                        <td class="px-4 py-3 text-right" v-if="hasSecondaryQuantity">{{ line.secondary_quantity ? formatNumber(line.secondary_quantity) : '—' }}</td>
+                                        <td class="px-4 py-3" v-if="hasSecondaryQuantity">{{ line.secondary_uom_label || '—' }}</td>
                                         <td class="px-4 py-3 text-right">{{ formatNumber(line.unit_price) }}</td>
                                         <td class="px-4 py-3 text-right">{{ formatNumber(line.tax_amount) }}</td>
                                         <td class="px-4 py-3 text-right">{{ formatNumber(line.line_total) }}</td>
