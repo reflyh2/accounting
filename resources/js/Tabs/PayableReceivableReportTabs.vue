@@ -6,6 +6,7 @@ const props = defineProps({
 });
 
 const tabs = [
+    { label: 'Ringkasan', route: 'payable-receivable-overview.index', active: props.activeTab === 'payable-receivable-overview.index' },
     { label: 'Umur Hutang', route: 'external-payable-aging.index', active: props.activeTab === 'external-payable-aging.index' },
     { label: 'Mutasi Hutang', route: 'external-payable-mutation.index', active: props.activeTab === 'external-payable-mutation.index' },
     { label: 'Kartu Hutang', route: 'external-payable-card.index', active: props.activeTab === 'external-payable-card.index' },

@@ -165,6 +165,7 @@ const isAccountingActive = computed(() => {
         || route().current('trial-balance.*')
         || route().current('journal-report.*')
         || route().current('cash-flow.*')
+        || route().current('payable-receivable-overview.*')
         || route().current('external-payable-aging.*')
         || route().current('external-payable-mutation.*')
         || route().current('external-payable-card.*')
@@ -675,9 +676,10 @@ const onboardingStep = computed(() => {
                             >
                                 Laporan Akuntansi
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('external-payable-aging.index')"
+                            <ResponsiveNavLink :href="route('payable-receivable-overview.index')"
                                 :active="
-                                    route().current('external-payable-aging.*')
+                                    route().current('payable-receivable-overview.*')
+                                    || route().current('external-payable-aging.*')
                                     || route().current('external-payable-mutation.*')
                                     || route().current('external-payable-card.*')
                                     || route().current('external-receivable-aging.*')
@@ -1617,9 +1619,10 @@ const onboardingStep = computed(() => {
                                         </NavLink>
                                         <NavLink
                                             v-if="canViewJournals"
-                                            :href="route('external-payable-aging.index')"
+                                            :href="route('payable-receivable-overview.index')"
                                             :active="
-                                                route().current('external-payable-aging.*')
+                                                route().current('payable-receivable-overview.*')
+                                                || route().current('external-payable-aging.*')
                                                 || route().current('external-payable-mutation.*')
                                                 || route().current('external-payable-card.*')
                                                 || route().current('external-receivable-aging.*')
@@ -1707,9 +1710,10 @@ const onboardingStep = computed(() => {
                                         </NavLink>
                                         <NavLink
                                             v-if="canViewJournals"
-                                            :href="route('external-payable-aging.index')"
+                                            :href="route('payable-receivable-overview.index')"
                                             :active="
-                                                route().current('external-payable-aging.*')
+                                                route().current('payable-receivable-overview.*')
+                                                || route().current('external-payable-aging.*')
                                                 || route().current('external-payable-mutation.*')
                                                 || route().current('external-payable-card.*')
                                                 || route().current('external-receivable-aging.*')

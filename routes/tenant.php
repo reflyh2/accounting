@@ -80,6 +80,7 @@ use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OperationalReconciliationController;
 use App\Http\Controllers\PartnerBankAccountController;
 use App\Http\Controllers\PartnerController;
+use App\Http\Controllers\PayableReceivableOverviewController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseInvoiceController;
@@ -392,6 +393,8 @@ Route::middleware([
         Route::get('inventory-reports/stock-movement', [InventoryReportController::class, 'stockMovement'])->name('inventory-reports.stock-movement');
         Route::get('inventory-reports/stock-valuation', [InventoryReportController::class, 'stockValuation'])->name('inventory-reports.stock-valuation');
         Route::get('inventory-reports/stock-card', [InventoryReportController::class, 'stockCard'])->name('inventory-reports.stock-card');
+
+        Route::get('payable-receivable-overview', [PayableReceivableOverviewController::class, 'index'])->name('payable-receivable-overview.index');
 
         Route::get('external-payable-aging', [ExternalPayableAgingController::class, 'index'])->name('external-payable-aging.index');
         Route::get('external-payable-aging/download', [ExternalPayableAgingController::class, 'download'])->name('external-payable-aging.download');
