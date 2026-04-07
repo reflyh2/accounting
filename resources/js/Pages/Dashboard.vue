@@ -1,15 +1,20 @@
 <script setup>
 import { computed } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import {
     ShoppingCartIcon,
     DocumentTextIcon,
     ClipboardDocumentListIcon,
     BanknotesIcon,
-    CreditCardIcon,
     ArrowTrendingUpIcon,
     ArrowTrendingDownIcon,
+    CubeIcon,
+    BuildingLibraryIcon,
+    ScaleIcon,
+    ExclamationTriangleIcon,
+    CurrencyDollarIcon,
+    ArchiveBoxIcon,
 } from '@heroicons/vue/24/outline';
 import { Line, Doughnut } from 'vue-chartjs';
 import {
@@ -22,7 +27,7 @@ import {
     Title,
     Tooltip,
     Legend,
-    Filler
+    Filler,
 } from 'chart.js';
 
 ChartJS.register(
@@ -40,32 +45,14 @@ ChartJS.register(
 const props = defineProps({
     userName: String,
     preferences: Object,
-    summary: Object,
-    chartData: Object,
-    recentDocuments: Object,
+    access: Object,
+    sales: Object,
+    purchase: Object,
+    inventory: Object,
+    accounting: Object,
+    payableReceivable: Object,
+    periodLabel: String,
 });
-
-// Visible cards based on user preferences
-const visibleCards = computed(() => props.preferences?.visible_cards || {
-    sales_orders: true,
-    sales_invoices: true,
-    purchase_orders: true,
-    purchase_invoices: true,
-    receivables: true,
-    payables: true,
-});
-
-const page = usePage();
-const canViewSalesOrders = computed(() => (page.props.auth?.can?.viewSalesOrders ?? true) && visibleCards.value.sales_orders);
-const canViewSalesInvoices = computed(() => (page.props.auth?.can?.viewSalesInvoices ?? true) && visibleCards.value.sales_invoices);
-const canViewPurchaseOrders = computed(() => (page.props.auth?.can?.viewPurchaseOrders ?? true) && visibleCards.value.purchase_orders);
-const canViewPurchaseInvoices = computed(() => (page.props.auth?.can?.viewPurchaseInvoices ?? true) && visibleCards.value.purchase_invoices);
-const showReceivables = computed(() => visibleCards.value.receivables);
-const showPayables = computed(() => visibleCards.value.payables);
-
-function formatNumber(number) {
-    return new Intl.NumberFormat('id-ID').format(number ?? 0);
-}
 
 function formatCurrency(number) {
     return new Intl.NumberFormat('id-ID', {
@@ -74,6 +61,19 @@ function formatCurrency(number) {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     }).format(number ?? 0);
+}
+
+function formatCompact(number) {
+    const abs = Math.abs(number ?? 0);
+    const sign = number < 0 ? '-' : '';
+    if (abs >= 1e9) return sign + (abs / 1e9).toFixed(1) + ' M';
+    if (abs >= 1e6) return sign + (abs / 1e6).toFixed(1) + ' Jt';
+    if (abs >= 1e3) return sign + (abs / 1e3).toFixed(0) + ' Rb';
+    return sign + abs.toFixed(0);
+}
+
+function formatNumber(number) {
+    return new Intl.NumberFormat('id-ID').format(number ?? 0);
 }
 
 function formatDate(dateString) {
@@ -85,89 +85,7 @@ function formatDate(dateString) {
     });
 }
 
-// Chart configurations
-const monthlyTrendChartData = computed(() => ({
-    labels: props.chartData?.monthlyTrend?.labels || [],
-    datasets: props.chartData?.monthlyTrend?.datasets || [],
-}));
-
-const monthlyTrendChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: {
-            position: 'top',
-            labels: {
-                usePointStyle: true,
-                padding: 15,
-            },
-        },
-        tooltip: {
-            callbacks: {
-                label: (context) => `${context.dataset.label}: ${formatCurrency(context.raw)}`,
-            },
-        },
-    },
-    scales: {
-        y: {
-            ticks: {
-                callback: (value) => formatCurrency(value),
-            },
-        },
-    },
-};
-
-const soStatusChartData = computed(() => ({
-    labels: props.chartData?.salesOrderStatus?.labels?.map(l => getStatusLabel(l)) || [],
-    datasets: [{
-        data: props.chartData?.salesOrderStatus?.data || [],
-        backgroundColor: [
-            'rgba(156, 163, 175, 0.8)',
-            'rgba(59, 130, 246, 0.8)',
-            'rgba(99, 102, 241, 0.8)',
-            'rgba(245, 158, 11, 0.8)',
-            'rgba(16, 185, 129, 0.8)',
-            'rgba(139, 92, 246, 0.8)',
-            'rgba(239, 68, 68, 0.8)',
-        ],
-        borderWidth: 0,
-    }],
-}));
-
-const siStatusChartData = computed(() => ({
-    labels: props.chartData?.salesInvoiceStatus?.labels?.map(l => getStatusLabel(l)) || [],
-    datasets: [{
-        data: props.chartData?.salesInvoiceStatus?.data || [],
-        backgroundColor: [
-            'rgba(156, 163, 175, 0.8)',
-            'rgba(59, 130, 246, 0.8)',
-            'rgba(245, 158, 11, 0.8)',
-            'rgba(16, 185, 129, 0.8)',
-            'rgba(239, 68, 68, 0.8)',
-        ],
-        borderWidth: 0,
-    }],
-}));
-
-const statusChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: '60%',
-    plugins: {
-        legend: {
-            position: 'bottom',
-            labels: {
-                usePointStyle: true,
-                padding: 15,
-                font: { size: 11 },
-            },
-        },
-    },
-};
-
-// Status labels mapping for nice display names
 const statusLabels = {
-    // Sales Order statuses
     'draft': 'Draft',
     'quote': 'Penawaran',
     'confirmed': 'Dikonfirmasi',
@@ -176,20 +94,16 @@ const statusLabels = {
     'closed': 'Selesai',
     'canceled': 'Dibatalkan',
     'cancelled': 'Dibatalkan',
-    // Invoice statuses
     'posted': 'Diposting',
     'partially_paid': 'Sebagian Dibayar',
     'paid': 'Lunas',
-    // Purchase Order statuses
     'approved': 'Disetujui',
     'partially_received': 'Sebagian Diterima',
     'received': 'Diterima',
     'sent': 'Terkirim',
-    // Other
     'processing': 'Diproses',
     'pending': 'Menunggu',
     'open': 'Terbuka',
-    'partial': 'Sebagian',
 };
 
 function getStatusLabel(status) {
@@ -201,7 +115,6 @@ function getStatusClass(status) {
         'draft': 'bg-gray-100 text-gray-700',
         'quote': 'bg-blue-100 text-blue-700',
         'confirmed': 'bg-indigo-100 text-indigo-700',
-        'processing': 'bg-yellow-100 text-yellow-700',
         'posted': 'bg-green-100 text-green-700',
         'paid': 'bg-emerald-100 text-emerald-700',
         'approved': 'bg-green-100 text-green-700',
@@ -217,6 +130,66 @@ function getStatusClass(status) {
     };
     return classes[status] || 'bg-gray-100 text-gray-700';
 }
+
+// Sales trend chart
+const salesTrendChartData = computed(() => ({
+    labels: props.sales?.monthlyTrend?.labels || [],
+    datasets: [
+        {
+            label: props.sales?.monthlyTrend?.datasets?.[0]?.label || 'Sales Order',
+            data: props.sales?.monthlyTrend?.datasets?.[0]?.data || [],
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.4,
+        },
+        {
+            label: props.sales?.monthlyTrend?.datasets?.[1]?.label || 'Faktur Penjualan',
+            data: props.sales?.monthlyTrend?.datasets?.[1]?.data || [],
+            borderColor: 'rgb(16, 185, 129)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true,
+            tension: 0.4,
+        },
+    ],
+}));
+
+// Purchase trend chart
+const purchaseTrendChartData = computed(() => ({
+    labels: props.purchase?.monthlyTrend?.labels || [],
+    datasets: [
+        {
+            label: props.purchase?.monthlyTrend?.datasets?.[0]?.label || 'Purchase Order',
+            data: props.purchase?.monthlyTrend?.datasets?.[0]?.data || [],
+            borderColor: 'rgb(139, 92, 246)',
+            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            fill: true,
+            tension: 0.4,
+        },
+        {
+            label: props.purchase?.monthlyTrend?.datasets?.[1]?.label || 'Faktur Pembelian',
+            data: props.purchase?.monthlyTrend?.datasets?.[1]?.data || [],
+            borderColor: 'rgb(245, 158, 11)',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            fill: true,
+            tension: 0.4,
+        },
+    ],
+}));
+
+const trendOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { position: 'top', labels: { usePointStyle: true, padding: 15 } },
+        tooltip: {
+            callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.raw)}` },
+        },
+    },
+    scales: {
+        y: { ticks: { callback: (v) => formatCompact(v) } },
+    },
+};
 </script>
 
 <template>
@@ -231,249 +204,300 @@ function getStatusClass(status) {
             <!-- Welcome Banner -->
             <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
                 <h1 class="text-2xl font-bold mb-1">Selamat Datang, {{ userName }}!</h1>
-                <p class="text-blue-100">Ringkasan bisnis Anda untuk {{ summary?.periodLabel || 'bulan ini' }}</p>
+                <p class="text-blue-100">Ringkasan bisnis Anda untuk {{ periodLabel }}</p>
             </div>
 
-            <!-- KPI Summary Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Sales Orders Card -->
-                <Link v-if="canViewSalesOrders" :href="route('sales-orders.index')" 
-                      class="block bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Sales Order</h3>
-                        <div class="p-2 bg-green-100 rounded-lg">
-                            <ShoppingCartIcon class="w-6 h-6 text-green-600" />
+            <!-- ─── Accounting Section ─── -->
+            <template v-if="access.accounting && accounting">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Akuntansi</h3>
+                    <Link :href="route('operational-reconciliation.index')" class="text-sm text-blue-600 hover:text-blue-800">Detail →</Link>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 border border-blue-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-blue-800">Pendapatan</h4>
+                            <CurrencyDollarIcon class="w-5 h-5 text-blue-600" />
                         </div>
+                        <p class="text-xl font-bold text-blue-900">{{ formatCurrency(accounting.revenue) }}</p>
                     </div>
-                    <div class="flex items-baseline space-x-2">
-                        <span class="text-3xl font-bold text-gray-900">{{ formatNumber(summary?.salesOrders?.count) }}</span>
-                        <span class="text-sm text-gray-500">dokumen</span>
-                    </div>
-                    <div class="mt-2 text-sm text-gray-600">
-                        Total: <span class="font-medium text-green-600">{{ formatCurrency(summary?.salesOrders?.total) }}</span>
-                    </div>
-                    <div class="mt-2 text-xs text-gray-500">
-                        {{ formatNumber(summary?.salesOrders?.confirmed) }} confirmed
-                    </div>
-                </Link>
 
-                <!-- Sales Invoices Card -->
-                <Link v-if="canViewSalesInvoices" :href="route('sales-invoices.index')" 
-                      class="block bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Faktur Penjualan</h3>
-                        <div class="p-2 bg-blue-100 rounded-lg">
-                            <DocumentTextIcon class="w-6 h-6 text-blue-600" />
+                    <div :class="[
+                        'rounded-xl p-5 border',
+                        accounting.net_profit >= 0
+                            ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-200'
+                            : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200'
+                    ]">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 :class="['text-sm font-semibold', accounting.net_profit >= 0 ? 'text-green-800' : 'text-red-800']">Laba Bersih</h4>
+                            <component :is="accounting.net_profit >= 0 ? ArrowTrendingUpIcon : ArrowTrendingDownIcon"
+                                :class="['w-5 h-5', accounting.net_profit >= 0 ? 'text-green-600' : 'text-red-600']"
+                            />
                         </div>
+                        <p :class="['text-xl font-bold', accounting.net_profit >= 0 ? 'text-green-900' : 'text-red-900']">
+                            {{ formatCurrency(accounting.net_profit) }}
+                        </p>
+                        <p :class="['text-xs mt-1', accounting.net_profit >= 0 ? 'text-green-600' : 'text-red-600']">
+                            Margin {{ accounting.net_margin }}%
+                        </p>
                     </div>
-                    <div class="flex items-baseline space-x-2">
-                        <span class="text-3xl font-bold text-gray-900">{{ formatNumber(summary?.salesInvoices?.count) }}</span>
-                        <span class="text-sm text-gray-500">dokumen</span>
-                    </div>
-                    <div class="mt-2 text-sm text-gray-600">
-                        Total: <span class="font-medium text-blue-600">{{ formatCurrency(summary?.salesInvoices?.total) }}</span>
-                    </div>
-                    <div class="mt-2 text-xs text-gray-500">
-                        {{ formatNumber(summary?.salesInvoices?.draft) }} draft, {{ formatNumber(summary?.salesInvoices?.posted) }} posted
-                    </div>
-                </Link>
 
-                <!-- Purchase Orders Card -->
-                <Link v-if="canViewPurchaseOrders" :href="route('purchase-orders.index')" 
-                      class="block bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Purchase Order</h3>
-                        <div class="p-2 bg-purple-100 rounded-lg">
-                            <ClipboardDocumentListIcon class="w-6 h-6 text-purple-600" />
+                    <div class="bg-white rounded-xl p-5 border-2 border-indigo-200 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-indigo-800">Total Aset</h4>
+                            <BuildingLibraryIcon class="w-5 h-5 text-indigo-600" />
                         </div>
+                        <p class="text-xl font-bold text-indigo-900">{{ formatCurrency(accounting.total_assets) }}</p>
                     </div>
-                    <div class="flex items-baseline space-x-2">
-                        <span class="text-3xl font-bold text-gray-900">{{ formatNumber(summary?.purchaseOrders?.count) }}</span>
-                        <span class="text-sm text-gray-500">dokumen</span>
-                    </div>
-                    <div class="mt-2 text-sm text-gray-600">
-                        Total: <span class="font-medium text-purple-600">{{ formatCurrency(summary?.purchaseOrders?.total) }}</span>
-                    </div>
-                    <div class="mt-2 text-xs text-gray-500">
-                        {{ formatNumber(summary?.purchaseOrders?.pending) }} pending
-                    </div>
-                </Link>
 
-                <!-- Receivables Card -->
-                <div v-if="showReceivables" class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Piutang</h3>
-                        <div class="p-2 bg-emerald-100 rounded-lg">
-                            <ArrowTrendingUpIcon class="w-6 h-6 text-emerald-600" />
+                    <div class="bg-white rounded-xl p-5 border-2 border-teal-200 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-teal-800">Kas & Bank</h4>
+                            <BanknotesIcon class="w-5 h-5 text-teal-600" />
                         </div>
-                    </div>
-                    <div class="flex items-baseline space-x-2">
-                        <span class="text-2xl font-bold text-emerald-600">{{ formatCurrency(summary?.receivables?.outstanding) }}</span>
-                    </div>
-                    <div class="mt-2 text-sm text-gray-500">
-                        Outstanding dari total <span class="font-medium">{{ formatCurrency(summary?.receivables?.total) }}</span>
+                        <p class="text-xl font-bold text-teal-900">{{ formatCurrency(accounting.cash_and_bank) }}</p>
                     </div>
                 </div>
+            </template>
 
-                <!-- Payables Card -->
-                <div v-if="showPayables" class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Hutang</h3>
-                        <div class="p-2 bg-red-100 rounded-lg">
-                            <ArrowTrendingDownIcon class="w-6 h-6 text-red-600" />
-                        </div>
-                    </div>
-                    <div class="flex items-baseline space-x-2">
-                        <span class="text-2xl font-bold text-red-600">{{ formatCurrency(summary?.payables?.outstanding) }}</span>
-                    </div>
-                    <div class="mt-2 text-sm text-gray-500">
-                        Outstanding dari total <span class="font-medium">{{ formatCurrency(summary?.payables?.total) }}</span>
-                    </div>
+            <!-- ─── Payable / Receivable Section ─── -->
+            <template v-if="access.payable_receivable && payableReceivable">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Hutang / Piutang</h3>
+                    <Link :href="route('payable-receivable-overview.index')" class="text-sm text-blue-600 hover:text-blue-800">Detail →</Link>
                 </div>
-
-                <!-- Purchase Invoices Card -->
-                <Link v-if="canViewPurchaseInvoices" :href="route('purchase-invoices.index')" 
-                      class="block bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Faktur Pembelian</h3>
-                        <div class="p-2 bg-orange-100 rounded-lg">
-                            <BanknotesIcon class="w-6 h-6 text-orange-600" />
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 border border-blue-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-blue-800">Total Piutang</h4>
+                            <ArrowTrendingUpIcon class="w-5 h-5 text-blue-600" />
                         </div>
+                        <p class="text-xl font-bold text-blue-900">{{ formatCurrency(payableReceivable.total_receivable) }}</p>
                     </div>
-                    <div class="flex items-baseline space-x-2">
-                        <span class="text-3xl font-bold text-gray-900">{{ formatNumber(summary?.purchaseInvoices?.count) }}</span>
-                        <span class="text-sm text-gray-500">dokumen</span>
-                    </div>
-                    <div class="mt-2 text-sm text-gray-600">
-                        Total: <span class="font-medium text-orange-600">{{ formatCurrency(summary?.purchaseInvoices?.total) }}</span>
-                    </div>
-                </Link>
-            </div>
 
-            <!-- Charts Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Monthly Trend Chart -->
-                <div class="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Tren Penjualan Tahunan</h3>
-                    <div class="h-72">
-                        <Line 
-                            v-if="monthlyTrendChartData.labels?.length > 0"
-                            :data="monthlyTrendChartData" 
-                            :options="monthlyTrendChartOptions" 
-                        />
-                        <div v-else class="h-full flex items-center justify-center text-gray-400">
-                            Tidak ada data untuk ditampilkan
+                    <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-5 border border-red-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-red-800">Total Hutang</h4>
+                            <ArrowTrendingDownIcon class="w-5 h-5 text-red-600" />
                         </div>
+                        <p class="text-xl font-bold text-red-900">{{ formatCurrency(payableReceivable.total_payable) }}</p>
                     </div>
-                </div>
 
-                <!-- Status Charts -->
-                <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Status Sales Order</h3>
-                    <div class="h-64">
-                        <Doughnut 
-                            v-if="soStatusChartData.labels?.length > 0"
-                            :data="soStatusChartData" 
-                            :options="statusChartOptions" 
-                        />
-                        <div v-else class="h-full flex items-center justify-center text-gray-400">
-                            Tidak ada data
+                    <div :class="[
+                        'rounded-xl p-5 border',
+                        payableReceivable.net_position >= 0
+                            ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-200'
+                            : 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200'
+                    ]">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 :class="['text-sm font-semibold', payableReceivable.net_position >= 0 ? 'text-green-800' : 'text-orange-800']">Posisi Bersih</h4>
+                            <ScaleIcon :class="['w-5 h-5', payableReceivable.net_position >= 0 ? 'text-green-600' : 'text-orange-600']" />
                         </div>
+                        <p :class="['text-xl font-bold', payableReceivable.net_position >= 0 ? 'text-green-900' : 'text-orange-900']">
+                            {{ formatCurrency(payableReceivable.net_position) }}
+                        </p>
                     </div>
-                </div>
-            </div>
 
-            <!-- Recent Documents Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Recent Sales Orders -->
-                <div v-if="canViewSalesOrders" class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Sales Order Terbaru</h3>
-                        <Link :href="route('sales-orders.index')" class="text-sm text-blue-600 hover:text-blue-800">
-                            Lihat Semua →
-                        </Link>
-                    </div>
-                    <div class="space-y-3">
-                        <div v-for="doc in recentDocuments?.salesOrders" :key="doc.id" 
-                             class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                            <div>
-                                <Link :href="route('sales-orders.show', doc.id)" class="text-sm font-medium text-gray-900 hover:text-blue-600">
-                                    {{ doc.number }}
-                                </Link>
-                                <p class="text-xs text-gray-500">{{ doc.partner || '-' }}</p>
+                    <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-5 border border-amber-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-amber-800">Jatuh Tempo</h4>
+                            <ExclamationTriangleIcon class="w-5 h-5 text-amber-600" />
+                        </div>
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-amber-700">Piutang</span>
+                                <span class="font-semibold text-amber-900">{{ formatCurrency(payableReceivable.receivable_overdue) }}</span>
                             </div>
-                            <div class="text-right">
-                                <span :class="['px-2 py-1 text-xs rounded-full', getStatusClass(doc.status)]">
-                                    {{ getStatusLabel(doc.status) }}
-                                </span>
-                                <p class="text-xs text-gray-500 mt-1">{{ formatDate(doc.date) }}</p>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-amber-700">Hutang</span>
+                                <span class="font-semibold text-amber-900">{{ formatCurrency(payableReceivable.payable_overdue) }}</span>
                             </div>
                         </div>
-                        <div v-if="!recentDocuments?.salesOrders?.length" class="text-center py-4 text-gray-400 text-sm">
-                            Tidak ada data
-                        </div>
                     </div>
+                </div>
+            </template>
+
+            <!-- ─── Sales Section ─── -->
+            <template v-if="access.sales && sales">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Penjualan</h3>
+                    <Link :href="route('sales-reports.index')" class="text-sm text-blue-600 hover:text-blue-800">Detail →</Link>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Link :href="route('sales-orders.index')" class="block bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-gray-800">Sales Order</h4>
+                            <ShoppingCartIcon class="w-5 h-5 text-green-600" />
+                        </div>
+                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(sales.orders.count) }}</p>
+                        <p class="text-sm text-green-600 font-medium mt-1">{{ formatCurrency(sales.orders.total) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ formatNumber(sales.orders.confirmed) }} dikonfirmasi</p>
+                    </Link>
+
+                    <Link :href="route('sales-invoices.index')" class="block bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-gray-800">Faktur Penjualan</h4>
+                            <DocumentTextIcon class="w-5 h-5 text-blue-600" />
+                        </div>
+                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(sales.invoices.count) }}</p>
+                        <p class="text-sm text-blue-600 font-medium mt-1">{{ formatCurrency(sales.invoices.total) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ formatNumber(sales.invoices.draft) }} draft, {{ formatNumber(sales.invoices.posted) }} posted</p>
+                    </Link>
                 </div>
 
-                <!-- Recent Sales Invoices -->
-                <div v-if="canViewSalesInvoices" class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Faktur Penjualan Terbaru</h3>
-                        <Link :href="route('sales-invoices.index')" class="text-sm text-blue-600 hover:text-blue-800">
-                            Lihat Semua →
-                        </Link>
-                    </div>
-                    <div class="space-y-3">
-                        <div v-for="doc in recentDocuments?.salesInvoices" :key="doc.id" 
-                             class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                            <div>
-                                <Link :href="route('sales-invoices.show', doc.id)" class="text-sm font-medium text-gray-900 hover:text-blue-600">
-                                    {{ doc.number }}
-                                </Link>
-                                <p class="text-xs text-gray-500">{{ doc.partner || '-' }}</p>
-                            </div>
-                            <div class="text-right">
-                                <span :class="['px-2 py-1 text-xs rounded-full', getStatusClass(doc.status)]">
-                                    {{ getStatusLabel(doc.status) }}
-                                </span>
-                                <p class="text-xs text-gray-500 mt-1">{{ formatDate(doc.date) }}</p>
-                            </div>
-                        </div>
-                        <div v-if="!recentDocuments?.salesInvoices?.length" class="text-center py-4 text-gray-400 text-sm">
-                            Tidak ada data
+                <!-- Sales Charts & Recent -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Tren Penjualan (6 Bulan)</h3>
+                        <div class="h-64">
+                            <Line
+                                v-if="salesTrendChartData.labels.length > 0"
+                                :data="salesTrendChartData"
+                                :options="trendOptions"
+                            />
+                            <div v-else class="h-full flex items-center justify-center text-gray-400">Tidak ada data</div>
                         </div>
                     </div>
+
+                    <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">SO Terbaru</h3>
+                            <Link :href="route('sales-orders.index')" class="text-sm text-blue-600 hover:text-blue-800">Semua →</Link>
+                        </div>
+                        <div class="space-y-3">
+                            <div v-for="doc in sales.recentOrders" :key="doc.id"
+                                 class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                                <div>
+                                    <Link :href="route('sales-orders.show', doc.id)" class="text-sm font-medium text-gray-900 hover:text-blue-600">
+                                        {{ doc.number }}
+                                    </Link>
+                                    <p class="text-xs text-gray-500">{{ doc.partner || '-' }}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span :class="['px-2 py-1 text-xs rounded-full', getStatusClass(doc.status)]">
+                                        {{ getStatusLabel(doc.status) }}
+                                    </span>
+                                    <p class="text-xs text-gray-500 mt-1">{{ formatDate(doc.date) }}</p>
+                                </div>
+                            </div>
+                            <div v-if="!sales.recentOrders?.length" class="text-center py-4 text-gray-400 text-sm">Tidak ada data</div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ─── Purchase Section ─── -->
+            <template v-if="access.purchase && purchase">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Pembelian</h3>
+                    <Link :href="route('purchasing-reports.index')" class="text-sm text-blue-600 hover:text-blue-800">Detail →</Link>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Link :href="route('purchase-orders.index')" class="block bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-gray-800">Purchase Order</h4>
+                            <ClipboardDocumentListIcon class="w-5 h-5 text-purple-600" />
+                        </div>
+                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(purchase.orders.count) }}</p>
+                        <p class="text-sm text-purple-600 font-medium mt-1">{{ formatCurrency(purchase.orders.total) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ formatNumber(purchase.orders.pending) }} pending</p>
+                    </Link>
+
+                    <Link :href="route('purchase-invoices.index')" class="block bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-gray-800">Faktur Pembelian</h4>
+                            <BanknotesIcon class="w-5 h-5 text-orange-600" />
+                        </div>
+                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(purchase.invoices.count) }}</p>
+                        <p class="text-sm text-orange-600 font-medium mt-1">{{ formatCurrency(purchase.invoices.total) }}</p>
+                    </Link>
                 </div>
 
-                <!-- Recent Purchase Orders -->
-                <div v-if="canViewPurchaseOrders" class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Purchase Order Terbaru</h3>
-                        <Link :href="route('purchase-orders.index')" class="text-sm text-blue-600 hover:text-blue-800">
-                            Lihat Semua →
-                        </Link>
-                    </div>
-                    <div class="space-y-3">
-                        <div v-for="doc in recentDocuments?.purchaseOrders" :key="doc.id" 
-                             class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                            <div>
-                                <Link :href="route('purchase-orders.show', doc.id)" class="text-sm font-medium text-gray-900 hover:text-blue-600">
-                                    {{ doc.number }}
-                                </Link>
-                                <p class="text-xs text-gray-500">{{ doc.partner || '-' }}</p>
-                            </div>
-                            <div class="text-right">
-                                <span :class="['px-2 py-1 text-xs rounded-full', getStatusClass(doc.status)]">
-                                    {{ getStatusLabel(doc.status) }}
-                                </span>
-                                <p class="text-xs text-gray-500 mt-1">{{ formatDate(doc.date) }}</p>
-                            </div>
+                <!-- Purchase Charts & Recent -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Tren Pembelian (6 Bulan)</h3>
+                        <div class="h-64">
+                            <Line
+                                v-if="purchaseTrendChartData.labels.length > 0"
+                                :data="purchaseTrendChartData"
+                                :options="trendOptions"
+                            />
+                            <div v-else class="h-full flex items-center justify-center text-gray-400">Tidak ada data</div>
                         </div>
-                        <div v-if="!recentDocuments?.purchaseOrders?.length" class="text-center py-4 text-gray-400 text-sm">
-                            Tidak ada data
+                    </div>
+
+                    <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">PO Terbaru</h3>
+                            <Link :href="route('purchase-orders.index')" class="text-sm text-blue-600 hover:text-blue-800">Semua →</Link>
+                        </div>
+                        <div class="space-y-3">
+                            <div v-for="doc in purchase.recentOrders" :key="doc.id"
+                                 class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                                <div>
+                                    <Link :href="route('purchase-orders.show', doc.id)" class="text-sm font-medium text-gray-900 hover:text-blue-600">
+                                        {{ doc.number }}
+                                    </Link>
+                                    <p class="text-xs text-gray-500">{{ doc.partner || '-' }}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span :class="['px-2 py-1 text-xs rounded-full', getStatusClass(doc.status)]">
+                                        {{ getStatusLabel(doc.status) }}
+                                    </span>
+                                    <p class="text-xs text-gray-500 mt-1">{{ formatDate(doc.date) }}</p>
+                                </div>
+                            </div>
+                            <div v-if="!purchase.recentOrders?.length" class="text-center py-4 text-gray-400 text-sm">Tidak ada data</div>
                         </div>
                     </div>
                 </div>
+            </template>
+
+            <!-- ─── Inventory Section ─── -->
+            <template v-if="access.inventory && inventory">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Persediaan</h3>
+                    <Link :href="route('inventory-reports.index')" class="text-sm text-blue-600 hover:text-blue-800">Detail →</Link>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-5 border border-teal-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-teal-800">Jumlah Item</h4>
+                            <CubeIcon class="w-5 h-5 text-teal-600" />
+                        </div>
+                        <p class="text-xl font-bold text-teal-900">{{ formatNumber(inventory.total_items) }}</p>
+                        <p class="text-xs text-teal-600 mt-1">produk dengan stok > 0</p>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-5 border border-indigo-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-indigo-800">Nilai Persediaan</h4>
+                            <ArchiveBoxIcon class="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <p class="text-xl font-bold text-indigo-900">{{ formatCurrency(inventory.total_value) }}</p>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-gray-800">Transaksi Periode</h4>
+                        </div>
+                        <p class="text-xl font-bold text-gray-900">{{ formatNumber(inventory.total_transactions) }}</p>
+                        <div v-if="inventory.transactions_by_type && Object.keys(inventory.transactions_by_type).length > 0" class="mt-2 space-y-1">
+                            <div v-for="(count, type) in inventory.transactions_by_type" :key="type" class="flex justify-between text-xs">
+                                <span class="text-gray-500">{{ type }}</span>
+                                <span class="text-gray-700 font-medium">{{ formatNumber(count) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Empty state when no access to anything -->
+            <div v-if="!access.sales && !access.purchase && !access.inventory && !access.accounting && !access.payable_receivable"
+                 class="bg-white rounded-xl p-12 border border-gray-200 text-center">
+                <BanknotesIcon class="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <p class="text-gray-500">Tidak ada modul yang dapat ditampilkan. Hubungi administrator untuk mengatur akses Anda.</p>
             </div>
         </div>
     </AuthenticatedLayout>

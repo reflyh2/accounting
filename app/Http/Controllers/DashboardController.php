@@ -2,28 +2,32 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Branch;
-use App\Models\Company;
+use App\Models\CostLayer;
 use App\Models\ExternalDebt;
+use App\Models\ExternalDebtPaymentDetail;
+use App\Models\InventoryItem;
+use App\Models\InventoryTransaction;
+use App\Models\JournalEntry;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseOrder;
-use App\Models\SalesDelivery;
 use App\Models\SalesInvoice;
 use App\Models\SalesOrder;
+use App\Models\User;
 use App\Models\UserSetting;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $user = Auth::user();
-        
-        // Get user's dashboard preferences
-        $preferences = UserSetting::getValue($user->global_id, 'dashboard_preferences', [
+        $centralUser = Auth::user();
+        $tenantUser = User::where('global_id', $centralUser->global_id)->first();
+
+        $preferences = UserSetting::getValue($centralUser->global_id, 'dashboard_preferences', [
             'default_period' => 'month',
             'visible_cards' => [
                 'sales_orders' => true,
@@ -36,28 +40,36 @@ class DashboardController extends Controller
             'show_charts' => true,
             'show_recent_documents' => true,
         ]);
-        
-        // Calculate date range based on user's preferred period
+
         $period = $preferences['default_period'] ?? 'month';
         [$startDate, $endDate, $periodLabel] = $this->getDateRangeForPeriod($period);
-        
-        // Get current year date range for trends (always yearly)
-        $startOfYear = Carbon::now()->startOfYear()->toDateString();
-        $endOfYear = Carbon::now()->endOfYear()->toDateString();
+
+        // Determine which modules the user can access
+        $access = [
+            'sales' => $tenantUser && $tenantUser->hasPermissionTo('sales.sales_order.view'),
+            'purchase' => $tenantUser && $tenantUser->hasPermissionTo('purchase.purchase_order.view'),
+            'inventory' => $tenantUser && $tenantUser->hasPermissionTo('inventory.stock.view'),
+            'accounting' => $tenantUser && $tenantUser->hasPermissionTo('accounting.journal.view'),
+            'payable_receivable' => $tenantUser && $tenantUser->hasPermissionTo('accounting.payment.view'),
+        ];
 
         return Inertia::render('Dashboard', [
-            'userName' => $user->name,
+            'userName' => $centralUser->name,
             'preferences' => $preferences,
-            'summary' => $this->getSummaryData($startDate, $endDate, $periodLabel),
-            'chartData' => $preferences['show_charts'] ? $this->getChartData($startOfYear, $endOfYear) : null,
-            'recentDocuments' => $preferences['show_recent_documents'] ? $this->getRecentDocuments() : null,
+            'access' => $access,
+            'sales' => $access['sales'] ? $this->getSalesData($startDate, $endDate) : null,
+            'purchase' => $access['purchase'] ? $this->getPurchaseData($startDate, $endDate) : null,
+            'inventory' => $access['inventory'] ? $this->getInventoryData($startDate, $endDate) : null,
+            'accounting' => $access['accounting'] ? $this->getAccountingData($startDate, $endDate) : null,
+            'payableReceivable' => $access['payable_receivable'] ? $this->getPayableReceivableData() : null,
+            'periodLabel' => $periodLabel,
         ]);
     }
-    
+
     private function getDateRangeForPeriod(string $period): array
     {
         $now = Carbon::now();
-        
+
         switch ($period) {
             case 'week':
                 return [
@@ -69,13 +81,13 @@ class DashboardController extends Controller
                 return [
                     $now->firstOfQuarter()->toDateString(),
                     $now->copy()->lastOfQuarter()->toDateString(),
-                    'Q' . $now->quarter . ' ' . $now->year,
+                    'Q'.$now->quarter.' '.$now->year,
                 ];
             case 'year':
                 return [
                     $now->startOfYear()->toDateString(),
                     $now->endOfYear()->toDateString(),
-                    'Tahun ' . $now->year,
+                    'Tahun '.$now->year,
                 ];
             case 'month':
             default:
@@ -87,190 +99,342 @@ class DashboardController extends Controller
         }
     }
 
-    private function getSummaryData(string $startDate, string $endDate, ?string $periodLabel = null): array
+    // ─── Sales ───
+
+    private function getSalesData(string $startDate, string $endDate): array
     {
-        // Sales Orders - this month
-        $salesOrdersQuery = SalesOrder::whereBetween('order_date', [$startDate, $endDate]);
-        $salesOrders = [
-            'count' => (clone $salesOrdersQuery)->count(),
-            'total' => (clone $salesOrdersQuery)->sum('total_amount'),
-            'confirmed' => (clone $salesOrdersQuery)->where('status', 'confirmed')->count(),
-        ];
-
-        // Sales Invoices - this month
-        $salesInvoicesQuery = SalesInvoice::whereBetween('invoice_date', [$startDate, $endDate]);
-        $salesInvoices = [
-            'count' => (clone $salesInvoicesQuery)->count(),
-            'total' => (clone $salesInvoicesQuery)->sum('total_amount'),
-            'draft' => (clone $salesInvoicesQuery)->where('status', 'draft')->count(),
-            'posted' => (clone $salesInvoicesQuery)->where('status', 'posted')->count(),
-        ];
-
-        // Purchase Orders - this month
-        $purchaseOrdersQuery = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate]);
-        $purchaseOrders = [
-            'count' => (clone $purchaseOrdersQuery)->count(),
-            'total' => (clone $purchaseOrdersQuery)->sum('total_amount'),
-            'pending' => (clone $purchaseOrdersQuery)->whereIn('status', ['draft', 'approved'])->count(),
-        ];
-
-        // Purchase Invoices - this month
-        $purchaseInvoicesQuery = PurchaseInvoice::whereBetween('invoice_date', [$startDate, $endDate]);
-        $purchaseInvoices = [
-            'count' => (clone $purchaseInvoicesQuery)->count(),
-            'total' => (clone $purchaseInvoicesQuery)->sum('total_amount'),
-        ];
-
-        // Receivables (outstanding) - debts with open/partial status
-        $receivables = ExternalDebt::where('type', 'receivable')
-            ->whereIn('status', ['open', 'partial'])
-            ->selectRaw('SUM(primary_currency_amount) as total')
-            ->first();
-
-        // Payables (outstanding) - debts with open/partial status
-        $payables = ExternalDebt::where('type', 'payable')
-            ->whereIn('status', ['open', 'partial'])
-            ->selectRaw('SUM(primary_currency_amount) as total')
-            ->first();
+        $soQuery = SalesOrder::whereBetween('order_date', [$startDate, $endDate]);
+        $siQuery = SalesInvoice::whereBetween('invoice_date', [$startDate, $endDate]);
 
         return [
-            'salesOrders' => $salesOrders,
-            'salesInvoices' => $salesInvoices,
-            'purchaseOrders' => $purchaseOrders,
-            'purchaseInvoices' => $purchaseInvoices,
-            'receivables' => [
-                'total' => (float) ($receivables->total ?? 0),
-                'outstanding' => (float) ($receivables->total ?? 0),
+            'orders' => [
+                'count' => (clone $soQuery)->count(),
+                'total' => (float) (clone $soQuery)->sum('total_amount'),
+                'confirmed' => (clone $soQuery)->where('status', 'confirmed')->count(),
             ],
-            'payables' => [
-                'total' => (float) ($payables->total ?? 0),
-                'outstanding' => (float) ($payables->total ?? 0),
+            'invoices' => [
+                'count' => (clone $siQuery)->count(),
+                'total' => (float) (clone $siQuery)->sum('total_amount'),
+                'draft' => (clone $siQuery)->where('status', 'draft')->count(),
+                'posted' => (clone $siQuery)->where('status', 'posted')->count(),
             ],
-            'periodLabel' => $periodLabel ?? Carbon::now()->format('F Y'),
+            'monthlyTrend' => $this->getSalesMonthlyTrend($endDate),
+            'recentOrders' => $this->getRecentSalesOrders(),
         ];
     }
 
-    private function getChartData(string $startDate, string $endDate): array
+    private function getSalesMonthlyTrend(string $endDate): array
     {
-        // Monthly sales trend
-        $monthlyTrend = $this->getMonthlyTrendData($startDate, $endDate);
-        
-        // Sales order status distribution
-        $soStatusDistribution = SalesOrder::whereBetween('order_date', [$startDate, $endDate])
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->toArray();
+        $labels = [];
+        $orderData = [];
+        $invoiceData = [];
 
-        // Sales invoice status distribution
-        $siStatusDistribution = SalesInvoice::whereBetween('invoice_date', [$startDate, $endDate])
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->toArray();
+        for ($i = 5; $i >= 0; $i--) {
+            $monthStart = date('Y-m-01', strtotime("-{$i} months", strtotime($endDate)));
+            $monthEnd = date('Y-m-t', strtotime($monthStart));
+            $labels[] = date('M Y', strtotime($monthStart));
+
+            $orderData[] = (float) SalesOrder::whereBetween('order_date', [$monthStart, $monthEnd])->sum('total_amount');
+            $invoiceData[] = (float) SalesInvoice::whereBetween('invoice_date', [$monthStart, $monthEnd])->sum('total_amount');
+        }
 
         return [
-            'monthlyTrend' => $monthlyTrend,
-            'salesOrderStatus' => [
-                'labels' => array_keys($soStatusDistribution),
-                'data' => array_values($soStatusDistribution),
-            ],
-            'salesInvoiceStatus' => [
-                'labels' => array_keys($siStatusDistribution),
-                'data' => array_values($siStatusDistribution),
-            ],
-        ];
-    }
-
-    private function getMonthlyTrendData(string $startDate, string $endDate): array
-    {
-        // Sales orders by month
-        $salesByMonth = SalesOrder::whereBetween('order_date', [$startDate, $endDate])
-            ->selectRaw("TO_CHAR(order_date, 'YYYY-MM') as month, SUM(total_amount) as total")
-            ->groupBy('month')
-            ->orderBy('month')
-            ->pluck('total', 'month')
-            ->toArray();
-
-        // Sales invoices by month
-        $invoicesByMonth = SalesInvoice::whereBetween('invoice_date', [$startDate, $endDate])
-            ->selectRaw("TO_CHAR(invoice_date, 'YYYY-MM') as month, SUM(total_amount) as total")
-            ->groupBy('month')
-            ->orderBy('month')
-            ->pluck('total', 'month')
-            ->toArray();
-
-        // Merge all months
-        $allMonths = array_unique(array_merge(array_keys($salesByMonth), array_keys($invoicesByMonth)));
-        sort($allMonths);
-
-        return [
-            'labels' => $allMonths,
+            'labels' => $labels,
             'datasets' => [
-                [
-                    'label' => 'Sales Orders',
-                    'data' => array_map(fn($m) => (float) ($salesByMonth[$m] ?? 0), $allMonths),
-                    'borderColor' => '#3b82f6',
-                    'backgroundColor' => 'rgba(59, 130, 246, 0.1)',
-                ],
-                [
-                    'label' => 'Sales Invoices',
-                    'data' => array_map(fn($m) => (float) ($invoicesByMonth[$m] ?? 0), $allMonths),
-                    'borderColor' => '#10b981',
-                    'backgroundColor' => 'rgba(16, 185, 129, 0.1)',
-                ],
+                ['label' => 'Sales Order', 'data' => $orderData],
+                ['label' => 'Faktur Penjualan', 'data' => $invoiceData],
             ],
         ];
     }
 
-    private function getRecentDocuments(): array
+    private function getRecentSalesOrders(): array
     {
-        $recentSalesOrders = SalesOrder::with(['partner:id,name', 'branch:id,name'])
+        return SalesOrder::with('partner:id,name')
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
-            ->map(fn($so) => [
+            ->map(fn ($so) => [
                 'id' => $so->id,
                 'number' => $so->number,
                 'date' => $so->order_date?->format('Y-m-d'),
                 'partner' => $so->partner?->name,
-                'total' => $so->total_amount,
+                'total' => (float) $so->total_amount,
                 'status' => $so->status,
-                'type' => 'sales_order',
-            ]);
+            ])->toArray();
+    }
 
-        $recentSalesInvoices = SalesInvoice::with(['partner:id,name', 'branch:id,name'])
+    // ─── Purchase ───
+
+    private function getPurchaseData(string $startDate, string $endDate): array
+    {
+        $poQuery = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate]);
+        $piQuery = PurchaseInvoice::whereBetween('invoice_date', [$startDate, $endDate]);
+
+        return [
+            'orders' => [
+                'count' => (clone $poQuery)->count(),
+                'total' => (float) (clone $poQuery)->sum('total_amount'),
+                'pending' => (clone $poQuery)->whereIn('status', ['draft', 'approved'])->count(),
+            ],
+            'invoices' => [
+                'count' => (clone $piQuery)->count(),
+                'total' => (float) (clone $piQuery)->sum('total_amount'),
+            ],
+            'monthlyTrend' => $this->getPurchaseMonthlyTrend($endDate),
+            'recentOrders' => $this->getRecentPurchaseOrders(),
+        ];
+    }
+
+    private function getPurchaseMonthlyTrend(string $endDate): array
+    {
+        $labels = [];
+        $orderData = [];
+        $invoiceData = [];
+
+        for ($i = 5; $i >= 0; $i--) {
+            $monthStart = date('Y-m-01', strtotime("-{$i} months", strtotime($endDate)));
+            $monthEnd = date('Y-m-t', strtotime($monthStart));
+            $labels[] = date('M Y', strtotime($monthStart));
+
+            $orderData[] = (float) PurchaseOrder::whereBetween('order_date', [$monthStart, $monthEnd])->sum('total_amount');
+            $invoiceData[] = (float) PurchaseInvoice::whereBetween('invoice_date', [$monthStart, $monthEnd])->sum('total_amount');
+        }
+
+        return [
+            'labels' => $labels,
+            'datasets' => [
+                ['label' => 'Purchase Order', 'data' => $orderData],
+                ['label' => 'Faktur Pembelian', 'data' => $invoiceData],
+            ],
+        ];
+    }
+
+    private function getRecentPurchaseOrders(): array
+    {
+        return PurchaseOrder::with('partner:id,name')
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
-            ->map(fn($si) => [
-                'id' => $si->id,
-                'number' => $si->number,
-                'date' => $si->invoice_date?->format('Y-m-d'),
-                'partner' => $si->partner?->name,
-                'total' => $si->total_amount,
-                'status' => $si->status,
-                'type' => 'sales_invoice',
-            ]);
-
-        $recentPurchaseOrders = PurchaseOrder::with(['partner:id,name', 'branch:id,name'])
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get()
-            ->map(fn($po) => [
+            ->map(fn ($po) => [
                 'id' => $po->id,
                 'number' => $po->number,
                 'date' => $po->order_date?->format('Y-m-d'),
                 'partner' => $po->partner?->name,
-                'total' => $po->total_amount,
+                'total' => (float) $po->total_amount,
                 'status' => $po->status,
-                'type' => 'purchase_order',
-            ]);
+            ])->toArray();
+    }
+
+    // ─── Inventory ───
+
+    private function getInventoryData(string $startDate, string $endDate): array
+    {
+        $totalItems = InventoryItem::query()
+            ->where('qty_on_hand', '>', 0)
+            ->distinct('product_variant_id')
+            ->count('product_variant_id');
+
+        $totalValue = (float) (CostLayer::query()
+            ->where('qty_remaining', '>', 0)
+            ->selectRaw('SUM(qty_remaining * unit_cost) as val')
+            ->value('val') ?? 0);
+
+        $txnQuery = InventoryTransaction::query()
+            ->whereBetween('transaction_date', [$startDate, $endDate]);
+
+        $txnByType = (clone $txnQuery)
+            ->selectRaw('transaction_type, COUNT(*) as count')
+            ->groupBy('transaction_type')
+            ->pluck('count', 'transaction_type')
+            ->toArray();
 
         return [
-            'salesOrders' => $recentSalesOrders,
-            'salesInvoices' => $recentSalesInvoices,
-            'purchaseOrders' => $recentPurchaseOrders,
+            'total_items' => $totalItems,
+            'total_value' => $totalValue,
+            'total_transactions' => (clone $txnQuery)->count(),
+            'transactions_by_type' => $txnByType,
         ];
+    }
+
+    // ─── Accounting ───
+
+    private function getAccountingData(string $startDate, string $endDate): array
+    {
+        $filters = [];
+        $periodBalances = $this->getAccountBalancesForPeriod($startDate, $endDate, $filters);
+        $cumulativeBalances = $this->getAccountBalancesCumulative($endDate, $filters);
+
+        $revenue = $this->sumByTypes($periodBalances, ['pendapatan']);
+        $cogs = $this->sumByTypes($periodBalances, ['beban_pokok_penjualan']);
+        $operationalExpenses = $this->sumByTypes($periodBalances, ['beban_operasional']);
+        $otherRevenue = $this->sumByTypes($periodBalances, ['pendapatan_lainnya']);
+        $otherExpenses = $this->sumByTypes($periodBalances, ['beban_lainnya']);
+        $depreciation = $this->sumByTypes($periodBalances, ['beban_penyusutan', 'beban_amortisasi']);
+
+        $grossProfit = $revenue - $cogs;
+        $totalExpenses = $operationalExpenses + $otherExpenses + $depreciation;
+        $netProfit = $grossProfit + $otherRevenue - $totalExpenses;
+        $grossMargin = $revenue > 0 ? round(($grossProfit / $revenue) * 100, 1) : 0;
+        $netMargin = $revenue > 0 ? round(($netProfit / $revenue) * 100, 1) : 0;
+
+        $totalAssets = $this->sumByTypes($cumulativeBalances, [
+            'kas_bank', 'piutang_usaha', 'piutang_usaha_lainnya', 'persediaan',
+            'biaya_dibayar_dimuka', 'aset_tetap', 'aset_tidak_berwujud',
+            'investasi_jangka_panjang', 'aset_lainnya',
+        ]);
+
+        $totalLiabilities = $this->sumByTypes($cumulativeBalances, [
+            'hutang_usaha', 'hutang_usaha_lainnya',
+            'liabilitas_jangka_pendek', 'liabilitas_jangka_panjang',
+            'pendapatan_diterima_dimuka',
+        ]);
+
+        $totalEquity = $this->sumByTypes($cumulativeBalances, ['modal', 'laba_ditahan']);
+        $cashAndBank = $this->sumByTypes($cumulativeBalances, ['kas_bank']);
+
+        return [
+            'revenue' => $revenue,
+            'gross_profit' => $grossProfit,
+            'gross_margin' => $grossMargin,
+            'net_profit' => $netProfit,
+            'net_margin' => $netMargin,
+            'total_assets' => $totalAssets,
+            'total_liabilities' => $totalLiabilities,
+            'total_equity' => $totalEquity,
+            'cash_and_bank' => $cashAndBank,
+        ];
+    }
+
+    private function getAccountBalancesForPeriod(string $startDate, string $endDate, array $filters)
+    {
+        return JournalEntry::join('accounts', 'journal_entries.account_id', '=', 'accounts.id')
+            ->where('accounts.is_parent', false)
+            ->whereHas('journal', function ($q) use ($startDate, $endDate, $filters) {
+                $q->whereBetween('date', [$startDate, $endDate])
+                    ->where('journal_type', '!=', 'retained_earnings');
+                if (! empty($filters['company_id'])) {
+                    $q->whereHas('branch.branchGroup', fn ($sub) => $sub->whereIn('company_id', $filters['company_id']));
+                }
+                if (! empty($filters['branch_id'])) {
+                    $q->whereIn('branch_id', $filters['branch_id']);
+                }
+            })
+            ->select(
+                'accounts.type',
+                'accounts.balance_type',
+                DB::raw('SUM(journal_entries.primary_currency_debit) as total_debit'),
+                DB::raw('SUM(journal_entries.primary_currency_credit) as total_credit')
+            )
+            ->groupBy('accounts.type', 'accounts.balance_type')
+            ->get();
+    }
+
+    private function getAccountBalancesCumulative(string $endDate, array $filters)
+    {
+        return JournalEntry::join('accounts', 'journal_entries.account_id', '=', 'accounts.id')
+            ->where('accounts.is_parent', false)
+            ->whereHas('journal', function ($q) use ($endDate, $filters) {
+                $q->where('date', '<=', $endDate)
+                    ->where('journal_type', '!=', 'retained_earnings');
+                if (! empty($filters['company_id'])) {
+                    $q->whereHas('branch.branchGroup', fn ($sub) => $sub->whereIn('company_id', $filters['company_id']));
+                }
+                if (! empty($filters['branch_id'])) {
+                    $q->whereIn('branch_id', $filters['branch_id']);
+                }
+            })
+            ->select(
+                'accounts.type',
+                'accounts.balance_type',
+                DB::raw('SUM(journal_entries.primary_currency_debit) as total_debit'),
+                DB::raw('SUM(journal_entries.primary_currency_credit) as total_credit')
+            )
+            ->groupBy('accounts.type', 'accounts.balance_type')
+            ->get();
+    }
+
+    private function sumByTypes($balances, array $types): float
+    {
+        return (float) $balances->whereIn('type', $types)->sum(function ($item) {
+            return $item->balance_type === 'debit'
+                ? $item->total_debit - $item->total_credit
+                : $item->total_credit - $item->total_debit;
+        });
+    }
+
+    // ─── Payable / Receivable ───
+
+    private function getPayableReceivableData(): array
+    {
+        $end = Carbon::now()->endOfDay();
+
+        $payable = $this->getOutstandingSummary('payable', $end);
+        $receivable = $this->getOutstandingSummary('receivable', $end);
+
+        return [
+            'total_payable' => $payable['total'],
+            'total_receivable' => $receivable['total'],
+            'net_position' => $receivable['total'] - $payable['total'],
+            'payable_overdue' => $payable['overdue'],
+            'receivable_overdue' => $receivable['overdue'],
+        ];
+    }
+
+    private function getOutstandingSummary(string $type, Carbon $end): array
+    {
+        $debts = ExternalDebt::query()
+            ->select(['id', 'partner_id', 'due_date', 'primary_currency_amount', 'issue_date'])
+            ->where('type', $type)
+            ->whereDate('issue_date', '<=', $end->toDateString())
+            ->get();
+
+        if ($debts->isEmpty()) {
+            return ['total' => 0, 'overdue' => 0];
+        }
+
+        $paidByDebt = ExternalDebtPaymentDetail::query()
+            ->select([
+                'external_debt_payment_details.external_debt_id',
+                DB::raw('SUM(external_debt_payment_details.primary_currency_amount) as total_amount'),
+            ])
+            ->join('external_debt_payments as edp', 'edp.id', '=', 'external_debt_payment_details.external_debt_payment_id')
+            ->whereIn('external_debt_payment_details.external_debt_id', $debts->pluck('id')->all())
+            ->where('edp.type', $type)
+            ->where(function ($q) use ($end) {
+                $q->where(function ($q1) use ($end) {
+                    $q1->whereIn('edp.payment_method', ['cek', 'giro'])
+                        ->whereNotNull('edp.withdrawal_date')
+                        ->whereDate('edp.withdrawal_date', '<=', $end->toDateString());
+                })->orWhere(function ($q2) use ($end) {
+                    $q2->whereIn('edp.payment_method', ['cash', 'transfer'])
+                        ->whereDate('edp.payment_date', '<=', $end->toDateString());
+                });
+            })
+            ->whereNull('external_debt_payment_details.deleted_at')
+            ->whereNull('edp.deleted_at')
+            ->groupBy('external_debt_payment_details.external_debt_id')
+            ->pluck('total_amount', 'external_debt_payment_details.external_debt_id');
+
+        $total = 0;
+        $overdue = 0;
+
+        foreach ($debts as $debt) {
+            $paid = (float) ($paidByDebt[$debt->id] ?? 0);
+            $outstanding = (float) $debt->primary_currency_amount - $paid;
+            if ($outstanding <= 0.000001) {
+                continue;
+            }
+
+            $total += $outstanding;
+
+            if (! empty($debt->due_date)) {
+                $due = Carbon::parse($debt->due_date)->endOfDay();
+                if ($due->lt($end)) {
+                    $overdue += $outstanding;
+                }
+            }
+        }
+
+        return ['total' => $total, 'overdue' => $overdue];
     }
 }
