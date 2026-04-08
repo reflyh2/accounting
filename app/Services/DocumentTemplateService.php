@@ -2,14 +2,13 @@
 
 namespace App\Services;
 
-use App\Enums\Documents\DocumentType;
-use App\Models\DocumentTemplate;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\DocumentTemplate;
 use App\Models\Partner;
-use App\Models\SalesOrder;
 use App\Models\SalesDelivery;
 use App\Models\SalesInvoice;
+use App\Models\SalesOrder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +25,7 @@ class DocumentTemplateService
             $data['updated_by'] = Auth::id();
 
             // If setting as default, unset other defaults for same company+type
-            if (!empty($data['is_default'])) {
+            if (! empty($data['is_default'])) {
                 $this->unsetOtherDefaults($data['company_id'] ?? null, $data['document_type']);
             }
 
@@ -43,11 +42,12 @@ class DocumentTemplateService
             $data['updated_by'] = Auth::id();
 
             // If setting as default, unset other defaults for same company+type
-            if (!empty($data['is_default']) && !$template->is_default) {
+            if (! empty($data['is_default']) && ! $template->is_default) {
                 $this->unsetOtherDefaults($template->company_id, $template->document_type->value);
             }
 
             $template->update($data);
+
             return $template->fresh();
         });
     }
@@ -85,7 +85,7 @@ class DocumentTemplateService
         $newData = $template->toArray();
         unset($newData['id'], $newData['created_at'], $newData['updated_at']);
 
-        $newData['name'] = $template->name . ' (Copy)';
+        $newData['name'] = $template->name.' (Copy)';
         $newData['is_default'] = false;
         $newData['company_id'] = $targetCompanyId ?? $template->company_id;
         $newData['created_by'] = Auth::id();
@@ -107,17 +107,17 @@ class DocumentTemplateService
 
         // Replace simple placeholders
         foreach ($placeholders as $key => $value) {
-            if (!is_array($value)) {
-                $content = str_replace('{{' . $key . '}}', $value ?? '', $content);
+            if (! is_array($value)) {
+                $content = str_replace('{{'.$key.'}}', $value ?? '', $content);
             }
         }
 
         // Add CSS styles with print background color fix
         $printCss = '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }';
         if ($template->css_styles) {
-            $content = '<style>' . $printCss . ' ' . $template->css_styles . '</style>' . $content;
+            $content = '<style>'.$printCss.' '.$template->css_styles.'</style>'.$content;
         } else {
-            $content = '<style>' . $printCss . '</style>' . $content;
+            $content = '<style>'.$printCss.'</style>'.$content;
         }
 
         return $content;
@@ -142,8 +142,8 @@ class DocumentTemplateService
         // Company fields
         if ($company = $this->getCompany($document)) {
             foreach ($company->toArray() as $key => $value) {
-                if (!is_array($value) && !is_object($value)) {
-                    $placeholders['company.' . $key] = $value;
+                if (! is_array($value) && ! is_object($value)) {
+                    $placeholders['company.'.$key] = $value;
                 }
             }
             // Add logo as base64 data URI for reliable rendering in print documents
@@ -153,8 +153,8 @@ class DocumentTemplateService
         // Branch fields
         if ($branch = $document->branch) {
             foreach ($branch->toArray() as $key => $value) {
-                if (!is_array($value) && !is_object($value)) {
-                    $placeholders['branch.' . $key] = $value;
+                if (! is_array($value) && ! is_object($value)) {
+                    $placeholders['branch.'.$key] = $value;
                 }
             }
         }
@@ -162,8 +162,8 @@ class DocumentTemplateService
         // Partner fields - Default to main partner data
         if ($partner = $document->partner) {
             foreach ($partner->toArray() as $key => $value) {
-                if (!is_array($value) && !is_object($value)) {
-                    $placeholders['partner.' . $key] = $value;
+                if (! is_array($value) && ! is_object($value)) {
+                    $placeholders['partner.'.$key] = $value;
                 }
             }
         }
@@ -175,8 +175,8 @@ class DocumentTemplateService
             $addressOverride = $document->shippingAddress;
             // Add explicit shipping address placeholders
             foreach ($addressOverride->toArray() as $key => $value) {
-                if (!is_array($value) && !is_object($value)) {
-                    $placeholders['shipping_address.' . $key] = $value;
+                if (! is_array($value) && ! is_object($value)) {
+                    $placeholders['shipping_address.'.$key] = $value;
                 }
             }
             // Map 'name' to 'label' to avoid confusion, though usually we want the Partner Name
@@ -187,8 +187,8 @@ class DocumentTemplateService
             $addressOverride = $document->invoiceAddress;
             // Add explicit invoice address placeholders
             foreach ($addressOverride->toArray() as $key => $value) {
-                if (!is_array($value) && !is_object($value)) {
-                    $placeholders['invoice_address.' . $key] = $value;
+                if (! is_array($value) && ! is_object($value)) {
+                    $placeholders['invoice_address.'.$key] = $value;
                 }
             }
             $placeholders['invoice_address.label'] = $addressOverride->name;
@@ -198,8 +198,8 @@ class DocumentTemplateService
         if ($addressOverride) {
             $fieldsToOverride = ['address', 'city', 'region', 'postal_code', 'country', 'phone', 'email'];
             foreach ($fieldsToOverride as $field) {
-                if (!empty($addressOverride->$field)) {
-                    $placeholders['partner.' . $field] = $addressOverride->$field;
+                if (! empty($addressOverride->$field)) {
+                    $placeholders['partner.'.$field] = $addressOverride->$field;
                 }
             }
         }
@@ -207,8 +207,8 @@ class DocumentTemplateService
         // Currency fields
         if ($currency = $document->currency) {
             foreach ($currency->toArray() as $key => $value) {
-                if (!is_array($value) && !is_object($value)) {
-                    $placeholders['currency.' . $key] = $value;
+                if (! is_array($value) && ! is_object($value)) {
+                    $placeholders['currency.'.$key] = $value;
                 }
             }
         }
@@ -315,6 +315,8 @@ class DocumentTemplateService
                 'description' => $line->description ?? '',
                 'quantity' => $this->formatNumber($line->quantity),
                 'uom_code' => $line->uom?->code ?? '',
+                'secondary_quantity' => $line->secondary_quantity !== null ? $this->formatNumber($line->secondary_quantity) : '',
+                'secondary_uom_label' => $line->secondary_uom_label ?? '',
                 'unit_price' => $this->formatNumber($line->unit_price),
                 'discount_rate' => $this->formatNumber($line->discount_rate ?? 0),
                 'tax_rate' => $this->formatNumber($line->tax_rate ?? 0),
@@ -322,6 +324,7 @@ class DocumentTemplateService
                 'line_total' => $this->formatNumber($line->line_total),
             ];
         }
+
         return $lines;
     }
 
@@ -341,6 +344,7 @@ class DocumentTemplateService
                 'uom_code' => $line->uom?->code ?? '',
             ];
         }
+
         return $lines;
     }
 
@@ -358,12 +362,15 @@ class DocumentTemplateService
                 'description' => $line->description ?? '',
                 'quantity' => $this->formatNumber($line->quantity),
                 'uom_code' => $line->uom_label ?? '',
+                'secondary_quantity' => $line->secondary_quantity !== null ? $this->formatNumber($line->secondary_quantity) : '',
+                'secondary_uom_label' => $line->secondary_uom_label ?? '',
                 'unit_price' => $this->formatNumber($line->unit_price),
                 'discount_rate' => $this->formatNumber($line->discount_rate ?? 0),
                 'tax_rate' => $this->formatNumber($line->tax_rate ?? 0),
                 'line_total' => $this->formatNumber($line->line_total),
             ];
         }
+
         return $lines;
     }
 
@@ -379,7 +386,7 @@ class DocumentTemplateService
             $arrayName = $matches[1];
             $template = $matches[2];
 
-            if (!isset($placeholders[$arrayName]) || !is_array($placeholders[$arrayName])) {
+            if (! isset($placeholders[$arrayName]) || ! is_array($placeholders[$arrayName])) {
                 return '';
             }
 
@@ -387,10 +394,11 @@ class DocumentTemplateService
             foreach ($placeholders[$arrayName] as $item) {
                 $row = $template;
                 foreach ($item as $key => $value) {
-                    $row = str_replace('{{' . $key . '}}', $value ?? '', $row);
+                    $row = str_replace('{{'.$key.'}}', $value ?? '', $row);
                 }
                 $output .= $row;
             }
+
             return $output;
         }, $content);
     }
@@ -414,13 +422,13 @@ class DocumentTemplateService
             'email' => 'Email',
             'website' => 'Website',
         ];
-        
+
         // Curated list of branch fields
         $branchFields = [
             'name' => 'Nama Cabang',
             'address' => 'Alamat Cabang',
         ];
-        
+
         // Curated list of partner fields that make sense for documents
         $partnerFields = [
             'name' => 'Nama',
@@ -435,7 +443,7 @@ class DocumentTemplateService
             'tax_id' => 'NPWP',
             'registration_number' => 'No. Registrasi',
         ];
-        
+
         $addressFields = [
             'label' => 'Label Alamat (e.g. Kantor Cabang)',
             'address' => 'Alamat Lengkap',
@@ -534,6 +542,7 @@ class DocumentTemplateService
     protected function getModelFields(string $modelClass): array
     {
         $model = new $modelClass;
+
         return $model->getFillable();
     }
 
@@ -548,6 +557,7 @@ class DocumentTemplateService
         if ($document->branch?->branchGroup?->company) {
             return $document->branch->branchGroup->company;
         }
+
         return null;
     }
 
@@ -556,9 +566,10 @@ class DocumentTemplateService
      */
     protected function formatDate($date): string
     {
-        if (!$date) {
+        if (! $date) {
             return '—';
         }
+
         return \Carbon\Carbon::parse($date)->translatedFormat('d F Y');
     }
 
@@ -570,6 +581,7 @@ class DocumentTemplateService
         if ($number === null) {
             return '0';
         }
+
         return number_format((float) $number, $decimals, ',', '.');
     }
 
@@ -589,14 +601,14 @@ class DocumentTemplateService
      */
     protected function getLogoDataUri(?Company $company): string
     {
-        if (!$company || !$company->logo_path) {
+        if (! $company || ! $company->logo_path) {
             return '';
         }
 
         try {
             $disk = \Illuminate\Support\Facades\Storage::disk('public');
-            
-            if (!$disk->exists($company->logo_path)) {
+
+            if (! $disk->exists($company->logo_path)) {
                 return '';
             }
 
@@ -604,8 +616,8 @@ class DocumentTemplateService
             $extension = pathinfo($company->logo_path, PATHINFO_EXTENSION);
             $mimeTypes = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif'];
             $mimeType = $mimeTypes[strtolower($extension)] ?? 'image/png';
-            
-            return 'data:' . $mimeType . ';base64,' . base64_encode($contents);
+
+            return 'data:'.$mimeType.';base64,'.base64_encode($contents);
         } catch (\Exception $e) {
             return '';
         }
@@ -616,9 +628,10 @@ class DocumentTemplateService
      */
     protected function formatDateLong($date): string
     {
-        if (!$date) {
+        if (! $date) {
             return '—';
         }
+
         return \Carbon\Carbon::parse($date)->translatedFormat('d F Y');
     }
 
@@ -627,9 +640,10 @@ class DocumentTemplateService
      */
     protected function formatDateShort($date): string
     {
-        if (!$date) {
+        if (! $date) {
             return '—';
         }
+
         return \Carbon\Carbon::parse($date)->format('d/m/Y');
     }
 
@@ -644,27 +658,27 @@ class DocumentTemplateService
 
         $number = abs((float) $number);
         $words = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
-        
+
         if ($number < 12) {
-            return $words[(int) $number] . ' Rupiah';
+            return $words[(int) $number].' Rupiah';
         } elseif ($number < 20) {
-            return $words[(int) $number - 10] . ' Belas Rupiah';
+            return $words[(int) $number - 10].' Belas Rupiah';
         } elseif ($number < 100) {
-            return $words[(int) ($number / 10)] . ' Puluh ' . $this->terbilangHelper($number % 10);
+            return $words[(int) ($number / 10)].' Puluh '.$this->terbilangHelper($number % 10);
         } elseif ($number < 200) {
-            return 'Seratus ' . $this->terbilangHelper($number - 100);
+            return 'Seratus '.$this->terbilangHelper($number - 100);
         } elseif ($number < 1000) {
-            return $words[(int) ($number / 100)] . ' Ratus ' . $this->terbilangHelper($number % 100);
+            return $words[(int) ($number / 100)].' Ratus '.$this->terbilangHelper($number % 100);
         } elseif ($number < 2000) {
-            return 'Seribu ' . $this->terbilangHelper($number - 1000);
+            return 'Seribu '.$this->terbilangHelper($number - 1000);
         } elseif ($number < 1000000) {
-            return $this->terbilangHelper($number / 1000) . 'Ribu ' . $this->terbilangHelper($number % 1000);
+            return $this->terbilangHelper($number / 1000).'Ribu '.$this->terbilangHelper($number % 1000);
         } elseif ($number < 1000000000) {
-            return $this->terbilangHelper($number / 1000000) . 'Juta ' . $this->terbilangHelper($number % 1000000);
+            return $this->terbilangHelper($number / 1000000).'Juta '.$this->terbilangHelper($number % 1000000);
         } elseif ($number < 1000000000000) {
-            return $this->terbilangHelper($number / 1000000000) . 'Miliar ' . $this->terbilangHelper($number % 1000000000);
+            return $this->terbilangHelper($number / 1000000000).'Miliar '.$this->terbilangHelper($number % 1000000000);
         } elseif ($number < 1000000000000000) {
-            return $this->terbilangHelper($number / 1000000000000) . 'Triliun ' . $this->terbilangHelper($number % 1000000000000);
+            return $this->terbilangHelper($number / 1000000000000).'Triliun '.$this->terbilangHelper($number % 1000000000000);
         }
 
         return 'Jumlah terlalu besar';
@@ -678,30 +692,30 @@ class DocumentTemplateService
         if ($number == 0) {
             return '';
         }
-        
+
         $words = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
-        
+
         if ($number < 12) {
-            return $words[(int) $number] . ' ';
+            return $words[(int) $number].' ';
         } elseif ($number < 20) {
-            return $words[(int) $number - 10] . ' Belas ';
+            return $words[(int) $number - 10].' Belas ';
         } elseif ($number < 100) {
-            return $words[(int) ($number / 10)] . ' Puluh ' . $this->terbilangHelper($number % 10);
+            return $words[(int) ($number / 10)].' Puluh '.$this->terbilangHelper($number % 10);
         } elseif ($number < 200) {
-            return 'Seratus ' . $this->terbilangHelper($number - 100);
+            return 'Seratus '.$this->terbilangHelper($number - 100);
         } elseif ($number < 1000) {
-            return $words[(int) ($number / 100)] . ' Ratus ' . $this->terbilangHelper($number % 100);
+            return $words[(int) ($number / 100)].' Ratus '.$this->terbilangHelper($number % 100);
         } elseif ($number < 2000) {
-            return 'Seribu ' . $this->terbilangHelper($number - 1000);
+            return 'Seribu '.$this->terbilangHelper($number - 1000);
         } elseif ($number < 1000000) {
-            return $this->terbilangHelper($number / 1000) . 'Ribu ' . $this->terbilangHelper($number % 1000);
+            return $this->terbilangHelper($number / 1000).'Ribu '.$this->terbilangHelper($number % 1000);
         } elseif ($number < 1000000000) {
-            return $this->terbilangHelper($number / 1000000) . 'Juta ' . $this->terbilangHelper($number % 1000000);
+            return $this->terbilangHelper($number / 1000000).'Juta '.$this->terbilangHelper($number % 1000000);
         } elseif ($number < 1000000000000) {
-            return $this->terbilangHelper($number / 1000000000) . 'Miliar ' . $this->terbilangHelper($number % 1000000000);
+            return $this->terbilangHelper($number / 1000000000).'Miliar '.$this->terbilangHelper($number % 1000000000);
         }
-        
-        return $this->terbilangHelper($number / 1000000000000) . 'Triliun ' . $this->terbilangHelper($number % 1000000000000);
+
+        return $this->terbilangHelper($number / 1000000000000).'Triliun '.$this->terbilangHelper($number % 1000000000000);
     }
 
     /**
@@ -716,9 +730,10 @@ class DocumentTemplateService
         $number = abs((float) $number);
         $ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
         $tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-        
+
         $result = $this->spellOutEnglishHelper($number, $ones, $tens);
-        return trim($result) . ' Rupiah';
+
+        return trim($result).' Rupiah';
     }
 
     /**
@@ -729,22 +744,21 @@ class DocumentTemplateService
         if ($number == 0) {
             return '';
         }
-        
+
         if ($number < 20) {
-            return $ones[(int) $number] . ' ';
+            return $ones[(int) $number].' ';
         } elseif ($number < 100) {
-            return $tens[(int) ($number / 10)] . ' ' . $this->spellOutEnglishHelper($number % 10, $ones, $tens);
+            return $tens[(int) ($number / 10)].' '.$this->spellOutEnglishHelper($number % 10, $ones, $tens);
         } elseif ($number < 1000) {
-            return $ones[(int) ($number / 100)] . ' Hundred ' . $this->spellOutEnglishHelper($number % 100, $ones, $tens);
+            return $ones[(int) ($number / 100)].' Hundred '.$this->spellOutEnglishHelper($number % 100, $ones, $tens);
         } elseif ($number < 1000000) {
-            return $this->spellOutEnglishHelper($number / 1000, $ones, $tens) . 'Thousand ' . $this->spellOutEnglishHelper($number % 1000, $ones, $tens);
+            return $this->spellOutEnglishHelper($number / 1000, $ones, $tens).'Thousand '.$this->spellOutEnglishHelper($number % 1000, $ones, $tens);
         } elseif ($number < 1000000000) {
-            return $this->spellOutEnglishHelper($number / 1000000, $ones, $tens) . 'Million ' . $this->spellOutEnglishHelper($number % 1000000, $ones, $tens);
+            return $this->spellOutEnglishHelper($number / 1000000, $ones, $tens).'Million '.$this->spellOutEnglishHelper($number % 1000000, $ones, $tens);
         } elseif ($number < 1000000000000) {
-            return $this->spellOutEnglishHelper($number / 1000000000, $ones, $tens) . 'Billion ' . $this->spellOutEnglishHelper($number % 1000000000, $ones, $tens);
+            return $this->spellOutEnglishHelper($number / 1000000000, $ones, $tens).'Billion '.$this->spellOutEnglishHelper($number % 1000000000, $ones, $tens);
         }
-        
-        return $this->spellOutEnglishHelper($number / 1000000000000, $ones, $tens) . 'Trillion ' . $this->spellOutEnglishHelper($number % 1000000000000, $ones, $tens);
+
+        return $this->spellOutEnglishHelper($number / 1000000000000, $ones, $tens).'Trillion '.$this->spellOutEnglishHelper($number % 1000000000000, $ones, $tens);
     }
 }
-

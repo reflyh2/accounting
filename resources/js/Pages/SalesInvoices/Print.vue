@@ -11,6 +11,10 @@ const props = defineProps({
 
 const useCustomTemplate = computed(() => !!props.renderedContent);
 
+const hasSecondaryQuantity = computed(() => {
+    return props.salesInvoice?.lines?.some(line => line.secondary_quantity != null);
+});
+
 onMounted(() => {
     window.print();
 });
@@ -112,6 +116,8 @@ function statusLabel(status) {
                     <th class="text-left">Deskripsi</th>
                     <th class="text-left">Satuan</th>
                     <th class="text-right">Qty</th>
+                    <th class="text-right" v-if="hasSecondaryQuantity">Qty 2</th>
+                    <th class="text-left" v-if="hasSecondaryQuantity">Satuan 2</th>
                     <th class="text-right">Harga</th>
                     <th class="text-right">Diskon (%)</th>
                     <th class="text-right">Pajak (%)</th>
@@ -124,6 +130,8 @@ function statusLabel(status) {
                     <td>{{ line.description || '—' }}</td>
                     <td>{{ line.uom_label }}</td>
                     <td class="text-right">{{ formatNumber(line.quantity) }}</td>
+                    <td class="text-right" v-if="hasSecondaryQuantity">{{ line.secondary_quantity ? formatNumber(line.secondary_quantity) : '—' }}</td>
+                    <td v-if="hasSecondaryQuantity">{{ line.secondary_uom_label || '—' }}</td>
                     <td class="text-right">{{ formatNumber(line.unit_price) }}</td>
                     <td class="text-right">{{ formatNumber(line.discount_rate) }}%</td>
                     <td class="text-right">{{ formatNumber(line.tax_rate) }}%</td>
@@ -132,17 +140,17 @@ function statusLabel(status) {
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="6"></td>
+                    <td :colspan="hasSecondaryQuantity ? 8 : 6"></td>
                     <td class="text-right font-semibold">Subtotal:</td>
                     <td class="text-right">{{ formatNumber(salesInvoice.subtotal) }}</td>
                 </tr>
                 <tr>
-                    <td colspan="6"></td>
+                    <td :colspan="hasSecondaryQuantity ? 8 : 6"></td>
                     <td class="text-right font-semibold">Pajak:</td>
                     <td class="text-right">{{ formatNumber(salesInvoice.tax_total) }}</td>
                 </tr>
                 <tr class="total-row">
-                    <td colspan="6"></td>
+                    <td :colspan="hasSecondaryQuantity ? 8 : 6"></td>
                     <td class="text-right font-bold">Total:</td>
                     <td class="text-right font-bold">{{ formatNumber(salesInvoice.total_amount) }}</td>
                 </tr>
