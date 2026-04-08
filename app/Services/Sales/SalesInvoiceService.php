@@ -27,7 +27,6 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Throwable;
 
 class SalesInvoiceService
 {
@@ -459,11 +458,7 @@ class SalesInvoiceService
 
         $payload->setLines($entries);
 
-        rescue(function () use ($payload) {
-            $this->accountingEventBus->dispatch($payload);
-        }, static function (Throwable $throwable) {
-            report($throwable);
-        });
+        $this->accountingEventBus->dispatch($payload);
     }
 
     private function deleteCostEntryJournals(SalesInvoice $invoice): void
@@ -1182,11 +1177,7 @@ class SalesInvoiceService
 
         $payload->setLines($entries);
 
-        rescue(function () use ($payload) {
-            $this->accountingEventBus->dispatch($payload);
-        }, static function (Throwable $throwable) {
-            report($throwable);
-        });
+        $this->accountingEventBus->dispatch($payload);
     }
 
     /**
@@ -1236,11 +1227,7 @@ class SalesInvoiceService
 
         $payload->setLines($entries);
 
-        rescue(function () use ($payload) {
-            $this->accountingEventBus->dispatch($payload);
-        }, static function (Throwable $throwable) {
-            report($throwable);
-        });
+        $this->accountingEventBus->dispatch($payload);
     }
 
     private function syncSalesOrderBillingStatus(
@@ -1429,11 +1416,7 @@ class SalesInvoiceService
         ]);
 
         // Dispatch event for journal creation
-        rescue(function () use ($externalDebt) {
-            ExternalDebtCreated::dispatch($externalDebt);
-        }, static function (Throwable $throwable) {
-            report($throwable);
-        });
+        ExternalDebtCreated::dispatch($externalDebt);
     }
 
     /**
