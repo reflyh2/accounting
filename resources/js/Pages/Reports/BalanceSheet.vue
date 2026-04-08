@@ -164,6 +164,51 @@ function downloadReport(format) {
                                        </tr>
                                  </template>
 
+                                 <!-- Accounts Receivable -->
+                                 <template v-for="account in reportData.assets.receivable" :key="account.account.id">
+                                       <tr :class="[{ 'font-semibold': filters.report_type === 'detailed' && account.account.is_parent }, 'group']">
+                                          <ReportTD :class="'pl-' + ((account.account.level * 4) + 4)">
+                                             {{ account.account.code }} - {{ account.account.name }}
+                                          </ReportTD>
+                                          <ReportTD class="text-right">
+                                             {{ filters.report_type === 'detailed' && account.account.is_parent ? '' : formatNumber(account.balances.previous) }}
+                                          </ReportTD>
+                                          <ReportTD class="text-right">
+                                             {{ filters.report_type === 'detailed' && account.account.is_parent ? '' : formatNumber(account.balances.current) }}
+                                          </ReportTD>
+                                       </tr>
+                                 </template>
+
+                                 <!-- Inventory -->
+                                 <template v-for="account in reportData.assets.inventory" :key="account.account.id">
+                                       <tr :class="[{ 'font-semibold': filters.report_type === 'detailed' && account.account.is_parent }, 'group']">
+                                          <ReportTD :class="'pl-' + ((account.account.level * 4) + 4)">
+                                             {{ account.account.code }} - {{ account.account.name }}
+                                          </ReportTD>
+                                          <ReportTD class="text-right">
+                                             {{ filters.report_type === 'detailed' && account.account.is_parent ? '' : formatNumber(account.balances.previous) }}
+                                          </ReportTD>
+                                          <ReportTD class="text-right">
+                                             {{ filters.report_type === 'detailed' && account.account.is_parent ? '' : formatNumber(account.balances.current) }}
+                                          </ReportTD>
+                                       </tr>
+                                 </template>
+
+                                 <!-- Other Current Assets -->
+                                 <template v-for="account in reportData.assets.other_current" :key="account.account.id">
+                                       <tr :class="[{ 'font-semibold': filters.report_type === 'detailed' && account.account.is_parent }, 'group']">
+                                          <ReportTD :class="'pl-' + ((account.account.level * 4) + 4)">
+                                             {{ account.account.code }} - {{ account.account.name }}
+                                          </ReportTD>
+                                          <ReportTD class="text-right">
+                                             {{ filters.report_type === 'detailed' && account.account.is_parent ? '' : formatNumber(account.balances.previous) }}
+                                          </ReportTD>
+                                          <ReportTD class="text-right">
+                                             {{ filters.report_type === 'detailed' && account.account.is_parent ? '' : formatNumber(account.balances.current) }}
+                                          </ReportTD>
+                                       </tr>
+                                 </template>
+
                                  <!-- Fixed Assets -->
                                  <template v-for="account in reportData.assets.fixed_asset" :key="account.account.id">
                                        <tr :class="[{ 'font-semibold': filters.report_type === 'detailed' && account.account.is_parent }, 'group']">
