@@ -249,7 +249,7 @@ const revenueVsCogsOptions = {
                     <template v-if="summaryData">
                         <!-- Profitability Cards -->
                         <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Laba Rugi Periode</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                             <!-- Revenue -->
                             <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 border border-blue-200">
                                 <div class="flex items-center justify-between mb-3">
@@ -257,16 +257,62 @@ const revenueVsCogsOptions = {
                                     <CurrencyDollarIcon class="w-5 h-5 text-blue-600" />
                                 </div>
                                 <p class="text-xl font-bold text-blue-900">{{ formatCurrency(summaryData.revenue) }}</p>
+                                <p v-if="summaryData.other_revenue" class="text-xs text-blue-600 mt-1">Pendapatan Lainnya: {{ formatCurrency(summaryData.other_revenue) }}</p>
+                            </div>
+
+                            <!-- HPP (COGS) -->
+                            <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-5 border border-red-200">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-semibold text-red-800">Harga Pokok Penjualan</h4>
+                                    <ArrowTrendingDownIcon class="w-5 h-5 text-red-600" />
+                                </div>
+                                <p class="text-xl font-bold text-red-900">{{ formatCurrency(summaryData.cogs) }}</p>
                             </div>
 
                             <!-- Gross Profit -->
-                            <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-5 border border-emerald-200">
+                            <div :class="[
+                                'rounded-xl p-5 border',
+                                summaryData.gross_profit >= 0
+                                    ? 'bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200'
+                                    : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200'
+                            ]">
                                 <div class="flex items-center justify-between mb-3">
-                                    <h4 class="text-sm font-semibold text-emerald-800">Laba Kotor</h4>
-                                    <ArrowTrendingUpIcon class="w-5 h-5 text-emerald-600" />
+                                    <h4 :class="['text-sm font-semibold', summaryData.gross_profit >= 0 ? 'text-emerald-800' : 'text-red-800']">Laba Kotor</h4>
+                                    <component :is="summaryData.gross_profit >= 0 ? ArrowTrendingUpIcon : ArrowTrendingDownIcon"
+                                        :class="['w-5 h-5', summaryData.gross_profit >= 0 ? 'text-emerald-600' : 'text-red-600']"
+                                    />
                                 </div>
-                                <p class="text-xl font-bold text-emerald-900">{{ formatCurrency(summaryData.gross_profit) }}</p>
-                                <p class="text-xs text-emerald-600 mt-1">Margin {{ summaryData.gross_margin }}%</p>
+                                <p :class="['text-xl font-bold', summaryData.gross_profit >= 0 ? 'text-emerald-900' : 'text-red-900']">
+                                    {{ formatCurrency(summaryData.gross_profit) }}
+                                </p>
+                                <p :class="['text-xs mt-1', summaryData.gross_profit >= 0 ? 'text-emerald-600' : 'text-red-600']">
+                                    Margin {{ summaryData.gross_margin }}%
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                            <!-- Other Costs (non-HPP) -->
+                            <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-5 border border-orange-200">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-semibold text-orange-800">Beban Usaha</h4>
+                                    <ArrowTrendingDownIcon class="w-5 h-5 text-orange-600" />
+                                </div>
+                                <p class="text-xl font-bold text-orange-900">{{ formatCurrency(summaryData.total_expenses) }}</p>
+                                <div class="mt-2 space-y-1">
+                                    <div class="flex justify-between text-xs">
+                                        <span class="text-orange-600">Operasional</span>
+                                        <span class="text-orange-800">{{ formatCurrency(summaryData.operational_expenses) }}</span>
+                                    </div>
+                                    <div v-if="summaryData.depreciation" class="flex justify-between text-xs">
+                                        <span class="text-orange-600">Penyusutan</span>
+                                        <span class="text-orange-800">{{ formatCurrency(summaryData.depreciation) }}</span>
+                                    </div>
+                                    <div v-if="summaryData.other_expenses" class="flex justify-between text-xs">
+                                        <span class="text-orange-600">Lainnya</span>
+                                        <span class="text-orange-800">{{ formatCurrency(summaryData.other_expenses) }}</span>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Net Profit -->
@@ -288,25 +334,6 @@ const revenueVsCogsOptions = {
                                 <p :class="['text-xs mt-1', summaryData.net_profit >= 0 ? 'text-green-600' : 'text-red-600']">
                                     Margin {{ summaryData.net_margin }}%
                                 </p>
-                            </div>
-
-                            <!-- Total Expenses -->
-                            <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-5 border border-orange-200">
-                                <div class="flex items-center justify-between mb-3">
-                                    <h4 class="text-sm font-semibold text-orange-800">Total Beban</h4>
-                                    <ArrowTrendingDownIcon class="w-5 h-5 text-orange-600" />
-                                </div>
-                                <p class="text-xl font-bold text-orange-900">{{ formatCurrency(summaryData.total_expenses) }}</p>
-                                <div class="mt-2 space-y-1">
-                                    <div class="flex justify-between text-xs">
-                                        <span class="text-orange-600">HPP</span>
-                                        <span class="text-orange-800">{{ formatCurrency(summaryData.cogs) }}</span>
-                                    </div>
-                                    <div class="flex justify-between text-xs">
-                                        <span class="text-orange-600">Operasional</span>
-                                        <span class="text-orange-800">{{ formatCurrency(summaryData.operational_expenses) }}</span>
-                                    </div>
-                                </div>
                             </div>
                         </div>
 

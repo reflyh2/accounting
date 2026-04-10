@@ -294,8 +294,13 @@ class DashboardController extends Controller
 
         return [
             'revenue' => $revenue,
+            'cogs' => $cogs,
             'gross_profit' => $grossProfit,
             'gross_margin' => $grossMargin,
+            'total_expenses' => $totalExpenses,
+            'operational_expenses' => $operationalExpenses,
+            'depreciation' => $depreciation,
+            'other_expenses' => $otherExpenses,
             'net_profit' => $netProfit,
             'net_margin' => $netMargin,
             'total_assets' => $totalAssets,

@@ -3,9 +3,6 @@ import { computed } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import {
-    ShoppingCartIcon,
-    DocumentTextIcon,
-    ClipboardDocumentListIcon,
     BanknotesIcon,
     ArrowTrendingUpIcon,
     ArrowTrendingDownIcon,
@@ -16,14 +13,13 @@ import {
     CurrencyDollarIcon,
     ArchiveBoxIcon,
 } from '@heroicons/vue/24/outline';
-import { Line, Doughnut } from 'vue-chartjs';
+import { Line } from 'vue-chartjs';
 import {
     Chart as ChartJS,
     CategoryScale,
     LinearScale,
     PointElement,
     LineElement,
-    ArcElement,
     Title,
     Tooltip,
     Legend,
@@ -35,7 +31,6 @@ ChartJS.register(
     LinearScale,
     PointElement,
     LineElement,
-    ArcElement,
     Title,
     Tooltip,
     Legend,
@@ -213,13 +208,65 @@ const trendOptions = {
                     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Akuntansi</h3>
                     <Link :href="route('operational-reconciliation.index')" class="text-sm text-blue-600 hover:text-blue-800">Detail →</Link>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 border border-blue-200">
                         <div class="flex items-center justify-between mb-3">
                             <h4 class="text-sm font-semibold text-blue-800">Pendapatan</h4>
                             <CurrencyDollarIcon class="w-5 h-5 text-blue-600" />
                         </div>
                         <p class="text-xl font-bold text-blue-900">{{ formatCurrency(accounting.revenue) }}</p>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-5 border border-red-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-red-800">Harga Pokok Penjualan</h4>
+                            <ArrowTrendingDownIcon class="w-5 h-5 text-red-600" />
+                        </div>
+                        <p class="text-xl font-bold text-red-900">{{ formatCurrency(accounting.cogs) }}</p>
+                    </div>
+
+                    <div :class="[
+                        'rounded-xl p-5 border',
+                        accounting.gross_profit >= 0
+                            ? 'bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200'
+                            : 'bg-gradient-to-br from-red-50 to-red-100 border-red-200'
+                    ]">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 :class="['text-sm font-semibold', accounting.gross_profit >= 0 ? 'text-emerald-800' : 'text-red-800']">Laba Kotor</h4>
+                            <component :is="accounting.gross_profit >= 0 ? ArrowTrendingUpIcon : ArrowTrendingDownIcon"
+                                :class="['w-5 h-5', accounting.gross_profit >= 0 ? 'text-emerald-600' : 'text-red-600']"
+                            />
+                        </div>
+                        <p :class="['text-xl font-bold', accounting.gross_profit >= 0 ? 'text-emerald-900' : 'text-red-900']">
+                            {{ formatCurrency(accounting.gross_profit) }}
+                        </p>
+                        <p :class="['text-xs mt-1', accounting.gross_profit >= 0 ? 'text-emerald-600' : 'text-red-600']">
+                            Margin {{ accounting.gross_margin }}%
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                    <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-5 border border-orange-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-orange-800">Beban Usaha</h4>
+                            <ArrowTrendingDownIcon class="w-5 h-5 text-orange-600" />
+                        </div>
+                        <p class="text-xl font-bold text-orange-900">{{ formatCurrency(accounting.total_expenses) }}</p>
+                        <div class="mt-2 space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-orange-600">Operasional</span>
+                                <span class="text-orange-800">{{ formatCurrency(accounting.operational_expenses) }}</span>
+                            </div>
+                            <div v-if="accounting.depreciation" class="flex justify-between text-xs">
+                                <span class="text-orange-600">Penyusutan</span>
+                                <span class="text-orange-800">{{ formatCurrency(accounting.depreciation) }}</span>
+                            </div>
+                            <div v-if="accounting.other_expenses" class="flex justify-between text-xs">
+                                <span class="text-orange-600">Lainnya</span>
+                                <span class="text-orange-800">{{ formatCurrency(accounting.other_expenses) }}</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div :class="[
@@ -250,13 +297,6 @@ const trendOptions = {
                         <p class="text-xl font-bold text-indigo-900">{{ formatCurrency(accounting.total_assets) }}</p>
                     </div>
 
-                    <div class="bg-white rounded-xl p-5 border-2 border-teal-200 shadow-sm">
-                        <div class="flex items-center justify-between mb-3">
-                            <h4 class="text-sm font-semibold text-teal-800">Kas & Bank</h4>
-                            <BanknotesIcon class="w-5 h-5 text-teal-600" />
-                        </div>
-                        <p class="text-xl font-bold text-teal-900">{{ formatCurrency(accounting.cash_and_bank) }}</p>
-                    </div>
                 </div>
             </template>
 
@@ -323,28 +363,6 @@ const trendOptions = {
                     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Penjualan</h3>
                     <Link :href="route('sales-reports.index')" class="text-sm text-blue-600 hover:text-blue-800">Detail →</Link>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Link :href="route('sales-orders.index')" class="block bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex items-center justify-between mb-3">
-                            <h4 class="text-sm font-semibold text-gray-800">Sales Order</h4>
-                            <ShoppingCartIcon class="w-5 h-5 text-green-600" />
-                        </div>
-                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(sales.orders.count) }}</p>
-                        <p class="text-sm text-green-600 font-medium mt-1">{{ formatCurrency(sales.orders.total) }}</p>
-                        <p class="text-xs text-gray-500 mt-1">{{ formatNumber(sales.orders.confirmed) }} dikonfirmasi</p>
-                    </Link>
-
-                    <Link :href="route('sales-invoices.index')" class="block bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex items-center justify-between mb-3">
-                            <h4 class="text-sm font-semibold text-gray-800">Faktur Penjualan</h4>
-                            <DocumentTextIcon class="w-5 h-5 text-blue-600" />
-                        </div>
-                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(sales.invoices.count) }}</p>
-                        <p class="text-sm text-blue-600 font-medium mt-1">{{ formatCurrency(sales.invoices.total) }}</p>
-                        <p class="text-xs text-gray-500 mt-1">{{ formatNumber(sales.invoices.draft) }} draft, {{ formatNumber(sales.invoices.posted) }} posted</p>
-                    </Link>
-                </div>
-
                 <!-- Sales Charts & Recent -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
@@ -392,27 +410,6 @@ const trendOptions = {
                     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Pembelian</h3>
                     <Link :href="route('purchasing-reports.index')" class="text-sm text-blue-600 hover:text-blue-800">Detail →</Link>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Link :href="route('purchase-orders.index')" class="block bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex items-center justify-between mb-3">
-                            <h4 class="text-sm font-semibold text-gray-800">Purchase Order</h4>
-                            <ClipboardDocumentListIcon class="w-5 h-5 text-purple-600" />
-                        </div>
-                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(purchase.orders.count) }}</p>
-                        <p class="text-sm text-purple-600 font-medium mt-1">{{ formatCurrency(purchase.orders.total) }}</p>
-                        <p class="text-xs text-gray-500 mt-1">{{ formatNumber(purchase.orders.pending) }} pending</p>
-                    </Link>
-
-                    <Link :href="route('purchase-invoices.index')" class="block bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex items-center justify-between mb-3">
-                            <h4 class="text-sm font-semibold text-gray-800">Faktur Pembelian</h4>
-                            <BanknotesIcon class="w-5 h-5 text-orange-600" />
-                        </div>
-                        <p class="text-2xl font-bold text-gray-900">{{ formatNumber(purchase.invoices.count) }}</p>
-                        <p class="text-sm text-orange-600 font-medium mt-1">{{ formatCurrency(purchase.invoices.total) }}</p>
-                    </Link>
-                </div>
-
                 <!-- Purchase Charts & Recent -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
