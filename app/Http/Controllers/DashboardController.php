@@ -266,7 +266,7 @@ class DashboardController extends Controller
 
         $revenue = $this->sumByTypes($periodBalances, ['pendapatan']);
         $cogs = $this->sumByTypes($periodBalances, ['beban_pokok_penjualan']);
-        $operationalExpenses = $this->sumByTypes($periodBalances, ['beban_operasional']);
+        $operationalExpenses = $this->sumByTypes($periodBalances, ['beban']);
         $otherRevenue = $this->sumByTypes($periodBalances, ['pendapatan_lainnya']);
         $otherExpenses = $this->sumByTypes($periodBalances, ['beban_lainnya']);
         $depreciation = $this->sumByTypes($periodBalances, ['beban_penyusutan', 'beban_amortisasi']);

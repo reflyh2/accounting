@@ -55,7 +55,7 @@ class OperationalReconciliationController extends Controller
         $revenue = $this->sumByTypes($periodBalances, ['pendapatan']);
         $otherRevenue = $this->sumByTypes($periodBalances, ['pendapatan_lainnya']);
         $cogs = $this->sumByTypes($periodBalances, ['beban_pokok_penjualan']);
-        $operationalExpenses = $this->sumByTypes($periodBalances, ['beban_operasional']);
+        $operationalExpenses = $this->sumByTypes($periodBalances, ['beban']);
         $otherExpenses = $this->sumByTypes($periodBalances, ['beban_lainnya']);
         $depreciation = $this->sumByTypes($periodBalances, ['beban_penyusutan']);
         $amortization = $this->sumByTypes($periodBalances, ['beban_amortisasi']);
@@ -137,7 +137,7 @@ class OperationalReconciliationController extends Controller
             $balances = $this->getAccountBalancesForPeriod($monthStart, $monthEnd, $filters);
             $rev = $this->sumByTypes($balances, ['pendapatan']);
             $cogs = $this->sumByTypes($balances, ['beban_pokok_penjualan']);
-            $expenses = $this->sumByTypes($balances, ['beban_operasional', 'beban_lainnya', 'beban_penyusutan', 'beban_amortisasi']);
+            $expenses = $this->sumByTypes($balances, ['beban', 'beban_lainnya', 'beban_penyusutan', 'beban_amortisasi']);
             $otherRev = $this->sumByTypes($balances, ['pendapatan_lainnya']);
 
             $revenueData[] = $rev;
@@ -159,7 +159,7 @@ class OperationalReconciliationController extends Controller
 
         $categories = [
             'HPP' => $this->sumByTypes($balances, ['beban_pokok_penjualan']),
-            'Operasional' => $this->sumByTypes($balances, ['beban_operasional']),
+            'Operasional' => $this->sumByTypes($balances, ['beban']),
             'Penyusutan' => $this->sumByTypes($balances, ['beban_penyusutan', 'beban_amortisasi']),
             'Lainnya' => $this->sumByTypes($balances, ['beban_lainnya']),
         ];

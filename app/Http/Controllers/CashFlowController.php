@@ -56,7 +56,7 @@ class CashFlowController extends Controller
         // Categorize account types into cash flow sections
         $operatingTypes = [
             'pendapatan', 'pendapatan_lainnya',
-            'beban_pokok_penjualan', 'beban_operasional', 'beban_lainnya',
+            'beban_pokok_penjualan', 'beban', 'beban_lainnya',
             'hutang_usaha', 'hutang_usaha_lainnya',
             'piutang_usaha', 'piutang_usaha_lainnya',
             'persediaan',
