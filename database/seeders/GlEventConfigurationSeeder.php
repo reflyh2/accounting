@@ -22,10 +22,10 @@ class GlEventConfigurationSeeder extends Seeder
      */
     public function run(): void
     {
-        // Get existing company - should be created by SetupTenantDatabase before this seeder runs
-        $company = Company::withoutGlobalScopes()->first();
-        if (! $company) {
-            throw new \RuntimeException('GlEventConfigurationSeeder requires a company to exist. Run SetupTenantDatabase first.');
+        // Get all companies in the tenant
+        $companies = Company::withoutGlobalScopes()->get();
+        if ($companies->isEmpty()) {
+            throw new \RuntimeException('GlEventConfigurationSeeder requires at least one company to exist. Run SetupTenantDatabase first.');
         }
 
         // Get required accounts by name for mapping
@@ -178,30 +178,32 @@ class GlEventConfigurationSeeder extends Seeder
         $accountNames = collect($eventConfigurations)->pluck('lines.*.account_name')->flatten()->unique()->toArray();
         $accounts = $this->getAccountsByName($accountNames);
 
-        foreach ($eventConfigurations as $eventCode => $config) {
-            $glEventConfig = GlEventConfiguration::updateOrCreate(
-                [
-                    'company_id' => $company->id,
-                    'event_code' => $eventCode,
-                ],
-                [
-                    'branch_id' => null,
-                    'description' => $config['description'],
-                    'is_active' => true,
-                ]
-            );
+        foreach ($companies as $company) {
+            foreach ($eventConfigurations as $eventCode => $config) {
+                $glEventConfig = GlEventConfiguration::updateOrCreate(
+                    [
+                        'company_id' => $company->id,
+                        'event_code' => $eventCode,
+                    ],
+                    [
+                        'branch_id' => null,
+                        'description' => $config['description'],
+                        'is_active' => true,
+                    ]
+                );
 
-            foreach ($config['lines'] as $line) {
-                $account = $accounts[$line['account_name']] ?? null;
+                foreach ($config['lines'] as $line) {
+                    $account = $accounts[$line['account_name']] ?? null;
 
-                if ($account) {
-                    GlEventConfigurationLine::firstOrCreate([
-                        'gl_event_configuration_id' => $glEventConfig->id,
-                        'role' => $line['role'],
-                    ], [
-                        'direction' => $line['direction'],
-                        'account_id' => $account->id,
-                    ]);
+                    if ($account) {
+                        GlEventConfigurationLine::firstOrCreate([
+                            'gl_event_configuration_id' => $glEventConfig->id,
+                            'role' => $line['role'],
+                        ], [
+                            'direction' => $line['direction'],
+                            'account_id' => $account->id,
+                        ]);
+                    }
                 }
             }
         }
