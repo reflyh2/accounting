@@ -916,8 +916,14 @@ class SalesInvoiceController extends Controller
 
     private function branchOptions(): array
     {
-        return Branch::with('branchGroup.company')
-            ->orderBy('name')
+        $query = Branch::with('branchGroup:id,company_id');
+
+        $companyId = request()->input('company_id');
+        if ($companyId) {
+            $query->whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId));
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->map(fn ($b) => [
                 'value' => $b->id,

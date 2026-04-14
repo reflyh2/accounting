@@ -99,11 +99,11 @@ class GoodsReceiptController extends Controller
         $order = $filters['order'] ?? 'desc';
         $allowedSorts = ['receipt_date', 'receipt_number', 'status', 'total_value', 'total_value_base'];
 
-        if (!in_array($sort, $allowedSorts, true)) {
+        if (! in_array($sort, $allowedSorts, true)) {
             $sort = 'receipt_date';
         }
 
-        if (!in_array(strtolower($order), ['asc', 'desc'], true)) {
+        if (! in_array(strtolower($order), ['asc', 'desc'], true)) {
             $order = 'desc';
         }
 
@@ -131,7 +131,7 @@ class GoodsReceiptController extends Controller
         $selectedBranchId = $request->integer('branch_id') ?: null;
         $selectedPartnerId = $request->integer('partner_id') ?: null;
         $selectedIds = $request->input('purchase_order_ids', []);
-        if (!is_array($selectedIds)) {
+        if (! is_array($selectedIds)) {
             $selectedIds = $selectedIds ? [$selectedIds] : [];
         }
         $selectedIds = array_filter(array_map('intval', $selectedIds));
@@ -160,10 +160,10 @@ class GoodsReceiptController extends Controller
             $locations = $this->locationOptions($selectedBranchId);
         }
 
-        if (!empty($selectedIds)) {
+        if (! empty($selectedIds)) {
             $selectedPurchaseOrders = $this->purchaseOrdersDetail($selectedIds);
             // Update locations from PO branch if not already set
-            if (empty($locations) && !empty($selectedPurchaseOrders)) {
+            if (empty($locations) && ! empty($selectedPurchaseOrders)) {
                 $branchId = $selectedPurchaseOrders[0]['branch']['id'] ?? null;
                 if ($branchId) {
                     $locations = $this->locationOptions($branchId);
@@ -448,11 +448,11 @@ class GoodsReceiptController extends Controller
         $purchaseOrders = $query->get();
 
         // Include any selected POs that aren't in the query result
-        if (!empty($selectedIds)) {
+        if (! empty($selectedIds)) {
             $existingIds = $purchaseOrders->pluck('id')->toArray();
             $missingIds = array_diff($selectedIds, $existingIds);
 
-            if (!empty($missingIds)) {
+            if (! empty($missingIds)) {
                 $additionalPOs = PurchaseOrder::with(['partner', 'branch.branchGroup.company', 'lines'])
                     ->whereIn('id', $missingIds)
                     ->get();
@@ -502,6 +502,7 @@ class GoodsReceiptController extends Controller
         foreach ($purchaseOrders as $purchaseOrder) {
             $lines = $purchaseOrder->lines->map(function ($line) {
                 $remaining = max(0, (float) $line->quantity - (float) $line->quantity_received);
+
                 return [
                     'id' => $line->id,
                     'line_number' => $line->line_number,
@@ -560,6 +561,7 @@ class GoodsReceiptController extends Controller
     private function purchaseOrderDetail(int $purchaseOrderId): ?array
     {
         $result = $this->purchaseOrdersDetail([$purchaseOrderId]);
+
         return $result[0] ?? null;
     }
 
@@ -755,13 +757,19 @@ class GoodsReceiptController extends Controller
 
     private function branchOptions()
     {
-        return Branch::with('branchGroup.company')
-            ->orderBy('name')
+        $query = Branch::with('branchGroup:id,company_id');
+
+        $companyId = request()->input('company_id');
+        if ($companyId) {
+            $query->whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId));
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->map(fn (Branch $branch) => [
                 'id' => $branch->id,
                 'name' => $branch->name,
-                'company' => $branch->branchGroup?->company?->name,
+                'company_id' => $branch->branchGroup?->company_id,
             ])
             ->values();
     }
@@ -786,7 +794,7 @@ class GoodsReceiptController extends Controller
             $search = strtolower($request->search);
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('lower(name) like ?', ["%{$search}%"])
-                  ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
+                    ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
             });
         }
 
@@ -827,8 +835,8 @@ class GoodsReceiptController extends Controller
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('goods-receipts.index') . ($currentQuery ? '?' . $currentQuery : '');
-            
+            $redirectUrl = route('goods-receipts.index').($currentQuery ? '?'.$currentQuery : '');
+
             return Redirect::to($redirectUrl)
                 ->with('success', 'Penerimaan Barang berhasil dihapus.');
         }
@@ -840,18 +848,21 @@ class GoodsReceiptController extends Controller
     public function exportXLSX(Request $request)
     {
         $goodsReceipts = $this->getFilteredGoodsReceipts($request);
+
         return Excel::download(new GoodsReceiptsExport($goodsReceipts), 'goods-receipts.xlsx');
     }
 
     public function exportCSV(Request $request)
     {
         $goodsReceipts = $this->getFilteredGoodsReceipts($request);
+
         return Excel::download(new GoodsReceiptsExport($goodsReceipts), 'goods-receipts.csv', \Maatwebsite\Excel\Excel::CSV);
     }
 
     public function exportPDF(Request $request)
     {
         $goodsReceipts = $this->getFilteredGoodsReceipts($request);
+
         return Excel::download(new GoodsReceiptsExport($goodsReceipts), 'goods-receipts.pdf', \Maatwebsite\Excel\Excel::DOMPDF);
     }
 
@@ -911,7 +922,7 @@ class GoodsReceiptController extends Controller
         $receiptDate = $request->input('receipt_date', now()->toDateString());
         $query->where(function ($q) use ($receiptDate) {
             $q->whereNull('expiry_date')
-              ->orWhere('expiry_date', '>=', $receiptDate);
+                ->orWhere('expiry_date', '>=', $receiptDate);
         });
 
         if ($request->search) {
@@ -997,5 +1008,3 @@ class GoodsReceiptController extends Controller
         ]);
     }
 }
-
-

@@ -290,8 +290,14 @@ class PurchaseOrderController extends Controller
 
     private function branchOptions()
     {
-        return Branch::with('branchGroup:id,company_id')
-            ->orderBy('name')
+        $query = Branch::with('branchGroup:id,company_id');
+
+        $companyId = request()->input('company_id');
+        if ($companyId) {
+            $query->whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId));
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->map(fn (Branch $branch) => [
                 'id' => $branch->id,
@@ -365,7 +371,7 @@ class PurchaseOrderController extends Controller
      */
     private function getAvailablePurchasePlans(?int $branchId): array
     {
-        if (!$branchId) {
+        if (! $branchId) {
             return [];
         }
 
@@ -421,8 +427,8 @@ class PurchaseOrderController extends Controller
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('purchase-orders.index') . ($currentQuery ? '?' . $currentQuery : '');
-            
+            $redirectUrl = route('purchase-orders.index').($currentQuery ? '?'.$currentQuery : '');
+
             return Redirect::to($redirectUrl)
                 ->with('success', 'Purchase Orders berhasil dihapus.');
         }
@@ -434,18 +440,21 @@ class PurchaseOrderController extends Controller
     public function exportXLSX(Request $request)
     {
         $purchaseOrders = $this->getFilteredPurchaseOrders($request);
+
         return Excel::download(new PurchaseOrdersExport($purchaseOrders), 'purchase-orders.xlsx');
     }
 
     public function exportCSV(Request $request)
     {
         $purchaseOrders = $this->getFilteredPurchaseOrders($request);
+
         return Excel::download(new PurchaseOrdersExport($purchaseOrders), 'purchase-orders.csv', \Maatwebsite\Excel\Excel::CSV);
     }
 
     public function exportPDF(Request $request)
     {
         $purchaseOrders = $this->getFilteredPurchaseOrders($request);
+
         return Excel::download(new PurchaseOrdersExport($purchaseOrders), 'purchase-orders.pdf', \Maatwebsite\Excel\Excel::DOMPDF);
     }
 

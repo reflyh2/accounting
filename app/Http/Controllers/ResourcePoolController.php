@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Branch;
-use App\Models\Company;
 use App\Models\Product;
 use App\Models\ResourcePool;
 use Illuminate\Http\RedirectResponse;
@@ -141,8 +140,14 @@ class ResourcePoolController extends Controller
 
     private function branchOptions(): array
     {
-        return Branch::with('branchGroup:id,company_id')
-            ->orderBy('name')
+        $query = Branch::with('branchGroup:id,company_id');
+
+        $companyId = request()->input('company_id');
+        if ($companyId) {
+            $query->whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId));
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->map(fn (Branch $branch) => [
                 'id' => $branch->id,

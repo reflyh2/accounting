@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Documents\PurchaseReturnStatus;
-use App\Exports\PurchaseReturnsExport;
 use App\Exceptions\PurchaseReturnException;
+use App\Exports\PurchaseReturnsExport;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\GoodsReceipt;
@@ -24,8 +24,7 @@ class PurchaseReturnController extends Controller
 
     public function __construct(
         private readonly PurchaseReturnService $purchaseReturnService
-    ) {
-    }
+    ) {}
 
     public function index(Request $request)
     {
@@ -103,7 +102,7 @@ class PurchaseReturnController extends Controller
         $order = strtolower($filters['order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $allowedSorts = ['return_date', 'return_number', 'total_value', 'total_value_base'];
 
-        if (!in_array($sort, $allowedSorts, true)) {
+        if (! in_array($sort, $allowedSorts, true)) {
             $sort = 'return_date';
         }
 
@@ -273,9 +272,9 @@ class PurchaseReturnController extends Controller
             }
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             return Redirect::back()
-                ->with('warning', "Berhasil menghapus {$deletedCount} retur. Gagal: " . implode(', ', $errors));
+                ->with('warning', "Berhasil menghapus {$deletedCount} retur. Gagal: ".implode(', ', $errors));
         }
 
         return Redirect::back()
@@ -301,7 +300,7 @@ class PurchaseReturnController extends Controller
             $search = strtolower($request->search);
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('lower(name) like ?', ["%{$search}%"])
-                  ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
+                    ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
             });
         }
 
@@ -430,13 +429,19 @@ class PurchaseReturnController extends Controller
 
     private function branchOptions()
     {
-        return Branch::with('branchGroup.company')
-            ->orderBy('name')
+        $query = Branch::with('branchGroup:id,company_id');
+
+        $companyId = request()->input('company_id');
+        if ($companyId) {
+            $query->whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId));
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->map(fn (Branch $branch) => [
                 'id' => $branch->id,
                 'name' => $branch->name,
-                'company' => $branch->branchGroup?->company?->name,
+                'company_id' => $branch->branchGroup?->company_id,
             ])
             ->values();
     }
@@ -492,7 +497,7 @@ class PurchaseReturnController extends Controller
 
         $goodsReceipts = $query->get();
 
-        if ($selectedId && !$goodsReceipts->firstWhere('id', $selectedId)) {
+        if ($selectedId && ! $goodsReceipts->firstWhere('id', $selectedId)) {
             $selected = GoodsReceipt::with(['purchaseOrder.partner', 'branch', 'lines'])
                 ->find($selectedId);
 
@@ -541,7 +546,7 @@ class PurchaseReturnController extends Controller
 
         $goodsReceipts = $query->get();
 
-        if ($selectedId && !$goodsReceipts->firstWhere('id', $selectedId)) {
+        if ($selectedId && ! $goodsReceipts->firstWhere('id', $selectedId)) {
             $selected = GoodsReceipt::with(['purchaseOrders.partner', 'branch.branchGroup.company', 'lines'])
                 ->find($selectedId);
 
@@ -578,7 +583,7 @@ class PurchaseReturnController extends Controller
             'lines.purchaseOrderLine',
         ])->find($goodsReceiptId);
 
-        if (!$goodsReceipt) {
+        if (! $goodsReceipt) {
             return null;
         }
 
@@ -607,7 +612,7 @@ class PurchaseReturnController extends Controller
         })->filter(fn ($line) => $line['available_quantity'] > self::QTY_TOLERANCE)
             ->values();
 
-        if (!$lines->count()) {
+        if (! $lines->count()) {
             return null;
         }
 
@@ -650,35 +655,35 @@ class PurchaseReturnController extends Controller
             'partner',
         ]);
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereIn('company_id', (array) $filters['company_id']);
         }
 
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', (array) $filters['branch_id']);
         }
 
-        if (!empty($filters['partner_id'])) {
+        if (! empty($filters['partner_id'])) {
             $query->whereIn('partner_id', (array) $filters['partner_id']);
         }
 
-        if (!empty($filters['reason_code'])) {
+        if (! empty($filters['reason_code'])) {
             $query->whereIn('reason_code', (array) $filters['reason_code']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->whereIn('status', (array) $filters['status']);
         }
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('return_date', '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('return_date', '<=', $filters['to_date']);
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower($filters['search']);
             $query->where(function ($builder) use ($search) {
                 $builder->whereRaw('lower(return_number) like ?', ["%{$search}%"])
@@ -691,5 +696,3 @@ class PurchaseReturnController extends Controller
         return $query->orderByDesc('return_date')->get();
     }
 }
-
-

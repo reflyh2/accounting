@@ -447,12 +447,19 @@ class PurchaseInvoiceController extends Controller
 
     private function branchOptions()
     {
-        return Branch::with('branchGroup.company')
-            ->orderBy('name')
+        $query = Branch::with('branchGroup:id,company_id');
+
+        $companyId = request()->input('company_id');
+        if ($companyId) {
+            $query->whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId));
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->map(fn ($branch) => [
                 'value' => $branch->id,
-                'label' => $branch->name.($branch->branchGroup?->company ? ' ('.$branch->branchGroup->company->name.')' : ''),
+                'label' => $branch->name,
+                'company_id' => $branch->branchGroup?->company_id,
             ])
             ->values()
             ->toArray();

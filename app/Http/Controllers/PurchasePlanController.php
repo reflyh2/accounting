@@ -13,8 +13,8 @@ use App\Services\Purchasing\PurchasePlanService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -85,7 +85,7 @@ class PurchasePlanController extends Controller
         $order = $filters['order'] ?? 'desc';
 
         $allowedSorts = ['plan_date', 'plan_number', 'status', 'required_date'];
-        if (!in_array($sort, $allowedSorts, true)) {
+        if (! in_array($sort, $allowedSorts, true)) {
             $sort = 'plan_date';
         }
 
@@ -256,13 +256,13 @@ class PurchasePlanController extends Controller
         } catch (\App\Exceptions\PurchaseOrderException $e) {
             return Redirect::back()->with('error', $e->getMessage());
         } catch (\Exception $e) {
-             return Redirect::back()->with('error', 'Terjadi kesalahan saat menghapus data.');
+            return Redirect::back()->with('error', 'Terjadi kesalahan saat menghapus data.');
         }
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('purchase-plans.index') . ($currentQuery ? '?' . $currentQuery : '');
-            
+            $redirectUrl = route('purchase-plans.index').($currentQuery ? '?'.$currentQuery : '');
+
             return Redirect::to($redirectUrl)
                 ->with('success', 'Rencana Pembelian berhasil dihapus.');
         }
@@ -278,8 +278,14 @@ class PurchasePlanController extends Controller
 
     private function branchOptions()
     {
-        return Branch::with('branchGroup:id,company_id')
-            ->orderBy('name')
+        $query = Branch::with('branchGroup:id,company_id');
+
+        $companyId = request()->input('company_id');
+        if ($companyId) {
+            $query->whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId));
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->map(fn (Branch $branch) => [
                 'id' => $branch->id,
