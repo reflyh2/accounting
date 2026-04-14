@@ -5,7 +5,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import AppDataTable from '@/Components/AppDataTable.vue';
 import TabLinks from '@/Components/TabLinks.vue';
-import { Cog8ToothIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/solid';
+import { Cog8ToothIcon, ExclamationTriangleIcon, ClipboardDocumentListIcon } from '@heroicons/vue/24/solid';
 
 const props = defineProps({
     companies: Object,
@@ -161,6 +161,11 @@ function handleFilter(newFilters) {
                         @filter="handleFilter"
                     >
                         <template #custom_actions="{ item }">
+                            <Link :href="route('companies.account-assignment.edit', item.id)" class="mr-3" title="Penugasan Akun">
+                                <button type="button" title="Penugasan Akun" class="inline-flex items-center justify-center align-middle h-4 w-4 md:ml-2 text-main-500 hover:text-main-700 focus:outline-none focus:ring-2 focus:ring-main-500 focus:ring-opacity-50">
+                                    <ClipboardDocumentListIcon class="h-4 w-4" />
+                                </button>
+                            </Link>
                             <Link :href="route('companies.default-accounts.edit', item.id)" class="mr-3" title="Pengaturan Akun Standar">
                                 <button type="button" title="Pengaturan Akun Standar" class="inline-flex items-center justify-center align-middle h-4 w-4 md:ml-2 text-main-500 hover:text-main-700 focus:outline-none focus:ring-2 focus:ring-main-500 focus:ring-opacity-50">
                                     <Cog8ToothIcon class="h-4 w-4" />

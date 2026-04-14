@@ -39,6 +39,7 @@ use App\Http\Controllers\CashBankBookController;
 use App\Http\Controllers\CashFlowController;
 use App\Http\Controllers\CashPaymentJournalController;
 use App\Http\Controllers\CashReceiptJournalController;
+use App\Http\Controllers\CompanyAccountAssignmentController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CompanyDefaultAccountsController;
 use App\Http\Controllers\ComponentIssueController;
@@ -235,6 +236,8 @@ Route::middleware([
 
         Route::get('/companies/{company}/default-accounts', [CompanyDefaultAccountsController::class, 'edit'])->name('companies.default-accounts.edit');
         Route::put('/companies/{company}/default-accounts', [CompanyDefaultAccountsController::class, 'update'])->name('companies.default-accounts.update');
+        Route::get('/companies/{company}/account-assignment', [CompanyAccountAssignmentController::class, 'edit'])->name('companies.account-assignment.edit');
+        Route::put('/companies/{company}/account-assignment', [CompanyAccountAssignmentController::class, 'update'])->name('companies.account-assignment.update');
         Route::delete('/companies/bulk-delete', [CompanyController::class, 'bulkDelete'])->name('companies.bulk-delete');
         Route::get('companies/export-xlsx', [CompanyController::class, 'exportXLSX'])->name('companies.export-xlsx');
         Route::get('companies/export-csv', [CompanyController::class, 'exportCSV'])->name('companies.export-csv');

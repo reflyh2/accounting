@@ -7,7 +7,7 @@ import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 import StatusBanner from '@/Components/StatusBanner.vue';
 import { ref, computed } from 'vue';
-import { Cog8ToothIcon } from '@heroicons/vue/24/solid';
+import { Cog8ToothIcon, ClipboardDocumentListIcon } from '@heroicons/vue/24/solid';
 
 const props = defineProps({
     company: Object,
@@ -55,6 +55,11 @@ const showBanner = computed(() => {
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-bold">{{ company.name }}</h3>
                             <div class="flex items-center">
+                                <Link :href="route('companies.account-assignment.edit', company.id)" title="Penugasan Akun">
+                                    <button type="button" class="inline-flex items-center justify-center align-middle h-4 w-4 md:ml-2 text-main-500 hover:text-main-700 focus:outline-none focus:ring-2 focus:ring-main-500 focus:ring-opacity-50">
+                                        <ClipboardDocumentListIcon class="h-4 w-4" />
+                                    </button>
+                                </Link>
                                 <Link :href="route('companies.default-accounts.edit', company.id)" title="Pengaturan Akun Standar">
                                     <button type="button" class="inline-flex items-center justify-center align-middle h-4 w-4 md:ml-2 text-main-500 hover:text-main-700 focus:outline-none focus:ring-2 focus:ring-main-500 focus:ring-opacity-50">
                                         <Cog8ToothIcon class="h-4 w-4" />
