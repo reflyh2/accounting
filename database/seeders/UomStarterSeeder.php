@@ -2,15 +2,21 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
+use App\Models\Company;
 use App\Models\Uom;
 use App\Models\UomConversion;
-use App\Models\Company;
+use Illuminate\Database\Seeder;
 
 class UomStarterSeeder extends Seeder
 {
     public function run(): void
     {
+        // Use the first company as the owner for UOMs (code is unique tenant-wide)
+        $company = Company::withoutGlobalScopes()->first();
+        if (! $company) {
+            throw new \RuntimeException('UomStarterSeeder requires at least one company to exist.');
+        }
+
         // Base UOMs
         $uoms = [
             ['code' => 'pcs', 'name' => 'Pieces', 'kind' => 'each'],
@@ -18,9 +24,11 @@ class UomStarterSeeder extends Seeder
             ['code' => 'kg', 'name' => 'Kilogram', 'kind' => 'weight'],
             ['code' => 'g', 'name' => 'Gram', 'kind' => 'weight'],
             ['code' => 'mg', 'name' => 'Milligram', 'kind' => 'weight'],
+            ['code' => 'ton', 'name' => 'Tonne', 'kind' => 'weight'],
             ['code' => 'm', 'name' => 'Meter', 'kind' => 'length'],
             ['code' => 'cm', 'name' => 'Centimeter', 'kind' => 'length'],
             ['code' => 'mm', 'name' => 'Millimeter', 'kind' => 'length'],
+            ['code' => 'km', 'name' => 'Kilometer', 'kind' => 'length'],
             ['code' => 'm2', 'name' => 'Square Meter', 'kind' => 'area'],
             ['code' => 'cm2', 'name' => 'Square Centimeter', 'kind' => 'area'],
             ['code' => 'mm2', 'name' => 'Square Millimeter', 'kind' => 'area'],
@@ -30,17 +38,15 @@ class UomStarterSeeder extends Seeder
             ['code' => 'day', 'name' => 'Day', 'kind' => 'time'],
         ];
 
-        $companies = Company::get()->pluck('id');
-
         foreach ($uoms as $u) {
-            foreach ($companies as $company) {
-                Uom::query()->updateOrCreate([
-                    'company_id' => $company,
-                    'code' => $u['code'],
+            Uom::query()->updateOrCreate(
+                ['code' => $u['code']],
+                [
+                    'company_id' => $company->id,
                     'name' => $u['name'],
                     'kind' => $u['kind'],
-                ]);
-            }
+                ]
+            );
         }
 
         $pcs = Uom::where('code', 'pcs')->first();
@@ -48,9 +54,11 @@ class UomStarterSeeder extends Seeder
         $kg = Uom::where('code', 'kg')->first();
         $g = Uom::where('code', 'g')->first();
         $mg = Uom::where('code', 'mg')->first();
+        $ton = Uom::where('code', 'ton')->first();
         $m = Uom::where('code', 'm')->first();
         $cm = Uom::where('code', 'cm')->first();
         $mm = Uom::where('code', 'mm')->first();
+        $km = Uom::where('code', 'km')->first();
         $m2 = Uom::where('code', 'm2')->first();
         $cm2 = Uom::where('code', 'cm2')->first();
         $mm2 = Uom::where('code', 'mm2')->first();
@@ -66,59 +74,69 @@ class UomStarterSeeder extends Seeder
                 [
                     'numerator' => $numerator,
                     'denominator' => $denominator,
-                    'factor' => $numerator / $denominator, // Keep factor for backward compatibility
+                    'factor' => $numerator / $denominator,
                 ]
             );
         };
 
         // Dozen <-> Pieces (1 dozen = 12 pcs)
         if ($dozen && $pcs) {
-            $createConversion($dozen, $pcs, 12, 1);   // 1 dozen = 12 pcs
-            $createConversion($pcs, $dozen, 1, 12);   // 1 pcs = 1/12 dozen
+            $createConversion($dozen, $pcs, 12, 1);
+            $createConversion($pcs, $dozen, 1, 12);
         }
 
         // Weight conversions
         if ($kg && $g && $mg) {
-            $createConversion($kg, $g, 1000, 1);       // 1 kg = 1000 g
-            $createConversion($g, $kg, 1, 1000);       // 1 g = 1/1000 kg
-            $createConversion($g, $mg, 1000, 1);       // 1 g = 1000 mg
-            $createConversion($mg, $g, 1, 1000);       // 1 mg = 1/1000 g
-            $createConversion($kg, $mg, 1000000, 1);   // 1 kg = 1000000 mg
-            $createConversion($mg, $kg, 1, 1000000);   // 1 mg = 1/1000000 kg
+            $createConversion($kg, $g, 1000, 1);
+            $createConversion($g, $kg, 1, 1000);
+            $createConversion($g, $mg, 1000, 1);
+            $createConversion($mg, $g, 1, 1000);
+            $createConversion($kg, $mg, 1000000, 1);
+            $createConversion($mg, $kg, 1, 1000000);
+        }
+
+        // Tonne <-> Kilogram (1 tonne = 1000 kg)
+        if ($ton && $kg) {
+            $createConversion($ton, $kg, 1000, 1);
+            $createConversion($kg, $ton, 1, 1000);
         }
 
         // Length conversions
         if ($m && $cm && $mm) {
-            $createConversion($m, $cm, 100, 1);        // 1 m = 100 cm
-            $createConversion($cm, $m, 1, 100);        // 1 cm = 1/100 m
-            $createConversion($cm, $mm, 10, 1);        // 1 cm = 10 mm
-            $createConversion($mm, $cm, 1, 10);        // 1 mm = 1/10 cm
-            $createConversion($m, $mm, 1000, 1);       // 1 m = 1000 mm
-            $createConversion($mm, $m, 1, 1000);       // 1 mm = 1/1000 m
+            $createConversion($m, $cm, 100, 1);
+            $createConversion($cm, $m, 1, 100);
+            $createConversion($cm, $mm, 10, 1);
+            $createConversion($mm, $cm, 1, 10);
+            $createConversion($m, $mm, 1000, 1);
+            $createConversion($mm, $m, 1, 1000);
+        }
+
+        // Kilometer <-> Meter (1 km = 1000 m)
+        if ($km && $m) {
+            $createConversion($km, $m, 1000, 1);
+            $createConversion($m, $km, 1, 1000);
         }
 
         // Area conversions
         if ($m2 && $cm2 && $mm2) {
-            $createConversion($m2, $cm2, 10000, 1);    // 1 m2 = 10000 cm2
-            $createConversion($cm2, $m2, 1, 10000);    // 1 cm2 = 1/10000 m2
-            $createConversion($cm2, $mm2, 100, 1);     // 1 cm2 = 100 mm2
-            $createConversion($mm2, $cm2, 1, 100);     // 1 mm2 = 1/100 cm2
-            $createConversion($m2, $mm2, 1000000, 1);  // 1 m2 = 1000000 mm2
-            $createConversion($mm2, $m2, 1, 1000000);  // 1 mm2 = 1/1000000 m2
+            $createConversion($m2, $cm2, 10000, 1);
+            $createConversion($cm2, $m2, 1, 10000);
+            $createConversion($cm2, $mm2, 100, 1);
+            $createConversion($mm2, $cm2, 1, 100);
+            $createConversion($m2, $mm2, 1000000, 1);
+            $createConversion($mm2, $m2, 1, 1000000);
         }
 
         // Volume conversions
         if ($l && $ml) {
-            $createConversion($l, $ml, 1000, 1);       // 1 l = 1000 ml
-            $createConversion($ml, $l, 1, 1000);       // 1 ml = 1/1000 l
+            $createConversion($l, $ml, 1000, 1);
+            $createConversion($ml, $l, 1, 1000);
         }
-        
+
         // Time conversions
         if ($day && $hour) {
-            $createConversion($day, $hour, 24, 1);     // 1 day = 24 hours
-            $createConversion($hour, $day, 1, 24);     // 1 hour = 1/24 day
+            $createConversion($day, $hour, 24, 1);
+            $createConversion($hour, $day, 1, 24);
         }
     }
 }
-
-
