@@ -1601,16 +1601,9 @@ class SalesService
             }
 
             $orderedUom = Uom::findOrFail($line['uom_id']);
-            if ((int) $orderedUom->company_id !== (int) $branch->branchGroup?->company_id) {
-                throw new SalesOrderException('Satuan tidak valid untuk perusahaan ini.');
-            }
 
             if (! $baseUom) {
                 throw new SalesOrderException('Produk tidak memiliki satuan dasar yang valid.');
-            }
-
-            if ((int) $baseUom->company_id !== (int) $branch->branchGroup?->company_id) {
-                throw new SalesOrderException('Satuan dasar tidak valid untuk perusahaan ini.');
             }
 
             $quantity = $this->roundQuantity((float) $line['quantity']);

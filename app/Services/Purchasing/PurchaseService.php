@@ -982,14 +982,8 @@ class PurchaseService
             }
 
             $orderedUom = Uom::findOrFail($line['uom_id']);
-            if ((int) $orderedUom->company_id !== $companyId) {
-                throw new PurchaseOrderException('Satuan tidak valid untuk perusahaan ini.');
-            }
 
             $baseUom = $variant->uom;
-            if ((int) $baseUom->company_id !== $companyId) {
-                throw new PurchaseOrderException('Satuan dasar varian produk tidak valid.');
-            }
 
             $quantity = $this->roundQuantity((float) $line['quantity']);
             $unitPrice = $this->roundMoney((float) $line['unit_price']);
