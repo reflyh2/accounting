@@ -420,19 +420,19 @@ class PurchaseInvoiceService
 
             $payload->setLines(
                 array_filter([
-                    AccountingEntry::credit('goods_received_not_invoiced', $grnValueBase),
+                    AccountingEntry::credit('grn_clearing', $grnValueBase),
                     $ppvAmount !== 0.0
                         ? ($ppvAmount > 0
                             ? AccountingEntry::credit('purchase_price_variance', abs($ppvAmount))
                             : AccountingEntry::debit('purchase_price_variance', abs($ppvAmount)))
                         : null,
-                    AccountingEntry::debit('accounts_payable', $totalAmountBase),
+                    AccountingEntry::debit('payable', $totalAmountBase),
                 ])
             );
         } else {
             $payload->setLines([
-                AccountingEntry::credit('merchandise_inventory', $totalAmountBase),
-                AccountingEntry::debit('accounts_payable', $totalAmountBase),
+                AccountingEntry::credit('inventory', $totalAmountBase),
+                AccountingEntry::debit('payable', $totalAmountBase),
             ]);
         }
 
@@ -974,13 +974,13 @@ class PurchaseInvoiceService
 
         $payload->setLines(
             array_filter([
-                AccountingEntry::debit('goods_received_not_invoiced', $totals['grn_value_base']),
+                AccountingEntry::debit('grn_clearing', $totals['grn_value_base']),
                 $totals['ppv_total'] !== 0.0
                     ? ($totals['ppv_total'] > 0
                         ? AccountingEntry::debit('purchase_price_variance', abs($totals['ppv_total']))
                         : AccountingEntry::credit('purchase_price_variance', abs($totals['ppv_total'])))
                     : null,
-                AccountingEntry::credit('accounts_payable', $invoiceBaseAmount),
+                AccountingEntry::credit('payable', $invoiceBaseAmount),
             ])
         );
 
@@ -995,7 +995,7 @@ class PurchaseInvoiceService
         $totalAmount = (float) $invoice->total_amount;
         $totalAmountBase = $this->roundCost($totalAmount * $exchangeRate);
 
-        // Use generic AP Posted but map 'merchandise_inventory'
+        // Use generic AP Posted but map 'inventory'
         $payload = new AccountingEventPayload(
             AccountingEventCode::PURCHASE_AP_POSTED,
             $invoice->company_id,
@@ -1012,9 +1012,9 @@ class PurchaseInvoiceService
 
         // For direct invoice: Debit Inventory, Credit AP
         // But Inventory is tracked by item/location
-        // In this system, does 'merchandise_inventory' account track strictly GL?
+        // In this system, does 'inventory' account track strictly GL?
         // Usually yes.
-        // We will Debit 'merchandise_inventory' with total amount (before tax? or including? normally cost excludes tax if recoverable, but here we simplify)
+        // We will Debit 'inventory' with total amount (before tax? or including? normally cost excludes tax if recoverable, but here we simplify)
         // If tax is involved, we Debit Tax separately?
         // Current logic for PO invoice puts tax in... wait, I missed Tax in dispatchApPostedEvent
         // In dispatchApPostedEvent, I see Credit AP for invoiceBaseAmount.
@@ -1039,8 +1039,8 @@ class PurchaseInvoiceService
         // Yes, if we consider the inventory value = cost entered.
 
         $payload->setLines([
-            AccountingEntry::debit('merchandise_inventory', $totalAmountBase),
-            AccountingEntry::credit('accounts_payable', $totalAmountBase),
+            AccountingEntry::debit('inventory', $totalAmountBase),
+            AccountingEntry::credit('payable', $totalAmountBase),
         ]);
 
         $this->dispatchAccountingEvent($payload);

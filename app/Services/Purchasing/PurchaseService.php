@@ -32,6 +32,7 @@ use Throwable;
 class PurchaseService
 {
     private const QTY_TOLERANCE = 0.0005;
+
     private const COST_SCALE = 6;
 
     public function __construct(
@@ -39,8 +40,7 @@ class PurchaseService
         private readonly InventoryService $inventoryService,
         private readonly AccountingEventBus $accountingEventBus,
         private readonly TaxService $taxService,
-    ) {
-    }
+    ) {}
 
     public function create(array $payload, ?Authenticatable $actor = null): PurchaseOrder
     {
@@ -50,7 +50,7 @@ class PurchaseService
             $branch = Branch::with('branchGroup')->findOrFail($payload['branch_id']);
             $companyId = $branch->branchGroup?->company_id;
 
-            if (!$companyId) {
+            if (! $companyId) {
                 throw new PurchaseOrderException('Cabang tidak terhubung ke perusahaan manapun.');
             }
 
@@ -106,7 +106,7 @@ class PurchaseService
             $branch = Branch::with('branchGroup')->findOrFail($payload['branch_id']);
             $companyId = $branch->branchGroup?->company_id;
 
-            if (!$companyId) {
+            if (! $companyId) {
                 throw new PurchaseOrderException('Cabang tidak terhubung ke perusahaan manapun.');
             }
 
@@ -161,7 +161,7 @@ class PurchaseService
     {
         $actor ??= Auth::user();
 
-        if (!in_array($purchaseOrder->status, [
+        if (! in_array($purchaseOrder->status, [
             PurchaseOrderStatus::SENT->value,
             PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
         ], true)) {
@@ -177,15 +177,15 @@ class PurchaseService
             'currency',
         ]);
 
-        if (!$purchaseOrder->lines->count()) {
+        if (! $purchaseOrder->lines->count()) {
             throw new PurchaseOrderException('Purchase Order tidak memiliki detail barang.');
         }
 
-        if (!isset($payload['location_id'])) {
+        if (! isset($payload['location_id'])) {
             throw new PurchaseOrderException('Lokasi penerimaan wajib dipilih.');
         }
 
-        if (!isset($payload['receipt_date'])) {
+        if (! isset($payload['receipt_date'])) {
             throw new PurchaseOrderException('Tanggal penerimaan wajib diisi.');
         }
 
@@ -323,10 +323,7 @@ class PurchaseService
     /**
      * Create a goods receipt from multiple purchase orders.
      *
-     * @param array<int> $purchaseOrderIds
-     * @param array $payload
-     * @param Authenticatable|null $actor
-     * @return GoodsReceipt
+     * @param  array<int>  $purchaseOrderIds
      */
     public function createGoodsReceipt(array $purchaseOrderIds, array $payload, ?Authenticatable $actor = null): GoodsReceipt
     {
@@ -351,7 +348,7 @@ class PurchaseService
 
         // Validate all POs have valid status
         foreach ($purchaseOrders as $po) {
-            if (!in_array($po->status, [
+            if (! in_array($po->status, [
                 PurchaseOrderStatus::SENT->value,
                 PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
             ], true)) {
@@ -367,11 +364,11 @@ class PurchaseService
 
         $firstPo = $purchaseOrders->first();
 
-        if (!isset($payload['location_id'])) {
+        if (! isset($payload['location_id'])) {
             throw new PurchaseOrderException('Lokasi penerimaan wajib dipilih.');
         }
 
-        if (!isset($payload['receipt_date'])) {
+        if (! isset($payload['receipt_date'])) {
             throw new PurchaseOrderException('Tanggal penerimaan wajib diisi.');
         }
 
@@ -535,11 +532,11 @@ class PurchaseService
             'location.branch.branchGroup.company',
         ]);
 
-        if (!isset($payload['location_id'])) {
+        if (! isset($payload['location_id'])) {
             throw new PurchaseOrderException('Lokasi penerimaan wajib dipilih.');
         }
 
-        if (!isset($payload['receipt_date'])) {
+        if (! isset($payload['receipt_date'])) {
             throw new PurchaseOrderException('Tanggal penerimaan wajib diisi.');
         }
 
@@ -610,7 +607,7 @@ class PurchaseService
                         'lines.variant.product',
                         'lines.uom',
                         'lines.baseUom',
-                    ])->find($goodsReceipt->purchase_order_id)
+                    ])->find($goodsReceipt->purchase_order_id),
                 ])->filter();
             }
 
@@ -743,7 +740,7 @@ class PurchaseService
                     $transaction = $goodsReceipt->inventoryTransaction;
                     $goodsReceipt->inventory_transaction_id = null;
                     $goodsReceipt->save();
-                    
+
                     $this->inventoryService->deleteTransaction($transaction);
                 }
 
@@ -817,7 +814,7 @@ class PurchaseService
 
         // Reverse the original entries: credit inventory, debit GRNI
         $payload->setLines([
-            AccountingEntry::debit('goods_received_not_invoiced', $normalizedAmount),
+            AccountingEntry::debit('grn_clearing', $normalizedAmount),
             AccountingEntry::credit('inventory', $normalizedAmount),
         ]);
 
@@ -947,6 +944,7 @@ class PurchaseService
     public function shouldEnforceMakerChecker(?int $companyId): bool
     {
         unset($companyId); // Placeholder for future per-company overrides.
+
         return (bool) config('purchasing.maker_checker.enforce', false);
     }
 
@@ -958,7 +956,7 @@ class PurchaseService
     }
 
     /**
-     * @param array<int, array<string, mixed>> $lines
+     * @param  array<int, array<string, mixed>>  $lines
      * @return array{subtotal: float, tax_total: float, total_amount: float}
      */
     private function persistLines(PurchaseOrder $purchaseOrder, array $lines, int $companyId): array
@@ -979,7 +977,7 @@ class PurchaseService
                 'uom',
             ])->findOrFail($line['product_variant_id']);
 
-            if (!$variant->product->companies->pluck('id')->contains($companyId)) {
+            if (! $variant->product->companies->pluck('id')->contains($companyId)) {
                 throw new PurchaseOrderException('Produk tidak tersedia untuk perusahaan ini.');
             }
 
@@ -995,7 +993,7 @@ class PurchaseService
 
             $quantity = $this->roundQuantity((float) $line['quantity']);
             $unitPrice = $this->roundMoney((float) $line['unit_price']);
-            
+
             // Auto-resolve tax rate from product's tax category if not explicitly provided
             $taxRate = $this->resolveTaxRate(
                 $variant,
@@ -1062,7 +1060,7 @@ class PurchaseService
         $lines = $purchaseOrder->lines->keyBy('id');
 
         foreach ($linesPayload as $payloadLine) {
-            if (!isset($payloadLine['purchase_order_line_id'])) {
+            if (! isset($payloadLine['purchase_order_line_id'])) {
                 continue;
             }
 
@@ -1074,7 +1072,7 @@ class PurchaseService
             $lineId = (int) $payloadLine['purchase_order_line_id'];
             $line = $lines->get($lineId);
 
-            if (!$line) {
+            if (! $line) {
                 throw new PurchaseOrderException('Baris penerimaan tidak valid.');
             }
 
@@ -1127,9 +1125,7 @@ class PurchaseService
     /**
      * Prepare GRN lines from multiple POs with optional custom UOM selection.
      *
-     * @param \Illuminate\Support\Collection<int, PurchaseOrder> $purchaseOrders
-     * @param array $linesPayload
-     * @return array
+     * @param  \Illuminate\Support\Collection<int, PurchaseOrder>  $purchaseOrders
      */
     private function prepareGoodsReceiptLinesFromMultiplePOs($purchaseOrders, array $linesPayload): array
     {
@@ -1144,7 +1140,7 @@ class PurchaseService
         }
 
         foreach ($linesPayload as $payloadLine) {
-            if (!isset($payloadLine['purchase_order_line_id'])) {
+            if (! isset($payloadLine['purchase_order_line_id'])) {
                 continue;
             }
 
@@ -1156,7 +1152,7 @@ class PurchaseService
             $lineId = (int) $payloadLine['purchase_order_line_id'];
             $line = $allLines->get($lineId);
 
-            if (!$line) {
+            if (! $line) {
                 throw new PurchaseOrderException('Baris penerimaan tidak valid.');
             }
 
@@ -1168,7 +1164,7 @@ class PurchaseService
             // Validate selected UOM if different from PO UOM
             if ($selectedUomId !== $line->uom_id) {
                 $selectedUom = Uom::find($selectedUomId);
-                if (!$selectedUom) {
+                if (! $selectedUom) {
                     throw new PurchaseOrderException('Satuan yang dipilih tidak valid.');
                 }
             }
@@ -1259,7 +1255,7 @@ class PurchaseService
             ->orderByDesc('receipt_number')
             ->value('receipt_number');
 
-        if (!$latest) {
+        if (! $latest) {
             return 1;
         }
 
@@ -1324,7 +1320,7 @@ class PurchaseService
 
         $payload->setLines([
             AccountingEntry::debit('inventory', $normalizedAmount),
-            AccountingEntry::credit('goods_received_not_invoiced', $normalizedAmount),
+            AccountingEntry::credit('grn_clearing', $normalizedAmount),
         ]);
 
         rescue(function () use ($payload) {
@@ -1369,7 +1365,7 @@ class PurchaseService
 
         $payload->setLines([
             AccountingEntry::debit('inventory', $normalizedAmount),
-            AccountingEntry::credit('goods_received_not_invoiced', $normalizedAmount),
+            AccountingEntry::credit('grn_clearing', $normalizedAmount),
         ]);
 
         rescue(function () use ($payload) {
@@ -1388,11 +1384,11 @@ class PurchaseService
         $isSupplier = $partner->roles->pluck('role')->contains('supplier');
         $belongsToCompany = $partner->companies->pluck('id')->contains($companyId);
 
-        if (!$isSupplier) {
+        if (! $isSupplier) {
             throw new PurchaseOrderException('Partner terpilih bukan supplier.');
         }
 
-        if (!$belongsToCompany) {
+        if (! $belongsToCompany) {
             throw new PurchaseOrderException('Supplier tidak terdaftar pada perusahaan ini.');
         }
 
@@ -1431,7 +1427,7 @@ class PurchaseService
             ->orderByDesc('order_number')
             ->value('order_number');
 
-        if (!$latest) {
+        if (! $latest) {
             return 1;
         }
 
@@ -1453,7 +1449,7 @@ class PurchaseService
 
     private function assertBranchBelongsToCompany(?int $requestedCompanyId, int $branchCompanyId): void
     {
-        if (!$requestedCompanyId) {
+        if (! $requestedCompanyId) {
             throw new PurchaseOrderException('Perusahaan wajib dipilih.');
         }
 
@@ -1487,9 +1483,6 @@ class PurchaseService
 
     /**
      * Update ordered_qty on purchase plan lines when PO lines are linked to plans.
-     *
-     * @param PurchaseOrder $purchaseOrder
-     * @return void
      */
     private function updatePurchasePlanOrderedQuantities(PurchaseOrder $purchaseOrder): void
     {
@@ -1498,22 +1491,20 @@ class PurchaseService
         $planLineUpdates = [];
 
         foreach ($purchaseOrder->lines as $poLine) {
-            if (!empty($poLine->source_plan_line_id)) {
+            if (! empty($poLine->source_plan_line_id)) {
                 $planLineId = $poLine->source_plan_line_id;
                 $quantity = (float) $poLine->quantity;
 
-                if (!isset($planLineUpdates[$planLineId])) {
+                if (! isset($planLineUpdates[$planLineId])) {
                     $planLineUpdates[$planLineId] = 0;
                 }
                 $planLineUpdates[$planLineId] += $quantity;
             }
         }
 
-        if (!empty($planLineUpdates)) {
+        if (! empty($planLineUpdates)) {
             $purchasePlanService = app(PurchasePlanService::class);
             $purchasePlanService->updateOrderedQuantities($planLineUpdates);
         }
     }
 }
-
-

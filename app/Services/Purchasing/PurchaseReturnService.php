@@ -28,14 +28,14 @@ use Throwable;
 class PurchaseReturnService
 {
     private const QTY_TOLERANCE = 0.0005;
+
     private const COST_SCALE = 6;
 
     public function __construct(
         private readonly InventoryService $inventoryService,
         private readonly AccountingEventBus $accountingEventBus,
         private readonly \App\Services\Inventory\UomConversionService $uomConversionService,
-    ) {
-    }
+    ) {}
 
     public function create(array $payload, ?Authenticatable $actor = null): PurchaseReturn
     {
@@ -62,7 +62,7 @@ class PurchaseReturnService
             }
 
             $returnDate = Carbon::parse($payload['return_date']);
-            
+
             // Get the first purchase order for exchange rate (they should all have the same currency/rate)
             $firstPurchaseOrder = $goodsReceipt->purchaseOrders->first();
 
@@ -112,7 +112,7 @@ class PurchaseReturnService
                 /** @var PurchaseOrderLine|null $poLine */
                 $poLine = $lockedPoLines->get($line['purchase_order_line_id']);
 
-                if (!$grnLine || !$poLine) {
+                if (! $grnLine || ! $poLine) {
                     throw new PurchaseReturnException('Baris retur tidak valid.');
                 }
 
@@ -209,7 +209,7 @@ class PurchaseReturnService
 
             $goodsReceipt = $purchaseReturn->goodsReceipt;
 
-            if (!$goodsReceipt) {
+            if (! $goodsReceipt) {
                 throw new PurchaseReturnException('Data penerimaan barang tidak ditemukan.');
             }
 
@@ -278,7 +278,7 @@ class PurchaseReturnService
             }
 
             // Reverse inventory issue by receiving stock back
-            if (!empty($receiveLines)) {
+            if (! empty($receiveLines)) {
                 $this->inventoryService->receipt(new \App\Services\Inventory\DTO\ReceiptDTO(
                     Carbon::now(),
                     $purchaseReturn->location_id,
@@ -345,7 +345,7 @@ class PurchaseReturnService
         // Reverse the original journal entries
         $payload->setLines([
             AccountingEntry::debit('inventory', $normalizedAmount),
-            AccountingEntry::credit('goods_received_not_invoiced', $normalizedAmount),
+            AccountingEntry::credit('grn_clearing', $normalizedAmount),
         ]);
 
         rescue(function () use ($payload) {
@@ -386,7 +386,7 @@ class PurchaseReturnService
             /** @var GoodsReceiptLine|null $line */
             $line = $lines->get($lineId);
 
-            if (!$line) {
+            if (! $line) {
                 throw new PurchaseReturnException('Baris penerimaan tidak ditemukan.');
             }
 
@@ -410,10 +410,10 @@ class PurchaseReturnService
 
             // Validate against available quantity (in base UOM for safety/consistency)
             $availableBase = $this->availableQuantityBase($line);
-            
+
             // Allow small tolerance for floating point comparison
             if (($quantityBase - $availableBase) > self::QTY_TOLERANCE) {
-                 throw new PurchaseReturnException('Jumlah retur melebihi saldo yang tersedia.');
+                throw new PurchaseReturnException('Jumlah retur melebihi saldo yang tersedia.');
             }
 
             $unitCostBase = (float) $line->unit_cost_base;
@@ -494,7 +494,7 @@ class PurchaseReturnService
             ->orderByDesc('return_number')
             ->value('return_number');
 
-        if (!$latest) {
+        if (! $latest) {
             return 1;
         }
 
@@ -510,6 +510,7 @@ class PurchaseReturnService
 
         $hasRemaining = $purchaseOrder->lines->contains(function ($line) {
             $remaining = ((float) $line->quantity - (float) $line->quantity_received);
+
             return $remaining > self::QTY_TOLERANCE;
         });
 
@@ -558,7 +559,7 @@ class PurchaseReturnService
         $normalizedAmount = $this->roundCost($amountBase);
 
         $payload->setLines([
-            AccountingEntry::debit('goods_received_not_invoiced', $normalizedAmount),
+            AccountingEntry::debit('grn_clearing', $normalizedAmount),
             AccountingEntry::credit('inventory', $normalizedAmount),
         ]);
 

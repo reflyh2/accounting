@@ -28,13 +28,13 @@ use Throwable;
 class SalesReturnService
 {
     private const QTY_TOLERANCE = 0.0005;
+
     private const COST_SCALE = 6;
 
     public function __construct(
         private readonly InventoryService $inventoryService,
         private readonly AccountingEventBus $accountingEventBus,
-    ) {
-    }
+    ) {}
 
     public function create(array $payload, ?Authenticatable $actor = null): SalesReturn
     {
@@ -108,7 +108,7 @@ class SalesReturnService
                 /** @var SalesOrderLine|null $soLine */
                 $soLine = $lockedSoLines->get($line['sales_order_line_id']);
 
-                if (!$deliveryLine || !$soLine) {
+                if (! $deliveryLine || ! $soLine) {
                     throw new SalesReturnException('Baris retur tidak valid.');
                 }
 
@@ -204,7 +204,7 @@ class SalesReturnService
             /** @var SalesDeliveryLine|null $line */
             $line = $lines->get($lineId);
 
-            if (!$line) {
+            if (! $line) {
                 throw new SalesReturnException('Baris delivery tidak ditemukan.');
             }
 
@@ -260,6 +260,7 @@ class SalesReturnService
 
     /**
      * Attempt to restore original cost layers from the delivery
+     *
      * @return array<int, array<string, mixed>>|null
      */
     private function restoreCostLayers(array $preparedLines, SalesDelivery $salesDelivery): ?array
@@ -297,7 +298,7 @@ class SalesReturnService
             ->orderByDesc('return_number')
             ->value('return_number');
 
-        if (!$latest) {
+        if (! $latest) {
             return 1;
         }
 
@@ -313,6 +314,7 @@ class SalesReturnService
 
         $hasRemaining = $salesOrder->lines->contains(function ($line) {
             $remaining = ((float) $line->quantity - (float) $line->quantity_delivered);
+
             return $remaining > self::QTY_TOLERANCE;
         });
 
@@ -360,7 +362,7 @@ class SalesReturnService
 
         $payload->setLines([
             AccountingEntry::debit('inventory', $normalizedAmount),
-            AccountingEntry::credit('sales_returns', $normalizedAmount),
+            AccountingEntry::credit('cogs', $normalizedAmount),
         ]);
 
         rescue(function () use ($payload) {

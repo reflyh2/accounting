@@ -34,63 +34,94 @@ const form = useForm({
 
 const selectedCompany = ref(props.configuration?.company_id || (props.companies.length > 1 ? null : props.companies[0]?.id));
 
-// All possible accounting roles
+// All possible accounting roles (must match GlEventConfigurationSeeder)
 const allRoles = [
    'inventory',
-   'goods_received_not_invoiced',
-   'accounts_payable',
-   'accounts_receivable',
-   'sales_revenue',
-   'sales_returns',
+   'grn_clearing',
+   'payable',
+   'receivable',
+   'revenue',
+   'revenue_variance',
    'cogs',
    'purchase_price_variance',
-   'revenue_variance',
+   'tax_payable',
+   'shipping_charge',
+   'shipping_charge_credit',
+   'shipping_charge_revenue',
+   'shipping_charge_receivable',
    'wip',
-   'work_in_progress',
-   'inventory_finished_goods',
-   'manufacturing_variance',
+   'raw_material',
+   'finished_goods',
+   'variance',
+   'clearing',
 ];
 
-// Map event codes to their default role configurations
+// Map event codes to their default role configurations (must match GlEventConfigurationSeeder)
 const eventCodeRoleMapping = {
    'purchase.grn_posted': [
       { role: 'inventory', direction: 'debit' },
-      { role: 'goods_received_not_invoiced', direction: 'credit' },
+      { role: 'grn_clearing', direction: 'credit' },
+   ],
+   'purchase.grn_reversed': [
+      { role: 'grn_clearing', direction: 'debit' },
+      { role: 'inventory', direction: 'credit' },
    ],
    'purchase.ap_posted': [
-      { role: 'goods_received_not_invoiced', direction: 'debit' },
-      { role: 'purchase_price_variance', direction: 'debit' }, // Can be debit or credit
-      { role: 'accounts_payable', direction: 'credit' },
+      { role: 'grn_clearing', direction: 'debit' },
+      { role: 'purchase_price_variance', direction: 'debit' },
+      { role: 'payable', direction: 'credit' },
    ],
    'purchase.return_posted': [
-      { role: 'goods_received_not_invoiced', direction: 'debit' },
+      { role: 'payable', direction: 'debit' },
       { role: 'inventory', direction: 'credit' },
+   ],
+   'purchase.return_reversed': [
+      { role: 'inventory', direction: 'debit' },
+      { role: 'payable', direction: 'credit' },
    ],
    'sales.delivery_posted': [
       { role: 'cogs', direction: 'debit' },
       { role: 'inventory', direction: 'credit' },
+      { role: 'shipping_charge', direction: 'debit' },
+      { role: 'shipping_charge_credit', direction: 'credit' },
+   ],
+   'sales.delivery_reversed': [
+      { role: 'inventory', direction: 'debit' },
+      { role: 'cogs', direction: 'credit' },
+      { role: 'shipping_charge', direction: 'credit' },
+      { role: 'shipping_charge_credit', direction: 'debit' },
    ],
    'sales.return_posted': [
       { role: 'inventory', direction: 'debit' },
-      { role: 'sales_returns', direction: 'credit' },
+      { role: 'cogs', direction: 'credit' },
    ],
    'sales.ar_posted': [
-      { role: 'accounts_receivable', direction: 'debit' },
-      { role: 'sales_revenue', direction: 'credit' },
-      { role: 'revenue_variance', direction: 'credit' }, // Can be debit or credit
+      { role: 'receivable', direction: 'debit' },
+      { role: 'revenue', direction: 'credit' },
+      { role: 'revenue_variance', direction: 'credit' },
+      { role: 'tax_payable', direction: 'credit' },
+      { role: 'shipping_charge_receivable', direction: 'debit' },
+      { role: 'shipping_charge_revenue', direction: 'credit' },
    ],
    'mfg.issue_posted': [
       { role: 'wip', direction: 'debit' },
-      { role: 'inventory', direction: 'credit' },
+      { role: 'raw_material', direction: 'credit' },
    ],
    'mfg.receipt_posted': [
-      { role: 'inventory_finished_goods', direction: 'debit' },
+      { role: 'finished_goods', direction: 'debit' },
       { role: 'wip', direction: 'credit' },
-      { role: 'manufacturing_variance', direction: 'credit' }, // Can be debit or credit
    ],
    'mfg.variance_posted': [
-      { role: 'manufacturing_variance', direction: 'debit' }, // Can be debit or credit
+      { role: 'variance', direction: 'debit' },
       { role: 'wip', direction: 'credit' },
+   ],
+   'costing.cogs_recognized': [
+      { role: 'cogs', direction: 'debit' },
+      { role: 'inventory', direction: 'credit' },
+   ],
+   'costing.cost_allocated': [
+      { role: 'inventory', direction: 'debit' },
+      { role: 'clearing', direction: 'credit' },
    ],
 };
 

@@ -30,7 +30,7 @@ function samplePayload(): AccountingEventPayload
 
     $payload->setLines([
         AccountingEntry::debit('inventory', 120.25),
-        AccountingEntry::credit('grni', 120.25),
+        AccountingEntry::credit('grn_clearing', 120.25),
     ]);
 
     return $payload;
@@ -65,7 +65,7 @@ it('rejects unbalanced payloads', function () {
 
     $payload->setLines([
         AccountingEntry::debit('inventory', 100),
-        AccountingEntry::credit('grni', 90),
+        AccountingEntry::credit('grn_clearing', 90),
     ]);
 
     expect(fn () => app(AccountingEventBus::class)->dispatch($payload))
@@ -118,5 +118,3 @@ it('builds balanced payloads using the builder helper', function () {
     expect($payload->companyId)->toBe(5);
     expect($payload->documentNumber)->toBe('DO-9001');
 });
-
-

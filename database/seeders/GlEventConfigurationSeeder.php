@@ -40,6 +40,7 @@ class GlEventConfigurationSeeder extends Seeder
             // Liability accounts
             'Hutang Usaha dari Pembelian',
             'Hutang Pembelian Belum Difakturkan',
+            'PPN Keluaran',
 
             // Revenue accounts
             'Penjualan Barang',
@@ -74,6 +75,7 @@ class GlEventConfigurationSeeder extends Seeder
                 'description' => 'Journal entry when purchase invoice (AP) is posted',
                 'lines' => [
                     ['role' => 'grn_clearing', 'direction' => 'debit', 'account_name' => 'Hutang Pembelian Belum Difakturkan'],
+                    ['role' => 'purchase_price_variance', 'direction' => 'debit', 'account_name' => 'Koreksi Persediaan'],
                     ['role' => 'payable', 'direction' => 'credit', 'account_name' => 'Hutang Usaha dari Pembelian'],
                 ],
             ],
@@ -125,6 +127,8 @@ class GlEventConfigurationSeeder extends Seeder
                 'lines' => [
                     ['role' => 'receivable', 'direction' => 'debit', 'account_name' => 'Piutang Usaha'],
                     ['role' => 'revenue', 'direction' => 'credit', 'account_name' => 'Penjualan Barang'],
+                    ['role' => 'revenue_variance', 'direction' => 'credit', 'account_name' => 'Koreksi Persediaan'],
+                    ['role' => 'tax_payable', 'direction' => 'credit', 'account_name' => 'PPN Keluaran'],
                     // Shipping charge roles - both use default GL Event Configuration accounts
                     ['role' => 'shipping_charge_revenue', 'direction' => 'credit', 'account_name' => 'Penjualan Barang'],
                     ['role' => 'shipping_charge_receivable', 'direction' => 'debit', 'account_name' => 'Piutang Usaha'],
