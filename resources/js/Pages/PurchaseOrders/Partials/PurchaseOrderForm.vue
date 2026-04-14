@@ -195,11 +195,7 @@ function getVariantsForProduct(productId) {
 }
 
 const uomOptions = computed(() => {
-    if (!form.company_id) {
-        return props.uoms;
-    }
-
-    return props.uoms.filter((uom) => uom.company_id === form.company_id);
+    return props.uoms;
 });
 
 const totals = computed(() => {
