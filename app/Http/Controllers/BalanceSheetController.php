@@ -281,11 +281,31 @@ class BalanceSheetController extends Controller
 
     private function getDescendantIds($account)
     {
-        return $account->descendants()
-            ->where('is_parent', false)
-            ->pluck('id')
-            ->push($account->id)
-            ->unique();
+        $leafIds = collect();
+
+        $this->collectLeafIds($account, $leafIds);
+
+        return $leafIds->unique();
+    }
+
+    private function collectLeafIds($account, &$leafIds): void
+    {
+        $children = Account::where('parent_id', $account->id)->get();
+
+        if ($children->isEmpty()) {
+            // Leaf node
+            $leafIds->push($account->id);
+
+            return;
+        }
+
+        foreach ($children as $child) {
+            if ($child->is_parent) {
+                $this->collectLeafIds($child, $leafIds);
+            } else {
+                $leafIds->push($child->id);
+            }
+        }
     }
 
     private function mapAndFilter($accounts, $currentBalances, $previousBalances, $isDetailed)
