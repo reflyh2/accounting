@@ -886,12 +886,14 @@ class SalesInvoiceService
             $lineTotal = $this->roundMoney($grossTotal - $discountAmount);
             $taxAmount = $this->roundMoney($lineTotal * ($taxRate / 100));
             $lineTotalBase = $this->roundCost($lineTotal * $exchangeRate);
-            $deliveryValueBase = $deliveryLine
-                ? $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base)
-                : 0.0;
-            $revenueVariance = $deliveryLine
-                ? $this->roundMoney(($lineTotalBase + ($taxAmount * $exchangeRate)) - $deliveryValueBase)
-                : 0.0;
+            if ($deliveryLine) {
+                $deliveryValueBase = $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base);
+                $revenueVariance = $this->roundMoney(($lineTotalBase + ($taxAmount * $exchangeRate)) - $deliveryValueBase);
+            } else {
+                // Non-deliverable items: use full invoice line amount (including tax) as delivery value
+                $deliveryValueBase = $this->roundCost($lineTotalBase + ($taxAmount * $exchangeRate));
+                $revenueVariance = 0.0;
+            }
 
             $prepared[] = [
                 'line_number' => $lineNumber++,
@@ -1040,12 +1042,14 @@ class SalesInvoiceService
             $lineTotalBase = $this->roundCost($lineTotal * (float) $invoice->exchange_rate);
             $taxAmount = (float) $line->tax_amount;
             $taxAmountBase = $this->roundCost($taxAmount * (float) $invoice->exchange_rate);
-            $deliveryValueBase = $deliveryLine
-                ? $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base)
-                : 0.0;
-            $revenueVariance = $deliveryLine
-                ? $this->roundMoney(($lineTotalBase + $taxAmountBase) - $deliveryValueBase)
-                : 0.0;
+            if ($deliveryLine) {
+                $deliveryValueBase = $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base);
+                $revenueVariance = $this->roundMoney(($lineTotalBase + $taxAmountBase) - $deliveryValueBase);
+            } else {
+                // Non-deliverable items: use full invoice line amount (including tax) as delivery value
+                $deliveryValueBase = $this->roundCost($lineTotalBase + $taxAmountBase);
+                $revenueVariance = 0.0;
+            }
 
             $prepared[] = [
                 'line_id' => $line->id,
