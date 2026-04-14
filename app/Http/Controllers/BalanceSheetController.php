@@ -89,59 +89,31 @@ class BalanceSheetController extends Controller
         $isDetailed = $filters['report_type'] === 'detailed';
 
         // Cash and Bank
-        $cashBankAccounts = Account::where('type', 'kas_bank')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 2))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 2))
-            ->get();
-
+        $cashBankAccounts = $this->getAccountsByType('kas_bank', $isDetailed);
         $cashBankData = $this->mapAndFilter($cashBankAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Accounts Receivable
-        $receivableAccounts = Account::whereIn('type', ['piutang_usaha', 'piutang_lainnya'])
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $receivableAccounts = $this->getAccountsByType(['piutang_usaha', 'piutang_lainnya'], $isDetailed);
         $receivableData = $this->mapAndFilter($receivableAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Inventory
-        $inventoryAccounts = Account::where('type', 'persediaan')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $inventoryAccounts = $this->getAccountsByType('persediaan', $isDetailed);
         $inventoryData = $this->mapAndFilter($inventoryAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Other Current Assets
-        $otherCurrentAccounts = Account::where('type', 'aset_lancar_lainnya')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $otherCurrentAccounts = $this->getAccountsByType('aset_lancar_lainnya', $isDetailed);
         $otherCurrentData = $this->mapAndFilter($otherCurrentAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Fixed Assets
-        $fixedAssetAccounts = Account::where('type', 'aset_tetap')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $fixedAssetAccounts = $this->getAccountsByType('aset_tetap', $isDetailed);
         $fixedAssetData = $this->mapAndFilter($fixedAssetAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Accumulated Depreciation
-        $accumulatedDepreciationAccounts = Account::where('type', 'akumulasi_penyusutan')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $accumulatedDepreciationAccounts = $this->getAccountsByType('akumulasi_penyusutan', $isDetailed);
         $accumulatedDepreciationData = $this->mapAndFilter($accumulatedDepreciationAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Other Assets
-        $otherAssetAccounts = Account::where('type', 'aset_lainnya')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $otherAssetAccounts = $this->getAccountsByType('aset_lainnya', $isDetailed);
         $otherAssetData = $this->mapAndFilter($otherAssetAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Calculate total assets
@@ -179,35 +151,19 @@ class BalanceSheetController extends Controller
         $isDetailed = $filters['report_type'] === 'detailed';
 
         // Accounts Payable
-        $payableAccounts = Account::where('type', 'hutang_usaha')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $payableAccounts = $this->getAccountsByType('hutang_usaha', $isDetailed);
         $payableData = $this->mapAndFilter($payableAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Other Accounts Payable
-        $otherPayableAccounts = Account::where('type', 'hutang_usaha_lainnya')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $otherPayableAccounts = $this->getAccountsByType('hutang_usaha_lainnya', $isDetailed);
         $otherPayableData = $this->mapAndFilter($otherPayableAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Short-term Liabilities
-        $shortTermAccounts = Account::where('type', 'liabilitas_jangka_pendek')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $shortTermAccounts = $this->getAccountsByType('liabilitas_jangka_pendek', $isDetailed);
         $shortTermData = $this->mapAndFilter($shortTermAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Long-term Liabilities
-        $longTermAccounts = Account::where('type', 'liabilitas_jangka_panjang')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $longTermAccounts = $this->getAccountsByType('liabilitas_jangka_panjang', $isDetailed);
         $longTermData = $this->mapAndFilter($longTermAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Calculate total liabilities
@@ -236,11 +192,7 @@ class BalanceSheetController extends Controller
         $isDetailed = $filters['report_type'] === 'detailed';
 
         // Equity accounts
-        $equityAccounts = Account::where('type', 'modal')
-            ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
-            ->when($isDetailed, fn ($q) => $q->where('level', '>=', 1))
-            ->get();
-
+        $equityAccounts = $this->getAccountsByType('modal', $isDetailed);
         $equityData = $this->mapAndFilter($equityAccounts, $currentBalances, $previousBalances, $isDetailed);
 
         // Calculate total equity
@@ -253,6 +205,42 @@ class BalanceSheetController extends Controller
             'accounts' => $equityData,
             'total' => $totalEquity,
         ];
+    }
+
+    private function getAccountsByType(string|array $types, bool $isDetailed)
+    {
+        $types = (array) $types;
+
+        $query = Account::query();
+
+        if (count($types) === 1) {
+            $query->where('type', $types[0]);
+        } else {
+            $query->whereIn('type', $types);
+        }
+
+        if ($isDetailed) {
+            // For detailed: get all non-root accounts (exclude the top-level category root)
+            $minLevel = (int) (clone $query)->min('level');
+
+            return $query->where('level', '>', $minLevel)
+                ->orderBy('code')
+                ->get();
+        }
+
+        // For summary: get the shallowest accounts that are NOT the root category
+        $minLevel = (int) (clone $query)->min('level');
+        $summaryLevel = $minLevel;
+
+        // If the shallowest level is a single root parent, go one level deeper
+        $minLevelAccounts = (clone $query)->where('level', $minLevel)->get();
+        if ($minLevelAccounts->count() === 1 && $minLevelAccounts->first()->is_parent) {
+            $summaryLevel = $minLevel + 1;
+        }
+
+        return $query->where('level', $summaryLevel)
+            ->orderBy('code')
+            ->get();
     }
 
     private function getAllAccountBalances($date, $filters)
