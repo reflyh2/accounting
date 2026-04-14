@@ -32,6 +32,7 @@ class UomStarterSeeder extends Seeder
             ['code' => 'm2', 'name' => 'Square Meter', 'kind' => 'area'],
             ['code' => 'cm2', 'name' => 'Square Centimeter', 'kind' => 'area'],
             ['code' => 'mm2', 'name' => 'Square Millimeter', 'kind' => 'area'],
+            ['code' => 'm3', 'name' => 'Cubic Meter', 'kind' => 'volume'],
             ['code' => 'l', 'name' => 'Liter', 'kind' => 'volume'],
             ['code' => 'ml', 'name' => 'Milliliter', 'kind' => 'volume'],
             ['code' => 'hour', 'name' => 'Hour', 'kind' => 'time'],
@@ -62,6 +63,7 @@ class UomStarterSeeder extends Seeder
         $m2 = Uom::where('code', 'm2')->first();
         $cm2 = Uom::where('code', 'cm2')->first();
         $mm2 = Uom::where('code', 'mm2')->first();
+        $m3 = Uom::where('code', 'm3')->first();
         $l = Uom::where('code', 'l')->first();
         $ml = Uom::where('code', 'ml')->first();
         $hour = Uom::where('code', 'hour')->first();
@@ -128,6 +130,11 @@ class UomStarterSeeder extends Seeder
         }
 
         // Volume conversions
+        if ($m3 && $l) {
+            $createConversion($m3, $l, 1000, 1);
+            $createConversion($l, $m3, 1, 1000);
+        }
+
         if ($l && $ml) {
             $createConversion($l, $ml, 1000, 1);
             $createConversion($ml, $l, 1, 1000);
