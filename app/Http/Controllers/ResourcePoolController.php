@@ -69,6 +69,7 @@ class ResourcePoolController extends Controller
     {
         return Inertia::render('ResourcePools/Create', [
             'formOptions' => $this->formOptions(),
+            'branches' => fn () => $this->branchOptions(),
         ]);
     }
 
@@ -107,6 +108,7 @@ class ResourcePoolController extends Controller
         return Inertia::render('ResourcePools/Edit', [
             'resourcePool' => $resourcePool,
             'formOptions' => $this->formOptions(),
+            'branches' => fn () => $this->branchOptions(),
         ]);
     }
 

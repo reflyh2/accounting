@@ -127,9 +127,12 @@ class SalesOrderController extends Controller
 
     public function create(): Response
     {
+        $formOptions = $this->formOptions();
+
         return Inertia::render('SalesOrders/Create', [
             'filters' => Session::get('sales_orders.index_filters', []),
-            'formOptions' => $this->formOptions(),
+            'formOptions' => $formOptions,
+            'branches' => fn () => $this->branchOptions(),
         ]);
     }
 
@@ -177,10 +180,13 @@ class SalesOrderController extends Controller
             'costs.costItem',
         ]);
 
+        $formOptions = $this->formOptions();
+
         return Inertia::render('SalesOrders/Edit', [
             'salesOrder' => $salesOrder,
             'filters' => Session::get('sales_orders.index_filters', []),
-            'formOptions' => $this->formOptions(),
+            'formOptions' => $formOptions,
+            'branches' => fn () => $this->branchOptions(),
         ]);
     }
 

@@ -152,7 +152,7 @@ class SalesInvoiceController extends Controller
             'customers' => $this->customerOptions(),
             'primaryCurrency' => Currency::where('is_primary', true)->first(),
             'companies' => $this->companyOptions(),
-            'branches' => $this->branchOptions(),
+            'branches' => fn () => $this->branchOptions(),
             'currencies' => Currency::select('id', 'code', 'name')->get()->map(fn ($c) => [
                 'value' => $c->id,
                 'label' => $c->code.' - '.$c->name,
@@ -260,7 +260,7 @@ class SalesInvoiceController extends Controller
             'customers' => $this->customerOptions(),
             'primaryCurrency' => Currency::where('is_primary', true)->first(),
             'companies' => $this->companyOptions(),
-            'branches' => $this->branchOptions(),
+            'branches' => fn () => $this->branchOptions(),
             'currencies' => Currency::select('id', 'code', 'name')->get()->map(fn ($c) => [
                 'value' => $c->id,
                 'label' => $c->code.' - '.$c->name,

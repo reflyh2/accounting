@@ -115,7 +115,7 @@ class PurchasePlanController extends Controller
         return Inertia::render('PurchasePlans/Create', [
             'filters' => $filters,
             'companies' => $formOptions['companies'],
-            'branches' => $formOptions['branches'],
+            'branches' => fn () => $this->branchOptions(),
             'products' => $formOptions['products'],
             'uoms' => $formOptions['uoms'],
         ]);

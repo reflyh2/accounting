@@ -7,6 +7,7 @@ import SalesOrderForm from './Partials/SalesOrderForm.vue';
 const props = defineProps({
     filters: Object,
     formOptions: Object,
+    branches: Array,
 });
 </script>
 
@@ -26,7 +27,7 @@ const props = defineProps({
 
                 <SalesOrderForm
                     :companies="formOptions.companies"
-                    :branches="formOptions.branches"
+                    :branches="branches"
                     :currencies="formOptions.currencies"
                     :customers="formOptions.customers"
                     :products="formOptions.products"

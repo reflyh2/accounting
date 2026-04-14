@@ -91,7 +91,7 @@ class PurchaseInvoiceController extends Controller
             'invoices' => $invoices,
             'filters' => $filters,
             'companies' => $this->companyOptions(),
-            'branches' => $this->branchOptions(),
+            'branches' => fn () => $this->branchOptions(),
             'suppliers' => $this->supplierOptions(),
             'statusOptions' => $this->statusOptions(),
             'perPage' => $perPage,
@@ -136,7 +136,7 @@ class PurchaseInvoiceController extends Controller
             'products' => $formOptions['products'],
             'uoms' => $formOptions['uoms'],
             'companies' => $this->companyOptions(),
-            'branches' => $this->branchOptions(),
+            'branches' => fn () => $this->branchOptions(),
             'currencies' => Currency::select('id', 'code', 'name')->get()->map(fn ($c) => ['value' => $c->id, 'label' => $c->code.' - '.$c->name]),
             'filters' => Session::get('purchase_invoices.index_filters', []),
         ]);
@@ -219,7 +219,7 @@ class PurchaseInvoiceController extends Controller
             'products' => $formOptions['products'],
             'uoms' => $formOptions['uoms'],
             'companies' => $this->companyOptions(),
-            'branches' => $this->branchOptions(),
+            'branches' => fn () => $this->branchOptions(),
             'currencies' => Currency::select('id', 'code', 'name')->get()->map(fn ($c) => ['value' => $c->id, 'label' => $c->code.' - '.$c->name]),
         ]);
     }

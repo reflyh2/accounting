@@ -8,6 +8,7 @@ const props = defineProps({
     salesOrder: Object,
     filters: Object,
     formOptions: Object,
+    branches: Array,
 });
 
 // Map salesOrder lines to include product_id from variant
@@ -45,7 +46,7 @@ const mappedSalesOrder = {
                 <SalesOrderForm
                     :sales-order="mappedSalesOrder"
                     :companies="formOptions.companies"
-                    :branches="formOptions.branches"
+                    :branches="branches"
                     :currencies="formOptions.currencies"
                     :customers="formOptions.customers"
                     :products="formOptions.products"
