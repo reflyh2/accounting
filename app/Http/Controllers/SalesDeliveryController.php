@@ -143,14 +143,14 @@ class SalesDeliveryController extends Controller
         ]);
 
         // Get branches filtered by company
-        $branchQuery = Branch::with('branchGroup.company')->orderBy('name');
-        if ($selectedCompanyId) {
-            $branchQuery->whereHas('branchGroup', fn ($q) => $q->where('company_id', $selectedCompanyId));
-        }
-        $branches = $branchQuery->get()->map(fn ($b) => [
-            'value' => $b->id,
-            'label' => $b->name,
-        ]);
+        $branches = fn () => Branch::with('branchGroup:id,company_id')
+            ->when($request->input('company_id'), fn ($q, $companyId) => $q->whereHas('branchGroup', fn ($sub) => $sub->where('company_id', $companyId)))
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($b) => [
+                'value' => $b->id,
+                'label' => $b->name,
+            ]);
 
         $selectedSalesOrders = [];
         $locations = [];
@@ -174,12 +174,17 @@ class SalesDeliveryController extends Controller
         return Inertia::render('SalesDeliveries/Create', [
             'companies' => $companies,
             'branches' => $branches,
-            'salesOrders' => $this->availableSalesOrders($selectedIds, $selectedPartnerId, $selectedCompanyId, $selectedBranchId),
+            'salesOrders' => fn () => $this->availableSalesOrders(
+                $request->input('sales_order_ids', $selectedIds),
+                $request->integer('partner_id') ?: $selectedPartnerId,
+                $request->integer('company_id') ?: $selectedCompanyId,
+                $request->integer('branch_id') ?: $selectedBranchId,
+            ),
             'selectedSalesOrders' => $selectedSalesOrders,
             'selectedCompanyId' => $selectedCompanyId,
             'selectedBranchId' => $selectedBranchId,
             'selectedPartnerId' => $selectedPartnerId,
-            'customers' => $this->customerOptionsFiltered($selectedCompanyId),
+            'customers' => fn () => $this->customerOptionsFiltered($request->integer('company_id') ?: $selectedCompanyId),
             'locations' => $locations,
             'costItems' => \App\Models\CostItem::where('is_active', true)
                 ->orderBy('code')

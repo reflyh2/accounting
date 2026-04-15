@@ -142,15 +142,15 @@ class GoodsReceiptController extends Controller
             'label' => $c->name,
         ]);
 
-        // Get branches filtered by company
-        $branchQuery = Branch::with('branchGroup.company')->orderBy('name');
-        if ($selectedCompanyId) {
-            $branchQuery->whereHas('branchGroup', fn ($q) => $q->where('company_id', $selectedCompanyId));
-        }
-        $branches = $branchQuery->get()->map(fn ($b) => [
-            'value' => $b->id,
-            'label' => $b->name,
-        ]);
+        // Get branches filtered by company (lazy for partial reloads)
+        $branches = fn () => Branch::with('branchGroup:id,company_id')
+            ->when($request->input('company_id'), fn ($q, $companyId) => $q->whereHas('branchGroup', fn ($sub) => $sub->where('company_id', $companyId)))
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($b) => [
+                'value' => $b->id,
+                'label' => $b->name,
+            ]);
 
         $selectedPurchaseOrders = [];
         $locations = [];
@@ -174,12 +174,17 @@ class GoodsReceiptController extends Controller
         return Inertia::render('GoodsReceipts/Create', [
             'companies' => $companies,
             'branches' => $branches,
-            'purchaseOrders' => $this->availablePurchaseOrders($selectedIds, $selectedPartnerId, $selectedCompanyId, $selectedBranchId),
+            'purchaseOrders' => fn () => $this->availablePurchaseOrders(
+                $request->input('purchase_order_ids', $selectedIds),
+                $request->integer('partner_id') ?: $selectedPartnerId,
+                $request->integer('company_id') ?: $selectedCompanyId,
+                $request->integer('branch_id') ?: $selectedBranchId,
+            ),
             'selectedPurchaseOrders' => $selectedPurchaseOrders,
             'selectedCompanyId' => $selectedCompanyId,
             'selectedBranchId' => $selectedBranchId,
             'selectedPartnerId' => $selectedPartnerId,
-            'suppliers' => $this->supplierOptionsFiltered($selectedCompanyId),
+            'suppliers' => fn () => $this->supplierOptionsFiltered($request->integer('company_id') ?: $selectedCompanyId),
             'locations' => $locations,
             'filters' => Session::get('goods_receipts.index_filters', []),
         ]);
