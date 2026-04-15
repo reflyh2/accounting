@@ -8,8 +8,10 @@ defineProps({
     delivery: Object,
     companies: Array,
     branches: Array,
+    salesOrders: Array,
     selectedSalesOrders: Array,
     selectedPartnerId: Number,
+    customers: Array,
     locations: Array,
     filters: Object,
     costItems: Array,
@@ -39,8 +41,10 @@ defineProps({
                             :delivery="delivery"
                             :companies="companies"
                             :branches="branches"
+                            :sales-orders="salesOrders"
                             :selected-sales-orders="selectedSalesOrders"
                             :selected-partner-id="selectedPartnerId"
+                            :customers="customers"
                             :locations="locations"
                             :cost-items="costItems"
                             :shipping-providers="shippingProviders"

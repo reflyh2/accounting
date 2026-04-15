@@ -276,8 +276,15 @@ class SalesDeliveryController extends Controller
                     'company_id' => $b->branchGroup?->company_id,
                 ])
                 ->values(),
+            'salesOrders' => $this->availableSalesOrders(
+                $salesDelivery->salesOrders->pluck('id')->toArray(),
+                $salesDelivery->partner_id,
+                $salesDelivery->company_id,
+                $salesDelivery->branch_id,
+            ),
             'selectedSalesOrders' => $selectedSalesOrders,
             'selectedPartnerId' => $salesDelivery->partner_id,
+            'customers' => $this->customerOptionsFiltered($salesDelivery->company_id),
             'locations' => $locations,
             'costItems' => \App\Models\CostItem::where('is_active', true)
                 ->orderBy('code')
