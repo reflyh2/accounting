@@ -142,50 +142,23 @@ class SalesDeliveryController extends Controller
             'label' => $c->name,
         ]);
 
-        // Get branches filtered by company
-        $branches = fn () => Branch::with('branchGroup:id,company_id')
-            ->when($request->input('company_id'), fn ($q, $companyId) => $q->whereHas('branchGroup', fn ($sub) => $sub->where('company_id', $companyId)))
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($b) => [
-                'value' => $b->id,
-                'label' => $b->name,
-            ]);
-
-        $selectedSalesOrders = [];
-        $locations = [];
-
-        // Get locations for selected branch
-        if ($selectedBranchId) {
-            $locations = $this->locationOptions($selectedBranchId);
-        }
-
-        if (! empty($selectedIds)) {
-            $selectedSalesOrders = $this->salesOrdersDetail($selectedIds);
-            // Update locations from SO branch if not already set
-            if (empty($locations) && ! empty($selectedSalesOrders)) {
-                $branchId = $selectedSalesOrders[0]['branch']['id'] ?? null;
-                if ($branchId) {
-                    $locations = $this->locationOptions($branchId);
-                }
-            }
-        }
+        $selectedSalesOrders = ! empty($selectedIds) ? $this->salesOrdersDetail($selectedIds) : [];
 
         return Inertia::render('SalesDeliveries/Create', [
             'companies' => $companies,
-            'branches' => $branches,
+            'branches' => fn () => $this->branchOptionsForRequest($request),
             'salesOrders' => fn () => $this->availableSalesOrders(
-                $request->input('sales_order_ids', $selectedIds),
-                $request->integer('partner_id') ?: $selectedPartnerId,
-                $request->integer('company_id') ?: $selectedCompanyId,
-                $request->integer('branch_id') ?: $selectedBranchId,
+                $request->input('sales_order_ids', []),
+                $request->integer('partner_id') ?: null,
+                $request->integer('company_id') ?: null,
+                $request->integer('branch_id') ?: null,
             ),
             'selectedSalesOrders' => $selectedSalesOrders,
             'selectedCompanyId' => $selectedCompanyId,
             'selectedBranchId' => $selectedBranchId,
             'selectedPartnerId' => $selectedPartnerId,
-            'customers' => fn () => $this->customerOptionsFiltered($request->integer('company_id') ?: $selectedCompanyId),
-            'locations' => $locations,
+            'customers' => fn () => $this->customerOptionsFiltered($request->integer('company_id') ?: null),
+            'locations' => fn () => $this->locationOptions($request->integer('branch_id') ?: null),
             'costItems' => \App\Models\CostItem::where('is_active', true)
                 ->orderBy('code')
                 ->get(['id', 'code', 'name']),
@@ -599,8 +572,12 @@ class SalesDeliveryController extends Controller
         return $result;
     }
 
-    private function locationOptions(int $branchId)
+    private function locationOptions(?int $branchId)
     {
+        if (! $branchId) {
+            return [];
+        }
+
         return Location::where('branch_id', $branchId)
             ->orderBy('code')
             ->get()
@@ -634,6 +611,25 @@ class SalesDeliveryController extends Controller
                 'company_id' => $branch->branchGroup?->company_id,
             ])
             ->values();
+    }
+
+    private function branchOptionsForRequest(Request $request): array
+    {
+        $query = Branch::with('branchGroup:id,company_id');
+
+        $companyId = $request->integer('company_id') ?: null;
+        if ($companyId) {
+            $query->whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId));
+        }
+
+        return $query->orderBy('name')
+            ->get()
+            ->map(fn (Branch $branch) => [
+                'value' => $branch->id,
+                'label' => $branch->name,
+            ])
+            ->values()
+            ->toArray();
     }
 
     private function customerOptions()

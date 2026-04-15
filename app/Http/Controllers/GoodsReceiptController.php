@@ -142,50 +142,23 @@ class GoodsReceiptController extends Controller
             'label' => $c->name,
         ]);
 
-        // Get branches filtered by company (lazy for partial reloads)
-        $branches = fn () => Branch::with('branchGroup:id,company_id')
-            ->when($request->input('company_id'), fn ($q, $companyId) => $q->whereHas('branchGroup', fn ($sub) => $sub->where('company_id', $companyId)))
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($b) => [
-                'value' => $b->id,
-                'label' => $b->name,
-            ]);
-
-        $selectedPurchaseOrders = [];
-        $locations = [];
-
-        // Get locations for selected branch
-        if ($selectedBranchId) {
-            $locations = $this->locationOptions($selectedBranchId);
-        }
-
-        if (! empty($selectedIds)) {
-            $selectedPurchaseOrders = $this->purchaseOrdersDetail($selectedIds);
-            // Update locations from PO branch if not already set
-            if (empty($locations) && ! empty($selectedPurchaseOrders)) {
-                $branchId = $selectedPurchaseOrders[0]['branch']['id'] ?? null;
-                if ($branchId) {
-                    $locations = $this->locationOptions($branchId);
-                }
-            }
-        }
+        $selectedPurchaseOrders = ! empty($selectedIds) ? $this->purchaseOrdersDetail($selectedIds) : [];
 
         return Inertia::render('GoodsReceipts/Create', [
             'companies' => $companies,
-            'branches' => $branches,
+            'branches' => fn () => $this->branchOptionsForRequest($request),
             'purchaseOrders' => fn () => $this->availablePurchaseOrders(
-                $request->input('purchase_order_ids', $selectedIds),
-                $request->integer('partner_id') ?: $selectedPartnerId,
-                $request->integer('company_id') ?: $selectedCompanyId,
-                $request->integer('branch_id') ?: $selectedBranchId,
+                $request->input('purchase_order_ids', []),
+                $request->integer('partner_id') ?: null,
+                $request->integer('company_id') ?: null,
+                $request->integer('branch_id') ?: null,
             ),
             'selectedPurchaseOrders' => $selectedPurchaseOrders,
             'selectedCompanyId' => $selectedCompanyId,
             'selectedBranchId' => $selectedBranchId,
             'selectedPartnerId' => $selectedPartnerId,
-            'suppliers' => fn () => $this->supplierOptionsFiltered($request->integer('company_id') ?: $selectedCompanyId),
-            'locations' => $locations,
+            'suppliers' => fn () => $this->supplierOptionsFiltered($request->integer('company_id') ?: null),
+            'locations' => fn () => $this->locationOptions($request->integer('branch_id') ?: null),
             'filters' => Session::get('goods_receipts.index_filters', []),
         ]);
     }
@@ -681,8 +654,12 @@ class GoodsReceiptController extends Controller
         ];
     }
 
-    private function locationOptions(int $branchId)
+    private function locationOptions(?int $branchId)
     {
+        if (! $branchId) {
+            return [];
+        }
+
         return Location::where('branch_id', $branchId)
             ->orderBy('code')
             ->get()
@@ -692,6 +669,25 @@ class GoodsReceiptController extends Controller
                 'code' => $location->code,
             ])
             ->values();
+    }
+
+    private function branchOptionsForRequest(Request $request): array
+    {
+        $query = Branch::with('branchGroup:id,company_id');
+
+        $companyId = $request->integer('company_id') ?: null;
+        if ($companyId) {
+            $query->whereHas('branchGroup', fn ($q) => $q->where('company_id', $companyId));
+        }
+
+        return $query->orderBy('name')
+            ->get()
+            ->map(fn (Branch $branch) => [
+                'value' => $branch->id,
+                'label' => $branch->name,
+            ])
+            ->values()
+            ->toArray();
     }
 
     private function supplierOptions(): array
