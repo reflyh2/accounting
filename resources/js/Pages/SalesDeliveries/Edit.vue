@@ -5,6 +5,8 @@ import SalesDeliveryForm from './Partials/SalesDeliveryForm.vue';
 
 defineProps({
     delivery: Object,
+    companies: Array,
+    branches: Array,
     selectedSalesOrders: Array,
     selectedPartnerId: Number,
     locations: Array,
@@ -33,6 +35,8 @@ defineProps({
                     <SalesDeliveryForm
                         mode="edit"
                         :delivery="delivery"
+                        :companies="companies"
+                        :branches="branches"
                         :selected-sales-orders="selectedSalesOrders"
                         :selected-partner-id="selectedPartnerId"
                         :locations="locations"

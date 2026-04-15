@@ -255,6 +255,19 @@ class GoodsReceiptController extends Controller
 
         return Inertia::render('GoodsReceipts/Edit', [
             'goodsReceipt' => $this->transformGoodsReceiptForEdit($goodsReceipt),
+            'companies' => Company::orderBy('name')->get()->map(fn ($c) => [
+                'value' => $c->id,
+                'label' => $c->name,
+            ]),
+            'branches' => Branch::with('branchGroup:id,company_id')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (Branch $b) => [
+                    'value' => $b->id,
+                    'label' => $b->name,
+                    'company_id' => $b->branchGroup?->company_id,
+                ])
+                ->values(),
             'selectedPurchaseOrders' => $selectedPurchaseOrders,
             'selectedPartnerId' => $goodsReceipt->supplier_id,
             'purchaseOrders' => $this->availablePurchaseOrders($selectedIds, $goodsReceipt->supplier_id),

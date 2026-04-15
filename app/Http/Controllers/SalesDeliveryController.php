@@ -263,6 +263,19 @@ class SalesDeliveryController extends Controller
 
         return Inertia::render('SalesDeliveries/Edit', [
             'delivery' => $this->transformDeliveryForEdit($salesDelivery),
+            'companies' => Company::orderBy('name')->get()->map(fn ($c) => [
+                'value' => $c->id,
+                'label' => $c->name,
+            ]),
+            'branches' => Branch::with('branchGroup:id,company_id')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (Branch $b) => [
+                    'value' => $b->id,
+                    'label' => $b->name,
+                    'company_id' => $b->branchGroup?->company_id,
+                ])
+                ->values(),
             'selectedSalesOrders' => $selectedSalesOrders,
             'selectedPartnerId' => $salesDelivery->partner_id,
             'locations' => $locations,
