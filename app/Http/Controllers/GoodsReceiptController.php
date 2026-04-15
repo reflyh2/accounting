@@ -812,12 +812,18 @@ class GoodsReceiptController extends Controller
     {
         $query = Partner::query()
             ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
-            ->whereHas('purchaseOrders', function ($q) {
+            ->whereHas('purchaseOrders', function ($q) use ($request) {
                 $q->whereIn('status', [
                     PurchaseOrderStatus::SENT->value,
                     PurchaseOrderStatus::PARTIALLY_RECEIVED->value,
                     PurchaseOrderStatus::RECEIVED->value,
                 ]);
+                if ($companyId = $request->integer('company_id')) {
+                    $q->where('company_id', $companyId);
+                }
+                if ($branchId = $request->integer('branch_id')) {
+                    $q->where('branch_id', $branchId);
+                }
             });
 
         if ($request->search) {

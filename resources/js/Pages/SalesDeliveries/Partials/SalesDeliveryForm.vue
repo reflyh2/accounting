@@ -547,7 +547,7 @@ const customerTableHeaders = [
                 <div class="grid grid-cols-1">
                     <AppPopoverSearch
                         v-model="selectedCustomerId"
-                        :url="route('api.customers-with-sos')"
+                        :url="route('api.customers-with-sos', { company_id: selectedCompany, branch_id: selectedBranch })"
                         :displayKeys="['name']"
                         :tableHeaders="customerTableHeaders"
                         :initialDisplayValue="selectedCustomerName"

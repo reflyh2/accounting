@@ -661,7 +661,7 @@ const serialOptions = computed(() => {
                 <div class="grid grid-cols-1">
                     <AppPopoverSearch
                         v-model="selectedSupplierId"
-                        :url="route('api.suppliers-with-pos')"
+                        :url="route('api.suppliers-with-pos', { company_id: selectedCompany, branch_id: selectedBranch })"
                         :displayKeys="['name']"
                         :tableHeaders="supplierTableHeaders"
                         :initialDisplayValue="selectedSupplierName"

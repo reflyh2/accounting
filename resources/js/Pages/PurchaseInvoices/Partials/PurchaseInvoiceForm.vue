@@ -550,7 +550,7 @@ function submitForm(createAnother = false) {
 
                     <AppPopoverSearch
                         v-model="selectedSupplierId"
-                        :url="route('api.suppliers-with-pos')"
+                        :url="route('api.suppliers-with-pos', { company_id: selectedCompany, branch_id: form.branch_id })"
                         :displayKeys="['name']"
                         :tableHeaders="supplierTableHeaders"
                         :initialDisplayValue="selectedSupplierName"

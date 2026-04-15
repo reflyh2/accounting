@@ -724,12 +724,18 @@ class SalesDeliveryController extends Controller
     {
         $query = Partner::query()
             ->whereHas('roles', fn ($q) => $q->where('role', 'customer'))
-            ->whereHas('salesOrders', function ($q) {
+            ->whereHas('salesOrders', function ($q) use ($request) {
                 $q->whereIn('status', [
                     SalesOrderStatus::CONFIRMED->value,
                     SalesOrderStatus::PARTIALLY_DELIVERED->value,
                     SalesOrderStatus::DELIVERED->value,
                 ]);
+                if ($companyId = $request->integer('company_id')) {
+                    $q->where('company_id', $companyId);
+                }
+                if ($branchId = $request->integer('branch_id')) {
+                    $q->where('branch_id', $branchId);
+                }
             });
 
         if ($request->search) {
