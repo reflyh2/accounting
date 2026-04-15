@@ -59,13 +59,15 @@ const today = new Date().toISOString().split('T')[0];
 
 // Selected company (separate ref for chained loading)
 const selectedCompany = ref(
-    props.selectedCompanyId || 
+    props.selectedCompanyId ||
+    props.delivery?.company_id ||
     (props.companies.length > 1 ? null : props.companies[0]?.value)
 );
 
 // Selected branch
 const selectedBranch = ref(
-    props.selectedBranchId || 
+    props.selectedBranchId ||
+    props.delivery?.branch_id ||
     (props.branches.length === 1 ? props.branches[0]?.value : null)
 );
 
@@ -74,7 +76,9 @@ const selectedCustomerId = ref(props.selectedPartnerId || null);
 const selectedCustomerName = ref('');
 
 // Set initial customer name
-if (props.selectedPartnerId && props.customers) {
+if (props.delivery?.partner) {
+    selectedCustomerName.value = props.delivery.partner.name;
+} else if (props.selectedPartnerId && props.customers) {
     const customer = props.customers.find(c => c.value === props.selectedPartnerId);
     if (customer) selectedCustomerName.value = customer.label;
 }
@@ -516,35 +520,31 @@ const customerTableHeaders = [
         <div class="flex justify-between">
             <div class="w-2/3 max-w-2xl mr-8">
                 <!-- Edit Mode: Delivery Header -->
-                <div v-if="mode === 'edit'" class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 class="font-semibold text-blue-800">{{ delivery.delivery_number }}</h3>
-                    <p class="text-sm text-blue-600">Customer: {{ delivery.partner?.name }}</p>
-                </div>
-
-               <!-- Create Mode: Company & Branch -->
-                <div v-if="mode === 'create'" class="grid grid-cols-2 gap-4">
+                <!-- Company & Branch -->
+                <div class="grid grid-cols-2 gap-4">
                     <AppSelect
                         v-model="selectedCompany"
                         :options="companies"
                         label="Perusahaan:"
                         placeholder="Pilih Perusahaan"
                         :error="form.errors.company_id"
+                        :disabled="mode === 'edit'"
                         required
                     />
-                    
+
                     <AppSelect
                         v-model="selectedBranch"
                         :options="filteredBranches"
                         label="Cabang:"
                         placeholder="Pilih Cabang"
                         :error="form.errors.branch_id"
-                        :disabled="!selectedCompany"
+                        :disabled="mode === 'edit' || !selectedCompany"
                         required
                     />
                 </div>
 
-                <!-- Create Mode: Customer -->
-                <div v-if="mode === 'create'" class="grid grid-cols-1">
+                <!-- Customer -->
+                <div class="grid grid-cols-1">
                     <AppPopoverSearch
                         v-model="selectedCustomerId"
                         :url="route('api.customers-with-sos')"
@@ -554,14 +554,14 @@ const customerTableHeaders = [
                         label="Customer:"
                         placeholder="Pilih Customer"
                         modalTitle="Pilih Customer"
-                        :disabled="!selectedBranch"
+                        :disabled="mode === 'edit' || !selectedBranch"
                         :error="form.errors.partner_id"
                         required
                     />
                 </div>
 
-                <!-- Create Mode: Sales Orders -->
-                <div v-if="mode === 'create'" class="grid grid-cols-1">
+                <!-- Sales Orders -->
+                <div class="grid grid-cols-1">
                     <AppSelect
                         v-model="selectedSoIds"
                         :options="salesOrderOptions"
@@ -569,7 +569,7 @@ const customerTableHeaders = [
                         placeholder="Pilih Sales Order"
                         :error="form.errors.sales_order_ids"
                         :multiple="true"
-                        :disabled="!selectedCustomerId"
+                        :disabled="mode === 'edit' || !selectedCustomerId"
                         required
                     />
                 </div>
