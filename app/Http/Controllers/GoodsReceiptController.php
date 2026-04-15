@@ -244,6 +244,7 @@ class GoodsReceiptController extends Controller
             'lines.uom',
             'lines.purchaseOrderLine',
             'location',
+            'supplier:id,name',
         ]);
 
         $locations = $this->locationOptions($goodsReceipt->branch_id);
@@ -662,6 +663,13 @@ class GoodsReceiptController extends Controller
 
         return [
             'id' => $receipt->id,
+            'company_id' => $receipt->company_id,
+            'branch_id' => $receipt->branch_id,
+            'supplier_id' => $receipt->supplier_id,
+            'supplier' => $receipt->supplier ? [
+                'id' => $receipt->supplier->id,
+                'name' => $receipt->supplier->name,
+            ] : null,
             'receipt_number' => $receipt->receipt_number,
             'receipt_date' => optional($receipt->receipt_date)?->toDateString(),
             'location_id' => $receipt->location_id,
