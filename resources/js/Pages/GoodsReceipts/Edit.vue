@@ -6,6 +6,8 @@ import AppBackLink from '@/Components/AppBackLink.vue';
 
 defineProps({
    goodsReceipt: Object,
+   companies: Array,
+   branches: Array,
    purchaseOrders: Array,
    selectedPurchaseOrders: Array,
    selectedPartnerId: Number,
