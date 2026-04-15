@@ -418,16 +418,21 @@ watch(selectedCompany, (newCompanyId) => {
         form.lines = [];
         
         router.get(route('goods-receipts.create'), { company_id: newCompanyId }, {
-            only: ['branches', 'suppliers', 'purchaseOrders', 'selectedPurchaseOrders', 'locations'],
+            only: ['suppliers', 'purchaseOrders', 'selectedPurchaseOrders', 'locations'],
             preserveState: true,
             preserveScroll: true,
         });
     }
 }, { immediate: true });
 
-// Watch for branches prop changes - auto-select if only one
+const filteredBranches = computed(() => {
+    if (!selectedCompany.value) return props.branches;
+    return props.branches.filter(b => b.company_id === selectedCompany.value);
+});
+
+// Watch for filtered branches changes - auto-select if only one
 watch(
-    () => props.branches,
+    filteredBranches,
     (newBranches) => {
         if (!isEditMode.value && newBranches.length === 1) {
             selectedBranch.value = newBranches[0].value;
@@ -643,7 +648,7 @@ const serialOptions = computed(() => {
                     
                     <AppSelect
                         v-model="selectedBranch"
-                        :options="branches"
+                        :options="filteredBranches"
                         label="Cabang:"
                         placeholder="Pilih Cabang"
                         :error="form.errors.branch_id"

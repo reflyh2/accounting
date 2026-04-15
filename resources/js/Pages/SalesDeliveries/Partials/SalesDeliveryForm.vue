@@ -202,15 +202,20 @@ watch(selectedCompany, (newCompanyId) => {
     form.shipping_charge_credit_account_id = null;
 
     router.get(route('sales-deliveries.create'), { company_id: newCompanyId }, {
-        only: ['branches', 'customers', 'salesOrders', 'selectedSalesOrders', 'locations'],
+        only: ['customers', 'salesOrders', 'selectedSalesOrders', 'locations'],
         preserveState: true,
         preserveScroll: true,
     });
 }, { immediate: false });
 
-// Watch for branches prop changes - auto-select if only one
+const filteredBranches = computed(() => {
+    if (!selectedCompany.value) return props.branches;
+    return props.branches.filter(b => b.company_id === selectedCompany.value);
+});
+
+// Watch for filtered branches changes - auto-select if only one
 watch(
-    () => props.branches,
+    filteredBranches,
     (newBranches) => {
         if (newBranches.length === 1) {
             selectedBranch.value = newBranches[0].value;
@@ -529,7 +534,7 @@ const customerTableHeaders = [
                     
                     <AppSelect
                         v-model="selectedBranch"
-                        :options="branches"
+                        :options="filteredBranches"
                         label="Cabang:"
                         placeholder="Pilih Cabang"
                         :error="form.errors.branch_id"

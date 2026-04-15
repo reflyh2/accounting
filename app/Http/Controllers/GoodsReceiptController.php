@@ -146,7 +146,15 @@ class GoodsReceiptController extends Controller
 
         return Inertia::render('GoodsReceipts/Create', [
             'companies' => $companies,
-            'branches' => fn () => $this->branchOptionsForRequest($request),
+            'branches' => Branch::with('branchGroup:id,company_id')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (Branch $b) => [
+                    'value' => $b->id,
+                    'label' => $b->name,
+                    'company_id' => $b->branchGroup?->company_id,
+                ])
+                ->values(),
             'purchaseOrders' => fn () => $this->availablePurchaseOrders(
                 $request->input('purchase_order_ids', []),
                 $request->integer('partner_id') ?: null,

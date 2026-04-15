@@ -146,7 +146,15 @@ class SalesDeliveryController extends Controller
 
         return Inertia::render('SalesDeliveries/Create', [
             'companies' => $companies,
-            'branches' => fn () => $this->branchOptionsForRequest($request),
+            'branches' => Branch::with('branchGroup:id,company_id')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (Branch $b) => [
+                    'value' => $b->id,
+                    'label' => $b->name,
+                    'company_id' => $b->branchGroup?->company_id,
+                ])
+                ->values(),
             'salesOrders' => fn () => $this->availableSalesOrders(
                 $request->input('sales_order_ids', []),
                 $request->integer('partner_id') ?: null,
