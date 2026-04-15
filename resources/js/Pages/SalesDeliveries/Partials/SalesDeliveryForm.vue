@@ -201,9 +201,10 @@ watch(selectedCompany, (newCompanyId) => {
     form.actual_shipping_charge = 0;
     form.shipping_charge_credit_account_id = null;
 
-    router.reload({
+    router.get(route('sales-deliveries.create'), { company_id: newCompanyId }, {
         only: ['branches', 'customers', 'salesOrders', 'selectedSalesOrders', 'locations'],
-        data: { company_id: newCompanyId },
+        preserveState: true,
+        preserveScroll: true,
     });
 }, { immediate: false });
 
@@ -233,12 +234,13 @@ watch(selectedBranch, (newBranchId) => {
         form.actual_shipping_charge = 0;
         form.shipping_charge_credit_account_id = null;
 
-        router.reload({
+        router.get(route('sales-deliveries.create'), {
+            company_id: selectedCompany.value,
+            branch_id: newBranchId,
+        }, {
             only: ['customers', 'salesOrders', 'selectedSalesOrders', 'locations'],
-            data: {
-                company_id: selectedCompany.value,
-                branch_id: newBranchId,
-            },
+            preserveState: true,
+            preserveScroll: true,
         });
     }
 }, { immediate: false });

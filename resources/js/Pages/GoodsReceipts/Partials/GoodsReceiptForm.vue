@@ -417,9 +417,10 @@ watch(selectedCompany, (newCompanyId) => {
         selectedPoIds.value = [];
         form.lines = [];
         
-        router.reload({
+        router.get(route('goods-receipts.create'), { company_id: newCompanyId }, {
             only: ['branches', 'suppliers', 'purchaseOrders', 'selectedPurchaseOrders', 'locations'],
-            data: { company_id: newCompanyId },
+            preserveState: true,
+            preserveScroll: true,
         });
     }
 }, { immediate: true });
@@ -445,12 +446,13 @@ watch(selectedBranch, (newBranchId) => {
         selectedPoIds.value = [];
         form.lines = [];
         
-        router.reload({
+        router.get(route('goods-receipts.create'), {
+            company_id: selectedCompany.value,
+            branch_id: newBranchId,
+        }, {
             only: ['suppliers', 'purchaseOrders', 'selectedPurchaseOrders', 'locations'],
-            data: { 
-                company_id: selectedCompany.value,
-                branch_id: newBranchId,
-            },
+            preserveState: true,
+            preserveScroll: true,
         });
     }
 }, { immediate: true });
