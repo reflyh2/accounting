@@ -469,15 +469,18 @@ watch(selectedSupplierId, (newId) => {
         // Clear selected POs when supplier changes
         selectedPoIds.value = [];
         form.lines = [];
-        router.get(route('goods-receipts.create'), {
-            company_id: selectedCompany.value,
-            branch_id: selectedBranch.value,
-            partner_id: newId,
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-            only: ['purchaseOrders', 'selectedPurchaseOrders', 'locations', 'selectedPartnerId'],
-        });
+        // Only reload when a supplier is actually selected (not when cleared by upstream watcher)
+        if (newId) {
+            router.get(route('goods-receipts.create'), {
+                company_id: selectedCompany.value,
+                branch_id: selectedBranch.value,
+                partner_id: newId,
+            }, {
+                preserveState: true,
+                preserveScroll: true,
+                only: ['purchaseOrders', 'selectedPurchaseOrders', 'locations', 'selectedPartnerId'],
+            });
+        }
     }
 }, { immediate: true });
 

@@ -282,15 +282,18 @@ watch(selectedCustomerId, (newId) => {
     form.shipping_provider_id = null;
     form.actual_shipping_charge = 0;
     form.shipping_charge_credit_account_id = null;
-    router.get(route('sales-deliveries.create'), {
-        company_id: selectedCompany.value,
-        branch_id: selectedBranch.value,
-        partner_id: newId,
-    }, {
-        preserveState: true,
-        preserveScroll: true,
-        only: ['salesOrders', 'selectedSalesOrders', 'locations', 'selectedPartnerId'],
-    });
+    // Only reload when a customer is actually selected (not when cleared by upstream watcher)
+    if (newId) {
+        router.get(route('sales-deliveries.create'), {
+            company_id: selectedCompany.value,
+            branch_id: selectedBranch.value,
+            partner_id: newId,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['salesOrders', 'selectedSalesOrders', 'locations', 'selectedPartnerId'],
+        });
+    }
 }, { immediate: false });
 
 // Watch for SO selection changes
@@ -308,24 +311,14 @@ watch(selectedSoIds, (newIds) => {
             only: ['selectedSalesOrders', 'locations'],
         });
     } else {
-        // Reset lines and shipping info when sales orders are cleared
+        // Reset lines and shipping info locally when sales orders are cleared
+        // No router.get here to avoid canceling upstream watcher requests
         form.lines = [];
         form.shipping_address_id = null;
         form.shipping_type = null;
         form.shipping_provider_id = null;
         form.actual_shipping_charge = 0;
         form.shipping_charge_credit_account_id = null;
-
-        // Need to reload to clear selectedSalesOrders prop
-        router.get(route('sales-deliveries.create'), {
-            company_id: selectedCompany.value,
-            branch_id: selectedBranch.value,
-            partner_id: selectedCustomerId.value,
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-            only: ['selectedSalesOrders', 'locations'],
-        });
     }
 }, { deep: true, immediate: false });
 
