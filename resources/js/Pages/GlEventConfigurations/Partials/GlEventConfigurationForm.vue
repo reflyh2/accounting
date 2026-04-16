@@ -73,6 +73,12 @@ const eventCodeRoleMapping = {
       { role: 'tax_receivable', direction: 'debit' },
       { role: 'payable', direction: 'credit' },
    ],
+   'purchase.ap_reversed': [
+      { role: 'payable', direction: 'debit' },
+      { role: 'grn_clearing', direction: 'credit' },
+      { role: 'purchase_price_variance', direction: 'credit' },
+      { role: 'tax_receivable', direction: 'credit' },
+   ],
    'purchase.return_posted': [
       { role: 'payable', direction: 'debit' },
       { role: 'inventory', direction: 'credit' },
@@ -104,6 +110,14 @@ const eventCodeRoleMapping = {
       { role: 'tax_payable', direction: 'credit' },
       { role: 'shipping_charge_receivable', direction: 'debit' },
       { role: 'shipping_charge_revenue', direction: 'credit' },
+   ],
+   'sales.ar_reversed': [
+      { role: 'revenue', direction: 'debit' },
+      { role: 'revenue_variance', direction: 'debit' },
+      { role: 'tax_payable', direction: 'debit' },
+      { role: 'receivable', direction: 'credit' },
+      { role: 'shipping_charge_revenue', direction: 'debit' },
+      { role: 'shipping_charge_receivable', direction: 'credit' },
    ],
    'mfg.issue_posted': [
       { role: 'wip', direction: 'debit' },

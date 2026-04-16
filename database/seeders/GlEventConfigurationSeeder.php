@@ -81,6 +81,15 @@ class GlEventConfigurationSeeder extends Seeder
                     ['role' => 'payable', 'direction' => 'credit', 'account_name' => 'Hutang Usaha dari Pembelian'],
                 ],
             ],
+            AccountingEventCode::PURCHASE_AP_REVERSED->value => [
+                'description' => 'Journal entry when purchase invoice (AP) is reversed/unposted',
+                'lines' => [
+                    ['role' => 'payable', 'direction' => 'debit', 'account_name' => 'Hutang Usaha dari Pembelian'],
+                    ['role' => 'grn_clearing', 'direction' => 'credit', 'account_name' => 'Hutang Pembelian Belum Difakturkan'],
+                    ['role' => 'purchase_price_variance', 'direction' => 'credit', 'account_name' => 'Koreksi Persediaan'],
+                    ['role' => 'tax_receivable', 'direction' => 'credit', 'account_name' => 'PPN Masukan'],
+                ],
+            ],
             AccountingEventCode::PURCHASE_RETURN_POSTED->value => [
                 'description' => 'Journal entry when purchase return is posted',
                 'lines' => [
@@ -134,6 +143,17 @@ class GlEventConfigurationSeeder extends Seeder
                     // Shipping charge roles - both use default GL Event Configuration accounts
                     ['role' => 'shipping_charge_revenue', 'direction' => 'credit', 'account_name' => 'Penjualan Barang'],
                     ['role' => 'shipping_charge_receivable', 'direction' => 'debit', 'account_name' => 'Piutang Usaha'],
+                ],
+            ],
+            AccountingEventCode::SALES_AR_REVERSED->value => [
+                'description' => 'Journal entry when sales invoice (AR) is reversed/unposted',
+                'lines' => [
+                    ['role' => 'revenue', 'direction' => 'debit', 'account_name' => 'Penjualan Barang'],
+                    ['role' => 'revenue_variance', 'direction' => 'debit', 'account_name' => 'Koreksi Persediaan'],
+                    ['role' => 'tax_payable', 'direction' => 'debit', 'account_name' => 'PPN Keluaran'],
+                    ['role' => 'receivable', 'direction' => 'credit', 'account_name' => 'Piutang Usaha'],
+                    ['role' => 'shipping_charge_revenue', 'direction' => 'debit', 'account_name' => 'Penjualan Barang'],
+                    ['role' => 'shipping_charge_receivable', 'direction' => 'credit', 'account_name' => 'Piutang Usaha'],
                 ],
             ],
 
