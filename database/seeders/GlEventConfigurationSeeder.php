@@ -41,6 +41,7 @@ class GlEventConfigurationSeeder extends Seeder
             'Hutang Usaha dari Pembelian',
             'Hutang Pembelian Belum Difakturkan',
             'PPN Keluaran',
+            'PPN Masukan',
 
             // Revenue accounts
             'Penjualan Barang',
@@ -76,6 +77,7 @@ class GlEventConfigurationSeeder extends Seeder
                 'lines' => [
                     ['role' => 'grn_clearing', 'direction' => 'debit', 'account_name' => 'Hutang Pembelian Belum Difakturkan'],
                     ['role' => 'purchase_price_variance', 'direction' => 'debit', 'account_name' => 'Koreksi Persediaan'],
+                    ['role' => 'tax_receivable', 'direction' => 'debit', 'account_name' => 'PPN Masukan'],
                     ['role' => 'payable', 'direction' => 'credit', 'account_name' => 'Hutang Usaha dari Pembelian'],
                 ],
             ],

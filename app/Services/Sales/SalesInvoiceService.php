@@ -1044,10 +1044,10 @@ class SalesInvoiceService
             $taxAmountBase = $this->roundCost($taxAmount * (float) $invoice->exchange_rate);
             if ($deliveryLine) {
                 $deliveryValueBase = $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base);
-                $revenueVariance = $this->roundMoney(($lineTotalBase + $taxAmountBase) - $deliveryValueBase);
+                $revenueVariance = $this->roundMoney($lineTotalBase - $deliveryValueBase);
             } else {
-                // Non-deliverable items: use full invoice line amount (including tax) as delivery value
-                $deliveryValueBase = $this->roundCost($lineTotalBase + $taxAmountBase);
+                // Non-deliverable items: use line total (excluding tax) as delivery value
+                $deliveryValueBase = $this->roundCost($lineTotalBase);
                 $revenueVariance = 0.0;
             }
 
@@ -1160,17 +1160,19 @@ class SalesInvoiceService
             $meta
         );
 
-        $invoiceBaseAmount = $this->roundCost(($totals['total_amount'] * $exchangeRate));
+        $receivableBase = $this->roundCost(($totals['subtotal'] + $totals['tax_total']) * $exchangeRate);
+        $taxBase = $this->roundCost($totals['tax_total'] * $exchangeRate);
         $shippingBase = $this->roundCost((float) $invoice->shipping_charge * $exchangeRate);
 
         $entries = array_filter([
-            AccountingEntry::debit('receivable', $invoiceBaseAmount),
+            AccountingEntry::debit('receivable', $receivableBase),
             AccountingEntry::credit('revenue', $totals['delivery_value_base']),
             $totals['revenue_variance'] !== 0.0
                 ? ($totals['revenue_variance'] > 0
                     ? AccountingEntry::credit('revenue_variance', abs($totals['revenue_variance']))
                     : AccountingEntry::debit('revenue_variance', abs($totals['revenue_variance'])))
                 : null,
+            $taxBase > 0 ? AccountingEntry::credit('tax_payable', $taxBase) : null,
         ]);
 
         // Add shipping charge entries if applicable - both use GL Event Configuration accounts
@@ -1212,13 +1214,13 @@ class SalesInvoiceService
             ['direct_invoice' => true]
         );
 
-        $baseAmount = $this->roundCost($totalAmount * $exchangeRate);
+        $receivableBase = $this->roundCost(((float) $invoice->subtotal + (float) $invoice->tax_total) * $exchangeRate);
         $taxBase = $this->roundCost((float) $invoice->tax_total * $exchangeRate);
         $shippingBase = $this->roundCost((float) $invoice->shipping_charge * $exchangeRate);
         $revenueBase = $this->roundCost((float) $invoice->subtotal * $exchangeRate);
 
         $entries = array_filter([
-            AccountingEntry::debit('receivable', $baseAmount),
+            AccountingEntry::debit('receivable', $receivableBase),
             AccountingEntry::credit('revenue', $revenueBase),
             $taxBase > 0 ? AccountingEntry::credit('tax_payable', $taxBase) : null,
         ]);

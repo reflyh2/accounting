@@ -885,7 +885,7 @@ class PurchaseInvoiceService
             $taxAmount = (float) $line->tax_amount;
             $taxAmountBase = $this->roundCost($taxAmount * (float) $invoice->exchange_rate);
             $grnValueBase = $this->roundCost($quantityBase * (float) $receiptLine->unit_cost_base);
-            $ppvAmount = $this->roundMoney(($lineTotalBase + $taxAmountBase) - $grnValueBase);
+            $ppvAmount = $this->roundMoney($lineTotalBase - $grnValueBase);
 
             $prepared[] = [
                 'line_id' => $line->id,
@@ -970,7 +970,8 @@ class PurchaseInvoiceService
             $meta
         );
 
-        $invoiceBaseAmount = $this->roundCost(($totals['total_amount'] * $exchangeRate));
+        $payableBase = $this->roundCost(($totals['subtotal'] + $totals['tax_total']) * $exchangeRate);
+        $taxBase = $this->roundCost($totals['tax_total'] * $exchangeRate);
 
         $payload->setLines(
             array_filter([
@@ -980,7 +981,8 @@ class PurchaseInvoiceService
                         ? AccountingEntry::debit('purchase_price_variance', abs($totals['ppv_total']))
                         : AccountingEntry::credit('purchase_price_variance', abs($totals['ppv_total'])))
                     : null,
-                AccountingEntry::credit('payable', $invoiceBaseAmount),
+                $taxBase > 0 ? AccountingEntry::debit('tax_receivable', $taxBase) : null,
+                AccountingEntry::credit('payable', $payableBase),
             ])
         );
 
@@ -1010,38 +1012,16 @@ class PurchaseInvoiceService
             ['type' => 'direct']
         );
 
-        // For direct invoice: Debit Inventory, Credit AP
-        // But Inventory is tracked by item/location
-        // In this system, does 'inventory' account track strictly GL?
-        // Usually yes.
-        // We will Debit 'inventory' with total amount (before tax? or including? normally cost excludes tax if recoverable, but here we simplify)
-        // If tax is involved, we Debit Tax separately?
-        // Current logic for PO invoice puts tax in... wait, I missed Tax in dispatchApPostedEvent
-        // In dispatchApPostedEvent, I see Credit AP for invoiceBaseAmount.
-        // And Debit GRNI and PPV.
-        // Where is VAT?
-        // If VAT is not handled in the accounting event there, it implies:
-        // 1. VAT is handled separately?
-        // 2. Or AP Amount includes VAT but GRNI + PPV matches ex-VAT? Then imbalance!
-        // checking dispatchApPostedEvent again...
-        // invoiceBaseAmount = total_amount * rate. total_amount = subtotal + tax.
-        // Debit GRNI = grn_value_base (cost).
-        // Debit PPV = diff.
-        // PPV = (lineTotalBase + taxAmountBase) - grnValueBase
-        // So PPV *includes* Tax difference if any?
-        // If tax is recoverable, it should be Debited to VAT In account.
-        // But here PPV calculation seems to absorb tax?
-        // $ppvAmount = ($lineTotalBase + ($taxAmount * rate)) - $grnValueBase
-        // This implies the full amount (inc tax) is being balanced against GRN value + PPV.
-        // So AP (Credit) = GRN (Debit) + PPV (Debit).
-        // If so, for Direct:
-        // AP (Credit) = Inventory (Debit) ?
-        // Yes, if we consider the inventory value = cost entered.
+        $subtotalBase = $this->roundCost((float) $invoice->subtotal * $exchangeRate);
+        $taxBase = $this->roundCost((float) $invoice->tax_total * $exchangeRate);
 
-        $payload->setLines([
-            AccountingEntry::debit('inventory', $totalAmountBase),
-            AccountingEntry::credit('payable', $totalAmountBase),
-        ]);
+        $payload->setLines(
+            array_filter([
+                AccountingEntry::debit('inventory', $subtotalBase),
+                $taxBase > 0 ? AccountingEntry::debit('tax_receivable', $taxBase) : null,
+                AccountingEntry::credit('payable', $totalAmountBase),
+            ])
+        );
 
         $this->dispatchAccountingEvent($payload);
     }

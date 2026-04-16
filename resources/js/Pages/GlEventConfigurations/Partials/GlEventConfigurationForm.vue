@@ -45,6 +45,7 @@ const allRoles = [
    'cogs',
    'purchase_price_variance',
    'tax_payable',
+   'tax_receivable',
    'shipping_charge',
    'shipping_charge_credit',
    'shipping_charge_revenue',
@@ -69,6 +70,7 @@ const eventCodeRoleMapping = {
    'purchase.ap_posted': [
       { role: 'grn_clearing', direction: 'debit' },
       { role: 'purchase_price_variance', direction: 'debit' },
+      { role: 'tax_receivable', direction: 'debit' },
       { role: 'payable', direction: 'credit' },
    ],
    'purchase.return_posted': [
