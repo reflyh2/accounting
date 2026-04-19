@@ -138,7 +138,6 @@ class GlEventConfigurationSeeder extends Seeder
                 'lines' => [
                     ['role' => 'receivable', 'direction' => 'debit', 'account_name' => 'Piutang Usaha'],
                     ['role' => 'revenue', 'direction' => 'credit', 'account_name' => 'Penjualan Barang'],
-                    ['role' => 'revenue_variance', 'direction' => 'credit', 'account_name' => 'Koreksi Persediaan'],
                     ['role' => 'tax_payable', 'direction' => 'credit', 'account_name' => 'PPN Keluaran'],
                     // Shipping charge roles - both use default GL Event Configuration accounts
                     ['role' => 'shipping_charge_revenue', 'direction' => 'credit', 'account_name' => 'Penjualan Barang'],
@@ -149,7 +148,6 @@ class GlEventConfigurationSeeder extends Seeder
                 'description' => 'Journal entry when sales invoice (AR) is reversed/unposted',
                 'lines' => [
                     ['role' => 'revenue', 'direction' => 'debit', 'account_name' => 'Penjualan Barang'],
-                    ['role' => 'revenue_variance', 'direction' => 'debit', 'account_name' => 'Koreksi Persediaan'],
                     ['role' => 'tax_payable', 'direction' => 'debit', 'account_name' => 'PPN Keluaran'],
                     ['role' => 'receivable', 'direction' => 'credit', 'account_name' => 'Piutang Usaha'],
                     ['role' => 'shipping_charge_revenue', 'direction' => 'debit', 'account_name' => 'Penjualan Barang'],

@@ -41,7 +41,6 @@ const allRoles = [
    'payable',
    'receivable',
    'revenue',
-   'revenue_variance',
    'cogs',
    'purchase_price_variance',
    'tax_payable',
@@ -106,14 +105,12 @@ const eventCodeRoleMapping = {
    'sales.ar_posted': [
       { role: 'receivable', direction: 'debit' },
       { role: 'revenue', direction: 'credit' },
-      { role: 'revenue_variance', direction: 'credit' },
       { role: 'tax_payable', direction: 'credit' },
       { role: 'shipping_charge_receivable', direction: 'debit' },
       { role: 'shipping_charge_revenue', direction: 'credit' },
    ],
    'sales.ar_reversed': [
       { role: 'revenue', direction: 'debit' },
-      { role: 'revenue_variance', direction: 'debit' },
       { role: 'tax_payable', direction: 'debit' },
       { role: 'receivable', direction: 'credit' },
       { role: 'shipping_charge_revenue', direction: 'debit' },

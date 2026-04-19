@@ -400,10 +400,11 @@ class SalesInvoiceService
     private function dispatchArReversedEvent(SalesInvoice $invoice, ?Authenticatable $actor): void
     {
         $exchangeRate = (float) $invoice->exchange_rate;
-        $totalAmount = (float) $invoice->total_amount;
-        $totalAmountBase = $this->roundCost($totalAmount * $exchangeRate);
+        $subtotal = (float) $invoice->subtotal;
+        $taxTotal = (float) $invoice->tax_total;
+        $shippingCharge = (float) $invoice->shipping_charge;
 
-        if ($totalAmountBase <= 0) {
+        if ($subtotal <= 0 && $shippingCharge <= 0) {
             return;
         }
 
@@ -424,32 +425,16 @@ class SalesInvoiceService
             ['reversal' => true]
         );
 
-        $isDirectInvoice = $invoice->salesOrders->isEmpty();
-        $shippingBase = $this->roundCost((float) $invoice->shipping_charge * $exchangeRate);
+        $receivableBase = $this->roundCost(($subtotal + $taxTotal) * $exchangeRate);
+        $revenueBase = $this->roundCost($subtotal * $exchangeRate);
+        $taxBase = $this->roundCost($taxTotal * $exchangeRate);
+        $shippingBase = $this->roundCost($shippingCharge * $exchangeRate);
 
-        if ($isDirectInvoice) {
-            $revenueBase = $this->roundCost((float) $invoice->subtotal * $exchangeRate);
-            $taxBase = $this->roundCost((float) $invoice->tax_total * $exchangeRate);
-
-            $entries = array_filter([
-                AccountingEntry::credit('receivable', $totalAmountBase),
-                AccountingEntry::debit('revenue', $revenueBase),
-                $taxBase > 0 ? AccountingEntry::debit('tax_payable', $taxBase) : null,
-            ]);
-        } else {
-            $deliveryValueBase = (float) $invoice->delivery_value_base;
-            $revenueVariance = (float) $invoice->revenue_variance;
-
-            $entries = array_filter([
-                AccountingEntry::credit('receivable', $totalAmountBase),
-                AccountingEntry::debit('revenue', $deliveryValueBase),
-                $revenueVariance !== 0.0
-                    ? ($revenueVariance > 0
-                        ? AccountingEntry::debit('revenue_variance', abs($revenueVariance))
-                        : AccountingEntry::credit('revenue_variance', abs($revenueVariance)))
-                    : null,
-            ]);
-        }
+        $entries = array_filter([
+            AccountingEntry::credit('receivable', $receivableBase),
+            AccountingEntry::debit('revenue', $revenueBase),
+            $taxBase > 0 ? AccountingEntry::debit('tax_payable', $taxBase) : null,
+        ]);
 
         if ($shippingBase > 0) {
             $entries[] = AccountingEntry::credit('shipping_charge_receivable', $shippingBase);
@@ -886,14 +871,10 @@ class SalesInvoiceService
             $lineTotal = $this->roundMoney($grossTotal - $discountAmount);
             $taxAmount = $this->roundMoney($lineTotal * ($taxRate / 100));
             $lineTotalBase = $this->roundCost($lineTotal * $exchangeRate);
-            if ($deliveryLine) {
-                $deliveryValueBase = $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base);
-                $revenueVariance = $this->roundMoney(($lineTotalBase + ($taxAmount * $exchangeRate)) - $deliveryValueBase);
-            } else {
-                // Non-deliverable items: use full invoice line amount (including tax) as delivery value
-                $deliveryValueBase = $this->roundCost($lineTotalBase + ($taxAmount * $exchangeRate));
-                $revenueVariance = 0.0;
-            }
+            $deliveryValueBase = $deliveryLine
+                ? $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base)
+                : 0.0;
+            $revenueVariance = 0.0;
 
             $prepared[] = [
                 'line_number' => $lineNumber++,
@@ -1042,14 +1023,10 @@ class SalesInvoiceService
             $lineTotalBase = $this->roundCost($lineTotal * (float) $invoice->exchange_rate);
             $taxAmount = (float) $line->tax_amount;
             $taxAmountBase = $this->roundCost($taxAmount * (float) $invoice->exchange_rate);
-            if ($deliveryLine) {
-                $deliveryValueBase = $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base);
-                $revenueVariance = $this->roundMoney($lineTotalBase - $deliveryValueBase);
-            } else {
-                // Non-deliverable items: use line total (excluding tax) as delivery value
-                $deliveryValueBase = $this->roundCost($lineTotalBase);
-                $revenueVariance = 0.0;
-            }
+            $deliveryValueBase = $deliveryLine
+                ? $this->roundCost($quantityBase * (float) $deliveryLine->unit_cost_base)
+                : 0.0;
+            $revenueVariance = 0.0;
 
             $prepared[] = [
                 'line_id' => $line->id,
@@ -1161,17 +1138,13 @@ class SalesInvoiceService
         );
 
         $receivableBase = $this->roundCost(($totals['subtotal'] + $totals['tax_total']) * $exchangeRate);
+        $revenueBase = $this->roundCost($totals['subtotal'] * $exchangeRate);
         $taxBase = $this->roundCost($totals['tax_total'] * $exchangeRate);
         $shippingBase = $this->roundCost((float) $invoice->shipping_charge * $exchangeRate);
 
         $entries = array_filter([
             AccountingEntry::debit('receivable', $receivableBase),
-            AccountingEntry::credit('revenue', $totals['delivery_value_base']),
-            $totals['revenue_variance'] !== 0.0
-                ? ($totals['revenue_variance'] > 0
-                    ? AccountingEntry::credit('revenue_variance', abs($totals['revenue_variance']))
-                    : AccountingEntry::debit('revenue_variance', abs($totals['revenue_variance'])))
-                : null,
+            AccountingEntry::credit('revenue', $revenueBase),
             $taxBase > 0 ? AccountingEntry::credit('tax_payable', $taxBase) : null,
         ]);
 
