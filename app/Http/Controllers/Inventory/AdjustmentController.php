@@ -127,11 +127,16 @@ class AdjustmentController extends BaseInventoryController
 
     public function import(Request $request): RedirectResponse
     {
-        $request->validate([
+        $data = $request->validate([
             'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls'],
+            'transaction_date' => ['nullable', 'date'],
         ]);
 
-        $import = new InitialStockImport($this->inventoryService);
+        $transactionDate = isset($data['transaction_date'])
+            ? \Carbon\CarbonImmutable::parse($data['transaction_date'])->startOfDay()
+            : \Carbon\CarbonImmutable::now();
+
+        $import = new InitialStockImport($this->inventoryService, $transactionDate);
 
         try {
             Excel::import($import, $request->file('file'));

@@ -28,6 +28,14 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    /**
+     * Optional single extra input sent alongside the file (e.g. a transaction date).
+     * Shape: { name: string, label: string, type?: 'date'|'text', default?: string, required?: boolean }
+     */
+    dateField: {
+        type: Object,
+        default: null,
+    },
 });
 
 const emit = defineEmits(['close', 'imported']);
@@ -36,6 +44,7 @@ const file = ref(null);
 const processing = ref(false);
 const errors = ref({});
 const fileError = ref('');
+const dateValue = ref(props.dateField?.default ?? new Date().toISOString().split('T')[0]);
 
 const rowErrors = computed(() =>
     Object.keys(errors.value)
@@ -49,6 +58,7 @@ watch(() => props.show, (shown) => {
         file.value = null;
         errors.value = {};
         fileError.value = '';
+        dateValue.value = props.dateField?.default ?? new Date().toISOString().split('T')[0];
     }
 });
 
@@ -71,9 +81,14 @@ function submit() {
     processing.value = true;
     errors.value = {};
 
+    const payload = { file: file.value };
+    if (props.dateField) {
+        payload[props.dateField.name] = dateValue.value;
+    }
+
     router.post(
         route(props.importRoute),
-        { file: file.value },
+        payload,
         {
             forceFormData: true,
             preserveScroll: true,
@@ -115,6 +130,19 @@ function close() {
                     <DocumentArrowDownIcon class="w-4 h-4 mr-1" />
                     Unduh template
                 </button>
+            </div>
+
+            <div v-if="dateField" class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ dateField.label }}
+                </label>
+                <input
+                    v-model="dateValue"
+                    type="date"
+                    class="block w-full text-sm border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-main-500"
+                    :disabled="processing"
+                />
+                <InputError :message="errors[dateField.name]" class="mt-1" />
             </div>
 
             <label class="block text-sm font-medium text-gray-700 mb-2">

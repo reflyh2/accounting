@@ -29,6 +29,7 @@ class InitialStockImport implements ToCollection, WithHeadingRow
 
     public function __construct(
         private readonly InventoryService $inventoryService,
+        private readonly CarbonImmutable $transactionDate,
     ) {}
 
     public function collection(Collection $rows): void
@@ -109,7 +110,6 @@ class InitialStockImport implements ToCollection, WithHeadingRow
         }
 
         DB::transaction(function () use ($grouped) {
-            $today = CarbonImmutable::now();
             foreach ($grouped as $locationId => $lines) {
                 $lineDtos = array_map(
                     fn ($line) => new AdjustLineDTO(
@@ -122,7 +122,7 @@ class InitialStockImport implements ToCollection, WithHeadingRow
                 );
 
                 $dto = new AdjustDTO(
-                    $today,
+                    $this->transactionDate,
                     (int) $locationId,
                     $lineDtos,
                     'Saldo awal (impor)',

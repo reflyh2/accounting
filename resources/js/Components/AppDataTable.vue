@@ -112,6 +112,10 @@ const props = defineProps({
         type: String,
         default: 'Impor',
     },
+    importDateField: {
+        type: Object,
+        default: null,
+    },
 });
 
 const slots = useSlots();
@@ -422,6 +426,7 @@ function handleCreate() {
             :description="importDescription"
             :import-route="importRoute"
             :template-route="importTemplateRoute"
+            :date-field="importDateField"
             @close="showImportModal = false"
         />
 
