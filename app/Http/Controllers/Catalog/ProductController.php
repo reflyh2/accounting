@@ -2,20 +2,24 @@
 
 namespace App\Http\Controllers\Catalog;
 
+use App\Domain\Catalog\ProductRulesBundle;
+use App\Domain\Catalog\ProductTypeTemplates;
+use App\Http\Controllers\Concerns\HandlesImportErrors;
 use App\Http\Controllers\Controller;
-use App\Models\Product;
-use App\Models\ProductCategory;
-use App\Models\Uom;
-use App\Models\TaxCategory;
+use App\Imports\ImportRollbackException;
+use App\Imports\ProductsImport;
+use App\Models\Account;
 use App\Models\AttributeSet;
 use App\Models\Company;
-use App\Models\Account;
 use App\Models\CostPool;
+use App\Models\Product;
+use App\Models\ProductCategory;
+use App\Models\TaxCategory;
+use App\Models\Uom;
 use App\Services\Catalog\ProductAppService;
-use App\Domain\Catalog\ProductTypeTemplates;
-use App\Domain\Catalog\ProductRulesBundle;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * ProductController
@@ -25,9 +29,9 @@ use Inertia\Inertia;
  */
 class ProductController extends Controller
 {
-    public function __construct(protected ProductAppService $productService)
-    {
-    }
+    use HandlesImportErrors;
+
+    public function __construct(protected ProductAppService $productService) {}
 
     /**
      * Display listing of products filtered by group
@@ -37,7 +41,7 @@ class ProductController extends Controller
         $kindGroups = ProductRulesBundle::getKindGroups();
 
         // Validate group
-        if (!isset($kindGroups[$group])) {
+        if (! isset($kindGroups[$group])) {
             $group = 'trade';
         }
 
@@ -50,7 +54,7 @@ class ProductController extends Controller
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('code', 'ilike', "%{$search}%")
-                  ->orWhere('name', 'ilike', "%{$search}%");
+                    ->orWhere('name', 'ilike', "%{$search}%");
             });
         }
 
@@ -74,10 +78,10 @@ class ProductController extends Controller
         $order = $request->get('order', 'asc');
         $allowedSorts = ['name', 'code', 'kind', 'is_active', 'created_at'];
 
-        if (!in_array($sort, $allowedSorts, true)) {
+        if (! in_array($sort, $allowedSorts, true)) {
             $sort = 'name';
         }
-        if (!in_array(strtolower($order), ['asc', 'desc'], true)) {
+        if (! in_array(strtolower($order), ['asc', 'desc'], true)) {
             $order = 'asc';
         }
 
@@ -113,7 +117,7 @@ class ProductController extends Controller
     {
         $kindGroups = ProductRulesBundle::getKindGroups();
 
-        if (!isset($kindGroups[$group])) {
+        if (! isset($kindGroups[$group])) {
             $group = 'trade';
         }
 
@@ -134,7 +138,7 @@ class ProductController extends Controller
     {
         $template = ProductTypeTemplates::get($templateCode);
 
-        if (!$template) {
+        if (! $template) {
             abort(404, 'Template not found');
         }
 
@@ -145,7 +149,7 @@ class ProductController extends Controller
 
         // Get categories that use this attribute set
         $categories = ProductCategory::query()
-            ->when($attributeSet, fn($q) => $q->where('attribute_set_id', $attributeSet?->id))
+            ->when($attributeSet, fn ($q) => $q->where('attribute_set_id', $attributeSet?->id))
             ->orderBy('name')
             ->get();
 
@@ -174,7 +178,7 @@ class ProductController extends Controller
         $templateCode = $request->input('template_code');
         $template = ProductTypeTemplates::get($templateCode);
 
-        if (!$template) {
+        if (! $template) {
             abort(400, 'Invalid template');
         }
 
@@ -209,7 +213,7 @@ class ProductController extends Controller
             ->first();
 
         $categories = ProductCategory::query()
-            ->when($attributeSet, fn($q) => $q->where('attribute_set_id', $attributeSet?->id))
+            ->when($attributeSet, fn ($q) => $q->where('attribute_set_id', $attributeSet?->id))
             ->orderBy('name')
             ->get();
 
@@ -277,6 +281,50 @@ class ProductController extends Controller
             ->with('success', 'Produk berhasil dihapus.');
     }
 
+    public function importTemplate()
+    {
+        $headers = ['kode', 'nama', 'kategori_kode', 'satuan_kode', 'pajak_kode', 'aktif'];
+        $example = [
+            ['BRG-001', 'Contoh Produk A', 'BHN', 'PCS', 'PPN-11', 'Ya'],
+            ['BRG-002', 'Contoh Produk B', 'BHN', 'PCS', '', 'Ya'],
+        ];
+
+        $callback = function () use ($headers, $example) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            foreach ($example as $row) {
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        };
+
+        return response()->streamDownload($callback, 'template-produk-barang.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls'],
+        ]);
+
+        $import = new ProductsImport($this->productService);
+
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (ImportRollbackException $e) {
+            // errors already collected
+        }
+
+        if (! empty($import->errors)) {
+            return redirect()->back()->withErrors($this->buildImportErrorBag($import->errors));
+        }
+
+        return redirect()->route('catalog.products.index', ['group' => 'trade'])
+            ->with('success', "Berhasil mengimpor {$import->created} produk.");
+    }
+
     /**
      * Validate product input based on kind
      */
@@ -284,7 +332,7 @@ class ProductController extends Controller
     {
         $uniqueRule = 'unique:products,code';
         if ($productId) {
-            $uniqueRule .= ',' . $productId;
+            $uniqueRule .= ','.$productId;
         }
 
         // Base validation rules
@@ -300,7 +348,7 @@ class ProductController extends Controller
             'cogs_account_id' => ['nullable', 'exists:accounts,id'],
             'inventory_account_id' => ['nullable', 'exists:accounts,id'],
             'prepaid_account_id' => ['nullable', 'exists:accounts,id'],
-            'cost_model' => ['nullable', 'string', 'in:' . implode(',', ProductRulesBundle::COST_MODELS)],
+            'cost_model' => ['nullable', 'string', 'in:'.implode(',', ProductRulesBundle::COST_MODELS)],
             'default_cost_pool_id' => ['nullable', 'exists:cost_pools,id'],
             'is_active' => ['boolean'],
             'capabilities' => ['array'],

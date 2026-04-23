@@ -2,21 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use Inertia\Inertia;
-use App\Models\Company;
+use App\Exports\ProductCategoriesExport;
+use App\Http\Controllers\Concerns\HandlesImportErrors;
+use App\Imports\ImportRollbackException;
+use App\Imports\ProductCategoriesImport;
 use App\Models\AttributeSet;
+use App\Models\Company;
 use App\Models\ProductCategory;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Validation\Rule;
+use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\ProductCategoriesExport;
 
 class ProductCategoryController extends Controller
 {
+    use HandlesImportErrors;
+
     public function index(Request $request)
     {
         $filters = $request->all() ?: Session::get('product-categories.index_filters', []);
@@ -24,19 +29,19 @@ class ProductCategoryController extends Controller
 
         $query = ProductCategory::query()->with(['company', 'parent', 'attributeSet']);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
-                $q->where(DB::raw('lower(code)'), 'like', '%' . $search . '%')
-                    ->orWhere(DB::raw('lower(name)'), 'like', '%' . $search . '%');
+                $q->where(DB::raw('lower(code)'), 'like', '%'.$search.'%')
+                    ->orWhere(DB::raw('lower(name)'), 'like', '%'.$search.'%');
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->where('company_id', $filters['company_id']);
         }
 
-        if (!empty($filters['attribute_set_id'])) {
+        if (! empty($filters['attribute_set_id'])) {
             $query->where('attribute_set_id', $filters['attribute_set_id']);
         }
 
@@ -45,11 +50,11 @@ class ProductCategoryController extends Controller
         $sortOrder = $filters['order'] ?? 'asc';
 
         $allowedSorts = ['code', 'name', 'sort_order', 'created_at'];
-        if (!in_array($sortColumn, $allowedSorts)) {
+        if (! in_array($sortColumn, $allowedSorts)) {
             $sortColumn = 'sort_order';
         }
 
-        if (!in_array($sortOrder, ['asc', 'desc'])) {
+        if (! in_array($sortOrder, ['asc', 'desc'])) {
             $sortOrder = 'asc';
         }
 
@@ -177,7 +182,7 @@ class ProductCategoryController extends Controller
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('catalog.product-categories.index') . ($currentQuery ? '?' . $currentQuery : '');
+            $redirectUrl = route('catalog.product-categories.index').($currentQuery ? '?'.$currentQuery : '');
 
             return Redirect::to($redirectUrl)->with('success', 'Kategori produk berhasil dihapus.');
         }
@@ -212,7 +217,7 @@ class ProductCategoryController extends Controller
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('catalog.product-categories.index') . ($currentQuery ? '?' . $currentQuery : '');
+            $redirectUrl = route('catalog.product-categories.index').($currentQuery ? '?'.$currentQuery : '');
 
             return Redirect::to($redirectUrl)->with('success', 'Kategori produk berhasil dihapus.');
         }
@@ -223,19 +228,66 @@ class ProductCategoryController extends Controller
     public function exportXLSX(Request $request)
     {
         $categories = $this->getFilteredProductCategories($request);
+
         return Excel::download(new ProductCategoriesExport($categories), 'product-categories.xlsx');
     }
 
     public function exportCSV(Request $request)
     {
         $categories = $this->getFilteredProductCategories($request);
+
         return Excel::download(new ProductCategoriesExport($categories), 'product-categories.csv', \Maatwebsite\Excel\Excel::CSV);
     }
 
     public function exportPDF(Request $request)
     {
         $categories = $this->getFilteredProductCategories($request);
+
         return Excel::download(new ProductCategoriesExport($categories), 'product-categories.pdf', \Maatwebsite\Excel\Excel::MPDF);
+    }
+
+    public function importTemplate()
+    {
+        $headers = ['kode', 'nama', 'perusahaan', 'set_atribut', 'parent_kode', 'urutan'];
+        $example = [
+            ['BHN', 'Bahan Baku', 'PT Contoh', 'default', '', 1],
+            ['BHN-CAT', 'Cat', 'PT Contoh', 'default', 'BHN', 1],
+        ];
+
+        $callback = function () use ($headers, $example) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            foreach ($example as $row) {
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        };
+
+        return response()->streamDownload($callback, 'template-kategori-produk.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls'],
+        ]);
+
+        $import = new ProductCategoriesImport(Auth::user()?->global_id);
+
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (ImportRollbackException $e) {
+            // fall through to error handling below
+        }
+
+        if (! empty($import->errors)) {
+            return redirect()->back()->withErrors($this->buildImportErrorBag($import->errors));
+        }
+
+        return redirect()->route('catalog.product-categories.index')
+            ->with('success', "Berhasil mengimpor {$import->created} kategori produk.");
     }
 
     private function validateRequest(Request $request, ?ProductCategory $productCategory = null): array
@@ -278,7 +330,8 @@ class ProductCategoryController extends Controller
     {
         if ($parent) {
             $basePath = $parent->path ?: $parent->code;
-            return trim($basePath . '/' . $code, '/');
+
+            return trim($basePath.'/'.$code, '/');
         }
 
         return $code;
@@ -291,8 +344,8 @@ class ProductCategoryController extends Controller
         if ($request->filled('search')) {
             $search = strtolower($request->input('search'));
             $query->where(function ($q) use ($search) {
-                $q->where(DB::raw('lower(code)'), 'like', '%' . $search . '%')
-                    ->orWhere(DB::raw('lower(name)'), 'like', '%' . $search . '%');
+                $q->where(DB::raw('lower(code)'), 'like', '%'.$search.'%')
+                    ->orWhere(DB::raw('lower(name)'), 'like', '%'.$search.'%');
             });
         }
 
@@ -307,4 +360,3 @@ class ProductCategoryController extends Controller
         return $query->orderBy('sort_order')->get();
     }
 }
-

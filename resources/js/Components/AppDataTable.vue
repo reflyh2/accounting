@@ -8,12 +8,13 @@ import AppEditButton from '@/Components/AppEditButton.vue';
 import AppDeleteButton from '@/Components/AppDeleteButton.vue';
 import AppViewButton from '@/Components/AppViewButton.vue';
 import Pagination from '@/Components/Pagination.vue';
-import { PlusIcon, ArrowDownTrayIcon, TrashIcon } from '@heroicons/vue/16/solid';
+import { PlusIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, TrashIcon } from '@heroicons/vue/16/solid';
 import { FunnelIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 import AppTable from '@/Components/AppTable.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import DeleteConfirmationModal from '@/Components/DeleteConfirmationModal.vue';
+import ImportModal from '@/Components/ImportModal.vue';
 import AppDangerButton from './AppDangerButton.vue';
 
 const props = defineProps({
@@ -90,7 +91,27 @@ const props = defineProps({
     canDelete: {
         type: Function,
         default: () => true
-    }
+    },
+    importRoute: {
+        type: String,
+        default: null,
+    },
+    importTemplateRoute: {
+        type: String,
+        default: null,
+    },
+    importTitle: {
+        type: String,
+        default: 'Impor Data',
+    },
+    importDescription: {
+        type: String,
+        default: '',
+    },
+    importButtonLabel: {
+        type: String,
+        default: 'Impor',
+    },
 });
 
 const slots = useSlots();
@@ -131,6 +152,7 @@ const rowsPerPage = ref(props.data.per_page || 10);
 const showDeleteConfirmation = ref(false);
 const itemToDelete = ref(null);
 const showDownloadOptions = ref(false);
+const showImportModal = ref(false);
 const selectedItems = ref([]);
 const showBulkDeleteConfirmation = ref(false);
 
@@ -290,6 +312,10 @@ function handleCreate() {
                         </div>
                     </div>
                 </div>
+                <AppUtilityButton v-if="importRoute" class="ml-2" @click="showImportModal = true">
+                    <ArrowUpTrayIcon class="w-5 h-5 mr-1" />
+                    {{ importButtonLabel }}
+                </AppUtilityButton>
             </div>
 
             <div v-if="enableFilters" class="flex items-center">
@@ -387,6 +413,16 @@ function handleCreate() {
             message="Apakah Anda yakin ingin menghapus data yang dipilih?"
             @close="showBulkDeleteConfirmation = false"
             @confirm="bulkDelete"
+        />
+
+        <ImportModal
+            v-if="importRoute"
+            :show="showImportModal"
+            :title="importTitle"
+            :description="importDescription"
+            :import-route="importRoute"
+            :template-route="importTemplateRoute"
+            @close="showImportModal = false"
         />
 
         <div class="mt-6 px-6 pb-6">         

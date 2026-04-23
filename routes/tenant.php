@@ -596,9 +596,15 @@ Route::middleware([
             Route::get('product-categories/export-xlsx', [ProductCategoryController::class, 'exportXLSX'])->name('product-categories.export-xlsx');
             Route::get('product-categories/export-csv', [ProductCategoryController::class, 'exportCSV'])->name('product-categories.export-csv');
             Route::get('product-categories/export-pdf', [ProductCategoryController::class, 'exportPDF'])->name('product-categories.export-pdf');
+            Route::get('product-categories/import-template', [ProductCategoryController::class, 'importTemplate'])->name('product-categories.import-template');
+            Route::post('product-categories/import', [ProductCategoryController::class, 'import'])->name('product-categories.import');
             Route::resource('product-categories', ProductCategoryController::class);
 
             // Unified Product Routes (v2)
+            Route::get('products-import-template', [\App\Http\Controllers\Catalog\ProductController::class, 'importTemplate'])
+                ->name('products.import-template');
+            Route::post('products-import', [\App\Http\Controllers\Catalog\ProductController::class, 'import'])
+                ->name('products.import');
             Route::get('products/{group?}', [\App\Http\Controllers\Catalog\ProductController::class, 'index'])
                 ->name('products.index')
                 ->where('group', 'trade|service|booking|rental|travel|other');
@@ -641,6 +647,8 @@ Route::middleware([
         Route::prefix('inventory')->name('inventory.')->group(function () {
             Route::resource('receipts', ReceiveController::class);
             Route::resource('shipments', ShipController::class);
+            Route::get('adjustments/import-template', [AdjustmentController::class, 'importTemplate'])->name('adjustments.import-template');
+            Route::post('adjustments/import', [AdjustmentController::class, 'import'])->name('adjustments.import');
             Route::resource('adjustments', AdjustmentController::class);
             Route::resource('transfers', TransferController::class);
         });

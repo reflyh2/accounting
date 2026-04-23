@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Exceptions\InventoryException;
+use App\Http\Controllers\Concerns\HandlesImportErrors;
+use App\Imports\ImportRollbackException;
+use App\Imports\InitialStockImport;
 use App\Models\InventoryTransaction;
 use App\Services\Inventory\DTO\AdjustDTO;
 use App\Services\Inventory\DTO\AdjustLineDTO;
@@ -13,12 +16,13 @@ use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AdjustmentController extends BaseInventoryController
 {
-    public function __construct(private readonly InventoryService $inventoryService)
-    {
-    }
+    use HandlesImportErrors;
+
+    public function __construct(private readonly InventoryService $inventoryService) {}
 
     public function index(Request $request): Response
     {
@@ -99,6 +103,51 @@ class AdjustmentController extends BaseInventoryController
             ->with('success', 'Penyesuaian berhasil dihapus.');
     }
 
+    public function importTemplate()
+    {
+        $headers = ['sku', 'lokasi_kode', 'jumlah', 'harga_satuan'];
+        $example = [
+            ['BRG-001', 'GUDANG-01', 10, 15000],
+            ['BRG-002', 'GUDANG-01', 5, 25000],
+        ];
+
+        $callback = function () use ($headers, $example) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            foreach ($example as $row) {
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        };
+
+        return response()->streamDownload($callback, 'template-saldo-awal.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    public function import(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls'],
+        ]);
+
+        $import = new InitialStockImport($this->inventoryService);
+
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (ImportRollbackException $e) {
+            // errors already collected
+        }
+
+        if (! empty($import->errors)) {
+            return redirect()->back()->withErrors($this->buildImportErrorBag($import->errors));
+        }
+
+        return redirect()
+            ->route('inventory.adjustments.index')
+            ->with('success', "Berhasil membuat {$import->documentsCreated} dokumen penyesuaian dari {$import->linesCreated} baris.");
+    }
+
     private function validatePayload(Request $request): array
     {
         $data = $request->validate([
@@ -115,7 +164,7 @@ class AdjustmentController extends BaseInventoryController
         ]);
 
         foreach ($data['lines'] as $index => $line) {
-            if ($line['quantity'] > 0 && (!isset($line['unit_cost']) || $line['unit_cost'] === '')) {
+            if ($line['quantity'] > 0 && (! isset($line['unit_cost']) || $line['unit_cost'] === '')) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     "lines.$index.unit_cost" => 'Harga satuan wajib diisi untuk penyesuaian positif.',
                 ]);
@@ -149,5 +198,3 @@ class AdjustmentController extends BaseInventoryController
         );
     }
 }
-
-
