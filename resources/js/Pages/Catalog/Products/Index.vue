@@ -210,7 +210,7 @@ const groupTabs = computed(() => {
                         :importRoute="group === 'trade' ? 'catalog.products.import' : null"
                         :importTemplateRoute="group === 'trade' ? 'catalog.products.import-template' : null"
                         importTitle="Impor Produk Barang"
-                        importDescription="Unggah berkas CSV atau Excel untuk membuat produk barang (kind=goods_stock) secara massal. Kategori dan satuan harus sudah terdaftar."
+                        importDescription="Unggah berkas CSV atau Excel untuk membuat produk barang (kind=goods_stock) secara massal. Kategori dan satuan harus sudah terdaftar. Kolom 'perusahaan' menerima beberapa nama perusahaan dipisahkan koma; kosongkan untuk semua perusahaan."
                         searchPlaceholder="Cari kode atau nama..."
                         @delete="deleteItem"
                         @sort="handleSort"

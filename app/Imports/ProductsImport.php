@@ -43,7 +43,8 @@ class ProductsImport implements ToCollection, WithHeadingRow
         $uomsByCode = Uom::query()->get()->keyBy('code');
         $taxCategoriesByCode = TaxCategory::query()->get()->keyBy('code');
         $existingByCode = Product::query()->pluck('code')->map(fn ($c) => true)->toArray();
-        $companyIds = Company::query()->pluck('id')->toArray();
+        $companiesByName = Company::query()->get()->keyBy(fn ($c) => mb_strtolower($c->name));
+        $allCompanyIds = $companiesByName->pluck('id')->values()->toArray();
 
         $staged = [];
         foreach ($rows as $index => $row) {
@@ -109,6 +110,29 @@ class ProductsImport implements ToCollection, WithHeadingRow
             }
 
             $isActive = $this->parseBool($row['aktif'] ?? null, true);
+
+            $companyIds = $allCompanyIds;
+            $companyRaw = trim((string) ($row['perusahaan'] ?? ''));
+            if ($companyRaw !== '') {
+                $names = array_values(array_filter(array_map('trim', explode(',', $companyRaw))));
+                $resolved = [];
+                $unknown = [];
+                foreach ($names as $n) {
+                    $match = $companiesByName->get(mb_strtolower($n));
+                    if ($match) {
+                        $resolved[$match->id] = $match->id;
+                    } else {
+                        $unknown[] = $n;
+                    }
+                }
+                if (! empty($unknown)) {
+                    $list = implode(', ', $unknown);
+                    $this->errors[] = "Baris {$lineNo}, kolom 'perusahaan': perusahaan '{$list}' tidak ditemukan.";
+
+                    continue;
+                }
+                $companyIds = array_values($resolved);
+            }
 
             $staged[$code] = [
                 'line' => $lineNo,

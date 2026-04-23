@@ -283,10 +283,10 @@ class ProductController extends Controller
 
     public function importTemplate()
     {
-        $headers = ['kode', 'nama', 'kategori_kode', 'satuan_kode', 'pajak_kode', 'aktif'];
+        $headers = ['kode', 'nama', 'kategori_kode', 'satuan_kode', 'pajak_kode', 'aktif', 'perusahaan'];
         $example = [
-            ['BRG-001', 'Contoh Produk A', 'BHN', 'PCS', 'PPN-11', 'Ya'],
-            ['BRG-002', 'Contoh Produk B', 'BHN', 'PCS', '', 'Ya'],
+            ['BRG-001', 'Contoh Produk A', 'BHN', 'PCS', 'PPN-11', 'Ya', ''],
+            ['BRG-002', 'Contoh Produk B', 'BHN', 'PCS', '', 'Ya', 'PT Contoh, PT Contoh Dua'],
         ];
 
         $callback = function () use ($headers, $example) {
