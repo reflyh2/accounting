@@ -2,35 +2,48 @@
 
 namespace App\Services\Inventory;
 
+use App\Domain\Accounting\DTO\AccountingEntry;
+use App\Domain\Accounting\DTO\AccountingEventPayload;
+use App\Enums\AccountingEventCode;
 use App\Exceptions\InventoryException;
 use App\Models\CostLayer;
+use App\Models\Currency;
 use App\Models\InventoryCostConsumption;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\InventoryTransactionLine;
-use App\Models\ProductVariant;
 use App\Models\Location;
+use App\Models\ProductVariant;
+use App\Services\Accounting\AccountingEventBus;
 use App\Services\Inventory\DTO\AdjustDTO;
-use App\Services\Inventory\DTO\AdjustLineDTO;
 use App\Services\Inventory\DTO\InventoryTxnResult;
 use App\Services\Inventory\DTO\IssueDTO;
 use App\Services\Inventory\DTO\IssueLineDTO;
 use App\Services\Inventory\DTO\ReceiptDTO;
 use App\Services\Inventory\DTO\ReceiptLineDTO;
 use App\Services\Inventory\DTO\TransferDTO;
-use App\Services\Inventory\DTO\TransferLineDTO;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class InventoryService
 {
     private const QTY_SCALE = 3;
+
     private const COST_SCALE = 4;
+
     private const TOLERANCE = 0.0005;
+
     private const EFFECT_IN = 'in';
+
     private const EFFECT_OUT = 'out';
+
+    public function __construct(
+        private readonly AccountingEventBus $accountingEventBus,
+    ) {}
 
     public function receipt(ReceiptDTO $dto, ?InventoryTransaction $transaction = null): InventoryTxnResult
     {
@@ -83,6 +96,14 @@ class InventoryService
         $valuation = $this->normalizeValuation($dto->valuationMethod, $dto->locationId);
 
         return DB::transaction(function () use ($dto, $valuation, $transaction) {
+            $oldSnapshot = $transaction
+                ? [
+                    'net_value' => $this->computeAdjustmentNetValue($transaction),
+                    'number' => $transaction->transaction_number,
+                    'date' => $transaction->transaction_date,
+                ]
+                : null;
+
             $transaction = $this->prepareTransaction('adjustment', [
                 'transaction_date' => $dto->transactionDate,
                 'source_type' => $dto->reason,
@@ -122,6 +143,22 @@ class InventoryService
                     $netValue -= $result['value'];
                 }
             }
+
+            if ($oldSnapshot !== null) {
+                $this->dispatchAdjustmentEvent(
+                    $transaction,
+                    $oldSnapshot['net_value'],
+                    AccountingEventCode::INVENTORY_ADJUSTMENT_REVERSED,
+                    $oldSnapshot['number'],
+                    $oldSnapshot['date'],
+                );
+            }
+
+            $this->dispatchAdjustmentEvent(
+                $transaction,
+                $netValue,
+                AccountingEventCode::INVENTORY_ADJUSTMENT_POSTED,
+            );
 
             return new InventoryTxnResult(
                 $transaction->load('lines.productVariant'),
@@ -213,7 +250,18 @@ class InventoryService
 
     public function deleteTransaction(InventoryTransaction $transaction): void
     {
-        DB::transaction(fn () => $this->deleteTransactionInternal($transaction, false));
+        DB::transaction(function () use ($transaction) {
+            if ($transaction->transaction_type === 'adjustment') {
+                $netValue = $this->computeAdjustmentNetValue($transaction);
+                $this->dispatchAdjustmentEvent(
+                    $transaction,
+                    $netValue,
+                    AccountingEventCode::INVENTORY_ADJUSTMENT_REVERSED,
+                );
+            }
+
+            $this->deleteTransactionInternal($transaction, false);
+        });
     }
 
     private function handleReceiptLinesBatch(
@@ -345,7 +393,7 @@ class InventoryService
     private function recordCostConsumptions(InventoryTransactionLine $line, array $segments): void
     {
         foreach ($segments as $segment) {
-            if (!isset($segment['cost_layer_id'])) {
+            if (! isset($segment['cost_layer_id'])) {
                 continue;
             }
 
@@ -579,7 +627,7 @@ class InventoryService
 
         $item = $query->lockForUpdate()->first();
 
-        if (!$item) {
+        if (! $item) {
             $item = InventoryItem::create([
                 'product_variant_id' => $variantId,
                 'location_id' => $locationId,
@@ -593,6 +641,82 @@ class InventoryService
         }
 
         return $item;
+    }
+
+    private function computeAdjustmentNetValue(InventoryTransaction $transaction): float
+    {
+        $transaction->loadMissing('lines');
+        $net = 0.0;
+        foreach ($transaction->lines as $line) {
+            $value = (float) $line->quantity * (float) ($line->unit_cost ?? 0);
+            $net += $line->effect === self::EFFECT_IN ? $value : -$value;
+        }
+
+        return $this->roundCost($net);
+    }
+
+    private function dispatchAdjustmentEvent(
+        InventoryTransaction $transaction,
+        float $netValue,
+        AccountingEventCode $code,
+        ?string $overrideDocNumber = null,
+        $overrideDate = null,
+    ): void {
+        if (abs($netValue) < self::TOLERANCE) {
+            return;
+        }
+
+        $locationId = $transaction->location_id_from ?? $transaction->location_id_to;
+        if (! $locationId) {
+            return;
+        }
+
+        /** @var Location|null $location */
+        $location = Location::query()
+            ->with(['branch:id,branch_group_id', 'branch.branchGroup:id,company_id'])
+            ->find($locationId);
+
+        $branchId = $location?->branch_id;
+        $companyId = $location?->branch?->branchGroup?->company_id;
+
+        if (! $companyId) {
+            throw new InventoryException('Tidak dapat menentukan perusahaan untuk penyesuaian.');
+        }
+
+        $isPosted = $code === AccountingEventCode::INVENTORY_ADJUSTMENT_POSTED;
+        // POSTED: positive net = DR inventory / CR variance; negative = swap.
+        // REVERSED: opposite of POSTED.
+        $debitInventory = $isPosted ? $netValue > 0 : $netValue < 0;
+
+        $amount = abs($netValue);
+        $entries = $debitInventory
+            ? [
+                AccountingEntry::debit('inventory', $amount),
+                AccountingEntry::credit('inventory_variance', $amount),
+            ]
+            : [
+                AccountingEntry::debit('inventory_variance', $amount),
+                AccountingEntry::credit('inventory', $amount),
+            ];
+
+        $currencyCode = Currency::query()->where('is_primary', true)->value('code') ?? 'IDR';
+
+        $payload = new AccountingEventPayload(
+            $code,
+            $companyId,
+            $branchId,
+            'inventory_adjustment',
+            $transaction->id,
+            $overrideDocNumber ?? $transaction->transaction_number,
+            $currencyCode,
+            1.0,
+            CarbonImmutable::parse($overrideDate ?? $transaction->transaction_date ?? now()),
+            Auth::user()?->global_id,
+            $isPosted ? [] : ['reversal' => true],
+        );
+        $payload->setLines($entries);
+
+        $this->accountingEventBus->dispatch($payload);
     }
 
     private function normalizeValuation(?string $method, ?int $locationId = null): string
@@ -627,6 +751,7 @@ class InventoryService
     private function generateTransactionNumber(): string
     {
         $prefix = strtoupper(config('inventory.transaction_number_prefix', 'INV'));
+
         return sprintf('%s-%s-%s', $prefix, now()->format('Ymd'), Str::upper(Str::random(6)));
     }
 
@@ -730,5 +855,3 @@ class InventoryService
             ?? throw new InventoryException('Lokasi tujuan tidak ditemukan.');
     }
 }
-
-

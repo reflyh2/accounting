@@ -53,6 +53,7 @@ const allRoles = [
    'raw_material',
    'finished_goods',
    'variance',
+   'inventory_variance',
    'clearing',
 ];
 
@@ -127,6 +128,14 @@ const eventCodeRoleMapping = {
    'mfg.variance_posted': [
       { role: 'variance', direction: 'debit' },
       { role: 'wip', direction: 'credit' },
+   ],
+   'inventory.adjustment_posted': [
+      { role: 'inventory', direction: 'debit' },
+      { role: 'inventory_variance', direction: 'credit' },
+   ],
+   'inventory.adjustment_reversed': [
+      { role: 'inventory_variance', direction: 'debit' },
+      { role: 'inventory', direction: 'credit' },
    ],
    'costing.cogs_recognized': [
       { role: 'cogs', direction: 'debit' },

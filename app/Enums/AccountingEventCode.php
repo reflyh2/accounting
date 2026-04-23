@@ -18,6 +18,8 @@ enum AccountingEventCode: string
     case MFG_ISSUE_POSTED = 'mfg.issue_posted';
     case MFG_RECEIPT_POSTED = 'mfg.receipt_posted';
     case MFG_VARIANCE_POSTED = 'mfg.variance_posted';
+    case INVENTORY_ADJUSTMENT_POSTED = 'inventory.adjustment_posted';
+    case INVENTORY_ADJUSTMENT_REVERSED = 'inventory.adjustment_reversed';
     case COGS_RECOGNIZED = 'cogs.recognized';
     case COST_ALLOCATED = 'cost.allocated';
 
@@ -38,6 +40,8 @@ enum AccountingEventCode: string
             self::MFG_ISSUE_POSTED => 'Manufacturing Issue Posted',
             self::MFG_RECEIPT_POSTED => 'Manufacturing Receipt Posted',
             self::MFG_VARIANCE_POSTED => 'Manufacturing Variance Posted',
+            self::INVENTORY_ADJUSTMENT_POSTED => 'Inventory Adjustment Posted',
+            self::INVENTORY_ADJUSTMENT_REVERSED => 'Inventory Adjustment Reversed',
             self::COGS_RECOGNIZED => 'COGS Recognized',
             self::COST_ALLOCATED => 'Cost Allocated',
         };

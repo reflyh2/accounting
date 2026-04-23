@@ -178,6 +178,22 @@ class GlEventConfigurationSeeder extends Seeder
                 ],
             ],
 
+            // ============ INVENTORY EVENTS ============
+            AccountingEventCode::INVENTORY_ADJUSTMENT_POSTED->value => [
+                'description' => 'Journal entry when inventory adjustment is posted',
+                'lines' => [
+                    ['role' => 'inventory', 'direction' => 'debit', 'account_name' => 'Persediaan Barang Dagang'],
+                    ['role' => 'inventory_variance', 'direction' => 'credit', 'account_name' => 'Koreksi Persediaan'],
+                ],
+            ],
+            AccountingEventCode::INVENTORY_ADJUSTMENT_REVERSED->value => [
+                'description' => 'Journal entry when inventory adjustment is reversed/deleted',
+                'lines' => [
+                    ['role' => 'inventory_variance', 'direction' => 'debit', 'account_name' => 'Koreksi Persediaan'],
+                    ['role' => 'inventory', 'direction' => 'credit', 'account_name' => 'Persediaan Barang Dagang'],
+                ],
+            ],
+
             // ============ COSTING EVENTS ============
             AccountingEventCode::COGS_RECOGNIZED->value => [
                 'description' => 'Journal entry when cost of goods sold is recognized',

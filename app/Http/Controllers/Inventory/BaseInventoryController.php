@@ -186,7 +186,7 @@ abstract class BaseInventoryController extends Controller
     {
         return ProductVariant::with(['product:id,name,kind', 'uom:id,code'])
             ->where('track_inventory', true)
-            ->whereHas('product', fn ($query) => $query->where('kind', 'goods'))
+            ->whereHas('product', fn ($query) => $query->where('is_active', true))
             ->orderBy('sku')
             ->get(['id', 'product_id', 'sku', 'uom_id'])
             ->map(fn ($variant) => [
@@ -208,5 +208,3 @@ abstract class BaseInventoryController extends Controller
         ];
     }
 }
-
-
