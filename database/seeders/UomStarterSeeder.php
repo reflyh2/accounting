@@ -21,6 +21,15 @@ class UomStarterSeeder extends Seeder
         $uoms = [
             ['code' => 'pcs', 'name' => 'Pieces', 'kind' => 'each'],
             ['code' => 'dozen', 'name' => 'Dozen', 'kind' => 'each'],
+            ['code' => 'lsn', 'name' => 'Lusin', 'kind' => 'each'],
+            ['code' => 'set', 'name' => 'Set', 'kind' => 'each'],
+            ['code' => 'pack', 'name' => 'Pack', 'kind' => 'each'],
+            ['code' => 'roll', 'name' => 'Roll', 'kind' => 'each'],
+            ['code' => 'unit', 'name' => 'Unit', 'kind' => 'each'],
+            ['code' => 'btl', 'name' => 'Botol', 'kind' => 'each'],
+            ['code' => 'klg', 'name' => 'Kaleng', 'kind' => 'each'],
+            ['code' => 'tbg', 'name' => 'Tabung', 'kind' => 'each'],
+            ['code' => 'jrigen', 'name' => 'Jerigen', 'kind' => 'each'],
             ['code' => 'kg', 'name' => 'Kilogram', 'kind' => 'weight'],
             ['code' => 'g', 'name' => 'Gram', 'kind' => 'weight'],
             ['code' => 'mg', 'name' => 'Milligram', 'kind' => 'weight'],
@@ -85,6 +94,13 @@ class UomStarterSeeder extends Seeder
         if ($dozen && $pcs) {
             $createConversion($dozen, $pcs, 12, 1);
             $createConversion($pcs, $dozen, 1, 12);
+        }
+
+        // Lusin <-> Pieces (1 lusin = 12 pcs)
+        $lsn = Uom::where('code', 'lsn')->first();
+        if ($lsn && $pcs) {
+            $createConversion($lsn, $pcs, 12, 1);
+            $createConversion($pcs, $lsn, 1, 12);
         }
 
         // Weight conversions
