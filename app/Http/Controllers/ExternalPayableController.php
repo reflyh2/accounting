@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ExternalDebt;
+use App\Enums\DebtStatus;
+use App\Events\Debt\ExternalDebtCreated;
+use App\Events\Debt\ExternalDebtDeleted;
+use App\Events\Debt\ExternalDebtUpdated;
+use App\Http\Controllers\Concerns\HandlesExternalDebtImport;
+use App\Models\Account;
 use App\Models\Branch;
 use App\Models\Company;
-use App\Models\Partner;
 use App\Models\Currency;
-use App\Models\Account;
-use App\Events\Debt\ExternalDebtCreated;
-use App\Events\Debt\ExternalDebtUpdated;
-use App\Events\Debt\ExternalDebtDeleted;
-use App\Enums\DebtStatus;
+use App\Models\ExternalDebt;
+use App\Models\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -19,6 +20,8 @@ use Inertia\Inertia;
 
 class ExternalPayableController extends Controller
 {
+    use HandlesExternalDebtImport;
+
     protected string $debtType = 'payable';
 
     public function index(Request $request)
@@ -29,21 +32,21 @@ class ExternalPayableController extends Controller
         $query = ExternalDebt::with(['branch.branchGroup.company', 'currency', 'partner'])
             ->where('type', $this->debtType);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where(DB::raw('lower(number)'), 'like', "%$search%")
-                  ->orWhere(DB::raw('lower(notes)'), 'like', "%$search%")
-                  ->orWhereHas('externalDebt.partner', function ($qp) use ($search) {
-                      $qp->where(DB::raw('lower(name)'), 'like', "%$search%");
-                  })
-                  ->orWhereHas('branch', function ($qb) use ($search) {
-                      $qb->where(DB::raw('lower(name)'), 'like', "%$search%");
-                  });
+                    ->orWhere(DB::raw('lower(notes)'), 'like', "%$search%")
+                    ->orWhereHas('externalDebt.partner', function ($qp) use ($search) {
+                        $qp->where(DB::raw('lower(name)'), 'like', "%$search%");
+                    })
+                    ->orWhereHas('branch', function ($qb) use ($search) {
+                        $qb->where(DB::raw('lower(name)'), 'like', "%$search%");
+                    });
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereHas('branch', function ($q) use ($filters) {
                 $q->whereHas('branchGroup', function ($qq) use ($filters) {
                     $qq->whereIn('company_id', $filters['company_id']);
@@ -51,21 +54,21 @@ class ExternalPayableController extends Controller
             });
         }
 
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', $filters['branch_id']);
         }
 
-        if (!empty($filters['partner_id'])) {
+        if (! empty($filters['partner_id'])) {
             $query->whereHas('externalDebt', function ($q) use ($filters) {
                 $q->whereIn('partner_id', $filters['partner_id']);
             });
         }
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('issue_date', '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('issue_date', '<=', $filters['to_date']);
         }
 
@@ -75,13 +78,13 @@ class ExternalPayableController extends Controller
 
         if ($sortColumn === 'partner.name') {
             $query->join('external_debts', 'debts.id', '=', 'external_debts.debt_id')
-                  ->join('partners', 'external_debts.partner_id', '=', 'partners.id')
-                  ->orderBy('partners.name', $sortOrder)
-                  ->select('debts.*');
+                ->join('partners', 'external_debts.partner_id', '=', 'partners.id')
+                ->orderBy('partners.name', $sortOrder)
+                ->select('debts.*');
         } elseif ($sortColumn === 'branch.name') {
             $query->join('branches', 'debts.branch_id', '=', 'branches.id')
-                  ->orderBy('branches.name', $sortOrder)
-                  ->select('debts.*');
+                ->orderBy('branches.name', $sortOrder)
+                ->select('debts.*');
         } else {
             $query->orderBy($sortColumn, $sortOrder);
         }
@@ -91,7 +94,7 @@ class ExternalPayableController extends Controller
         $companies = Company::orderBy('name', 'asc')->get();
         $partners = Partner::orderBy('name', 'asc')->get();
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $branches = Branch::whereHas('branchGroup', function ($q) use ($filters) {
                 $q->whereIn('company_id', $filters['company_id']);
             })->orderBy('name', 'asc')->get();
@@ -140,7 +143,7 @@ class ExternalPayableController extends Controller
             })->with(['companyRates' => function ($q) use ($companyId) {
                 $q->where('company_id', $companyId);
             }])->orderBy('code', 'asc')->get();
-            $accounts =  Account::whereHas('companies', function ($query) use ($request) {
+            $accounts = Account::whereHas('companies', function ($query) use ($request) {
                 $query->where('company_id', $request->input('company_id'));
             })->where('is_parent', false)->with('currencies.companyRates')->orderBy('code', 'asc')->get();
             $company = Company::find($companyId);
@@ -150,11 +153,11 @@ class ExternalPayableController extends Controller
         return Inertia::render('Debts/ExternalPayables/Create', [
             'filters' => $filters,
             'companies' => $companies,
-            'branches' => fn() => $branches,
-            'partners' => fn() => $partners,
-            'currencies' => fn() => $currencies,
+            'branches' => fn () => $branches,
+            'partners' => fn () => $partners,
+            'currencies' => fn () => $currencies,
             'primaryCurrency' => $primaryCurrency,
-            'accounts' => fn() => $accounts,
+            'accounts' => fn () => $accounts,
             'defaultDebtAccountId' => $defaultDebtAccountId,
         ]);
     }
@@ -249,7 +252,7 @@ class ExternalPayableController extends Controller
             'partners' => Partner::orderBy('name', 'asc')->get(),
             'currencies' => $currencies,
             'primaryCurrency' => $primaryCurrency,
-            'accounts' =>  Account::whereHas('companies', function ($query) use ($request) {
+            'accounts' => Account::whereHas('companies', function ($query) use ($request) {
                 $query->where('company_id', $request->input('company_id'));
             })->where('is_parent', false)->with('currencies.companyRates')->orderBy('code', 'asc')->get(),
             'defaultDebtAccountId' => Company::find($companyId)?->default_payable_account_id,
@@ -315,5 +318,3 @@ class ExternalPayableController extends Controller
         return DebtStatus::options();
     }
 }
-
-

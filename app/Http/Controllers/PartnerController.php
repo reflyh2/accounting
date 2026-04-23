@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use Inertia\Inertia;
-use App\Models\Partner;
-use App\Models\PartnerBankAccount;
-use App\Models\Company;
-use Illuminate\Http\Request;
 use App\Exports\PartnersExport;
+use App\Http\Controllers\Concerns\HandlesImportErrors;
+use App\Imports\ImportRollbackException;
+use App\Imports\PartnersImport;
+use App\Models\Company;
+use App\Models\Partner;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Session;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PartnerController extends Controller
 {
+    use HandlesImportErrors;
+
     public function index(Request $request)
     {
         $filters = $request->all() ?: Session::get('partners.index_filters', []);
@@ -22,28 +26,28 @@ class PartnerController extends Controller
 
         $query = Partner::with(['roles', 'contacts', 'companies']);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
-                $q->where(DB::raw('lower(code)'), 'like', '%' . strtolower($filters['search']) . '%')
-                  ->orWhere(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%')
-                  ->orWhere(DB::raw('lower(email)'), 'like', '%' . strtolower($filters['search']) . '%')
-                  ->orWhere(DB::raw('lower(phone)'), 'like', '%' . strtolower($filters['search']) . '%');
+                $q->where(DB::raw('lower(code)'), 'like', '%'.strtolower($filters['search']).'%')
+                    ->orWhere(DB::raw('lower(name)'), 'like', '%'.strtolower($filters['search']).'%')
+                    ->orWhere(DB::raw('lower(email)'), 'like', '%'.strtolower($filters['search']).'%')
+                    ->orWhere(DB::raw('lower(phone)'), 'like', '%'.strtolower($filters['search']).'%');
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereHas('companies', function ($query) use ($filters) {
                 $query->whereIn('companies.id', $filters['company_id']);
             });
         }
 
-        if (!empty($filters['role'])) {
+        if (! empty($filters['role'])) {
             $query->whereHas('roles', function ($query) use ($filters) {
                 $query->whereIn('role', $filters['role']);
             });
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -71,7 +75,7 @@ class PartnerController extends Controller
     public function create()
     {
         $filters = Session::get('partners.index_filters', []);
-        
+
         return Inertia::render('Partners/Create', [
             'filters' => $filters,
             'companies' => Company::orderBy('name', 'asc')->get(),
@@ -131,7 +135,7 @@ class PartnerController extends Controller
             'addresses.*.email' => 'nullable|email|max:255',
         ]);
 
-        $partner = DB::transaction(function () use ($validated, $request) {
+        $partner = DB::transaction(function () use ($validated) {
             $partner = Partner::create([
                 'name' => $validated['name'],
                 'phone' => $validated['phone'],
@@ -159,12 +163,12 @@ class PartnerController extends Controller
                     'credit_limit' => $role['credit_limit'] ?? 0,
                     'payment_term_days' => $role['payment_term_days'] ?? 0,
                     'notes' => $role['notes'] ?? null,
-                    'status' => 'active'
+                    'status' => 'active',
                 ]);
             }
 
             // Create contacts
-            if (!empty($validated['contacts'])) {
+            if (! empty($validated['contacts'])) {
                 foreach ($validated['contacts'] as $contact) {
                     $partner->contacts()->create([
                         'name' => $contact['name'],
@@ -177,7 +181,7 @@ class PartnerController extends Controller
             }
 
             // Create bank accounts if provided
-            if (!empty($validated['bank_accounts'])) {
+            if (! empty($validated['bank_accounts'])) {
                 foreach ($validated['bank_accounts'] as $acc) {
                     $partner->bankAccounts()->create([
                         'bank_name' => $acc['bank_name'],
@@ -187,15 +191,15 @@ class PartnerController extends Controller
                         'swift_code' => $acc['swift_code'] ?? null,
                         'iban' => $acc['iban'] ?? null,
                         'currency' => $acc['currency'] ?? null,
-                        'is_primary' => (bool)($acc['is_primary'] ?? false),
-                        'is_active' => array_key_exists('is_active', $acc) ? (bool)$acc['is_active'] : true,
+                        'is_primary' => (bool) ($acc['is_primary'] ?? false),
+                        'is_active' => array_key_exists('is_active', $acc) ? (bool) $acc['is_active'] : true,
                         'notes' => $acc['notes'] ?? null,
                     ]);
                 }
             }
 
             // Create addresses
-            if (!empty($validated['addresses'])) {
+            if (! empty($validated['addresses'])) {
                 foreach ($validated['addresses'] as $addr) {
                     $partner->addresses()->create([
                         'name' => $addr['name'],
@@ -226,7 +230,7 @@ class PartnerController extends Controller
     {
         $filters = Session::get('partners.index_filters', []);
         $partner->load(['roles', 'contacts', 'companies', 'bankAccounts', 'addresses', 'createdBy', 'updatedBy']);
-        
+
         return Inertia::render('Partners/Show', [
             'partner' => $partner,
             'filters' => $filters,
@@ -331,7 +335,7 @@ class PartnerController extends Controller
                     'credit_limit' => $role['credit_limit'] ?? 0,
                     'payment_term_days' => $role['payment_term_days'] ?? 0,
                     'notes' => $role['notes'] ?? null,
-                    'status' => 'active'
+                    'status' => 'active',
                 ]);
             }
 
@@ -339,7 +343,7 @@ class PartnerController extends Controller
             $existingContactIds = $partner->contacts()->withoutPartnerContactAccess()->pluck('id')->toArray();
             $submittedContactIds = [];
 
-            if (!empty($validated['contacts'])) {
+            if (! empty($validated['contacts'])) {
                 foreach ($validated['contacts'] as $contact) {
                     $data = [
                         'name' => $contact['name'],
@@ -349,7 +353,7 @@ class PartnerController extends Controller
                         'notes' => $contact['notes'] ?? null,
                     ];
 
-                    if (!empty($contact['id'])) {
+                    if (! empty($contact['id'])) {
                         // Update existing - created_by preserved
                         $partner->contacts()->withoutPartnerContactAccess()->where('id', $contact['id'])->update($data);
                         $submittedContactIds[] = $contact['id'];
@@ -363,7 +367,7 @@ class PartnerController extends Controller
 
             // Delete contacts that were removed from the form
             $contactsToDelete = array_diff($existingContactIds, $submittedContactIds);
-            if (!empty($contactsToDelete)) {
+            if (! empty($contactsToDelete)) {
                 $partner->contacts()->withoutPartnerContactAccess()->whereIn('id', $contactsToDelete)->delete();
             }
 
@@ -371,7 +375,7 @@ class PartnerController extends Controller
             $existingAddressIds = $partner->addresses()->pluck('id')->toArray();
             $submittedAddressIds = [];
 
-            if (!empty($validated['addresses'])) {
+            if (! empty($validated['addresses'])) {
                 foreach ($validated['addresses'] as $addr) {
                     $data = [
                         'name' => $addr['name'],
@@ -384,7 +388,7 @@ class PartnerController extends Controller
                         'email' => $addr['email'] ?? null,
                     ];
 
-                    if (!empty($addr['id'])) {
+                    if (! empty($addr['id'])) {
                         $partner->addresses()->where('id', $addr['id'])->update($data);
                         $submittedAddressIds[] = $addr['id'];
                     } else {
@@ -396,7 +400,7 @@ class PartnerController extends Controller
 
             // Delete addresses that were removed
             $addressesToDelete = array_diff($existingAddressIds, $submittedAddressIds);
-            if (!empty($addressesToDelete)) {
+            if (! empty($addressesToDelete)) {
                 $partner->addresses()->whereIn('id', $addressesToDelete)->delete();
             }
 
@@ -417,13 +421,13 @@ class PartnerController extends Controller
                         'swift_code' => $acc['swift_code'] ?? null,
                         'iban' => $acc['iban'] ?? null,
                         'currency' => $acc['currency'] ?? null,
-                        'is_active' => array_key_exists('is_active', $acc) ? (bool)$acc['is_active'] : true,
+                        'is_active' => array_key_exists('is_active', $acc) ? (bool) $acc['is_active'] : true,
                         'notes' => $acc['notes'] ?? null,
                     ];
 
-                    $isPrimary = (bool)($acc['is_primary'] ?? false);
+                    $isPrimary = (bool) ($acc['is_primary'] ?? false);
 
-                    if (!empty($acc['id']) && $existingAccounts->has($acc['id'])) {
+                    if (! empty($acc['id']) && $existingAccounts->has($acc['id'])) {
                         $model = $existingAccounts->get($acc['id']);
                         $model->fill($attributes);
                         // Temporarily set primary flag; we will enforce single-primary after loop
@@ -462,7 +466,7 @@ class PartnerController extends Controller
                     // If none requested as primary, keep current primary if still active; otherwise pick first active
                     $currentPrimary = $partner->bankAccounts()->where('is_primary', true)->first();
                     $hasActive = $partner->bankAccounts()->where('is_active', true)->exists();
-                    if (!$currentPrimary && $hasActive) {
+                    if (! $currentPrimary && $hasActive) {
                         $firstActive = $partner->bankAccounts()->where('is_active', true)->orderBy('id')->first();
                         if ($firstActive) {
                             $partner->bankAccounts()->update(['is_primary' => false]);
@@ -496,8 +500,8 @@ class PartnerController extends Controller
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('partners.index') . ($currentQuery ? '?' . $currentQuery : '');
-            
+            $redirectUrl = route('partners.index').($currentQuery ? '?'.$currentQuery : '');
+
             return Redirect::to($redirectUrl)
                 ->with('success', 'Partner berhasil dihapus.');
         } else {
@@ -523,8 +527,8 @@ class PartnerController extends Controller
 
         if ($request->has('preserveState')) {
             $currentQuery = $request->input('currentQuery', '');
-            $redirectUrl = route('partners.index') . ($currentQuery ? '?' . $currentQuery : '');
-            
+            $redirectUrl = route('partners.index').($currentQuery ? '?'.$currentQuery : '');
+
             return Redirect::to($redirectUrl)
                 ->with('success', 'Partner berhasil dihapus.');
         }
@@ -533,32 +537,32 @@ class PartnerController extends Controller
     private function getFilteredPartners(Request $request)
     {
         $filters = $request->all() ?: Session::get('partners.index_filters', []);
-        
+
         // Removed addresses from eager loading here to avoid N+1 if not needed, or add if we want to search addresses
         $query = Partner::with(['roles', 'contacts', 'companies']);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
-                $q->where(DB::raw('lower(code)'), 'like', '%' . strtolower($filters['search']) . '%')
-                  ->orWhere(DB::raw('lower(name)'), 'like', '%' . strtolower($filters['search']) . '%')
-                  ->orWhere(DB::raw('lower(email)'), 'like', '%' . strtolower($filters['search']) . '%')
-                  ->orWhere(DB::raw('lower(phone)'), 'like', '%' . strtolower($filters['search']) . '%');
+                $q->where(DB::raw('lower(code)'), 'like', '%'.strtolower($filters['search']).'%')
+                    ->orWhere(DB::raw('lower(name)'), 'like', '%'.strtolower($filters['search']).'%')
+                    ->orWhere(DB::raw('lower(email)'), 'like', '%'.strtolower($filters['search']).'%')
+                    ->orWhere(DB::raw('lower(phone)'), 'like', '%'.strtolower($filters['search']).'%');
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereHas('companies', function ($query) use ($filters) {
                 $query->whereIn('companies.id', $filters['company_id']);
             });
         }
 
-        if (!empty($filters['role'])) {
+        if (! empty($filters['role'])) {
             $query->whereHas('roles', function ($query) use ($filters) {
                 $query->whereIn('role', $filters['role']);
             });
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -573,18 +577,65 @@ class PartnerController extends Controller
     public function exportXLSX(Request $request)
     {
         $partners = $this->getFilteredPartners($request);
+
         return Excel::download(new PartnersExport($partners), 'partners.xlsx');
     }
 
     public function exportCSV(Request $request)
     {
         $partners = $this->getFilteredPartners($request);
+
         return Excel::download(new PartnersExport($partners), 'partners.csv', \Maatwebsite\Excel\Excel::CSV);
     }
 
     public function exportPDF(Request $request)
     {
         $partners = $this->getFilteredPartners($request);
+
         return Excel::download(new PartnersExport($partners), 'partners.pdf', \Maatwebsite\Excel\Excel::MPDF);
     }
-} 
+
+    public function importTemplate()
+    {
+        $headers = ['nama', 'telepon', 'email', 'alamat', 'kota', 'npwp', 'peran', 'status', 'batas_kredit', 'termin_hari'];
+        $example = [
+            ['PT Contoh Pelanggan', '021-555-0001', 'kontak@contoh.com', 'Jl. Contoh No. 1', 'Jakarta', '01.234.567.8-900.000', 'customer', 'active', 5000000, 30],
+            ['CV Contoh Supplier', '021-555-0002', '', '', 'Bandung', '', 'supplier,customer', 'active', '', 14],
+        ];
+
+        $callback = function () use ($headers, $example) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            foreach ($example as $row) {
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        };
+
+        return response()->streamDownload($callback, 'template-partner.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls'],
+        ]);
+
+        $import = new PartnersImport;
+
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (ImportRollbackException $e) {
+            // errors already collected
+        }
+
+        if (! empty($import->errors)) {
+            return redirect()->back()->withErrors($this->buildImportErrorBag($import->errors));
+        }
+
+        return redirect()->route('partners.index')
+            ->with('success', "Berhasil mengimpor {$import->created} partner.");
+    }
+}

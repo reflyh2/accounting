@@ -332,6 +332,8 @@ Route::middleware([
         Route::get('partners/export-xlsx', [PartnerController::class, 'exportXLSX'])->name('partners.export-xlsx');
         Route::get('partners/export-csv', [PartnerController::class, 'exportCSV'])->name('partners.export-csv');
         Route::get('partners/export-pdf', [PartnerController::class, 'exportPDF'])->name('partners.export-pdf');
+        Route::get('partners/import-template', [PartnerController::class, 'importTemplate'])->name('partners.import-template');
+        Route::post('partners/import', [PartnerController::class, 'import'])->name('partners.import');
         Route::resource('partners', PartnerController::class);
 
         // Shipping Providers
@@ -528,9 +530,13 @@ Route::middleware([
         Route::get('partners/{partner}/bank-accounts', [PartnerBankAccountController::class, 'getByPartner'])->name('partners.bank-accounts');
 
         // Debts (Hutang/Piutang)
+        Route::get('external-payables/import-template', [ExternalPayableController::class, 'importTemplate'])->name('external-payables.import-template');
+        Route::post('external-payables/import', [ExternalPayableController::class, 'import'])->name('external-payables.import');
         Route::resource('external-payables', ExternalPayableController::class)->parameters([
             'external-payables' => 'debt',
         ]);
+        Route::get('external-receivables/import-template', [ExternalReceivableController::class, 'importTemplate'])->name('external-receivables.import-template');
+        Route::post('external-receivables/import', [ExternalReceivableController::class, 'import'])->name('external-receivables.import');
         Route::resource('external-receivables', ExternalReceivableController::class)->parameters([
             'external-receivables' => 'debt',
         ]);
