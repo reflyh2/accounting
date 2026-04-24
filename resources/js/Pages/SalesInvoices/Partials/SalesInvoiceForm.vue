@@ -981,17 +981,6 @@ function submitForm(createAnother = false) {
                             :disabled="isEditMode || !selectedCompany"
                             required
                         />
-
-                        <AppSelect
-                            v-if="isDirectInvoice && requiresLocation"
-                            v-model="form.location_id"
-                            :options="locations"
-                            label="Lokasi Gudang:"
-                            placeholder="Pilih Lokasi (untuk mengeluarkan stok)"
-                            :error="form.errors.location_id"
-                            :disabled="isEditMode"
-                            required
-                        />
                     </div>
 
                     <!-- Customer & Sales Order -->
@@ -1203,6 +1192,18 @@ function submitForm(createAnother = false) {
         <div class="overflow-x-auto">
             <h2 class="text-lg font-semibold">Detail Item Faktur</h2>
             <p class="text-sm text-gray-500 mb-4">Lengkapi detail item termasuk kuantitas, harga, dan pajak.</p>
+
+            <div v-if="isDirectInvoice && requiresLocation" class="mb-4 max-w-md">
+                <AppSelect
+                    v-model="form.location_id"
+                    :options="locations"
+                    label="Lokasi Gudang:"
+                    placeholder="Pilih Lokasi (untuk mengeluarkan stok)"
+                    :error="form.errors.location_id"
+                    :disabled="isEditMode"
+                    required
+                />
+            </div>
 
             <div v-if="form.lines.length > 0">
                 <table class="min-w-full bg-white border border-gray-300">
