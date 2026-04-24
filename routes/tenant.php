@@ -434,6 +434,8 @@ Route::middleware([
         Route::get('assets/export-xlsx', [AssetController::class, 'exportXLSX'])->name('assets.export-xlsx');
         Route::get('assets/export-csv', [AssetController::class, 'exportCSV'])->name('assets.export-csv');
         Route::get('assets/export-pdf', [AssetController::class, 'exportPDF'])->name('assets.export-pdf');
+        Route::get('assets/import-template', [AssetController::class, 'importTemplate'])->name('assets.import-template');
+        Route::post('assets/import', [AssetController::class, 'import'])->name('assets.import');
         Route::get('assets/{asset}/print', [AssetController::class, 'print'])->name('assets.print');
         Route::post('assets/ajax-store', [AssetController::class, 'ajaxStore'])->name('assets.ajax-store');
         Route::patch('assets/{asset}/update-cost-basis', [AssetController::class, 'updateCostBasis'])->name('assets.update-cost-basis');

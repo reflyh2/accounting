@@ -2,27 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\AssetsExport;
+use App\Http\Controllers\Concerns\HandlesImportErrors;
+use App\Imports\AssetsImport;
+use App\Imports\ImportRollbackException;
 use App\Models\Asset;
+use App\Models\AssetCategory;
 use App\Models\Branch;
 use App\Models\Company;
-use App\Models\AssetCategory;
-use App\Exports\AssetsExport;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use Maatwebsite\Excel\Facades\Excel;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AssetController extends Controller
 {
+    use HandlesImportErrors;
+
     public function index(Request $request)
     {
         $branches = Branch::orderBy('name')->get();
         $companies = Company::orderBy('name')->get();
         $categories = AssetCategory::orderBy('name')->get();
-        
+
         $assets = $this->getFilteredAssets($request);
 
         return Inertia::render('Assets/Index', [
@@ -45,7 +49,7 @@ class AssetController extends Controller
         return Inertia::render('Assets/Create', [
             'filters' => $request->all(),
             'companies' => $companies,
-            'branches' => fn() => Branch::whereHas('branchGroup', function ($query) use ($request) {
+            'branches' => fn () => Branch::whereHas('branchGroup', function ($query) use ($request) {
                 $query->where('company_id', $request->input('company_id'));
             })->orderBy('name', 'asc')->get(),
             'categories' => $categories,
@@ -63,38 +67,38 @@ class AssetController extends Controller
             'branch_id' => 'required|exists:branches,id',
             'asset_category_id' => 'required|exists:asset_categories,id',
             'name' => 'required|string|max:255',
-            'type' => 'required|string|in:' . implode(',', array_keys(Asset::assetTypes())),
-            'acquisition_type' => 'required|string|in:' . implode(',', array_keys(Asset::acquisitionTypes())),
+            'type' => 'required|string|in:'.implode(',', array_keys(Asset::assetTypes())),
+            'acquisition_type' => 'required|string|in:'.implode(',', array_keys(Asset::acquisitionTypes())),
             'acquisition_date' => 'nullable|date',
             'cost_basis' => 'nullable|numeric|min:0',
             'salvage_value' => 'nullable|numeric|min:0',
             'is_depreciable' => 'boolean',
             'is_amortizable' => 'boolean',
-            'depreciation_method' => 'required|string|in:' . implode(',', array_keys(Asset::depreciationMethods())),
+            'depreciation_method' => 'required|string|in:'.implode(',', array_keys(Asset::depreciationMethods())),
             'useful_life_months' => 'nullable|integer|min:0',
             'depreciation_start_date' => 'nullable|date',
             'accumulated_depreciation' => 'nullable|numeric|min:0',
             'net_book_value' => 'nullable|numeric|min:0',
-            'status' => 'required|string|in:' . implode(',', array_keys(Asset::statusOptions())),
+            'status' => 'required|string|in:'.implode(',', array_keys(Asset::statusOptions())),
             'notes' => 'nullable|string',
             'warranty_expiry' => 'nullable|date',
         ]);
 
         $user = User::find(Auth::user()->global_id);
-        
+
         // Add the user who created this asset
         $validated['created_by'] = $user->global_id;
         $validated['updated_by'] = $user->global_id;
 
         // Calculate net book value if not provided
-        if (!isset($validated['net_book_value'])) {
-            $validated['net_book_value'] = isset($validated['cost_basis']) ? 
+        if (! isset($validated['net_book_value'])) {
+            $validated['net_book_value'] = isset($validated['cost_basis']) ?
                 ($validated['cost_basis'] - ($validated['accumulated_depreciation'] ?? 0)) : 0;
         }
 
         $asset = Asset::create($validated);
 
-        $redirect = $request->input('create_another', false) ? 
+        $redirect = $request->input('create_another', false) ?
             route('assets.create') : route('assets.index');
 
         return redirect($redirect)->with('success', 'Aset berhasil ditambahkan');
@@ -142,31 +146,31 @@ class AssetController extends Controller
             'branch_id' => 'sometimes|required|exists:branches,id',
             'asset_category_id' => 'required|exists:asset_categories,id',
             'name' => 'required|string|max:255',
-            'type' => 'required|string|in:' . implode(',', array_keys(Asset::assetTypes())),
-            'acquisition_type' => 'required|string|in:' . implode(',', array_keys(Asset::acquisitionTypes())),
+            'type' => 'required|string|in:'.implode(',', array_keys(Asset::assetTypes())),
+            'acquisition_type' => 'required|string|in:'.implode(',', array_keys(Asset::acquisitionTypes())),
             'acquisition_date' => 'nullable|date',
             'cost_basis' => 'nullable|numeric|min:0',
             'salvage_value' => 'nullable|numeric|min:0',
             'is_depreciable' => 'boolean',
             'is_amortizable' => 'boolean',
-            'depreciation_method' => 'required|string|in:' . implode(',', array_keys(Asset::depreciationMethods())),
+            'depreciation_method' => 'required|string|in:'.implode(',', array_keys(Asset::depreciationMethods())),
             'useful_life_months' => 'nullable|integer|min:0',
             'depreciation_start_date' => 'nullable|date',
             'accumulated_depreciation' => 'nullable|numeric|min:0',
             'net_book_value' => 'nullable|numeric|min:0',
-            'status' => 'required|string|in:' . implode(',', array_keys(Asset::statusOptions())),
+            'status' => 'required|string|in:'.implode(',', array_keys(Asset::statusOptions())),
             'notes' => 'nullable|string',
             'warranty_expiry' => 'nullable|date',
         ]);
 
         $user = User::find(Auth::user()->global_id);
-        
+
         // Add the user who updated this asset
         $validated['updated_by'] = $user->global_id;
 
         // Calculate net book value if not provided
-        if (!isset($validated['net_book_value'])) {
-            $validated['net_book_value'] = isset($validated['cost_basis']) ? 
+        if (! isset($validated['net_book_value'])) {
+            $validated['net_book_value'] = isset($validated['cost_basis']) ?
                 ($validated['cost_basis'] - ($validated['accumulated_depreciation'] ?? 0)) : 0;
         }
 
@@ -189,32 +193,32 @@ class AssetController extends Controller
             'branch_id' => 'required|exists:branches,id',
             'asset_category_id' => 'required|exists:asset_categories,id',
             'name' => 'required|string|max:255',
-            'type' => 'required|string|in:' . implode(',', array_keys(Asset::assetTypes())),
-            'acquisition_type' => 'required|string|in:' . implode(',', array_keys(Asset::acquisitionTypes())),
+            'type' => 'required|string|in:'.implode(',', array_keys(Asset::assetTypes())),
+            'acquisition_type' => 'required|string|in:'.implode(',', array_keys(Asset::acquisitionTypes())),
             'acquisition_date' => 'nullable|date',
             'cost_basis' => 'nullable|numeric|min:0',
             'salvage_value' => 'nullable|numeric|min:0',
             'is_depreciable' => 'boolean',
             'is_amortizable' => 'boolean',
-            'depreciation_method' => 'required|string|in:' . implode(',', array_keys(Asset::depreciationMethods())),
+            'depreciation_method' => 'required|string|in:'.implode(',', array_keys(Asset::depreciationMethods())),
             'useful_life_months' => 'nullable|integer|min:0',
             'depreciation_start_date' => 'nullable|date',
             'accumulated_depreciation' => 'nullable|numeric|min:0',
             'net_book_value' => 'nullable|numeric|min:0',
-            'status' => 'required|string|in:' . implode(',', array_keys(Asset::statusOptions())),
+            'status' => 'required|string|in:'.implode(',', array_keys(Asset::statusOptions())),
             'notes' => 'nullable|string',
             'warranty_expiry' => 'nullable|date',
         ]);
 
         $user = User::find(Auth::user()->global_id);
-        
+
         // Add the user who created this asset
         $validated['created_by'] = $user->global_id;
         $validated['updated_by'] = $user->global_id;
 
         // Calculate net book value if not provided
-        if (!isset($validated['net_book_value'])) {
-            $validated['net_book_value'] = isset($validated['cost_basis']) ? 
+        if (! isset($validated['net_book_value'])) {
+            $validated['net_book_value'] = isset($validated['cost_basis']) ?
                 ($validated['cost_basis'] - ($validated['accumulated_depreciation'] ?? 0)) : 0;
         }
 
@@ -226,18 +230,18 @@ class AssetController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Aset berhasil ditambahkan',
-            'asset' => $asset
+            'asset' => $asset,
         ]);
     }
 
     public function updateCostBasis(Request $request, Asset $asset)
     {
         $validated = $request->validate([
-            'cost_basis' => 'required|numeric|min:0'
+            'cost_basis' => 'required|numeric|min:0',
         ]);
 
         $user = User::find(Auth::user()->global_id);
-        
+
         // Update cost basis and net book value
         $asset->update([
             'cost_basis' => $validated['cost_basis'],
@@ -248,7 +252,7 @@ class AssetController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Nilai perolehan aset berhasil diperbarui',
-            'asset' => $asset->fresh()
+            'asset' => $asset->fresh(),
         ]);
     }
 
@@ -271,9 +275,9 @@ class AssetController extends Controller
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('code', 'like', '%' . $search . '%')
-                  ->orWhere('notes', 'like', '%' . $search . '%');
+                $q->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('code', 'like', '%'.$search.'%')
+                    ->orWhere('notes', 'like', '%'.$search.'%');
             });
         }
 
@@ -308,15 +312,15 @@ class AssetController extends Controller
         // Default sorting by acquisition_date in descending order
         $sort = $request->input('sort', 'acquisition_date');
         $order = $request->input('order', 'desc');
-        
+
         // Handle relationship sorting
         if (in_array($sort, ['company.name', 'branch.name', 'category.name'])) {
             $relation = explode('.', $sort)[0];
             $relationColumn = explode('.', $sort)[1];
-            
-            $query->join($relation . 's', 'assets.' . $relation . '_id', '=', $relation . 's.id')
-                  ->select('assets.*')
-                  ->orderBy($relation . 's.' . $relationColumn, $order);
+
+            $query->join($relation.'s', 'assets.'.$relation.'_id', '=', $relation.'s.id')
+                ->select('assets.*')
+                ->orderBy($relation.'s.'.$relationColumn, $order);
         } else {
             $query->orderBy($sort, $order);
         }
@@ -331,19 +335,21 @@ class AssetController extends Controller
                 $query->where('company_id', $companyId);
             })->orderBy('name')->get();
         }
-        
+
         return Branch::orderBy('name')->get();
     }
 
     public function exportXLSX(Request $request)
     {
         $assets = $this->getExportData($request);
+
         return Excel::download(new AssetsExport($assets), 'assets.xlsx');
     }
 
     public function exportCSV(Request $request)
     {
         $assets = $this->getExportData($request);
+
         return Excel::download(new AssetsExport($assets), 'assets.csv', \Maatwebsite\Excel\Excel::CSV);
     }
 
@@ -351,6 +357,7 @@ class AssetController extends Controller
     {
         $assets = $this->getExportData($request);
         $pdf = PDF::loadView('exports.assets', ['assets' => $assets]);
+
         return $pdf->download('assets.pdf');
     }
 
@@ -358,11 +365,61 @@ class AssetController extends Controller
     {
         $asset->load(['company', 'branch', 'category']);
         $pdf = PDF::loadView('prints.asset', ['asset' => $asset]);
-        return $pdf->stream('asset-' . $asset->code . '.pdf');
+
+        return $pdf->stream('asset-'.$asset->code.'.pdf');
+    }
+
+    public function importTemplate()
+    {
+        $headers = [
+            'nama', 'perusahaan', 'cabang', 'kategori_kode',
+            'tipe', 'tipe_perolehan', 'tanggal_perolehan',
+            'nilai_perolehan', 'nilai_residu',
+            'metode_penyusutan', 'umur_bulan', 'tanggal_mulai_penyusutan',
+            'akumulasi_penyusutan', 'status', 'garansi_sampai', 'catatan',
+        ];
+        $example = [
+            ['Mobil Pickup', 'PT Contoh', 'Pusat', 'KEND-01', 'tangible', 'outright_purchase', '2024-01-15', 250000000, 25000000, 'straight-line', 96, '2024-02-01', 28125000, 'active', '', 'Saldo awal'],
+        ];
+
+        $callback = function () use ($headers, $example) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            foreach ($example as $row) {
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        };
+
+        return response()->streamDownload($callback, 'template-aset.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls'],
+        ]);
+
+        $import = new AssetsImport;
+
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (ImportRollbackException $e) {
+            // errors already collected
+        }
+
+        if (! empty($import->errors)) {
+            return redirect()->back()->withErrors($this->buildImportErrorBag($import->errors));
+        }
+
+        return redirect()->route('assets.index')
+            ->with('success', "Berhasil mengimpor {$import->created} aset (jadwal penyusutan: {$import->schedulesCreated}).");
     }
 
     private function getExportData(Request $request)
     {
         return $this->getFilteredAssets($request)->getCollection();
     }
-} 
+}
