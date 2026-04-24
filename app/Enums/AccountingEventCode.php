@@ -15,6 +15,8 @@ enum AccountingEventCode: string
     case SALES_RETURN_POSTED = 'sales.return_posted';
     case SALES_AR_POSTED = 'sales.ar_posted';
     case SALES_AR_REVERSED = 'sales.ar_reversed';
+    case SALES_INVOICE_COGS_POSTED = 'sales.invoice_cogs_posted';
+    case SALES_INVOICE_COGS_REVERSED = 'sales.invoice_cogs_reversed';
     case MFG_ISSUE_POSTED = 'mfg.issue_posted';
     case MFG_RECEIPT_POSTED = 'mfg.receipt_posted';
     case MFG_VARIANCE_POSTED = 'mfg.variance_posted';
@@ -37,6 +39,8 @@ enum AccountingEventCode: string
             self::SALES_RETURN_POSTED => 'Sales Return Posted',
             self::SALES_AR_POSTED => 'Sales AR Posted',
             self::SALES_AR_REVERSED => 'Sales AR Reversed',
+            self::SALES_INVOICE_COGS_POSTED => 'Sales Invoice COGS Posted',
+            self::SALES_INVOICE_COGS_REVERSED => 'Sales Invoice COGS Reversed',
             self::MFG_ISSUE_POSTED => 'Manufacturing Issue Posted',
             self::MFG_RECEIPT_POSTED => 'Manufacturing Receipt Posted',
             self::MFG_VARIANCE_POSTED => 'Manufacturing Variance Posted',

@@ -158,6 +158,7 @@ class SalesInvoiceController extends Controller
                 'label' => $c->code.' - '.$c->name,
             ]),
             'products' => $this->productOptions(),
+            'locations' => $this->locationOptions(),
             'uoms' => $this->uomOptions(),
             'paymentMethods' => collect(\App\Enums\PaymentMethod::cases())
                 ->map(fn (\App\Enums\PaymentMethod $method) => [
@@ -266,6 +267,7 @@ class SalesInvoiceController extends Controller
                 'label' => $c->code.' - '.$c->name,
             ]),
             'products' => $this->productOptions(),
+            'locations' => $this->locationOptions(),
             'uoms' => $this->uomOptions(),
             'paymentMethods' => collect(\App\Enums\PaymentMethod::cases())
                 ->map(fn (\App\Enums\PaymentMethod $method) => [
@@ -376,9 +378,13 @@ class SalesInvoiceController extends Controller
         $isDirectInvoice = $request->boolean('is_direct_invoice', false);
 
         if ($isDirectInvoice) {
+            $variantIds = collect($request->input('lines', []))->pluck('product_variant_id')->filter()->unique()->values();
+            $hasInventoryLine = $variantIds->isNotEmpty() && \App\Models\ProductVariant::whereIn('id', $variantIds)->where('track_inventory', true)->exists();
+
             $validated = $request->validate([
                 'company_id' => 'required|exists:companies,id',
                 'branch_id' => 'required|exists:branches,id',
+                'location_id' => [$hasInventoryLine ? 'required' : 'nullable', 'exists:locations,id'],
                 'partner_id' => 'required|exists:partners,id',
                 'currency_id' => 'required|exists:currencies,id',
                 'invoice_date' => 'required|date',
@@ -958,6 +964,7 @@ class SalesInvoiceController extends Controller
                         'sku' => $variant->sku,
                         'barcode' => $variant->barcode,
                         'uom_id' => $variant->uom_id,
+                        'track_inventory' => (bool) $variant->track_inventory,
                         'uom' => [
                             'id' => $variant->uom?->id,
                             'code' => $variant->uom?->code,
@@ -966,6 +973,19 @@ class SalesInvoiceController extends Controller
                     ]),
                 ];
             })
+            ->toArray();
+    }
+
+    private function locationOptions(): array
+    {
+        return \App\Models\Location::query()
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name'])
+            ->map(fn ($l) => [
+                'value' => $l->id,
+                'label' => trim("{$l->code} — {$l->name}"),
+            ])
             ->toArray();
     }
 

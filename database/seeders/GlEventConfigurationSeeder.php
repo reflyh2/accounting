@@ -154,6 +154,20 @@ class GlEventConfigurationSeeder extends Seeder
                     ['role' => 'shipping_charge_receivable', 'direction' => 'credit', 'account_name' => 'Piutang Usaha'],
                 ],
             ],
+            AccountingEventCode::SALES_INVOICE_COGS_POSTED->value => [
+                'description' => 'Journal entry when direct sales invoice issues inventory (COGS)',
+                'lines' => [
+                    ['role' => 'cogs', 'direction' => 'debit', 'account_name' => 'Harga Pokok Penjualan'],
+                    ['role' => 'inventory', 'direction' => 'credit', 'account_name' => 'Persediaan Barang Dagang'],
+                ],
+            ],
+            AccountingEventCode::SALES_INVOICE_COGS_REVERSED->value => [
+                'description' => 'Journal entry when direct sales invoice inventory issue is reversed',
+                'lines' => [
+                    ['role' => 'inventory', 'direction' => 'debit', 'account_name' => 'Persediaan Barang Dagang'],
+                    ['role' => 'cogs', 'direction' => 'credit', 'account_name' => 'Harga Pokok Penjualan'],
+                ],
+            ],
 
             // ============ MANUFACTURING EVENTS ============
             AccountingEventCode::MFG_ISSUE_POSTED->value => [

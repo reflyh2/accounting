@@ -11,6 +11,7 @@ use App\Events\Debt\ExternalDebtCreated;
 use App\Exceptions\SalesInvoiceException;
 use App\Models\Currency;
 use App\Models\ExternalDebt;
+use App\Models\InventoryTransaction;
 use App\Models\Product;
 use App\Models\SalesDeliveryLine;
 use App\Models\SalesInvoice;
@@ -21,6 +22,9 @@ use App\Models\SalesOrderLine;
 use App\Services\Accounting\AccountingEventBus;
 use App\Services\Catalog\UserDiscountLimitResolver;
 use App\Services\Costing\CostingService;
+use App\Services\Inventory\DTO\IssueDTO;
+use App\Services\Inventory\DTO\IssueLineDTO;
+use App\Services\Inventory\InventoryService;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -38,6 +42,7 @@ class SalesInvoiceService
         private readonly AccountingEventBus $accountingEventBus,
         private readonly UserDiscountLimitResolver $discountLimitResolver,
         private readonly CostingService $costingService,
+        private readonly InventoryService $inventoryService,
     ) {}
 
     /**
@@ -114,6 +119,7 @@ class SalesInvoiceService
             $invoice = SalesInvoice::create([
                 'company_id' => $companyId,
                 'branch_id' => $branchId,
+                'location_id' => $payload['location_id'] ?? null,
                 'partner_id' => $partnerId,
                 'currency_id' => $currencyId,
                 'invoice_number' => $this->generateInvoiceNumber(
@@ -212,6 +218,7 @@ class SalesInvoiceService
                 'company_bank_account_id' => $payload['company_bank_account_id'] ?? null,
                 'sales_person_id' => $payload['sales_person_id'] ?? $invoice->sales_person_id,
                 'invoice_address_id' => $payload['invoice_address_id'] ?? null,
+                'location_id' => array_key_exists('location_id', $payload) ? $payload['location_id'] : $invoice->location_id,
                 'shipping_charge' => $shippingCharge,
                 'subtotal' => $totals['subtotal'],
                 'tax_total' => $totals['tax_total'],
@@ -351,6 +358,9 @@ class SalesInvoiceService
 
     private function unpostDirectInvoice(SalesInvoice $invoice, ?Authenticatable $actor): void
     {
+        // Reverse any inventory issue + COGS journal created on post
+        $this->reverseInventoryAndCogs($invoice, $actor);
+
         // Dispatch reversal accounting event
         $this->dispatchArReversedEvent($invoice, $actor);
 
@@ -642,6 +652,8 @@ class SalesInvoiceService
     private function postDirectInvoice(SalesInvoice $invoice, ?Authenticatable $actor): SalesInvoice
     {
         return DB::transaction(function () use ($invoice, $actor) {
+            $invoice->loadMissing(['lines.productVariant']);
+
             $subtotal = 0.0;
             $taxTotal = 0.0;
 
@@ -670,6 +682,9 @@ class SalesInvoiceService
                 'updated_by' => $actor?->getAuthIdentifier(),
             ]);
 
+            // Issue inventory for inventory-tracked lines + post DR COGS / CR Inventory.
+            $this->issueInventoryAndPostCogs($invoice, $actor);
+
             $this->dispatchDirectArPostedEvent($invoice, $actor);
 
             // Create External Debt record for AR tracking
@@ -680,6 +695,121 @@ class SalesInvoiceService
 
             return $invoice->fresh(['lines', 'currency', 'externalDebt', 'costs']);
         });
+    }
+
+    /**
+     * For direct invoices: issue stock for inventory-tracked lines from the
+     * invoice's location, then dispatch SALES_INVOICE_COGS_POSTED at the
+     * actual FIFO/MovAvg cost returned by InventoryService.
+     */
+    private function issueInventoryAndPostCogs(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $inventoryLines = $invoice->lines->filter(
+            fn ($line) => $line->productVariant && $line->productVariant->track_inventory
+        );
+
+        if ($inventoryLines->isEmpty()) {
+            return;
+        }
+
+        if (! $invoice->location_id) {
+            throw new SalesInvoiceException('Lokasi gudang wajib diisi untuk faktur langsung yang memiliki barang terlacak stok.');
+        }
+
+        $dtoLines = $inventoryLines->map(fn ($line) => new IssueLineDTO(
+            productVariantId: (int) $line->product_variant_id,
+            uomId: (int) $line->productVariant->uom_id,
+            quantity: (float) $line->quantity,
+        ))->values()->all();
+
+        $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
+
+        $dto = new IssueDTO(
+            transactionDate: $occurredAt,
+            locationId: (int) $invoice->location_id,
+            lines: $dtoLines,
+            sourceType: SalesInvoice::class,
+            sourceId: $invoice->id,
+            notes: 'Auto issue: direct invoice '.$invoice->invoice_number,
+        );
+
+        $result = $this->inventoryService->issue($dto);
+        $totalCost = $this->roundCost((float) $result->value);
+
+        if ($totalCost <= 0) {
+            return;
+        }
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::SALES_INVOICE_COGS_POSTED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'sales_invoice',
+            $invoice->id,
+            $invoice->invoice_number,
+            $invoice->currency?->code ?? 'IDR',
+            (float) ($invoice->exchange_rate ?: 1),
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+        );
+        $payload->setLines([
+            AccountingEntry::debit('cogs', $totalCost),
+            AccountingEntry::credit('inventory', $totalCost),
+        ]);
+
+        $this->accountingEventBus->dispatch($payload);
+    }
+
+    /**
+     * Reverse the inventory issue + COGS journal created when a direct invoice was posted.
+     */
+    private function reverseInventoryAndCogs(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $transaction = InventoryTransaction::query()
+            ->where('source_type', SalesInvoice::class)
+            ->where('source_id', $invoice->id)
+            ->where('transaction_type', 'issue')
+            ->first();
+
+        if (! $transaction) {
+            return;
+        }
+
+        // Compute cost before we delete the transaction (lines carry unit_cost).
+        $transaction->loadMissing('lines');
+        $cogsValue = 0.0;
+        foreach ($transaction->lines as $line) {
+            $cogsValue += (float) $line->quantity * (float) ($line->unit_cost ?? 0);
+        }
+        $cogsValue = $this->roundCost($cogsValue);
+
+        // InventoryService::deleteTransaction reverses cost layers + inventory deltas.
+        $this->inventoryService->deleteTransaction($transaction);
+
+        if ($cogsValue <= 0) {
+            return;
+        }
+
+        $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::SALES_INVOICE_COGS_REVERSED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'sales_invoice',
+            $invoice->id,
+            $invoice->invoice_number,
+            $invoice->currency?->code ?? 'IDR',
+            (float) ($invoice->exchange_rate ?: 1),
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+            ['reversal' => true],
+        );
+        $payload->setLines([
+            AccountingEntry::debit('inventory', $cogsValue),
+            AccountingEntry::credit('cogs', $cogsValue),
+        ]);
+
+        $this->accountingEventBus->dispatch($payload);
     }
 
     /**

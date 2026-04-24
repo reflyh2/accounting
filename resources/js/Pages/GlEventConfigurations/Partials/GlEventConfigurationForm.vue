@@ -117,6 +117,14 @@ const eventCodeRoleMapping = {
       { role: 'shipping_charge_revenue', direction: 'debit' },
       { role: 'shipping_charge_receivable', direction: 'credit' },
    ],
+   'sales.invoice_cogs_posted': [
+      { role: 'cogs', direction: 'debit' },
+      { role: 'inventory', direction: 'credit' },
+   ],
+   'sales.invoice_cogs_reversed': [
+      { role: 'inventory', direction: 'debit' },
+      { role: 'cogs', direction: 'credit' },
+   ],
    'mfg.issue_posted': [
       { role: 'wip', direction: 'debit' },
       { role: 'raw_material', direction: 'credit' },

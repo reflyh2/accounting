@@ -36,6 +36,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    locations: {
+        type: Array,
+        default: () => [],
+    },
     uoms: {
         type: Array,
         default: () => [],
@@ -83,6 +87,21 @@ const page = usePage();
 
 const isEditMode = computed(() => !!props.invoice);
 const isDirectInvoice = computed(() => !form.sales_order_ids || form.sales_order_ids.length === 0);
+
+// True when any direct-invoice line uses an inventory-tracked variant — the user
+// must pick a warehouse location so we can issue stock and post COGS.
+const requiresLocation = computed(() => {
+    if (!isDirectInvoice.value) return false;
+    return (form.lines || []).some((line) => {
+        const variantId = line?.product_variant_id;
+        if (!variantId) return false;
+        for (const p of props.products) {
+            const v = p.variants?.find((x) => x.id === variantId);
+            if (v) return !!v.track_inventory;
+        }
+        return false;
+    });
+});
 const today = new Date().toISOString().split('T')[0];
 
 const paymentMethodOptions = computed(() => [
@@ -179,6 +198,7 @@ function buildInitialLines() {
 const form = useForm({
     company_id: selectedCompany.value,
     branch_id: props.invoice?.branch_id || (props.branches.length === 1 ? props.branches[0]?.value : null),
+    location_id: props.invoice?.location_id ?? null,
     currency_id: props.invoice?.currency_id || props.primaryCurrency?.id || null,
     partner_id: selectedCustomerId.value,
     sales_order_ids: selectedSoIds.value,
@@ -959,6 +979,17 @@ function submitForm(createAnother = false) {
                             placeholder="Pilih Cabang"
                             :error="form.errors.branch_id"
                             :disabled="isEditMode || !selectedCompany"
+                            required
+                        />
+
+                        <AppSelect
+                            v-if="isDirectInvoice && requiresLocation"
+                            v-model="form.location_id"
+                            :options="locations"
+                            label="Lokasi Gudang:"
+                            placeholder="Pilih Lokasi (untuk mengeluarkan stok)"
+                            :error="form.errors.location_id"
+                            :disabled="isEditMode"
                             required
                         />
                     </div>
