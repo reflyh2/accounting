@@ -2,18 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Branch;
+use App\Enums\Documents\PurchasePlanStatus;
 use App\Models\Account;
 use App\Models\AssetFinancingSchedule;
+use App\Models\Branch;
 use App\Models\Partner;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-
-use App\Enums\Documents\PurchasePlanStatus;
 use App\Models\Product;
 use App\Models\PurchasePlan;
 use App\Models\Uom;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ApiController extends Controller
 {
@@ -22,12 +21,14 @@ class ApiController extends Controller
         $branches = Branch::whereHas('branchGroup', function ($query) use ($companyId) {
             $query->where('company_id', $companyId);
         })->get();
+
         return response()->json(['availableBranches' => $branches]);
     }
 
     public function getAccountsByBranch($branchId)
     {
         $accounts = Account::where('branch_id', $branchId)->get();
+
         return response()->json($accounts);
     }
 
@@ -86,13 +87,14 @@ class ApiController extends Controller
         $sort = $request->input('sort', 'name');
         $order = $request->input('order', 'asc');
         $query->orderBy($sort, $order);
-        
+
         return $query->paginate($request->input('per_page', 10))->withQueryString();
     }
 
     public function getPartner(Partner $partner)
     {
         $partner->load(['addresses']);
+
         return response()->json($partner);
     }
 
@@ -112,7 +114,7 @@ class ApiController extends Controller
             $search = strtolower($request->search);
             $query->where(function ($q) use ($search) {
                 $q->where(DB::raw('lower(name)'), 'like', "%{$search}%")
-                    ->orWhere(DB::raw('lower(sku)'), 'like', "%{$search}%")
+                    ->orWhere(DB::raw('lower(code)'), 'like', "%{$search}%")
                     ->orWhereHas('variants', function ($vq) use ($search) {
                         $vq->where(DB::raw('lower(sku)'), 'like', "%{$search}%")
                             ->orWhere(DB::raw('lower(barcode)'), 'like', "%{$search}%");
@@ -131,6 +133,7 @@ class ApiController extends Controller
             $firstVariant = $product->variants->first();
             $product->sku = $firstVariant?->sku ?? $firstVariant?->barcode ?? '-';
             $product->uom_code = $product->defaultUom?->code ?? '-';
+
             return $product;
         });
 
@@ -140,6 +143,7 @@ class ApiController extends Controller
     public function getProduct(Product $product)
     {
         $product->load(['variants.uom:id,code,name']);
+
         return response()->json($product);
     }
 
@@ -154,7 +158,7 @@ class ApiController extends Controller
         $productId = $request->input('product_id');
         $companyId = $request->input('company_id');
 
-        if (!$baseUomId) {
+        if (! $baseUomId) {
             return response()->json([]);
         }
 
@@ -165,19 +169,19 @@ class ApiController extends Controller
         $globalConversions = \App\Models\UomConversion::where('from_uom_id', $baseUomId)
             ->pluck('to_uom_id')
             ->toArray();
-        
+
         $convertibleUomIds = array_merge($convertibleUomIds, $globalConversions);
 
         // Also get reverse conversions (to_uom_id -> from_uom_id)
         $reverseConversions = \App\Models\UomConversion::where('to_uom_id', $baseUomId)
             ->pluck('from_uom_id')
             ->toArray();
-        
+
         $convertibleUomIds = array_merge($convertibleUomIds, $reverseConversions);
 
         // Get UOMs from uom_conversion_rules (product/variant/company specific)
         $rulesQuery = \App\Models\UomConversionRule::where('from_uom_id', $baseUomId)
-            ->where(function ($query) use ($productId, $companyId) {
+            ->where(function ($query) use ($productId) {
                 $query->whereNull('product_id')
                     ->orWhere('product_id', $productId);
             })
@@ -199,7 +203,7 @@ class ApiController extends Controller
 
         // Also get reverse rule conversions
         $reverseRulesQuery = \App\Models\UomConversionRule::where('to_uom_id', $baseUomId)
-            ->where(function ($query) use ($productId, $companyId) {
+            ->where(function ($query) use ($productId) {
                 $query->whereNull('product_id')
                     ->orWhere('product_id', $productId);
             })
@@ -234,7 +238,7 @@ class ApiController extends Controller
         $result = $uoms->map(function ($uom) use ($baseUomId, $uomConverter) {
             $numerator = 1;
             $denominator = 1;
-            
+
             if ((int) $uom->id !== (int) $baseUomId) {
                 try {
                     // Get precise conversion ratio
@@ -269,8 +273,8 @@ class ApiController extends Controller
     public function getPurchasePlans(Request $request)
     {
         $branchId = $request->input('branch_id');
-        
-        if (!$branchId) {
+
+        if (! $branchId) {
             return response()->json([]);
         }
 

@@ -953,7 +953,6 @@ class SalesInvoiceController extends Controller
         return Product::with(['variants.uom:id,code,name'])
             ->where('is_active', true)
             ->orderBy('name')
-            ->limit(100)
             ->get()
             ->map(function ($product) {
                 return [
