@@ -99,6 +99,7 @@ function buildInitialLines() {
             uom_id: line.uom_id,
             quantity: Number(line.quantity),
             unit_price: Number(line.unit_price),
+            discount_rate: Number(line.discount_rate || 0),
             tax_rate: Number(line.tax_rate || 0),
             max_quantity: null,
         }));
@@ -118,6 +119,7 @@ function buildInitialLines() {
                 uom_label: line.uom_label,
                 quantity: Number(line.quantity),
                 unit_price: Number(line.unit_price),
+                discount_rate: Number(line.discount_rate || 0),
                 tax_rate: Number(line.tax_rate || 0),
                 max_quantity: Number(line.available_quantity),
             });
@@ -279,6 +281,7 @@ function repopulateLinesFromPOs() {
                 uom_label: line.uom_label,
                 quantity: Number(line.quantity),
                 unit_price: Number(line.unit_price),
+                discount_rate: Number(line.discount_rate || 0),
                 tax_rate: Number(line.tax_rate || 0),
                 max_quantity: Number(line.available_quantity),
             });
@@ -313,6 +316,7 @@ function addDirectLine() {
         description: '',
         quantity: 1,
         unit_price: 0,
+        discount_rate: 0,
         tax_rate: 0,
     });
 }
@@ -325,16 +329,24 @@ function removeLine(index) {
 }
 
 // Line calculation functions (matching PurchaseOrderForm)
-function lineSubtotal(line) {
+function lineGross(line) {
     const quantity = Number(line.quantity) || 0;
     const price = Number(line.unit_price) || 0;
     return quantity * price;
 }
 
+function lineDiscount(line) {
+    const discountRate = Number(line.discount_rate) || 0;
+    return lineGross(line) * (discountRate / 100);
+}
+
+function lineSubtotal(line) {
+    return lineGross(line) - lineDiscount(line);
+}
+
 function lineTax(line) {
-    const subtotal = lineSubtotal(line);
     const taxRate = Number(line.tax_rate) || 0;
-    return subtotal * (taxRate / 100);
+    return lineSubtotal(line) * (taxRate / 100);
 }
 
 // Computeds
@@ -343,17 +355,21 @@ const totals = computed(() => {
         (carry, line) => {
             const quantity = Number(line.quantity) || 0;
             const price = Number(line.unit_price) || 0;
+            const discountRate = Number(line.discount_rate) || 0;
             const taxRate = Number(line.tax_rate) || 0;
 
-            const lineSubtotal = quantity * price;
-            const lineTax = lineSubtotal * (taxRate / 100);
+            const gross = quantity * price;
+            const discount = gross * (discountRate / 100);
+            const lineNet = gross - discount;
+            const lineTax = lineNet * (taxRate / 100);
 
-            carry.subtotal += lineSubtotal;
+            carry.subtotal += lineNet;
             carry.tax += lineTax;
+            carry.discount += discount;
 
             return carry;
         },
-        { subtotal: 0, tax: 0 }
+        { subtotal: 0, tax: 0, discount: 0 }
     );
 });
 
@@ -666,6 +682,7 @@ function submitForm(createAnother = false) {
                             <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Satuan</th>
                             <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty</th>
                             <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Harga Satuan</th>
+                            <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Diskon (%)</th>
                             <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Pajak (%)</th>
                             <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Subtotal</th>
                             <th class="border border-gray-300 px-1.5 py-1.5"></th>
@@ -737,19 +754,33 @@ function submitForm(createAnother = false) {
                             
                             <!-- Harga Satuan -->
                             <td class="border border-gray-300 px-1.5 py-1.5 align-top">
-                                <AppInput 
-                                    v-model="line.unit_price" 
+                                <AppInput
+                                    v-model="line.unit_price"
                                     :numberFormat="true"
                                     required
                                     :error="form.errors?.[`lines.${index}.unit_price`]"
                                     :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                                 />
                             </td>
-                            
+
+                            <!-- Diskon (%) -->
+                            <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                                <AppInput
+                                    v-model="line.discount_rate"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    placeholder="0"
+                                    :error="form.errors?.[`lines.${index}.discount_rate`]"
+                                    :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                                />
+                            </td>
+
                             <!-- Pajak (%) -->
                             <td class="border border-gray-300 px-1.5 py-1.5 align-top">
-                                <AppInput 
-                                    v-model="line.tax_rate" 
+                                <AppInput
+                                    v-model="line.tax_rate"
                                     type="number"
                                     min="0"
                                     step="0.01"
@@ -758,12 +789,16 @@ function submitForm(createAnother = false) {
                                     :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                                 />
                             </td>
-                            
+
                             <!-- Subtotal -->
                             <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-right whitespace-nowrap align-top">
                                 <div class="flex justify-between">
                                     <div>Subtotal:</div>
-                                    <div>{{ formatNumber(lineSubtotal(line)) }}</div>
+                                    <div>{{ formatNumber(lineGross(line)) }}</div>
+                                </div>
+                                <div v-if="lineDiscount(line) > 0" class="flex justify-between">
+                                    <div>Diskon:</div>
+                                    <div>-{{ formatNumber(lineDiscount(line)) }}</div>
                                 </div>
                                 <div class="flex justify-between">
                                     <div>Pajak:</div>
@@ -780,18 +815,23 @@ function submitForm(createAnother = false) {
                         </tr>
                     </tbody>
                     <tfoot>
+                        <tr v-if="totals.discount > 0" class="text-sm">
+                            <th :colspan="isDirectInvoice ? 6 : 7" class="border border-gray-300 px-4 py-2 text-right">Total Diskon</th>
+                            <th class="border border-gray-300 px-4 py-2 text-right">-{{ formatNumber(totals.discount) }}</th>
+                            <th class="border border-gray-300 px-4 py-2"></th>
+                        </tr>
                         <tr class="text-sm">
-                            <th :colspan="isDirectInvoice ? 5 : 6" class="border border-gray-300 px-4 py-2 text-right">Total</th>
+                            <th :colspan="isDirectInvoice ? 6 : 7" class="border border-gray-300 px-4 py-2 text-right">Total (setelah diskon)</th>
                             <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.subtotal) }}</th>
                             <th class="border border-gray-300 px-4 py-2"></th>
                         </tr>
                         <tr class="text-sm">
-                            <th :colspan="isDirectInvoice ? 5 : 6" class="border border-gray-300 px-4 py-2 text-right">Total Pajak</th>
+                            <th :colspan="isDirectInvoice ? 6 : 7" class="border border-gray-300 px-4 py-2 text-right">Total Pajak</th>
                             <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.tax) }}</th>
                             <th class="border border-gray-300 px-4 py-2"></th>
                         </tr>
                         <tr class="text-sm font-semibold">
-                            <th :colspan="isDirectInvoice ? 5 : 6" class="border border-gray-300 px-4 py-2 text-right">Grand Total</th>
+                            <th :colspan="isDirectInvoice ? 6 : 7" class="border border-gray-300 px-4 py-2 text-right">Grand Total</th>
                             <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(grandTotal) }}</th>
                             <th class="border border-gray-300 px-4 py-2"></th>
                         </tr>

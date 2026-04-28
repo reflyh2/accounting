@@ -390,8 +390,12 @@ class PurchaseInvoiceService
     private function dispatchApReversedEvent(PurchaseInvoice $invoice, ?Authenticatable $actor): void
     {
         $exchangeRate = (float) $invoice->exchange_rate;
+        $subtotal = (float) $invoice->subtotal;
+        $taxTotal = (float) $invoice->tax_total;
         $totalAmount = (float) $invoice->total_amount;
         $totalAmountBase = $this->roundCost($totalAmount * $exchangeRate);
+        $taxBase = $this->roundCost($taxTotal * $exchangeRate);
+        $subtotalBase = $this->roundCost($subtotal * $exchangeRate);
 
         if ($totalAmountBase <= 0) {
             return;
@@ -426,14 +430,16 @@ class PurchaseInvoiceService
                             ? AccountingEntry::credit('purchase_price_variance', abs($ppvAmount))
                             : AccountingEntry::debit('purchase_price_variance', abs($ppvAmount)))
                         : null,
+                    $taxBase > 0 ? AccountingEntry::credit('tax_receivable', $taxBase) : null,
                     AccountingEntry::debit('payable', $totalAmountBase),
                 ])
             );
         } else {
-            $payload->setLines([
-                AccountingEntry::credit('inventory', $totalAmountBase),
+            $payload->setLines(array_filter([
+                AccountingEntry::credit('inventory', $subtotalBase),
+                $taxBase > 0 ? AccountingEntry::credit('tax_receivable', $taxBase) : null,
                 AccountingEntry::debit('payable', $totalAmountBase),
-            ]);
+            ]));
         }
 
         $this->dispatchAccountingEvent($payload);
@@ -709,10 +715,12 @@ class PurchaseInvoiceService
             $goodsReceiptLineId = (int) ($payloadLine['goods_receipt_line_id'] ?? 0);
             $quantity = (float) ($payloadLine['quantity'] ?? 0);
             $unitPrice = (float) ($payloadLine['unit_price'] ?? 0);
+            $discountRate = max(0.0, min(100.0, (float) ($payloadLine['discount_rate'] ?? 0)));
             $taxRate = (float) ($payloadLine['tax_rate'] ?? 0);
-            // Calculate tax_amount from tax_rate: subtotal * (taxRate / 100)
-            $lineSubtotal = $quantity * $unitPrice;
-            $taxAmount = $lineSubtotal * ($taxRate / 100);
+            $gross = $quantity * $unitPrice;
+            $discountAmount = $this->roundMoney($gross * $discountRate / 100);
+            $lineNet = $this->roundMoney($gross - $discountAmount);
+            $taxAmount = $this->roundMoney($lineNet * ($taxRate / 100));
 
             if ($quantity <= 0) {
                 throw new PurchaseInvoiceException('Jumlah faktur harus lebih dari nol.');
@@ -748,10 +756,10 @@ class PurchaseInvoiceService
             }
 
             $quantityBase = $this->deriveBaseQuantity($quantity, $receiptLine, $poLine);
-            $lineTotal = $this->roundMoney($quantity * $unitPrice);
+            $lineTotal = $lineNet;
             $lineTotalBase = $this->roundCost($lineTotal * $exchangeRate);
             $grnValueBase = $this->roundCost($quantityBase * (float) $receiptLine->unit_cost_base);
-            $ppvAmount = $this->roundMoney(($lineTotalBase + ($taxAmount * $exchangeRate)) - $grnValueBase);
+            $ppvAmount = $this->roundMoney($lineTotalBase - $grnValueBase);
 
             $prepared[] = [
                 'line_number' => $lineNumber++,
@@ -764,11 +772,13 @@ class PurchaseInvoiceService
                 'quantity' => $this->roundQuantity($quantity),
                 'quantity_base' => $quantityBase,
                 'unit_price' => $unitPrice,
+                'discount_rate' => $discountRate,
+                'discount_amount' => $discountAmount,
                 'line_total' => $lineTotal,
                 'line_total_base' => $lineTotalBase,
                 'grn_value_base' => $grnValueBase,
                 'ppv_amount' => $ppvAmount,
-                'tax_amount' => $this->roundMoney($taxAmount),
+                'tax_amount' => $taxAmount,
             ];
         }
 
@@ -787,10 +797,12 @@ class PurchaseInvoiceService
         foreach ($lines as $payloadLine) {
             $quantity = (float) ($payloadLine['quantity'] ?? 0);
             $unitPrice = (float) ($payloadLine['unit_price'] ?? 0);
+            $discountRate = max(0.0, min(100.0, (float) ($payloadLine['discount_rate'] ?? 0)));
             $taxRate = (float) ($payloadLine['tax_rate'] ?? 0);
-            // Calculate tax_amount from tax_rate: subtotal * (taxRate / 100)
-            $lineSubtotal = $quantity * $unitPrice;
-            $taxAmount = $lineSubtotal * ($taxRate / 100);
+            $gross = $quantity * $unitPrice;
+            $discountAmount = $this->roundMoney($gross * $discountRate / 100);
+            $lineNet = $this->roundMoney($gross - $discountAmount);
+            $taxAmount = $this->roundMoney($lineNet * ($taxRate / 100));
             $variantId = $payloadLine['product_variant_id'] ?? null;
             $uomId = $payloadLine['uom_id'] ?? null;
 
@@ -807,7 +819,7 @@ class PurchaseInvoiceService
             // Fetch UOM label if possible, or just use ID
             $uomLabel = isset($payloadLine['uom_label']) ? $payloadLine['uom_label'] : null;
 
-            $lineTotal = $this->roundMoney($quantity * $unitPrice);
+            $lineTotal = $lineNet;
             $lineTotalBase = $this->roundCost($lineTotal * $exchangeRate);
 
             $prepared[] = [
@@ -821,11 +833,13 @@ class PurchaseInvoiceService
                 'quantity' => $this->roundQuantity($quantity),
                 'quantity_base' => $this->roundQuantity($quantity), // Assuming base == qty for direct? Need conversion if UOM differs
                 'unit_price' => $unitPrice,
+                'discount_rate' => $discountRate,
+                'discount_amount' => $discountAmount,
                 'line_total' => $lineTotal,
                 'line_total_base' => $lineTotalBase,
                 'grn_value_base' => 0, // Not applicable
                 'ppv_amount' => 0,
-                'tax_amount' => $this->roundMoney($taxAmount),
+                'tax_amount' => $taxAmount,
             ];
         }
 
@@ -852,6 +866,8 @@ class PurchaseInvoiceService
                 'quantity' => $line['quantity'],
                 'quantity_base' => $line['quantity_base'],
                 'unit_price' => $line['unit_price'],
+                'discount_rate' => $line['discount_rate'] ?? 0,
+                'discount_amount' => $line['discount_amount'] ?? 0,
                 'line_total' => $line['line_total'],
                 'line_total_base' => $line['line_total_base'],
                 'grn_value_base' => $line['grn_value_base'],

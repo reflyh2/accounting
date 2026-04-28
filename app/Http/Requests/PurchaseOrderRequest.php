@@ -29,11 +29,10 @@ class PurchaseOrderRequest extends FormRequest
             'lines.*.uom_id' => ['required', 'exists:uoms,id'],
             'lines.*.quantity' => ['required', 'numeric', 'min:0.0001'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'lines.*.discount_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'lines.*.description' => ['nullable', 'string'],
             'lines.*.expected_date' => ['nullable', 'date'],
         ];
     }
 }
-
-

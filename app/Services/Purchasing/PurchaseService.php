@@ -1005,9 +1005,12 @@ class PurchaseService
                 throw new PurchaseOrderException($exception->getMessage(), previous: $exception);
             }
 
-            $lineSubtotal = $this->roundMoney($quantity * $unitPrice);
-            $lineTax = $this->roundMoney($lineSubtotal * ($taxRate / 100));
-            $lineTotal = $this->roundMoney($lineSubtotal + $lineTax);
+            $gross = $this->roundMoney($quantity * $unitPrice);
+            $discountRate = max(0.0, min(100.0, (float) ($line['discount_rate'] ?? 0)));
+            $discountAmount = $this->roundMoney($gross * $discountRate / 100);
+            $lineNet = $this->roundMoney($gross - $discountAmount);
+            $lineTax = $this->roundMoney($lineNet * ($taxRate / 100));
+            $lineTotal = $this->roundMoney($lineNet + $lineTax);
 
             $purchaseOrder->lines()->create([
                 'line_number' => $lineNumber++,
@@ -1020,13 +1023,15 @@ class PurchaseService
                 'quantity' => $quantity,
                 'quantity_base' => $quantityBase,
                 'unit_price' => $unitPrice,
+                'discount_rate' => $discountRate,
+                'discount_amount' => $discountAmount,
                 'tax_rate' => $taxRate,
                 'tax_amount' => $lineTax,
                 'line_total' => $lineTotal,
                 'expected_date' => isset($line['expected_date']) ? Carbon::parse($line['expected_date']) : null,
             ]);
 
-            $subtotal += $lineSubtotal;
+            $subtotal += $lineNet;
             $taxTotal += $lineTax;
         }
 
@@ -1092,21 +1097,22 @@ class PurchaseService
                 );
             }
 
-            $unitCostBase = (float) $line->unit_price;
+            $netUnitPrice = (float) $line->unit_price * (1 - ((float) $line->discount_rate / 100));
+            $unitCostBase = $netUnitPrice;
             if ((float) $line->quantity_base > 0 && (float) $line->quantity > 0) {
-                $unitCostBase = $line->unit_price * ((float) $line->quantity / (float) $line->quantity_base);
+                $unitCostBase = $netUnitPrice * ((float) $line->quantity / (float) $line->quantity_base);
             }
 
             $unitCostBase = $this->roundCost($unitCostBase);
             $orderedQuantity = $this->roundQuantity($quantity);
-            $lineTotal = $this->roundMoney($orderedQuantity * (float) $line->unit_price);
+            $lineTotal = $this->roundMoney($orderedQuantity * $netUnitPrice);
             $lineTotalBase = $this->roundCost($quantityBase * $unitCostBase);
 
             $prepared[] = [
                 'line' => $line,
                 'quantity' => $orderedQuantity,
                 'quantity_base' => $quantityBase,
-                'unit_price' => (float) $line->unit_price,
+                'unit_price' => $netUnitPrice,
                 'unit_cost_base' => $unitCostBase,
                 'line_total' => $lineTotal,
                 'line_total_base' => $lineTotalBase,
@@ -1180,24 +1186,28 @@ class PurchaseService
                 );
             }
 
+            // Use post-discount net unit price as the inventory cost basis;
+            // otherwise discounts would inflate inventory and surface as PPV at AP time.
+            $netUnitPrice = (float) $line->unit_price * (1 - ((float) $line->discount_rate / 100));
+
             // Calculate unit cost in base UOM (from PO line's pricing)
-            $unitCostBase = (float) $line->unit_price;
+            $unitCostBase = $netUnitPrice;
             if ((float) $line->quantity_base > 0 && (float) $line->quantity > 0) {
-                $unitCostBase = $line->unit_price * ((float) $line->quantity / (float) $line->quantity_base);
+                $unitCostBase = $netUnitPrice * ((float) $line->quantity / (float) $line->quantity_base);
             }
             $unitCostBase = $this->roundCost($unitCostBase);
 
             // Calculate unit price in selected UOM
             // If UOM changed, recalculate unit price based on conversion
-            $unitPriceInSelectedUom = (float) $line->unit_price;
+            $unitPriceInSelectedUom = $netUnitPrice;
             if ($selectedUomId !== $line->uom_id) {
                 try {
                     // Calculate conversion factor from PO UOM to selected UOM
                     $conversionFactor = $this->uomConverter->convert(1, $line->uom_id, $selectedUomId);
-                    $unitPriceInSelectedUom = $this->roundMoney((float) $line->unit_price * $conversionFactor);
+                    $unitPriceInSelectedUom = $this->roundMoney($netUnitPrice * $conversionFactor);
                 } catch (RuntimeException $exception) {
-                    // If conversion fails, use original unit price
-                    $unitPriceInSelectedUom = (float) $line->unit_price;
+                    // If conversion fails, use original net unit price
+                    $unitPriceInSelectedUom = $netUnitPrice;
                 }
             }
 

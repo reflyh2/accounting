@@ -363,6 +363,7 @@ class PurchaseInvoiceController extends Controller
             'lines.*.description' => 'nullable|string',
             'lines.*.quantity' => 'required|numeric|min:0.0001',
             'lines.*.unit_price' => 'required|numeric|min:0',
+            'lines.*.discount_rate' => 'nullable|numeric|min:0|max:100',
             'lines.*.tax_rate' => 'nullable|numeric|min:0',
         ];
 
@@ -579,6 +580,8 @@ class PurchaseInvoiceController extends Controller
                     'available_quantity' => $convertedAvailable, // Converted to PO UOM
                     'quantity' => $convertedAvailable, // Default to available in PO UOM
                     'unit_price' => (float) $poLine->unit_price, // Use PO's unit price
+                    'discount_rate' => (float) $poLine->discount_rate,
+                    'discount_amount' => (float) $poLine->discount_amount,
                     'tax_rate' => $poLine->tax_rate,
                     'tax_amount' => $poLine->tax_amount,
                 ];

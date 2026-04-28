@@ -77,6 +77,7 @@ const form = useForm({
             uom_id: null,
             quantity: 1,
             unit_price: 0,
+            discount_rate: 0,
             tax_rate: 0,
             description: '',
             expected_date: '',
@@ -203,17 +204,21 @@ const totals = computed(() => {
         (carry, line) => {
             const quantity = Number(line.quantity) || 0;
             const price = Number(line.unit_price) || 0;
+            const discountRate = Number(line.discount_rate) || 0;
             const taxRate = Number(line.tax_rate) || 0;
 
-            const lineSubtotal = quantity * price;
-            const lineTax = lineSubtotal * (taxRate / 100);
+            const gross = quantity * price;
+            const discount = gross * (discountRate / 100);
+            const lineNet = gross - discount;
+            const lineTax = lineNet * (taxRate / 100);
 
-            carry.subtotal += lineSubtotal;
+            carry.subtotal += lineNet;
             carry.tax += lineTax;
+            carry.discount += discount;
 
             return carry;
         },
-        { subtotal: 0, tax: 0 }
+        { subtotal: 0, tax: 0, discount: 0 }
     );
 });
 
@@ -351,6 +356,7 @@ function createEmptyLine() {
         uom_id: null,
         quantity: 1,
         unit_price: 0,
+        discount_rate: 0,
         tax_rate: 0,
         description: '',
         expected_date: '',
@@ -396,13 +402,14 @@ async function populateFromPlans() {
     Object.keys(lineConvertibleUoms).forEach(key => delete lineConvertibleUoms[key]);
     
     // Collect all lines from selected plans
-    const allLines = selectedPlans.flatMap(plan => 
+    const allLines = selectedPlans.flatMap(plan =>
         plan.lines.map(planLine => ({
             product_id: planLine.product_id,
             product_variant_id: planLine.product_variant_id,
             uom_id: planLine.uom_id,
             quantity: planLine.remaining_qty,
             unit_price: 0,
+            discount_rate: 0,
             tax_rate: 0,
             description: planLine.description || planLine.product_name,
             expected_date: '',
@@ -430,6 +437,7 @@ function resetLine(line) {
     line.uom_id = null;
     line.quantity = 1;
     line.unit_price = 0;
+    line.discount_rate = 0;
     line.tax_rate = 0;
     line.description = '';
     line.expected_date = '';
@@ -532,16 +540,24 @@ async function fetchTaxQuote(line) {
     }
 }
 
-function lineSubtotal(line) {
+function lineGross(line) {
     const quantity = Number(line.quantity) || 0;
     const price = Number(line.unit_price) || 0;
     return quantity * price;
 }
 
+function lineDiscount(line) {
+    const discountRate = Number(line.discount_rate) || 0;
+    return lineGross(line) * (discountRate / 100);
+}
+
+function lineSubtotal(line) {
+    return lineGross(line) - lineDiscount(line);
+}
+
 function lineTax(line) {
-    const subtotal = lineSubtotal(line);
     const taxRate = Number(line.tax_rate) || 0;
-    return subtotal * (taxRate / 100);
+    return lineSubtotal(line) * (taxRate / 100);
 }
 
 const submitted = ref(false);
@@ -746,6 +762,7 @@ function submitForm(createAnother = false) {
                         <th class="border border-gray-300 text-sm min-w-36 px-1.5 py-1.5">Satuan</th>
                         <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty</th>
                         <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Harga Satuan</th>
+                        <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Diskon (%)</th>
                         <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">
                             Pajak (%)
                             <AppHint text="Isi 11 untuk PPN 11%. Kosongkan jika non taxable." />
@@ -813,6 +830,18 @@ function submitForm(createAnother = false) {
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5 align-top">
                             <AppInput
+                                v-model="line.discount_rate"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                placeholder="0"
+                                :error="form.errors?.[`lines.${index}.discount_rate`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                            <AppInput
                                 v-model="line.tax_rate"
                                 hint="Isi 11 untuk PPN 11%. Kosongkan jika non taxable."
                                 type="number"
@@ -834,7 +863,11 @@ function submitForm(createAnother = false) {
                         <td class="border border-gray-300 px-1.5 py-1.5 text-sm text-right whitespace-nowrap align-top">
                             <div class="flex justify-between">
                                 <div>Subtotal:</div>
-                                <div>{{ formatNumber(lineSubtotal(line)) }}</div>
+                                <div>{{ formatNumber(lineGross(line)) }}</div>
+                            </div>
+                            <div v-if="lineDiscount(line) > 0" class="flex justify-between">
+                                <div>Diskon:</div>
+                                <div>-{{ formatNumber(lineDiscount(line)) }}</div>
                             </div>
                             <div class="flex justify-between">
                                 <div>Pajak:</div>
@@ -850,18 +883,23 @@ function submitForm(createAnother = false) {
                 </tbody>
 
                 <tfoot>
+                    <tr v-if="totals.discount > 0" class="text-sm">
+                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="7">Total Diskon</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right">-{{ formatNumber(totals.discount) }}</th>
+                        <th class="border border-gray-300 px-4 py-2"></th>
+                    </tr>
                     <tr class="text-sm">
-                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="6">Total</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="7">Total (setelah diskon)</th>
                         <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.subtotal) }}</th>
                         <th class="border border-gray-300 px-4 py-2"></th>
                     </tr>
                     <tr class="text-sm">
-                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="6">Total Pajak</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="7">Total Pajak</th>
                         <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(totals.tax) }}</th>
                         <th class="border border-gray-300 px-4 py-2"></th>
                     </tr>
                     <tr class="text-sm font-semibold">
-                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="6">Grand Total</th>
+                        <th class="border border-gray-300 px-4 py-2 text-right" colspan="7">Grand Total</th>
                         <th class="border border-gray-300 px-4 py-2 text-right">{{ formatNumber(grandTotal) }}</th>
                         <th class="border border-gray-300 px-4 py-2"></th>
                     </tr>
