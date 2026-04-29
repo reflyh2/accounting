@@ -164,11 +164,20 @@ props.customFilters?.forEach(filter => {
     customFilterValues.value[filter.name] = props.filters?.[filter.name] || '';
 });
 
+// Normalize null/undefined to '' so URLSearchParams (axios) doesn't
+// serialize them as the literal string "null"/"undefined", which would
+// turn a cleared filter into a real WHERE clause server-side.
+function normalizeFilterValues(values) {
+    return Object.fromEntries(
+        Object.entries(values).map(([k, v]) => [k, v === null || v === undefined ? '' : v])
+    );
+}
+
 // Create a debounced function to emit filter changes
 const debouncedEmitFilter = debounce(() => {
     emit('filter', {
         search: search.value,
-        ...customFilterValues.value,
+        ...normalizeFilterValues(customFilterValues.value),
         per_page: rowsPerPage.value
     });
 }, 300); // Wait for 300ms of inactivity before emitting
