@@ -7,9 +7,8 @@ const colors = require('tailwindcss/colors');
 export default {
     content: [
         './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
-        './storage/framework/views/*.php',
         './resources/views/**/*.blade.php',
-        './resources/js/**/*.vue',
+        './resources/js/**/*.{vue,js}',
     ],
 
     theme: {
@@ -47,62 +46,7 @@ export default {
         'to-orange-500',
         'from-slate-500',
         'to-gray-600',
-        {
-            pattern: /(.*)-indigo-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-purple-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-slate-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-yellow-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-orange-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-amber-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-sky-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-emerald-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-gray-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-zinc-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-pink-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-rose-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-violet-(.*)/,
-            variants: ['hover', 'focus'],
-        },
-        {
-            pattern: /(.*)-fuchsia-(.*)/,
-            variants: ['hover', 'focus'],
-        },
+        // Dynamic margin/padding utilities used in AppInput, AppSelect, AppTextarea, Accounts
         {
             pattern: /ml-(.*)/,
             variants: ['xs', 'sm', 'md', 'lg', 'xl', '2xl'],
