@@ -68,7 +68,7 @@ class ProductController extends Controller
             $query->where('product_category_id', $categoryId);
         }
 
-        if ($request->has('is_active') && $request->get('is_active') !== '') {
+        if ($request->filled('is_active')) {
             $query->where('is_active', filter_var($request->get('is_active'), FILTER_VALIDATE_BOOLEAN));
         }
 
