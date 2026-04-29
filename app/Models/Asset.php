@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Support\Facades\Auth;
+use App\Traits\AvoidDuplicateConstraintOnSoftDelete;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Traits\AvoidDuplicateConstraintOnSoftDelete;
+use Illuminate\Support\Facades\Auth;
 
 class Asset extends Model
 {
-    use HasFactory, SoftDeletes, AvoidDuplicateConstraintOnSoftDelete;
+    use AvoidDuplicateConstraintOnSoftDelete, HasFactory, SoftDeletes;
 
     protected $guarded = [];
 
@@ -27,13 +27,19 @@ class Asset extends Model
         parent::boot();
 
         static::creating(function ($model) {
-            $lastAsset = self::where('company_id', $model->company_id)
-                            ->where('branch_id', $model->branch_id)
-                            ->orderBy('created_at', 'desc')
-                            ->first();
+            // Bypass the userAssets global scope so we see EVERY existing asset
+            // for this (company, branch) — otherwise we could start the sequence
+            // too low and collide with an asset created by another user.
+            // Order by code (string-sortable since all codes are fixed-width) to
+            // avoid the created_at-tie nondeterminism that bit batch imports.
+            $lastAsset = self::withoutGlobalScopes()
+                ->where('company_id', $model->company_id)
+                ->where('branch_id', $model->branch_id)
+                ->orderByDesc('code')
+                ->first();
             $lastNumber = $lastAsset ? intval(substr($lastAsset->code, -6)) : 0;
             $newNumber = str_pad($lastNumber + 1, 6, '0', STR_PAD_LEFT);
-            $model->code = 'AST' . str_pad($model->company_id, 2, '0', STR_PAD_LEFT) . str_pad($model->branch_id, 3, '0', STR_PAD_LEFT) . $newNumber;
+            $model->code = 'AST'.str_pad($model->company_id, 2, '0', STR_PAD_LEFT).str_pad($model->branch_id, 3, '0', STR_PAD_LEFT).$newNumber;
         });
 
         static::addGlobalScope('userAssets', function ($builder) {
@@ -41,7 +47,7 @@ class Asset extends Model
                 $user = User::find(Auth::user()->global_id);
 
                 // Skip scope if user doesn't exist in tenant DB yet (e.g., during seeding)
-                if (!$user) {
+                if (! $user) {
                     return;
                 }
 
@@ -124,4 +130,4 @@ class Asset extends Model
             'written_off' => 'Dihapusbukukan',
         ];
     }
-} 
+}
