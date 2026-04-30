@@ -193,7 +193,8 @@
                                 <!-- FinfasPro Text -->
                                 <text x="34" y="28" font-family="Inter, system-ui, sans-serif" font-size="20"
                                     font-weight="700" fill="url(#navGradient)">
-                                    <tspan>Finfas</tspan><tspan font-weight="500" fill="#f8fafc">Pro</tspan>
+                                    <tspan>Finfas</tspan>
+                                    <tspan font-weight="500" fill="#f8fafc">Pro</tspan>
                                 </text>
                             </svg>
                         </a>
@@ -237,17 +238,20 @@
                         </div>
 
                         @if (Route::has('login'))
-                            @auth
-                                <a href="{{ url('/dashboard') }}"
-                                    class="uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-2 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all shadow-lg shadow-blue-900/20">{{ __('marketing.nav.dashboard') }}</a>
-                            @else
-                                <a href="{{ route('central.login') }}"
-                                    class="uppercase text-sm tracking-widest hover:text-blue-300">{{ __('marketing.nav.login') }}</a>
-                                @if (Route::has('register'))
-                                    <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
-                                        class="uppercase text-sm tracking-widest bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-500 hover:scale-105 transition-all shadow-lg shadow-blue-500/30">{{ __('marketing.nav.book_demo') }}</a>
-                                @endif
-                            @endauth
+                        @auth
+                        <a href="{{ url('/dashboard') }}"
+                            class="uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-2 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all shadow-lg shadow-blue-900/20">{{ __('marketing.nav.dashboard') }}</a>
+                        @else
+                        <a href="{{ route('central.login') }}"
+                            class="uppercase text-sm tracking-widest hover:text-blue-300">{{ __('marketing.nav.login') }}</a>
+                        @if (Route::has('register'))
+                        <a href="https://wa.me/6281255554847?text=Halo%2C%20saya%20tertarik%20dengan%20FinfasPro%20dan%20ingin%20menjadwalkan%20sesi%20demo."
+                            target="_blank"
+                            class="uppercase text-sm tracking-widest bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-500 hover:scale-105 transition-all shadow-lg shadow-blue-500/30">
+                            {{ __('marketing.nav.book_demo') }}
+                        </a>
+                        @endif
+                        @endauth
                         @endif
                     </div>
                 </div>
@@ -275,17 +279,20 @@
 
                     <div class="flex flex-col space-y-3 pt-2">
                         @if (Route::has('login'))
-                            @auth
-                                <a href="{{ url('/dashboard') }}"
-                                    class="text-center uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-3 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all">{{ __('marketing.nav.dashboard') }}</a>
-                            @else
-                                <a href="{{ route('central.login') }}"
-                                    class="text-center uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-3 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all">{{ __('marketing.nav.login') }}</a>
-                                @if (Route::has('register'))
-                                    <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
-                                        class="text-center uppercase text-sm tracking-widest bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/30">{{ __('marketing.nav.book_demo') }}</a>
-                                @endif
-                            @endauth
+                        @auth
+                        <a href="{{ url('/dashboard') }}"
+                            class="text-center uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-3 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all">{{ __('marketing.nav.dashboard') }}</a>
+                        @else
+                        <a href="{{ route('central.login') }}"
+                            class="text-center uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-3 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all">{{ __('marketing.nav.login') }}</a>
+                        @if (Route::has('register'))
+                        <a href="https://wa.me/6281255554847?text=Halo%2C%20saya%20tertarik%20dengan%20FinfasPro%20dan%20ingin%20menjadwalkan%20sesi%20demo."
+                            target="_blank"
+                            class="uppercase text-sm tracking-widest bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-500 hover:scale-105 transition-all shadow-lg shadow-blue-500/30">
+                            {{ __('marketing.nav.book_demo') }}
+                        </a>
+                        @endif
+                        @endauth
                         @endif
                     </div>
                 </div>
@@ -366,10 +373,10 @@
                                     class="w-full h-full object-cover object-top">
                                 <div
                                     class="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-slate-900 via-slate-900/90 to-transparent translate-y-4 group-hover/carousel:translate-y-0 transition-transform duration-500">
-                                    <h3 class="text-2xl font-display text-white mb-1">
+                                    <h3 class="text-lg md:text-2xl font-display text-white mb-1">
                                         {{ __('marketing.showcase.slides.dashboard.title') }}
                                     </h3>
-                                    <p class="text-blue-200/70">{{ __('marketing.showcase.slides.dashboard.desc') }}</p>
+                                    <p class="text-sm md:text-base text-blue-200/70">{{ __('marketing.showcase.slides.dashboard.desc') }}</p>
                                 </div>
                             </div>
                             <!-- Slide 2: Invoices -->
@@ -378,10 +385,10 @@
                                     class="w-full h-full object-cover object-top">
                                 <div
                                     class="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-slate-900 via-slate-900/90 to-transparent translate-y-4 group-hover/carousel:translate-y-0 transition-transform duration-500">
-                                    <h3 class="text-2xl font-display text-white mb-1">
+                                    <h3 class="text-lg md:text-2xl font-display text-white mb-1">
                                         {{ __('marketing.showcase.slides.invoices.title') }}
                                     </h3>
-                                    <p class="text-blue-200/70">{{ __('marketing.showcase.slides.invoices.desc') }}</p>
+                                    <p class="text-sm md:text-base text-blue-200/70">{{ __('marketing.showcase.slides.invoices.desc') }}</p>
                                 </div>
                             </div>
                             <!-- Slide 3: Reports -->
@@ -390,10 +397,10 @@
                                     class="w-full h-full object-cover object-top">
                                 <div
                                     class="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-slate-900 via-slate-900/90 to-transparent translate-y-4 group-hover/carousel:translate-y-0 transition-transform duration-500">
-                                    <h3 class="text-2xl font-display text-white mb-1">
+                                    <h3 class="text-lg md:text-2xl font-display text-white mb-1">
                                         {{ __('marketing.showcase.slides.reports.title') }}
                                     </h3>
-                                    <p class="text-blue-200/70">{{ __('marketing.showcase.slides.reports.desc') }}</p>
+                                    <p class="text-sm md:text-base text-blue-200/70">{{ __('marketing.showcase.slides.reports.desc') }}</p>
                                 </div>
                             </div>
 
@@ -434,7 +441,7 @@
         <section id="features" class="py-32 px-4 md:px-0">
             <div class="max-w-[90%] mx-auto">
                 <div class="flex flex-col md:flex-row justify-between items-end mb-20">
-                    <h2 class="text-6xl md:text-8xl font-display font-medium max-w-4xl">
+                    <h2 class="text-5xl md:text-8xl font-display font-medium max-w-4xl">
                         {{ __('marketing.features.title') }} <br>
                         <span class="text-blue-400">{{ __('marketing.features.subtitle') }}</span>
                     </h2>
@@ -632,20 +639,20 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     @foreach(__('marketing.testimonials.items') as $testimonial)
-                        <div class="glass-panel p-8 rounded-3xl border border-white/5 flex flex-col">
-                            <div class="flex-1">
-                                <svg class="w-10 h-10 text-blue-400/50 mb-6" fill="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        d="M14.017 18L14.017 10.609C14.017 4.905 17.748 1.039 23 0L23.995 2.151C21.563 3.068 20 5.789 20 8H24V18H14.017ZM0 18V10.609C0 4.905 3.748 1.039 9 0L9.996 2.151C7.563 3.068 6 5.789 6 8H10V18H0Z" />
-                                </svg>
-                                <p class="text-lg text-blue-100/80 mb-8 leading-relaxed italic">
-                                    "{{ $testimonial['quote'] }}"</p>
-                            </div>
-                            <div class="border-t border-blue-500/10 pt-6">
-                                <p class="font-display font-medium text-white">{{ $testimonial['author'] }}</p>
-                                <p class="text-sm text-blue-200/50">{{ $testimonial['role'] }}</p>
-                            </div>
+                    <div class="glass-panel p-8 rounded-3xl border border-white/5 flex flex-col">
+                        <div class="flex-1">
+                            <svg class="w-10 h-10 text-blue-400/50 mb-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    d="M14.017 18L14.017 10.609C14.017 4.905 17.748 1.039 23 0L23.995 2.151C21.563 3.068 20 5.789 20 8H24V18H14.017ZM0 18V10.609C0 4.905 3.748 1.039 9 0L9.996 2.151C7.563 3.068 6 5.789 6 8H10V18H0Z" />
+                            </svg>
+                            <p class="text-lg text-blue-100/80 mb-8 leading-relaxed italic">
+                                "{{ $testimonial['quote'] }}"</p>
                         </div>
+                        <div class="border-t border-blue-500/10 pt-6">
+                            <p class="font-display font-medium text-white">{{ $testimonial['author'] }}</p>
+                            <p class="text-sm text-blue-200/50">{{ $testimonial['role'] }}</p>
+                        </div>
+                    </div>
                     @endforeach
                 </div>
             </div>
@@ -661,21 +668,21 @@
 
                 <div class="space-y-4">
                     @foreach(__('marketing.faq.items') as $index => $faq)
-                        <div class="glass-panel rounded-2xl border border-white/5 overflow-hidden">
-                            <button class="faq-toggle w-full px-8 py-6 flex justify-between items-center text-left group"
-                                data-target="faq-{{ $index }}">
-                                <span
-                                    class="text-lg font-medium text-white group-hover:text-blue-300 transition-colors">{{ $faq['q'] }}</span>
-                                <svg class="w-6 h-6 text-blue-400 transition-transform faq-icon" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </button>
-                            <div id="faq-{{ $index }}" class="faq-content hidden px-8 pb-6">
-                                <p class="text-blue-200/70 leading-relaxed">{{ $faq['a'] }}</p>
-                            </div>
+                    <div class="glass-panel rounded-2xl border border-white/5 overflow-hidden">
+                        <button class="faq-toggle w-full px-8 py-6 flex justify-between items-center text-left group"
+                            data-target="faq-{{ $index }}">
+                            <span
+                                class="text-lg font-medium text-white group-hover:text-blue-300 transition-colors">{{ $faq['q'] }}</span>
+                            <svg class="w-6 h-6 text-blue-400 transition-transform faq-icon" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="faq-{{ $index }}" class="faq-content hidden px-8 pb-6">
+                            <p class="text-blue-200/70 leading-relaxed">{{ $faq['a'] }}</p>
                         </div>
+                    </div>
                     @endforeach
                 </div>
             </div>
@@ -691,7 +698,8 @@
                 <p class="text-xl text-blue-100/80 mb-12 max-w-2xl mx-auto">
                     {{ __('marketing.demo_cta.subtitle') }}
                 </p>
-                <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
+                <a href="https://wa.me/6281255554847?text=Halo%2C%20saya%20tertarik%20dengan%20FinfasPro%20dan%20ingin%20menjadwalkan%20sesi%20demo."
+                    target="_blank"
                     class="inline-block px-10 py-5 bg-white text-blue-900 rounded-full uppercase tracking-wider text-sm hover:scale-105 transition-transform font-bold shadow-xl">
                     {{ __('marketing.demo_cta.button') }}
                 </a>
@@ -747,7 +755,8 @@
                                     <!-- FinfasPro Text -->
                                     <text x="34" y="28" font-family="Inter, system-ui, sans-serif" font-size="20"
                                         font-weight="700" fill="url(#navGradient)">
-                                        <tspan>Finfas</tspan><tspan font-weight="500" fill="#f8fafc">Pro</tspan>
+                                        <tspan>Finfas</tspan>
+                                        <tspan font-weight="500" fill="#f8fafc">Pro</tspan>
                                     </text>
                                 </svg>
                             </a>
@@ -819,11 +828,11 @@
             anchor.addEventListener('click', function(e) {
                 const href = this.getAttribute('href');
                 if (href === '#') return; // Skip empty anchors
-                
+
                 e.preventDefault();
                 const targetId = href.substring(1);
                 const targetElement = document.getElementById(targetId);
-                
+
                 if (targetElement) {
                     // Use Lenis for buttery smooth scroll
                     lenis.scrollTo(targetElement, {
@@ -831,16 +840,16 @@
                         duration: 1.8, // Slower for visible, smooth effect
                         easing: (t) => {
                             // Custom cubic-bezier easing for premium feel
-                            return t < 0.5 
-                                ? 4 * t * t * t 
-                                : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                            return t < 0.5 ?
+                                4 * t * t * t :
+                                1 - Math.pow(-2 * t + 2, 3) / 2;
                         },
                         onComplete: () => {
                             // Update URL hash without jump
                             history.pushState(null, null, href);
                         }
                     });
-                    
+
                     // Add visual feedback to clicked link
                     this.classList.add('text-blue-400');
                     setTimeout(() => {
@@ -853,15 +862,15 @@
         // Highlight active nav link on scroll
         const sections = document.querySelectorAll('section[id]');
         const navLinks = document.querySelectorAll('nav a[href^="#"]');
-        
+
         function updateActiveLink() {
             const scrollPos = window.scrollY + 150;
-            
+
             sections.forEach(section => {
                 const sectionTop = section.offsetTop;
                 const sectionHeight = section.offsetHeight;
                 const sectionId = section.getAttribute('id');
-                
+
                 if (scrollPos >= sectionTop && scrollPos < sectionTop + sectionHeight) {
                     navLinks.forEach(link => {
                         link.classList.remove('text-blue-400');
@@ -872,7 +881,7 @@
                 }
             });
         }
-        
+
         lenis.on('scroll', updateActiveLink);
 
         // --- MOBILE MENU TOGGLE ---
@@ -909,12 +918,27 @@
         // Loader Exit
         window.addEventListener('load', () => {
             const tl = gsap.timeline();
-            tl.to('.loader-text', { opacity: 0, duration: 0.5, delay: 0.5 })
-                .to('.loader', { yPercent: -100, duration: 1, ease: 'power4.inOut' })
+            tl.to('.loader-text', {
+                    opacity: 0,
+                    duration: 0.5,
+                    delay: 0.5
+                })
+                .to('.loader', {
+                    yPercent: -100,
+                    duration: 1,
+                    ease: 'power4.inOut'
+                })
                 .from('.hero-content h1 .reveal-text', {
-                    y: 100, opacity: 0, stagger: 0.1, duration: 1, ease: 'power3.out'
+                    y: 100,
+                    opacity: 0,
+                    stagger: 0.1,
+                    duration: 1,
+                    ease: 'power3.out'
                 }, '-=0.5')
-                .to('.hero-footer', { opacity: 1, duration: 1 }, '-=0.5');
+                .to('.hero-footer', {
+                    opacity: 1,
+                    duration: 1
+                }, '-=0.5');
         });
 
         // Marquee Animation
@@ -964,8 +988,16 @@
             const current = showcaseSlides[currentShowcaseSlide];
             const next = showcaseSlides[targetIndex];
 
-            gsap.to(current, { opacity: 0, duration: 0.6, ease: 'power2.inOut' });
-            gsap.to(next, { opacity: 1, duration: 0.6, ease: 'power2.inOut' });
+            gsap.to(current, {
+                opacity: 0,
+                duration: 0.6,
+                ease: 'power2.inOut'
+            });
+            gsap.to(next, {
+                opacity: 1,
+                duration: 0.6,
+                ease: 'power2.inOut'
+            });
 
             currentShowcaseSlide = targetIndex;
             updateIndicators();
@@ -982,8 +1014,14 @@
         }
 
         // Event Listeners
-        if (nextBtn) nextBtn.addEventListener('click', () => { nextShowcaseSlide(); resetAutoSlide(); });
-        if (prevBtn) prevBtn.addEventListener('click', () => { prevShowcaseSlide(); resetAutoSlide(); });
+        if (nextBtn) nextBtn.addEventListener('click', () => {
+            nextShowcaseSlide();
+            resetAutoSlide();
+        });
+        if (prevBtn) prevBtn.addEventListener('click', () => {
+            prevShowcaseSlide();
+            resetAutoSlide();
+        });
         indicators.forEach(indicator => {
             indicator.addEventListener('click', () => {
                 const index = parseInt(indicator.dataset.index, 10);
@@ -1033,7 +1071,10 @@
             cursorOutline.animate({
                 left: `${posX}px`,
                 top: `${posY}px`
-            }, { duration: 500, fill: "forwards" });
+            }, {
+                duration: 500,
+                fill: "forwards"
+            });
         });
 
         // Hover effects on interactivity
@@ -1059,7 +1100,10 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.z = 5;
 
-        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        const renderer = new THREE.WebGLRenderer({
+            alpha: true,
+            antialias: true
+        });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         canvasContainer.appendChild(renderer.domElement);
@@ -1085,7 +1129,12 @@
 
         // Abstract Geometric Shapes (floating)
         const geoGeometry = new THREE.IcosahedronGeometry(1, 0);
-        const geoMaterial = new THREE.MeshBasicMaterial({ color: 0x6366f1, wireframe: true, transparent: true, opacity: 0.3 });
+        const geoMaterial = new THREE.MeshBasicMaterial({
+            color: 0x6366f1,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
         const geoMesh = new THREE.Mesh(geoGeometry, geoMaterial);
         geoMesh.position.set(2, 0, 0);
         scene.add(geoMesh);
