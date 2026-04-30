@@ -288,6 +288,14 @@ Route::middleware([
         Route::get('locations/export-pdf', [LocationController::class, 'exportPDF'])->name('locations.export-pdf');
         Route::resource('locations', LocationController::class);
 
+        // Units of Measure
+        Route::delete('uoms/bulk-delete', [\App\Http\Controllers\UomController::class, 'bulkDelete'])->name('uoms.bulk-delete');
+        Route::resource('uoms', \App\Http\Controllers\UomController::class)->except(['show']);
+
+        // UoM Conversions
+        Route::delete('uom-conversions/bulk-delete', [\App\Http\Controllers\UomConversionController::class, 'bulkDelete'])->name('uom-conversions.bulk-delete');
+        Route::resource('uom-conversions', \App\Http\Controllers\UomConversionController::class)->except(['show']);
+
         Route::delete('/roles/bulk-delete', [RoleController::class, 'bulkDelete'])->name('roles.bulk-delete');
         Route::get('roles/export-xlsx', [RoleController::class, 'exportXLSX'])->name('roles.export-xlsx');
         Route::get('roles/export-csv', [RoleController::class, 'exportCSV'])->name('roles.export-csv');
