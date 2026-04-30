@@ -141,7 +141,9 @@ const isSettingsActive = computed(() => {
         || route().current('tax-rules.*')
         || route().current('gl-event-configurations.*')
         || route().current('document-templates.*')
-        || route().current('locations.*');
+        || route().current('locations.*')
+        || route().current('uoms.*')
+        || route().current('uom-conversions.*');
 });
 
 const isAccountingActive = computed(() => {
@@ -876,6 +878,22 @@ const onboardingStep = computed(() => {
                                 class="pl-11"
                             >
                                 Lokasi
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                v-if="canViewCompanies"
+                                :href="route('uoms.index')"
+                                :active="route().current('uoms.*')"
+                                class="pl-11"
+                            >
+                                Satuan
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                v-if="canViewCompanies"
+                                :href="route('uom-conversions.index')"
+                                :active="route().current('uom-conversions.*')"
+                                class="pl-11"
+                            >
+                                Konversi Satuan
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -2056,6 +2074,22 @@ const onboardingStep = computed(() => {
                                         >
                                             Lokasi
                                         </NavLink>
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('uoms.index')"
+                                            :active="route().current('uoms.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Satuan
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('uom-conversions.index')"
+                                            :active="route().current('uom-conversions.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Konversi Satuan
+                                        </NavLink>
                                     </div>
                                 </div>
 
@@ -2171,6 +2205,22 @@ const onboardingStep = computed(() => {
                                             class="flex items-center"
                                         >
                                             Lokasi
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('uoms.index')"
+                                            :active="route().current('uoms.*')"
+                                            class="flex items-center"
+                                        >
+                                            Satuan
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('uom-conversions.index')"
+                                            :active="route().current('uom-conversions.*')"
+                                            class="flex items-center"
+                                        >
+                                            Konversi Satuan
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
