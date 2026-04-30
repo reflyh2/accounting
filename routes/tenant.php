@@ -296,6 +296,10 @@ Route::middleware([
         Route::delete('uom-conversions/bulk-delete', [\App\Http\Controllers\UomConversionController::class, 'bulkDelete'])->name('uom-conversions.bulk-delete');
         Route::resource('uom-conversions', \App\Http\Controllers\UomConversionController::class)->except(['show']);
 
+        // UoM Conversion Rules (specific overrides per product / company / partner / context)
+        Route::delete('uom-conversion-rules/bulk-delete', [\App\Http\Controllers\UomConversionRuleController::class, 'bulkDelete'])->name('uom-conversion-rules.bulk-delete');
+        Route::resource('uom-conversion-rules', \App\Http\Controllers\UomConversionRuleController::class)->except(['show']);
+
         Route::delete('/roles/bulk-delete', [RoleController::class, 'bulkDelete'])->name('roles.bulk-delete');
         Route::get('roles/export-xlsx', [RoleController::class, 'exportXLSX'])->name('roles.export-xlsx');
         Route::get('roles/export-csv', [RoleController::class, 'exportCSV'])->name('roles.export-csv');
