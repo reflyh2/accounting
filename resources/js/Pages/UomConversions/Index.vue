@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { router, Head, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
+import UomTabs from '@/Tabs/UomTabs.vue';
 
 const props = defineProps({
     conversions: Object,
@@ -76,10 +77,12 @@ function handleFilter(newFilters) {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2>Konversi Satuan</h2>
+            <h2>Satuan (UoM)</h2>
         </template>
 
         <div class="mx-auto">
+            <UomTabs activeTab="uom-conversions.index" />
+
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">
                     <AppDataTable

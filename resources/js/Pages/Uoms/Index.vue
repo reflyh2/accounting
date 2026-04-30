@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { router, Head, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppDataTable from '@/Components/AppDataTable.vue';
+import UomTabs from '@/Tabs/UomTabs.vue';
 
 const props = defineProps({
     uoms: Object,
@@ -94,6 +95,8 @@ function handleFilter(newFilters) {
         </template>
 
         <div class="mx-auto">
+            <UomTabs activeTab="uoms.index" />
+
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">
                     <AppDataTable
