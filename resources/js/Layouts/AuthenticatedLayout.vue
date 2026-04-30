@@ -882,18 +882,10 @@ const onboardingStep = computed(() => {
                             <ResponsiveNavLink
                                 v-if="canViewCompanies"
                                 :href="route('uoms.index')"
-                                :active="route().current('uoms.*')"
+                                :active="route().current('uoms.*') || route().current('uom-conversions.*')"
                                 class="pl-11"
                             >
                                 Satuan
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink
-                                v-if="canViewCompanies"
-                                :href="route('uom-conversions.index')"
-                                :active="route().current('uom-conversions.*')"
-                                class="pl-11"
-                            >
-                                Konversi Satuan
                             </ResponsiveNavLink>
                         </DisclosurePanel>
                     </Disclosure>
@@ -2077,18 +2069,10 @@ const onboardingStep = computed(() => {
                                         <NavLink
                                             v-if="canViewCompanies"
                                             :href="route('uoms.index')"
-                                            :active="route().current('uoms.*')"
+                                            :active="route().current('uoms.*') || route().current('uom-conversions.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Satuan
-                                        </NavLink>
-                                        <NavLink
-                                            v-if="canViewCompanies"
-                                            :href="route('uom-conversions.index')"
-                                            :active="route().current('uom-conversions.*')"
-                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
-                                        >
-                                            Konversi Satuan
                                         </NavLink>
                                     </div>
                                 </div>
@@ -2209,18 +2193,10 @@ const onboardingStep = computed(() => {
                                         <NavLink
                                             v-if="canViewCompanies"
                                             :href="route('uoms.index')"
-                                            :active="route().current('uoms.*')"
+                                            :active="route().current('uoms.*') || route().current('uom-conversions.*')"
                                             class="flex items-center"
                                         >
                                             Satuan
-                                        </NavLink>
-                                        <NavLink
-                                            v-if="canViewCompanies"
-                                            :href="route('uom-conversions.index')"
-                                            :active="route().current('uom-conversions.*')"
-                                            class="flex items-center"
-                                        >
-                                            Konversi Satuan
                                         </NavLink>
                                     </DisclosurePanel>
                                 </Disclosure>
