@@ -143,7 +143,8 @@ const isSettingsActive = computed(() => {
         || route().current('document-templates.*')
         || route().current('locations.*')
         || route().current('uoms.*')
-        || route().current('uom-conversions.*');
+        || route().current('uom-conversions.*')
+        || route().current('uom-conversion-rules.*');
 });
 
 const isAccountingActive = computed(() => {
@@ -882,7 +883,7 @@ const onboardingStep = computed(() => {
                             <ResponsiveNavLink
                                 v-if="canViewCompanies"
                                 :href="route('uoms.index')"
-                                :active="route().current('uoms.*') || route().current('uom-conversions.*')"
+                                :active="route().current('uoms.*') || route().current('uom-conversions.*') || route().current('uom-conversion-rules.*')"
                                 class="pl-11"
                             >
                                 Satuan
@@ -2069,7 +2070,7 @@ const onboardingStep = computed(() => {
                                         <NavLink
                                             v-if="canViewCompanies"
                                             :href="route('uoms.index')"
-                                            :active="route().current('uoms.*') || route().current('uom-conversions.*')"
+                                            :active="route().current('uoms.*') || route().current('uom-conversions.*') || route().current('uom-conversion-rules.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
                                         >
                                             Satuan
@@ -2193,7 +2194,7 @@ const onboardingStep = computed(() => {
                                         <NavLink
                                             v-if="canViewCompanies"
                                             :href="route('uoms.index')"
-                                            :active="route().current('uoms.*') || route().current('uom-conversions.*')"
+                                            :active="route().current('uoms.*') || route().current('uom-conversions.*') || route().current('uom-conversion-rules.*')"
                                             class="flex items-center"
                                         >
                                             Satuan

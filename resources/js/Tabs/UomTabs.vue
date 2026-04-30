@@ -12,6 +12,7 @@ const props = defineProps({
 const tabs = computed(() => [
     { label: 'Satuan', route: 'uoms.index', active: props.activeTab === 'uoms.index' },
     { label: 'Konversi Satuan', route: 'uom-conversions.index', active: props.activeTab === 'uom-conversions.index' },
+    { label: 'Aturan Konversi', route: 'uom-conversion-rules.index', active: props.activeTab === 'uom-conversion-rules.index' },
 ]);
 </script>
 
