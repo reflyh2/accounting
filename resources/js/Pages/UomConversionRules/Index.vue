@@ -100,10 +100,6 @@ function handleFilter(newFilters) {
         <div class="mx-auto">
             <UomTabs activeTab="uom-conversion-rules.index" />
 
-            <div class="bg-yellow-50 border border-yellow-200 text-yellow-900 text-sm rounded p-3 mb-3">
-                <strong>Catatan:</strong> Aturan konversi spesifik (per produk, perusahaan, partner, atau konteks) belum diintegrasikan ke mesin konversi inti. Saat ini aturan ini disimpan untuk referensi dan dropdown ketersediaan UOM, tetapi konversi aktual masih menggunakan tabel Konversi Satuan utama.
-            </div>
-
             <div class="bg-white shadow-sm sm:rounded border border-gray-200">
                 <div class="text-gray-900">
                     <AppDataTable

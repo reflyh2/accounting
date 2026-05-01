@@ -1000,7 +1000,14 @@ class PurchaseService
             );
 
             try {
-                $quantityBase = $this->uomConverter->convert($quantity, $orderedUom->id, $baseUom->id);
+                $quantityBase = $this->uomConverter->convert($quantity, $orderedUom->id, $baseUom->id, [
+                    'product_id' => $variant->product_id,
+                    'variant_id' => $variant->id,
+                    'company_id' => $companyId,
+                    'partner_id' => $purchaseOrder->partner_id,
+                    'context' => 'purchase',
+                    'on_date' => $purchaseOrder->order_date,
+                ]);
             } catch (RuntimeException $exception) {
                 throw new PurchaseOrderException($exception->getMessage(), previous: $exception);
             }
@@ -1084,7 +1091,13 @@ class PurchaseService
 
             try {
                 $quantityBase = $this->roundQuantity(
-                    $this->uomConverter->convert($quantity, $line->uom_id, $line->base_uom_id)
+                    $this->uomConverter->convert($quantity, $line->uom_id, $line->base_uom_id, [
+                        'product_id' => $line->product_id,
+                        'variant_id' => $line->product_variant_id,
+                        'company_id' => $purchaseOrder->company_id ?? null,
+                        'partner_id' => $purchaseOrder->partner_id,
+                        'context' => 'purchase',
+                    ])
                 );
             } catch (RuntimeException $exception) {
                 throw new PurchaseOrderException($exception->getMessage(), previous: $exception);
@@ -1133,9 +1146,11 @@ class PurchaseService
 
         // Build a combined lookup of all PO lines from all POs
         $allLines = collect();
+        $poByLineId = [];
         foreach ($purchaseOrders as $po) {
             foreach ($po->lines as $line) {
                 $allLines->put($line->id, $line);
+                $poByLineId[$line->id] = $po;
             }
         }
 
@@ -1170,9 +1185,16 @@ class PurchaseService
             }
 
             // Convert quantity from selected UOM to base UOM
+            $contextPo = $poByLineId[$line->id] ?? null;
             try {
                 $quantityBase = $this->roundQuantity(
-                    $this->uomConverter->convert($quantity, $selectedUomId, $line->base_uom_id)
+                    $this->uomConverter->convert($quantity, $selectedUomId, $line->base_uom_id, [
+                        'product_id' => $line->product_id,
+                        'variant_id' => $line->product_variant_id,
+                        'company_id' => $contextPo?->company_id,
+                        'partner_id' => $contextPo?->partner_id,
+                        'context' => 'purchase',
+                    ])
                 );
             } catch (RuntimeException $exception) {
                 throw new PurchaseOrderException($exception->getMessage(), previous: $exception);
@@ -1203,7 +1225,13 @@ class PurchaseService
             if ($selectedUomId !== $line->uom_id) {
                 try {
                     // Calculate conversion factor from PO UOM to selected UOM
-                    $conversionFactor = $this->uomConverter->convert(1, $line->uom_id, $selectedUomId);
+                    $conversionFactor = $this->uomConverter->convert(1, $line->uom_id, $selectedUomId, [
+                        'product_id' => $line->product_id,
+                        'variant_id' => $line->product_variant_id,
+                        'company_id' => $contextPo?->company_id,
+                        'partner_id' => $contextPo?->partner_id,
+                        'context' => 'purchase',
+                    ]);
                     $unitPriceInSelectedUom = $this->roundMoney($netUnitPrice * $conversionFactor);
                 } catch (RuntimeException $exception) {
                     // If conversion fails, use original net unit price

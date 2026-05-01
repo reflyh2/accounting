@@ -561,7 +561,13 @@ class PurchaseInvoiceController extends Controller
                 if ($grnUomId !== $poUomId && $grnUomId && $poUomId) {
                     // Convert GRN quantity from GRN UOM to PO UOM
                     try {
-                        $convertedAvailable = $uomConverter->convert($available, $grnUomId, $poUomId);
+                        $convertedAvailable = $uomConverter->convert($available, $grnUomId, $poUomId, [
+                            'product_id' => $poLine->product_id,
+                            'variant_id' => $poLine->product_variant_id,
+                            'company_id' => $purchaseOrder->company_id ?? null,
+                            'partner_id' => $purchaseOrder->partner_id ?? null,
+                            'context' => 'purchase',
+                        ]);
                     } catch (\Exception $e) {
                         // If conversion fails, use original quantity (this shouldn't happen for valid data)
                         $convertedAvailable = $available;

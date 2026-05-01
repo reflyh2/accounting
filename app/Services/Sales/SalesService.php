@@ -856,11 +856,13 @@ class SalesService
             throw new SalesOrderException('Lokasi pengiriman harus berasal dari cabang yang sama.');
         }
 
-        // Build SO lines indexed by ID for quick lookup
+        // Build SO lines indexed by ID for quick lookup, plus a parent SO lookup for context
         $allSOLines = collect();
+        $soByLineId = [];
         foreach ($salesOrders as $so) {
             foreach ($so->lines as $line) {
                 $allSOLines[$line->id] = $line;
+                $soByLineId[$line->id] = $so;
             }
         }
 
@@ -885,9 +887,16 @@ class SalesService
                 throw new SalesOrderException("Jumlah pengiriman untuk {$soLine->description} melebihi sisa.");
             }
 
+            $contextSo = $soByLineId[$soLine->id] ?? null;
             try {
                 $quantityBase = $this->roundQuantity(
-                    $this->uomConverter->convert($quantity, $soLine->uom_id, $soLine->base_uom_id)
+                    $this->uomConverter->convert($quantity, $soLine->uom_id, $soLine->base_uom_id, [
+                        'product_id' => $soLine->product_id,
+                        'variant_id' => $soLine->product_variant_id,
+                        'company_id' => $contextSo?->company_id,
+                        'partner_id' => $contextSo?->partner_id,
+                        'context' => 'sales',
+                    ])
                 );
             } catch (RuntimeException $exception) {
                 throw new SalesOrderException($exception->getMessage(), previous: $exception);
@@ -1195,11 +1204,13 @@ class SalesService
                 'lines.reservationLocation',
             ])->get();
 
-            // Build SO lines indexed by ID
+            // Build SO lines indexed by ID + parent SO lookup for context
             $allSOLines = collect();
+            $soByLineId = [];
             foreach ($salesOrders as $so) {
                 foreach ($so->lines as $line) {
                     $allSOLines[$line->id] = $line;
+                    $soByLineId[$line->id] = $so;
                 }
             }
 
@@ -1223,9 +1234,16 @@ class SalesService
                     throw new SalesOrderException("Jumlah pengiriman untuk {$soLine->description} melebihi sisa.");
                 }
 
+                $contextSo = $soByLineId[$soLine->id] ?? null;
                 try {
                     $quantityBase = $this->roundQuantity(
-                        $this->uomConverter->convert($quantity, $soLine->uom_id, $soLine->base_uom_id)
+                        $this->uomConverter->convert($quantity, $soLine->uom_id, $soLine->base_uom_id, [
+                            'product_id' => $soLine->product_id,
+                            'variant_id' => $soLine->product_variant_id,
+                            'company_id' => $contextSo?->company_id,
+                            'partner_id' => $contextSo?->partner_id,
+                            'context' => 'sales',
+                        ])
                     );
                 } catch (RuntimeException $exception) {
                     throw new SalesOrderException($exception->getMessage(), previous: $exception);
@@ -1613,7 +1631,14 @@ class SalesService
 
             try {
                 $quantityBase = $this->roundQuantity(
-                    $this->uomConverter->convert($quantity, $orderedUom->id, $baseUom->id)
+                    $this->uomConverter->convert($quantity, $orderedUom->id, $baseUom->id, [
+                        'product_id' => $product?->id,
+                        'variant_id' => $variant?->id,
+                        'company_id' => $branch->branchGroup?->company_id,
+                        'partner_id' => $salesOrder->partner_id,
+                        'context' => 'sales',
+                        'on_date' => $salesOrder->order_date,
+                    ])
                 );
             } catch (RuntimeException $exception) {
                 throw new SalesOrderException($exception->getMessage(), previous: $exception);
@@ -1749,7 +1774,13 @@ class SalesService
 
             try {
                 $quantityBase = $this->roundQuantity(
-                    $this->uomConverter->convert($quantity, $line->uom_id, $line->base_uom_id)
+                    $this->uomConverter->convert($quantity, $line->uom_id, $line->base_uom_id, [
+                        'product_id' => $line->product_id,
+                        'variant_id' => $line->product_variant_id,
+                        'company_id' => $salesOrder->company_id ?? null,
+                        'partner_id' => $salesOrder->partner_id,
+                        'context' => 'sales',
+                    ])
                 );
             } catch (RuntimeException $exception) {
                 throw new SalesOrderException($exception->getMessage(), previous: $exception);
