@@ -397,7 +397,13 @@ class PurchaseReturnService
             // Calculate base quantity and unit price
             if ($isUomChanged) {
                 // Convert quantity to base UOM
-                $quantityBase = $this->uomConversionService->convert($quantity, $effectiveUomId, $line->base_uom_id);
+                $quantityBase = $this->uomConversionService->convert($quantity, $effectiveUomId, $line->base_uom_id, [
+                    'product_id' => $line->product_id,
+                    'variant_id' => $line->product_variant_id,
+                    'company_id' => $goodsReceipt->company_id ?? null,
+                    'partner_id' => $goodsReceipt->supplier_id,
+                    'context' => 'purchase',
+                ]);
                 // Calculate unit price for the new UOM based on base cost
                 // unit_price = unit_cost_base * (quantity_base / quantity)
                 $conversionFactor = $quantity > 0 ? ($quantityBase / $quantity) : 0;
