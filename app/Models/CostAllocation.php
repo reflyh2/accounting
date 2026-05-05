@@ -33,6 +33,11 @@ class CostAllocation extends Model
         return $this->belongsTo(SalesInvoiceLine::class);
     }
 
+    public function bookingAllocationRun(): BelongsTo
+    {
+        return $this->belongsTo(BookingAllocationRun::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by', 'global_id');

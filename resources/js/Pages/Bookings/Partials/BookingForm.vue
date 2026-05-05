@@ -10,6 +10,9 @@ import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import AppPopoverSearch from '@/Components/AppPopoverSearch.vue';
 import { PlusCircleIcon, TrashIcon } from '@heroicons/vue/24/solid';
 import { formatNumber } from '@/utils/numberFormat';
+import FlightDetails from './Subtypes/FlightDetails.vue';
+import HotelDetails from './Subtypes/HotelDetails.vue';
+import CarRentalDetails from './Subtypes/CarRentalDetails.vue';
 
 const page = usePage();
 
@@ -24,6 +27,8 @@ const form = useForm({
     partner_id: props.booking?.partner_id || null,
     currency_id: props.booking?.currency_id || (page.props.primaryCurrency?.id || null),
     booking_type: props.booking?.booking_type || 'accommodation',
+    booking_subtype: props.booking?.booking_subtype || 'accommodation',
+    fulfillment_mode: props.booking?.fulfillment_mode || 'self_operated',
     held_until: props.booking?.held_until ? new Date(props.booking.held_until).toISOString().split('T')[0] : '',
     deposit_amount: props.booking?.deposit_amount || 0,
     source_channel: props.booking?.source_channel || null,
@@ -31,6 +36,7 @@ const form = useForm({
     lines: props.booking?.lines?.map((line) => ({
         product_id: line.product_id,
         product_variant_id: line.product_variant_id,
+        supplier_partner_id: line.supplier_partner_id || null,
         resource_pool_id: line.resource_pool_id,
         start_datetime: line.start_datetime ? new Date(line.start_datetime).toISOString().slice(0, 16) : '',
         end_datetime: line.end_datetime ? new Date(line.end_datetime).toISOString().slice(0, 16) : '',
@@ -38,9 +44,20 @@ const form = useForm({
         unit_price: line.unit_price,
         tax_amount: line.tax_amount || 0,
         deposit_required: line.deposit_required || 0,
+        supplier_cost: line.supplier_cost || null,
+        commission_amount: line.commission_amount || null,
+        passthrough_amount: line.passthrough_amount || null,
+        supplier_invoice_ref: line.supplier_invoice_ref || '',
+        meta: line.meta || {},
     })) || [createEmptyLine()],
     create_another: false,
 });
+
+const showMetaIndex = ref(null);
+
+function toggleMeta(idx) {
+    showMetaIndex.value = showMetaIndex.value === idx ? null : idx;
+}
 
 const submitted = ref(false);
 
@@ -128,6 +145,7 @@ function createEmptyLine() {
     return {
         product_id: null,
         product_variant_id: null,
+        supplier_partner_id: null,
         resource_pool_id: null,
         start_datetime: '',
         end_datetime: '',
@@ -135,8 +153,17 @@ function createEmptyLine() {
         unit_price: 0,
         tax_amount: 0,
         deposit_required: 0,
+        supplier_cost: null,
+        commission_amount: null,
+        passthrough_amount: null,
+        supplier_invoice_ref: '',
+        meta: {},
     };
 }
+
+const isReseller = computed(() => form.fulfillment_mode === 'reseller');
+const isAgent = computed(() => form.fulfillment_mode === 'agent');
+const requiresSupplier = computed(() => isReseller.value || isAgent.value);
 
 function addEntry() {
     form.lines.push(createEmptyLine());
@@ -245,7 +272,7 @@ function submitForm(createAnother = false) {
                     />
                 </div>
 
-                <!-- Booking Type, Hold Until, Deposit -->
+                <!-- Booking Type, Subtype, Fulfillment Mode -->
                 <div class="grid grid-cols-3 gap-4">
                     <AppSelect
                         v-model="form.booking_type"
@@ -255,6 +282,24 @@ function submitForm(createAnother = false) {
                         :error="form.errors.booking_type"
                     />
 
+                    <AppSelect
+                        v-model="form.booking_subtype"
+                        :options="formOptions.subtypeOptions"
+                        label="Sub-tipe:"
+                        :error="form.errors.booking_subtype"
+                    />
+
+                    <AppSelect
+                        v-model="form.fulfillment_mode"
+                        :options="formOptions.fulfillmentModes.map((m) => ({ value: m.value, label: m.label }))"
+                        label="Mode Pemenuhan:"
+                        required
+                        :error="form.errors.fulfillment_mode"
+                    />
+                </div>
+
+                <!-- Hold Until, Deposit -->
+                <div class="grid grid-cols-3 gap-4">
                     <AppInput
                         v-model="form.held_until"
                         type="date"
@@ -315,11 +360,16 @@ function submitForm(createAnother = false) {
                         <th class="border border-gray-300 text-sm min-w-40 px-1.5 py-1.5">Selesai</th>
                         <th class="border border-gray-300 text-sm min-w-20 px-1.5 py-1.5">Qty</th>
                         <th class="border border-gray-300 text-sm min-w-28 px-1.5 py-1.5">Harga</th>
+                        <th v-if="requiresSupplier" class="border border-gray-300 text-sm min-w-40 px-1.5 py-1.5">Supplier</th>
+                        <th v-if="isReseller" class="border border-gray-300 text-sm min-w-28 px-1.5 py-1.5">Biaya Supplier</th>
+                        <th v-if="isAgent" class="border border-gray-300 text-sm min-w-28 px-1.5 py-1.5">Komisi</th>
+                        <th v-if="isAgent" class="border border-gray-300 text-sm min-w-28 px-1.5 py-1.5">Passthrough</th>
                         <th class="border border-gray-300 px-1.5 py-1.5"></th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="(line, index) in form.lines" :key="index">
+                    <template v-for="(line, index) in form.lines" :key="index">
+                    <tr>
                         <td class="border border-gray-300 px-1.5 py-1.5">
                             <AppSelect
                                 v-model="line.product_id"
@@ -373,7 +423,48 @@ function submitForm(createAnother = false) {
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
+                        <td v-if="requiresSupplier" class="border border-gray-300 px-1.5 py-1.5">
+                            <AppSelect
+                                v-model="line.supplier_partner_id"
+                                :options="formOptions.suppliers.map((s) => ({ value: s.id, label: `${s.code} — ${s.name}` }))"
+                                placeholder="Pilih Supplier"
+                                :error="form.errors[`lines.${index}.supplier_partner_id`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td v-if="isReseller" class="border border-gray-300 px-1.5 py-1.5">
+                            <AppInput
+                                v-model="line.supplier_cost"
+                                :numberFormat="true"
+                                :error="form.errors[`lines.${index}.supplier_cost`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td v-if="isAgent" class="border border-gray-300 px-1.5 py-1.5">
+                            <AppInput
+                                v-model="line.commission_amount"
+                                :numberFormat="true"
+                                :error="form.errors[`lines.${index}.commission_amount`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td v-if="isAgent" class="border border-gray-300 px-1.5 py-1.5">
+                            <AppInput
+                                v-model="line.passthrough_amount"
+                                :numberFormat="true"
+                                :error="form.errors[`lines.${index}.passthrough_amount`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
                         <td class="border border-gray-300 px-1.5 py-1.5 text-center align-middle">
+                            <button
+                                type="button"
+                                @click="toggleMeta(index)"
+                                class="text-main-500 hover:text-main-700 text-xs mr-1"
+                                title="Detail subtipe"
+                            >
+                                {{ showMetaIndex === index ? '−' : '+' }}
+                            </button>
                             <button
                                 v-if="form.lines.length > 1"
                                 type="button"
@@ -384,6 +475,22 @@ function submitForm(createAnother = false) {
                             </button>
                         </td>
                     </tr>
+                    <tr v-if="showMetaIndex === index" class="bg-gray-50">
+                        <td :colspan="6 + (requiresSupplier ? 1 : 0) + (isReseller ? 1 : 0) + (isAgent ? 2 : 0) + 1" class="px-3 py-2">
+                            <FlightDetails v-if="form.booking_subtype === 'flight'" v-model="line.meta" />
+                            <HotelDetails v-else-if="form.booking_subtype === 'hotel'" v-model="line.meta" />
+                            <CarRentalDetails v-else-if="form.booking_subtype === 'car_rental'" v-model="line.meta" />
+                            <div v-else class="text-sm text-gray-500">Pilih sub-tipe untuk mengisi detail.</div>
+                            <div class="grid grid-cols-2 gap-3 mt-2">
+                                <AppInput
+                                    v-model="line.supplier_invoice_ref"
+                                    label="Nomor Referensi Supplier:"
+                                    placeholder="PNR / Voucher / Reservasi"
+                                />
+                            </div>
+                        </td>
+                    </tr>
+                    </template>
                 </tbody>
 
                 <tfoot>

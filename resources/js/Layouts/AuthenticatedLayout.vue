@@ -236,7 +236,8 @@ const isSalesActive = computed(() => {
 const isBookingActive = computed(() => {
     return route().current('bookings.*')
         || route().current('resource-pools.*')
-        || route().current('resource-instances.*');
+        || route().current('resource-instances.*')
+        || route().current('booking-allocations.*');
 });
 
 const isProduksiActive = computed(() => {
@@ -461,6 +462,13 @@ const onboardingStep = computed(() => {
                                 class="pl-11"
                             >
                                 Daftar Booking
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                :href="route('booking-allocations.index')"
+                                :active="route().current('booking-allocations.*')"
+                                class="pl-11"
+                            >
+                                Allocation Runs
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 :href="route('resource-pools.index')"
@@ -1181,6 +1189,13 @@ const onboardingStep = computed(() => {
                                             Daftar Booking
                                         </NavLink>
                                         <NavLink
+                                            :href="route('booking-allocations.index')"
+                                            :active="route().current('booking-allocations.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Allocation Runs
+                                        </NavLink>
+                                        <NavLink
                                             :href="route('resource-pools.index')"
                                             :active="route().current('resource-pools.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1217,6 +1232,13 @@ const onboardingStep = computed(() => {
                                             class="flex items-center"
                                         >
                                             Daftar Booking
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('booking-allocations.index')"
+                                            :active="route().current('booking-allocations.*')"
+                                            class="flex items-center"
+                                        >
+                                            Allocation Runs
                                         </NavLink>
                                         <NavLink
                                             :href="route('resource-pools.index')"

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\CostPool;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
@@ -12,6 +11,7 @@ class Product extends Model
     protected $casts = [
         'attrs_json' => 'array',
         'is_active' => 'boolean',
+        'fulfillment_mode' => \App\Enums\FulfillmentMode::class,
     ];
 
     public function category()
@@ -109,5 +109,3 @@ class Product extends Model
         return $this->capabilities->contains('capability', $capability);
     }
 }
-
-

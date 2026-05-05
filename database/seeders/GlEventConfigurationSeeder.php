@@ -138,6 +138,7 @@ class GlEventConfigurationSeeder extends Seeder
                 'lines' => [
                     ['role' => 'receivable', 'direction' => 'debit', 'account_name' => 'Piutang Usaha'],
                     ['role' => 'revenue', 'direction' => 'credit', 'account_name' => 'Penjualan Barang'],
+                    ['role' => 'commission_revenue', 'direction' => 'credit', 'account_name' => 'Pendapatan Komisi'],
                     ['role' => 'tax_payable', 'direction' => 'credit', 'account_name' => 'PPN Keluaran'],
                     // Shipping charge roles - both use default GL Event Configuration accounts
                     ['role' => 'shipping_charge_revenue', 'direction' => 'credit', 'account_name' => 'Penjualan Barang'],
@@ -221,6 +222,64 @@ class GlEventConfigurationSeeder extends Seeder
                 'lines' => [
                     ['role' => 'inventory', 'direction' => 'debit', 'account_name' => 'Persediaan Barang Dagang'],
                     ['role' => 'clearing', 'direction' => 'credit', 'account_name' => 'Transaksi Dalam Pelaksanaan'],
+                ],
+            ],
+
+            // ============ BOOKING EVENTS ============
+            AccountingEventCode::BOOKING_DEPOSIT_RECEIVED->value => [
+                'description' => 'Journal entry when a booking deposit is received',
+                'lines' => [
+                    ['role' => 'cash', 'direction' => 'debit', 'account_name' => 'Kas Besar'],
+                    ['role' => 'customer_deposit', 'direction' => 'credit', 'account_name' => 'Uang Muka Pelanggan'],
+                ],
+            ],
+            AccountingEventCode::BOOKING_DEPOSIT_REVERSED->value => [
+                'description' => 'Journal entry when a booking deposit is reversed/refunded',
+                'lines' => [
+                    ['role' => 'customer_deposit', 'direction' => 'debit', 'account_name' => 'Uang Muka Pelanggan'],
+                    ['role' => 'cash', 'direction' => 'credit', 'account_name' => 'Kas Besar'],
+                ],
+            ],
+            AccountingEventCode::BOOKING_PRINCIPAL_COGS_POSTED->value => [
+                'description' => 'COGS for reseller-mode booking invoice (supplier cost into clearing)',
+                'lines' => [
+                    ['role' => 'cogs_booking', 'direction' => 'debit', 'account_name' => 'Harga Pokok Penjualan Booking'],
+                    ['role' => 'supplier_clearing', 'direction' => 'credit', 'account_name' => 'Hutang Pemasok Booking Belum Difakturkan'],
+                ],
+            ],
+            AccountingEventCode::BOOKING_PRINCIPAL_COGS_REVERSED->value => [
+                'description' => 'Reversal of reseller-mode booking COGS',
+                'lines' => [
+                    ['role' => 'supplier_clearing', 'direction' => 'debit', 'account_name' => 'Hutang Pemasok Booking Belum Difakturkan'],
+                    ['role' => 'cogs_booking', 'direction' => 'credit', 'account_name' => 'Harga Pokok Penjualan Booking'],
+                ],
+            ],
+            AccountingEventCode::BOOKING_AGENT_PASSTHROUGH_POSTED->value => [
+                'description' => 'Agent net method passthrough portion (customer charge → supplier liability)',
+                'lines' => [
+                    ['role' => 'receivable_passthrough', 'direction' => 'debit', 'account_name' => 'Piutang Usaha'],
+                    ['role' => 'supplier_payable_passthrough', 'direction' => 'credit', 'account_name' => 'Hutang Pemasok Pass-through'],
+                ],
+            ],
+            AccountingEventCode::BOOKING_AGENT_PASSTHROUGH_REVERSED->value => [
+                'description' => 'Reversal of agent passthrough posting',
+                'lines' => [
+                    ['role' => 'supplier_payable_passthrough', 'direction' => 'debit', 'account_name' => 'Hutang Pemasok Pass-through'],
+                    ['role' => 'receivable_passthrough', 'direction' => 'credit', 'account_name' => 'Piutang Usaha'],
+                ],
+            ],
+            AccountingEventCode::BOOKING_POOL_COGS_POSTED->value => [
+                'description' => 'Self-operated booking COGS recognised from cost pool allocation',
+                'lines' => [
+                    ['role' => 'cogs_booking', 'direction' => 'debit', 'account_name' => 'Harga Pokok Penjualan Booking'],
+                    ['role' => 'cost_pool_clearing', 'direction' => 'credit', 'account_name' => 'Akumulasi Biaya Operasional Dialokasikan'],
+                ],
+            ],
+            AccountingEventCode::BOOKING_POOL_COGS_REVERSED->value => [
+                'description' => 'Reversal of self-operated booking pool allocation',
+                'lines' => [
+                    ['role' => 'cost_pool_clearing', 'direction' => 'debit', 'account_name' => 'Akumulasi Biaya Operasional Dialokasikan'],
+                    ['role' => 'cogs_booking', 'direction' => 'credit', 'account_name' => 'Harga Pokok Penjualan Booking'],
                 ],
             ],
         ];

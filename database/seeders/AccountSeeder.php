@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Account;
 use App\Models\Company;
 use App\Models\Currency;
+use Illuminate\Database\Seeder;
 
 class AccountSeeder extends Seeder
 {
@@ -13,13 +13,13 @@ class AccountSeeder extends Seeder
     {
         // Get existing company - should be created by SetupTenantDatabase before this seeder runs
         $company = Company::withoutGlobalScopes()->first();
-        if (!$company) {
+        if (! $company) {
             throw new \RuntimeException('AccountSeeder requires a company to exist. Run SetupTenantDatabase first.');
         }
 
         // Get existing currency - should be created by SetupTenantDatabase before this seeder runs
         $currency = Currency::where('code', 'IDR')->first();
-        if (!$currency) {
+        if (! $currency) {
             throw new \RuntimeException('AccountSeeder requires IDR currency to exist. Run SetupTenantDatabase first.');
         }
 
@@ -94,6 +94,10 @@ class AccountSeeder extends Seeder
                     ['name' => 'PPh 23 Pembelian', 'type' => 'liabilitas_jangka_pendek'],
                     ['name' => 'Hutang Pembelian Belum Difakturkan', 'type' => 'liabilitas_jangka_pendek'],
                     ['name' => 'Hutang Pembelian Aset', 'type' => 'liabilitas_jangka_pendek'],
+                    ['name' => 'Uang Muka Pelanggan', 'type' => 'liabilitas_jangka_pendek'],
+                    ['name' => 'Hutang Pemasok Booking Belum Difakturkan', 'type' => 'liabilitas_jangka_pendek'],
+                    ['name' => 'Hutang Pemasok Pass-through', 'type' => 'liabilitas_jangka_pendek'],
+                    ['name' => 'Akumulasi Biaya Operasional Dialokasikan', 'type' => 'liabilitas_jangka_pendek'],
                 ]],
                 ['code' => '204', 'name' => 'Hutang Jangka Panjang', 'type' => 'liabilitas_jangka_panjang', 'children' => [
                     ['name' => 'Hutang Jangka Panjang dari Pinjaman', 'type' => 'liabilitas_jangka_panjang'],
@@ -111,11 +115,13 @@ class AccountSeeder extends Seeder
                 ['code' => '402', 'name' => 'Pendapatan Jasa', 'type' => 'pendapatan'],
                 ['code' => '403', 'name' => 'Retur Penjualan', 'type' => 'pendapatan'],
                 ['code' => '404', 'name' => 'Diskon Penjualan', 'type' => 'pendapatan'],
+                ['code' => '405', 'name' => 'Pendapatan Komisi', 'type' => 'pendapatan'],
             ]],
             ['code' => '5', 'name' => 'Beban Pokok Penjualan', 'type' => 'beban_pokok_penjualan', 'children' => [
                 ['code' => '501', 'name' => 'Harga Pokok Penjualan', 'type' => 'beban_pokok_penjualan'],
                 ['code' => '502', 'name' => 'Retur Pembelian', 'type' => 'beban_pokok_penjualan'],
                 ['code' => '503', 'name' => 'Koreksi Persediaan', 'type' => 'beban_pokok_penjualan'],
+                ['code' => '504', 'name' => 'Harga Pokok Penjualan Booking', 'type' => 'beban_pokok_penjualan'],
             ]],
             ['code' => '6', 'name' => 'Beban Operasional', 'type' => 'beban', 'children' => [
                 ['code' => '601', 'name' => 'Beban Gaji', 'type' => 'beban', 'children' => [
@@ -211,7 +217,7 @@ class AccountSeeder extends Seeder
                     ['name' => 'Amortisasi Biaya Ditangguhkan', 'type' => 'beban_amortisasi'],
                     ['name' => 'Amortisasi Asuransi Kendaraan', 'type' => 'beban_amortisasi'],
                 ]],
-            ]],            
+            ]],
             ['code' => '701', 'name' => 'Pendapatan Diluar Usaha', 'type' => 'pendapatan_lainnya', 'children' => [
                 ['name' => 'Pendapatan Jasa Giro', 'type' => 'pendapatan_lainnya'],
                 ['name' => 'Pendapatan Bunga Deposito', 'type' => 'pendapatan_lainnya'],
@@ -237,7 +243,7 @@ class AccountSeeder extends Seeder
     private function createAccounts($accounts, $parentId, $company, $currency)
     {
         foreach ($accounts as $accountData) {
-            $account = new Account();
+            $account = new Account;
             $account->name = $accountData['name'];
             $account->type = $accountData['type'];
             $account->parent_id = $parentId;
@@ -272,6 +278,7 @@ class AccountSeeder extends Seeder
         }
 
         $newChildNumber = str_pad($lastChildNumber + 1, 3, '0', STR_PAD_LEFT);
-        return $parentAccount->code . $newChildNumber;
+
+        return $parentAccount->code.$newChildNumber;
     }
 }
