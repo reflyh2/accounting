@@ -631,6 +631,10 @@ class SalesInvoiceService
 
             $this->dispatchArPostedEvent($invoice->fresh('currency'), $totals, $actor);
 
+            // Booking-derived events: principal COGS (reseller) and agent passthrough.
+            $this->dispatchBookingPrincipalCogsEvent($invoice->fresh('currency'), $actor);
+            $this->dispatchBookingAgentPassthroughEvent($invoice->fresh('currency'), $actor);
+
             // Create External Debt record for AR tracking
             $this->createExternalDebt($invoice, $actor);
 
@@ -1025,6 +1029,7 @@ class SalesInvoiceService
                 'line_total_base' => $lineTotalBase,
                 'delivery_value_base' => $deliveryValueBase,
                 'revenue_variance' => $revenueVariance,
+                'revenue_role' => $payloadLine['revenue_role'] ?? $soLine->revenue_role,
             ];
         }
 
@@ -1089,6 +1094,7 @@ class SalesInvoiceService
                 'line_total_base' => $lineTotalBase,
                 'delivery_value_base' => 0.0,
                 'revenue_variance' => 0.0,
+                'revenue_role' => $payloadLine['revenue_role'] ?? null,
             ];
         }
 
@@ -1125,6 +1131,7 @@ class SalesInvoiceService
                 'line_total_base' => $line['line_total_base'],
                 'delivery_value_base' => $line['delivery_value_base'],
                 'revenue_variance' => $line['revenue_variance'],
+                'revenue_role' => $line['revenue_role'] ?? null,
             ]);
         }
 
@@ -1267,14 +1274,48 @@ class SalesInvoiceService
             $meta
         );
 
-        $receivableBase = $this->roundCost(($totals['subtotal'] + $totals['tax_total']) * $exchangeRate);
-        $revenueBase = $this->roundCost($totals['subtotal'] * $exchangeRate);
-        $taxBase = $this->roundCost($totals['tax_total'] * $exchangeRate);
+        // Walk lines and partition by revenue_role:
+        //  - null/'gross_revenue' → revenue (default existing behaviour)
+        //  - 'commission_revenue' → commission_revenue role
+        //  - 'passthrough_supplier' → excluded (handled by BOOKING_AGENT_PASSTHROUGH_POSTED)
+        $invoice->loadMissing('lines');
+        $grossRevenue = 0.0;
+        $commissionRevenue = 0.0;
+        $grossTax = 0.0;
+        $commissionTax = 0.0;
+        foreach ($invoice->lines as $line) {
+            $role = $line->revenue_role;
+            $lineTotal = (float) $line->line_total;
+            $lineTax = (float) $line->tax_amount;
+
+            if ($role === 'passthrough_supplier') {
+                continue;
+            }
+
+            if ($role === 'commission_revenue') {
+                $commissionRevenue += $lineTotal;
+                $commissionTax += $lineTax;
+            } else {
+                $grossRevenue += $lineTotal;
+                $grossTax += $lineTax;
+            }
+        }
+
+        $totalReceivableSubtotal = $grossRevenue + $commissionRevenue + $grossTax + $commissionTax;
+        $receivableBase = $this->roundCost($totalReceivableSubtotal * $exchangeRate);
+        $grossRevenueBase = $this->roundCost($grossRevenue * $exchangeRate);
+        $commissionRevenueBase = $this->roundCost($commissionRevenue * $exchangeRate);
+        $taxBase = $this->roundCost(($grossTax + $commissionTax) * $exchangeRate);
         $shippingBase = $this->roundCost((float) $invoice->shipping_charge * $exchangeRate);
 
+        if ($totalReceivableSubtotal <= 0 && $shippingBase <= 0) {
+            return;
+        }
+
         $entries = array_filter([
-            AccountingEntry::debit('receivable', $receivableBase),
-            AccountingEntry::credit('revenue', $revenueBase),
+            $receivableBase > 0 ? AccountingEntry::debit('receivable', $receivableBase) : null,
+            $grossRevenueBase > 0 ? AccountingEntry::credit('revenue', $grossRevenueBase) : null,
+            $commissionRevenueBase > 0 ? AccountingEntry::credit('commission_revenue', $commissionRevenueBase) : null,
             $taxBase > 0 ? AccountingEntry::credit('tax_payable', $taxBase) : null,
         ]);
 
@@ -1285,6 +1326,109 @@ class SalesInvoiceService
         }
 
         $payload->setLines($entries);
+
+        $this->accountingEventBus->dispatch($payload);
+    }
+
+    /**
+     * For RESELLER-mode bookings: dispatch BOOKING_PRINCIPAL_COGS_POSTED with
+     * the sum of supplier_cost on linked BookingLines.
+     *
+     * Dr cogs_booking / Cr supplier_clearing  (per GL Event Configuration)
+     */
+    private function dispatchBookingPrincipalCogsEvent(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $invoice->loadMissing(['lines.salesOrderLine.bookingLine.booking']);
+
+        $totalSupplierCost = 0.0;
+        foreach ($invoice->lines as $line) {
+            $bookingLine = $line->salesOrderLine?->bookingLine;
+            $booking = $bookingLine?->booking;
+            if (! $bookingLine || ! $booking) {
+                continue;
+            }
+            if (($booking->fulfillment_mode?->value ?? $booking->fulfillment_mode) !== 'reseller') {
+                continue;
+            }
+
+            $totalSupplierCost += (float) $bookingLine->supplier_cost;
+        }
+
+        if ($totalSupplierCost <= 0) {
+            return;
+        }
+
+        $exchangeRate = (float) $invoice->exchange_rate;
+        $cogsBase = $this->roundCost($totalSupplierCost * $exchangeRate);
+        $currencyCode = $invoice->currency?->code ?? 'IDR';
+        $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::BOOKING_PRINCIPAL_COGS_POSTED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'sales_invoice',
+            $invoice->id,
+            $invoice->invoice_number,
+            $currencyCode,
+            $exchangeRate,
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+        );
+
+        $payload->setLines([
+            AccountingEntry::debit('cogs_booking', $cogsBase),
+            AccountingEntry::credit('supplier_clearing', $cogsBase),
+        ]);
+
+        $this->accountingEventBus->dispatch($payload);
+    }
+
+    /**
+     * For AGENT-mode bookings: dispatch BOOKING_AGENT_PASSTHROUGH_POSTED for the
+     * passthrough portion of the customer charge so it lands on a supplier
+     * payable account, not revenue.
+     *
+     * Dr receivable_passthrough / Cr supplier_payable_passthrough (per GL Event Configuration)
+     */
+    private function dispatchBookingAgentPassthroughEvent(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $invoice->loadMissing('lines');
+
+        $totalPassthrough = 0.0;
+        foreach ($invoice->lines as $line) {
+            if ($line->revenue_role !== 'passthrough_supplier') {
+                continue;
+            }
+            $totalPassthrough += (float) $line->line_total;
+        }
+
+        if ($totalPassthrough <= 0) {
+            return;
+        }
+
+        $exchangeRate = (float) $invoice->exchange_rate;
+        $base = $this->roundCost($totalPassthrough * $exchangeRate);
+        $currencyCode = $invoice->currency?->code ?? 'IDR';
+        $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::BOOKING_AGENT_PASSTHROUGH_POSTED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'sales_invoice',
+            $invoice->id,
+            $invoice->invoice_number,
+            $currencyCode,
+            $exchangeRate,
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+        );
+
+        $payload->setLines([
+            AccountingEntry::debit('receivable_passthrough', $base),
+            AccountingEntry::credit('supplier_payable_passthrough', $base),
+        ]);
 
         $this->accountingEventBus->dispatch($payload);
     }

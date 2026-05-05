@@ -787,7 +787,13 @@ Route::middleware([
         Route::post('bookings/{booking}/check-out', [\App\Http\Controllers\BookingController::class, 'checkOut'])->name('bookings.check-out');
         Route::post('bookings/{booking}/cancel', [\App\Http\Controllers\BookingController::class, 'cancel'])->name('bookings.cancel');
         Route::post('booking-lines/{bookingLine}/assign-instance', [\App\Http\Controllers\BookingController::class, 'assignInstance'])->name('bookings.assign-instance');
+        Route::post('bookings/{booking}/convert', [\App\Http\Controllers\BookingController::class, 'convert'])->name('bookings.convert');
         Route::resource('bookings', \App\Http\Controllers\BookingController::class);
+
+        Route::post('booking-allocations/{allocation}/reverse', [\App\Http\Controllers\BookingAllocationController::class, 'reverse'])->name('booking-allocations.reverse');
+        Route::resource('booking-allocations', \App\Http\Controllers\BookingAllocationController::class)
+            ->parameters(['booking-allocations' => 'allocation'])
+            ->only(['index', 'store', 'show']);
 
         // Bill of Materials Routes
         Route::delete('bill-of-materials/bulk-delete', [BillOfMaterialController::class, 'bulkDelete'])->name('bill-of-materials.bulk-delete');

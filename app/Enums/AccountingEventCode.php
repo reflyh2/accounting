@@ -24,6 +24,14 @@ enum AccountingEventCode: string
     case INVENTORY_ADJUSTMENT_REVERSED = 'inventory.adjustment_reversed';
     case COGS_RECOGNIZED = 'cogs.recognized';
     case COST_ALLOCATED = 'cost.allocated';
+    case BOOKING_DEPOSIT_RECEIVED = 'booking.deposit_received';
+    case BOOKING_DEPOSIT_REVERSED = 'booking.deposit_reversed';
+    case BOOKING_PRINCIPAL_COGS_POSTED = 'booking.principal_cogs_posted';
+    case BOOKING_PRINCIPAL_COGS_REVERSED = 'booking.principal_cogs_reversed';
+    case BOOKING_AGENT_PASSTHROUGH_POSTED = 'booking.agent_passthrough_posted';
+    case BOOKING_AGENT_PASSTHROUGH_REVERSED = 'booking.agent_passthrough_reversed';
+    case BOOKING_POOL_COGS_POSTED = 'booking.pool_cogs_posted';
+    case BOOKING_POOL_COGS_REVERSED = 'booking.pool_cogs_reversed';
 
     public function label(): string
     {
@@ -48,6 +56,14 @@ enum AccountingEventCode: string
             self::INVENTORY_ADJUSTMENT_REVERSED => 'Inventory Adjustment Reversed',
             self::COGS_RECOGNIZED => 'COGS Recognized',
             self::COST_ALLOCATED => 'Cost Allocated',
+            self::BOOKING_DEPOSIT_RECEIVED => 'Booking Deposit Received',
+            self::BOOKING_DEPOSIT_REVERSED => 'Booking Deposit Reversed',
+            self::BOOKING_PRINCIPAL_COGS_POSTED => 'Booking Principal COGS Posted',
+            self::BOOKING_PRINCIPAL_COGS_REVERSED => 'Booking Principal COGS Reversed',
+            self::BOOKING_AGENT_PASSTHROUGH_POSTED => 'Booking Agent Passthrough Posted',
+            self::BOOKING_AGENT_PASSTHROUGH_REVERSED => 'Booking Agent Passthrough Reversed',
+            self::BOOKING_POOL_COGS_POSTED => 'Booking Pool COGS Posted',
+            self::BOOKING_POOL_COGS_REVERSED => 'Booking Pool COGS Reversed',
         };
     }
 }

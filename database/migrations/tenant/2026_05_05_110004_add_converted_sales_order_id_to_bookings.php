@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('bookings', function (Blueprint $table) {
+            $table->foreignId('converted_sales_order_id')->nullable()
+                ->constrained('sales_orders')->cascadeOnUpdate()->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('bookings', function (Blueprint $table) {
+            $table->dropForeign(['converted_sales_order_id']);
+            $table->dropColumn('converted_sales_order_id');
+        });
+    }
+};

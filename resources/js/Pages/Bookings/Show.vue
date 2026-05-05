@@ -56,6 +56,12 @@ function cancelBooking() {
     });
 }
 
+function convertBooking() {
+    router.post(route('bookings.convert', props.booking.id), {}, { preserveScroll: true });
+}
+
+const convertibleStatuses = ['confirmed', 'checked_in', 'checked_out', 'completed'];
+
 function formatDateTime(value) {
     if (!value) return '-';
     return new Date(value).toLocaleString('id-ID', {
@@ -101,7 +107,7 @@ function formatDateTime(value) {
                         </div>
 
                         <!-- Lifecycle Actions -->
-                        <div v-if="allowedTransitions.length" class="mb-6 flex gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div v-if="allowedTransitions.length || convertibleStatuses.includes(booking.status)" class="mb-6 flex gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
                             <AppPrimaryButton v-if="allowedTransitions.includes('confirm')" @click="confirmBooking">
                                 Konfirmasi
                             </AppPrimaryButton>
@@ -111,6 +117,19 @@ function formatDateTime(value) {
                             <AppPrimaryButton v-if="allowedTransitions.includes('check_out')" @click="checkOutBooking">
                                 Check-out
                             </AppPrimaryButton>
+                            <AppPrimaryButton
+                                v-if="convertibleStatuses.includes(booking.status) && !booking.converted_sales_order_id"
+                                @click="convertBooking"
+                            >
+                                Konversi ke Sales Order
+                            </AppPrimaryButton>
+                            <Link
+                                v-if="booking.converted_sales_order_id"
+                                :href="route('sales-orders.show', booking.converted_sales_order_id)"
+                                class="text-main-500 underline self-center"
+                            >
+                                Lihat SO terkait →
+                            </Link>
                             <AppDangerButton v-if="allowedTransitions.includes('cancel')" @click="showCancelModal = true">
                                 Batalkan
                             </AppDangerButton>

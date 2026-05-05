@@ -314,7 +314,11 @@ class SalesService
         $salesOrder->loadMissing(['lines.product.rentalPolicy']);
 
         $bookingLines = $salesOrder->lines->filter(function (SalesOrderLine $line) {
-            return $line->resource_pool_id && $line->start_date && $line->end_date;
+            // Skip lines that were sourced from an existing Booking (already linked).
+            return $line->resource_pool_id
+                && $line->start_date
+                && $line->end_date
+                && empty($line->booking_line_id);
         });
 
         if ($bookingLines->isEmpty()) {
@@ -1701,6 +1705,8 @@ class SalesService
                 'start_date' => isset($line['start_date']) ? Carbon::parse($line['start_date']) : null,
                 'end_date' => isset($line['end_date']) ? Carbon::parse($line['end_date']) : null,
                 'resource_pool_id' => $line['resource_pool_id'] ?? ($product->resourcePools->first()?->id),
+                'booking_line_id' => $line['booking_line_id'] ?? null,
+                'revenue_role' => $line['revenue_role'] ?? null,
             ]);
 
             $subtotal += $lineSubtotal;

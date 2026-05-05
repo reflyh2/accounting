@@ -3,14 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Enums\BookingStatus;
+use App\Enums\FulfillmentMode;
+use App\Exceptions\BookingConversionException;
 use App\Exceptions\BookingException;
 use App\Models\Booking;
-use App\Models\Branch;
 use App\Models\Currency;
 use App\Models\Partner;
 use App\Models\Product;
 use App\Models\ResourcePool;
 use App\Services\Booking\AvailabilityService;
+use App\Services\Booking\BookingConversionService;
 use App\Services\Booking\BookingService;
 use App\Services\Booking\DTO\BookingLineDTO;
 use App\Services\Booking\DTO\HoldBookingDTO;
@@ -28,8 +30,8 @@ class BookingController extends Controller
     public function __construct(
         private readonly BookingService $bookingService,
         private readonly AvailabilityService $availabilityService,
-    ) {
-    }
+        private readonly BookingConversionService $conversionService,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -108,6 +110,7 @@ class BookingController extends Controller
         try {
             $dto = $this->makeHoldDto($data);
             $booking = $this->bookingService->hold($dto);
+            $this->applyExtendedFields($booking, $data);
         } catch (BookingException $e) {
             return Redirect::back()->withInput()->with('error', $e->getMessage());
         }
@@ -138,7 +141,7 @@ class BookingController extends Controller
 
     public function edit(Booking $booking): Response|RedirectResponse
     {
-        if (!in_array($booking->status, [BookingStatus::HOLD->value], true)) {
+        if (! in_array($booking->status, [BookingStatus::HOLD->value], true)) {
             return Redirect::route('bookings.show', $booking->id)
                 ->with('error', 'Booking hanya dapat diedit dalam status Hold.');
         }
@@ -153,7 +156,7 @@ class BookingController extends Controller
 
     public function update(Request $request, Booking $booking): RedirectResponse
     {
-        if (!in_array($booking->status, [BookingStatus::HOLD->value], true)) {
+        if (! in_array($booking->status, [BookingStatus::HOLD->value], true)) {
             return Redirect::back()->with('error', 'Booking hanya dapat diedit dalam status Hold.');
         }
 
@@ -169,6 +172,8 @@ class BookingController extends Controller
                 'partner_id' => $data['partner_id'],
                 'currency_id' => $data['currency_id'],
                 'booking_type' => $data['booking_type'],
+                'booking_subtype' => $data['booking_subtype'] ?? $data['booking_type'],
+                'fulfillment_mode' => $data['fulfillment_mode'] ?? FulfillmentMode::SELF_OPERATED->value,
                 'held_until' => $data['held_until'] ?? null,
                 'deposit_amount' => $data['deposit_amount'] ?? 0,
                 'source_channel' => $data['source_channel'] ?? null,
@@ -176,17 +181,24 @@ class BookingController extends Controller
             ]);
 
             foreach ($data['lines'] as $lineData) {
+                $amount = (float) $lineData['unit_price'] * (int) $lineData['qty'];
                 $booking->lines()->create([
                     'product_id' => $lineData['product_id'],
                     'product_variant_id' => $lineData['product_variant_id'] ?? null,
+                    'supplier_partner_id' => $lineData['supplier_partner_id'] ?? null,
                     'resource_pool_id' => $lineData['resource_pool_id'],
                     'start_datetime' => Carbon::parse($lineData['start_datetime']),
                     'end_datetime' => Carbon::parse($lineData['end_datetime']),
                     'qty' => $lineData['qty'],
                     'unit_price' => $lineData['unit_price'],
-                    'amount' => $lineData['unit_price'] * $lineData['qty'],
+                    'amount' => $amount,
                     'tax_amount' => $lineData['tax_amount'] ?? 0,
                     'deposit_required' => $lineData['deposit_required'] ?? 0,
+                    'supplier_cost' => $lineData['supplier_cost'] ?? null,
+                    'commission_amount' => $lineData['commission_amount'] ?? null,
+                    'passthrough_amount' => $lineData['passthrough_amount'] ?? null,
+                    'supplier_invoice_ref' => $lineData['supplier_invoice_ref'] ?? null,
+                    'meta' => $lineData['meta'] ?? [],
                 ]);
             }
         } catch (BookingException $e) {
@@ -199,7 +211,7 @@ class BookingController extends Controller
 
     public function destroy(Booking $booking): RedirectResponse
     {
-        if (!in_array($booking->status, [BookingStatus::HOLD->value, BookingStatus::CANCELED->value], true)) {
+        if (! in_array($booking->status, [BookingStatus::HOLD->value, BookingStatus::CANCELED->value], true)) {
             return Redirect::back()->with('error', 'Hanya booking Hold atau Canceled yang dapat dihapus.');
         }
 
@@ -273,6 +285,20 @@ class BookingController extends Controller
         return Redirect::back()->with('success', 'Instance berhasil di-assign.');
     }
 
+    public function convert(Booking $booking): RedirectResponse
+    {
+        try {
+            $salesOrder = $this->conversionService->convertToSalesOrder($booking);
+        } catch (BookingConversionException $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        } catch (BookingException $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        }
+
+        return Redirect::route('sales-orders.show', $salesOrder->id)
+            ->with('success', 'Booking berhasil dikonversi ke Sales Order.');
+    }
+
     public function bulkDelete(Request $request): RedirectResponse
     {
         $data = $request->validate([
@@ -302,12 +328,16 @@ class BookingController extends Controller
 
     private function validateBooking(Request $request): array
     {
-        return $request->validate([
+        $modes = array_keys(FulfillmentMode::options());
+
+        $data = $request->validate([
             'company_id' => ['required', 'exists:companies,id'],
             'branch_id' => ['required', 'exists:branches,id'],
             'partner_id' => ['required', 'exists:partners,id'],
             'currency_id' => ['required', 'exists:currencies,id'],
             'booking_type' => ['required', 'in:accommodation,rental'],
+            'booking_subtype' => ['nullable', 'string', 'max:40'],
+            'fulfillment_mode' => ['nullable', 'in:'.implode(',', $modes)],
             'held_until' => ['nullable', 'date'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'source_channel' => ['nullable', 'string', 'max:50'],
@@ -316,13 +346,71 @@ class BookingController extends Controller
             'lines.*.product_id' => ['required', 'exists:products,id'],
             'lines.*.resource_pool_id' => ['required', 'exists:resource_pools,id'],
             'lines.*.product_variant_id' => ['nullable', 'exists:product_variants,id'],
+            'lines.*.supplier_partner_id' => ['nullable', 'exists:partners,id'],
             'lines.*.start_datetime' => ['required', 'date'],
             'lines.*.end_datetime' => ['required', 'date', 'after:lines.*.start_datetime'],
             'lines.*.qty' => ['required', 'integer', 'min:1'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
             'lines.*.tax_amount' => ['nullable', 'numeric', 'min:0'],
             'lines.*.deposit_required' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.supplier_cost' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.commission_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.passthrough_amount' => ['nullable', 'numeric', 'min:0'],
+            'lines.*.supplier_invoice_ref' => ['nullable', 'string', 'max:120'],
+            'lines.*.meta' => ['nullable', 'array'],
         ]);
+
+        $mode = FulfillmentMode::tryFrom($data['fulfillment_mode'] ?? FulfillmentMode::SELF_OPERATED->value)
+            ?? FulfillmentMode::SELF_OPERATED;
+
+        foreach (($data['lines'] ?? []) as $idx => $line) {
+            if ($mode === FulfillmentMode::RESELLER) {
+                if (empty($line['supplier_partner_id']) || (float) ($line['supplier_cost'] ?? 0) <= 0) {
+                    abort(422, 'Mode Reseller membutuhkan supplier dan supplier_cost pada baris '.($idx + 1).'.');
+                }
+            }
+            if ($mode === FulfillmentMode::AGENT) {
+                if (empty($line['supplier_partner_id'])) {
+                    abort(422, 'Mode Agent membutuhkan supplier pada baris '.($idx + 1).'.');
+                }
+                $commission = (float) ($line['commission_amount'] ?? 0);
+                $passthrough = (float) ($line['passthrough_amount'] ?? 0);
+                $amount = (float) $line['unit_price'] * (int) $line['qty'];
+                if (abs(($commission + $passthrough) - $amount) > 0.01) {
+                    abort(422, 'Komisi + passthrough harus sama dengan total baris '.($idx + 1).'.');
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Persist fields the BookingService DTO doesn't carry yet (mode, subtype, supplier costing, meta).
+     */
+    private function applyExtendedFields(Booking $booking, array $data): void
+    {
+        $booking->update([
+            'booking_subtype' => $data['booking_subtype'] ?? $data['booking_type'],
+            'fulfillment_mode' => $data['fulfillment_mode'] ?? FulfillmentMode::SELF_OPERATED->value,
+        ]);
+
+        $booking->loadMissing('lines');
+        foreach ($booking->lines as $idx => $line) {
+            $payloadLine = $data['lines'][$idx] ?? null;
+            if (! $payloadLine) {
+                continue;
+            }
+
+            $line->update([
+                'supplier_partner_id' => $payloadLine['supplier_partner_id'] ?? null,
+                'supplier_cost' => $payloadLine['supplier_cost'] ?? null,
+                'commission_amount' => $payloadLine['commission_amount'] ?? null,
+                'passthrough_amount' => $payloadLine['passthrough_amount'] ?? null,
+                'supplier_invoice_ref' => $payloadLine['supplier_invoice_ref'] ?? null,
+                'meta' => $payloadLine['meta'] ?? [],
+            ]);
+        }
     }
 
     private function makeHoldDto(array $data): HoldBookingDTO
@@ -454,6 +542,30 @@ class BookingController extends Controller
                     'branch_id' => $rp->branch_id,
                 ]),
             'bookingTypeOptions' => $this->bookingTypeOptions(),
+            'fulfillmentModes' => collect(FulfillmentMode::cases())
+                ->map(fn (FulfillmentMode $m) => [
+                    'value' => $m->value,
+                    'label' => $m->label(),
+                    'description' => $m->description(),
+                ])->toArray(),
+            'subtypeOptions' => [
+                ['value' => 'flight', 'label' => 'Tiket Pesawat'],
+                ['value' => 'hotel', 'label' => 'Hotel / Akomodasi'],
+                ['value' => 'car_rental', 'label' => 'Sewa Kendaraan'],
+                ['value' => 'accommodation', 'label' => 'Akomodasi (umum)'],
+                ['value' => 'rental', 'label' => 'Rental (umum)'],
+                ['value' => 'other', 'label' => 'Lainnya'],
+            ],
+            'suppliers' => Partner::query()
+                ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
+                ->orderBy('name')
+                ->get(['id', 'name', 'code'])
+                ->map(fn (Partner $p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'code' => $p->code,
+                ])
+                ->toArray(),
         ];
     }
 }
