@@ -43,6 +43,16 @@ class SalesInvoiceLine extends Model
         return $this->belongsTo(SalesDeliveryLine::class);
     }
 
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function productVariant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Costing Relationships
     // ─────────────────────────────────────────────────────────────────────────
