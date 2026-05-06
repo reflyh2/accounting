@@ -13,6 +13,7 @@ defineProps({
     customers: Array,
     primaryCurrency: Object,
     products: Array,
+    locations: Array,
     uoms: Array,
     companies: Array,
     branches: Array,
@@ -50,6 +51,7 @@ defineProps({
                             :customers="customers"
                             :primaryCurrency="primaryCurrency"
                             :products="products"
+                            :locations="locations"
                             :uoms="uoms"
                             :companies="companies"
                             :branches="branches"
