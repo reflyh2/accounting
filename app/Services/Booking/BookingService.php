@@ -2,20 +2,26 @@
 
 namespace App\Services\Booking;
 
+use App\Domain\Accounting\DTO\AccountingEntry;
+use App\Domain\Accounting\DTO\AccountingEventPayload;
+use App\Enums\AccountingEventCode;
 use App\Enums\BookingStatus;
 use App\Events\Booking\BookingConfirmed;
 use App\Exceptions\BookingException;
 use App\Models\Booking;
 use App\Models\BookingLine;
 use App\Models\Product;
+use App\Models\RentalPolicy;
 use App\Models\ResourceInstance;
 use App\Models\ResourcePool;
-use App\Models\RentalPolicy;
+use App\Services\Accounting\AccountingEventBus;
 use App\Services\Booking\DTO\BookingLineDTO;
 use App\Services\Booking\DTO\HoldBookingDTO;
-use Carbon\CarbonInterface;
+use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -23,8 +29,8 @@ class BookingService
 {
     public function __construct(
         private readonly AvailabilityService $availabilityService,
-    ) {
-    }
+        private readonly AccountingEventBus $accountingEventBus,
+    ) {}
 
     public function hold(HoldBookingDTO $dto): Booking
     {
@@ -50,7 +56,7 @@ class BookingService
                 }
 
                 $pool = $pools->get($lineDto->resourcePoolId);
-                if (!$pool || $pool->product_id !== $lineDto->productId) {
+                if (! $pool || $pool->product_id !== $lineDto->productId) {
                     throw new BookingException('Pool resource tidak sesuai dengan produk.');
                 }
 
@@ -78,7 +84,7 @@ class BookingService
 
             foreach ($lineCollection as $lineDto) {
                 $product = $products->get($lineDto->productId);
-                if (!$product) {
+                if (! $product) {
                     throw new BookingException('Produk tidak ditemukan.');
                 }
 
@@ -107,9 +113,11 @@ class BookingService
                 'held_until' => null,
             ]);
 
+            $this->dispatchDepositReceivedIfNeeded($booking->fresh());
+
             BookingConfirmed::dispatch($booking->fresh('lines'));
 
-            return $booking;
+            return $booking->fresh();
         });
     }
 
@@ -119,7 +127,7 @@ class BookingService
             $line = BookingLine::with(['booking', 'resources'])->lockForUpdate()->findOrFail($bookingLineId);
             $booking = $line->booking;
 
-            if (!in_array($booking->status, [BookingStatus::CONFIRMED->value, BookingStatus::CHECKED_IN->value], true)) {
+            if (! in_array($booking->status, [BookingStatus::CONFIRMED->value, BookingStatus::CHECKED_IN->value], true)) {
                 throw new BookingException('Assign instance hanya bisa setelah booking dikonfirmasi.');
             }
 
@@ -131,7 +139,7 @@ class BookingService
                 ->findFreeInstances($line->resource_pool_id, $line->start_datetime, $line->end_datetime, 0)
                 ->pluck('id');
 
-            if (!$freeInstances->contains($instance->id)) {
+            if (! $freeInstances->contains($instance->id)) {
                 throw new BookingException('Instance sudah dibooking.');
             }
 
@@ -147,7 +155,7 @@ class BookingService
                 'resource_instance_id' => $instance->id,
             ]);
 
-            if ($line->qty === 1 && !$line->resource_instance_id) {
+            if ($line->qty === 1 && ! $line->resource_instance_id) {
                 $line->resource_instance_id = $instance->id;
                 $line->save();
             }
@@ -184,21 +192,131 @@ class BookingService
                 throw new BookingException('Booking sudah tidak dapat dibatalkan.');
             }
 
-            $notes = trim(($booking->notes ? "{$booking->notes}\n" : '') . "Canceled: {$reason}");
+            $notes = trim(($booking->notes ? "{$booking->notes}\n" : '').'Canceled: '.$reason);
             $booking->update([
                 'status' => BookingStatus::CANCELED->value,
                 'notes' => $notes,
             ]);
 
-            return $booking;
+            $this->dispatchDepositReversedIfNeeded($booking->fresh());
+
+            return $booking->fresh();
         });
+    }
+
+    /**
+     * On confirm: if the booking captured a deposit and we haven't already
+     * recorded the cash receipt, dispatch BOOKING_DEPOSIT_RECEIVED and stamp
+     * the booking with the snapshot amount + timestamp.
+     *
+     * If a CompanyBankAccount is selected, its account_id overrides the cash
+     * role mapping for this entry, routing the cash leg to that bank account.
+     */
+    private function dispatchDepositReceivedIfNeeded(Booking $booking, ?Authenticatable $actor = null): void
+    {
+        $actor ??= Auth::user();
+
+        $amount = (float) ($booking->deposit_amount ?? 0);
+        if ($amount <= 0 || $booking->deposit_received_at !== null) {
+            return;
+        }
+
+        $cashAccountId = $this->resolveDepositCashAccountId($booking);
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::BOOKING_DEPOSIT_RECEIVED,
+            $booking->company_id,
+            $booking->branch_id,
+            'booking',
+            $booking->id,
+            $booking->booking_number,
+            'IDR',
+            1.0,
+            CarbonImmutable::now(),
+            $actor?->getAuthIdentifier(),
+        );
+        $payload->setLines([
+            AccountingEntry::debit('cash', $amount, $cashAccountId ? ['account_id' => $cashAccountId] : []),
+            AccountingEntry::credit('customer_deposit', $amount),
+        ]);
+
+        $this->accountingEventBus->dispatch($payload);
+
+        $booking->forceFill([
+            'deposit_received_amount' => $amount,
+            'deposit_received_at' => now(),
+        ])->save();
+    }
+
+    /**
+     * On cancel: if a deposit was received but never applied to an invoice,
+     * dispatch the reversal so the cash held against this booking is refunded
+     * to the same account it came from.
+     */
+    private function dispatchDepositReversedIfNeeded(Booking $booking, ?Authenticatable $actor = null): void
+    {
+        $actor ??= Auth::user();
+
+        if ($booking->deposit_received_at === null) {
+            return;
+        }
+        if ($booking->deposit_applied_at !== null) {
+            return;
+        }
+
+        $amount = (float) ($booking->deposit_received_amount ?? 0);
+        if ($amount <= 0) {
+            return;
+        }
+
+        $cashAccountId = $this->resolveDepositCashAccountId($booking);
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::BOOKING_DEPOSIT_REVERSED,
+            $booking->company_id,
+            $booking->branch_id,
+            'booking',
+            $booking->id,
+            $booking->booking_number.'-REV',
+            'IDR',
+            1.0,
+            CarbonImmutable::now(),
+            $actor?->getAuthIdentifier(),
+        );
+        $payload->setLines([
+            AccountingEntry::debit('customer_deposit', $amount),
+            AccountingEntry::credit('cash', $amount, $cashAccountId ? ['account_id' => $cashAccountId] : []),
+        ]);
+
+        $this->accountingEventBus->dispatch($payload);
+
+        $booking->forceFill([
+            'deposit_received_amount' => 0,
+            'deposit_received_at' => null,
+        ])->save();
+    }
+
+    /**
+     * If the booking carries a CompanyBankAccount selection, return its
+     * GL account id so it can override the default `cash` role mapping.
+     * Returns null for cash-on-hand methods (CASH) or when no bank is selected.
+     */
+    private function resolveDepositCashAccountId(Booking $booking): ?int
+    {
+        if (! $booking->deposit_company_bank_account_id) {
+            return null;
+        }
+
+        $bankAccount = \App\Models\CompanyBankAccount::find($booking->deposit_company_bank_account_id);
+
+        return $bankAccount?->account_id;
     }
 
     private function updateStatus(int $bookingId, array $allowedStatuses, string $nextStatus): Booking
     {
         return DB::transaction(function () use ($bookingId, $allowedStatuses, $nextStatus) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
-            if (!in_array($booking->status, $allowedStatuses, true)) {
+            if (! in_array($booking->status, $allowedStatuses, true)) {
                 throw new BookingException('Transisi status tidak valid.');
             }
 
@@ -248,6 +366,7 @@ class BookingService
     private function calculateAccommodationAmount(BookingLineDTO $dto): float
     {
         $nights = max(1, $dto->start->diffInDays($dto->end));
+
         return (float) ($dto->unitPrice * $dto->qty * $nights);
     }
 
@@ -268,7 +387,7 @@ class BookingService
 
     private function generateBookingNumber(): string
     {
-        $prefix = 'BK-' . now()->format('ymd');
+        $prefix = 'BK-'.now()->format('ymd');
         $latest = Booking::where('booking_number', 'like', "{$prefix}-%")
             ->orderByDesc('booking_number')
             ->first();
@@ -297,4 +416,3 @@ class BookingService
             ->keyBy('id');
     }
 }
-

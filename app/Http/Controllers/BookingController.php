@@ -176,6 +176,8 @@ class BookingController extends Controller
                 'fulfillment_mode' => $data['fulfillment_mode'] ?? FulfillmentMode::SELF_OPERATED->value,
                 'held_until' => $data['held_until'] ?? null,
                 'deposit_amount' => $data['deposit_amount'] ?? 0,
+                'deposit_payment_method' => $data['deposit_payment_method'] ?? null,
+                'deposit_company_bank_account_id' => $data['deposit_company_bank_account_id'] ?? null,
                 'source_channel' => $data['source_channel'] ?? null,
                 'notes' => $data['notes'] ?? null,
             ]);
@@ -340,6 +342,8 @@ class BookingController extends Controller
             'fulfillment_mode' => ['nullable', 'in:'.implode(',', $modes)],
             'held_until' => ['nullable', 'date'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
+            'deposit_payment_method' => ['nullable', 'string', 'max:30'],
+            'deposit_company_bank_account_id' => ['nullable', 'exists:company_bank_accounts,id'],
             'source_channel' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
             'lines' => ['required', 'array', 'min:1'],
@@ -393,6 +397,8 @@ class BookingController extends Controller
         $booking->update([
             'booking_subtype' => $data['booking_subtype'] ?? $data['booking_type'],
             'fulfillment_mode' => $data['fulfillment_mode'] ?? FulfillmentMode::SELF_OPERATED->value,
+            'deposit_payment_method' => $data['deposit_payment_method'] ?? null,
+            'deposit_company_bank_account_id' => $data['deposit_company_bank_account_id'] ?? null,
         ]);
 
         $booking->loadMissing('lines');
@@ -564,6 +570,19 @@ class BookingController extends Controller
                     'id' => $p->id,
                     'name' => $p->name,
                     'code' => $p->code,
+                ])
+                ->toArray(),
+            'paymentMethods' => collect(\App\Enums\PaymentMethod::cases())
+                ->map(fn ($m) => ['value' => $m->value, 'label' => $m->label()])
+                ->toArray(),
+            'companyBankAccounts' => \App\Models\CompanyBankAccount::query()
+                ->where('is_active', true)
+                ->orderBy('bank_name')
+                ->get(['id', 'company_id', 'bank_name', 'account_number', 'account_holder_name', 'account_id'])
+                ->map(fn ($b) => [
+                    'id' => $b->id,
+                    'company_id' => $b->company_id,
+                    'label' => "{$b->bank_name} - {$b->account_number} ({$b->account_holder_name})",
                 ])
                 ->toArray(),
         ];

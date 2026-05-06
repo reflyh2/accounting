@@ -342,6 +342,9 @@ class SalesInvoiceService
         // Dispatch reversal accounting event
         $this->dispatchArReversedEvent($invoice, $actor);
 
+        // Reverse any booking deposit applied via this invoice
+        $this->reverseAppliedBookingDeposits($invoice, $actor);
+
         // Delete cost entry journals
         $this->deleteCostEntryJournals($invoice);
 
@@ -634,6 +637,9 @@ class SalesInvoiceService
             // Booking-derived events: principal COGS (reseller) and agent passthrough.
             $this->dispatchBookingPrincipalCogsEvent($invoice->fresh('currency'), $actor);
             $this->dispatchBookingAgentPassthroughEvent($invoice->fresh('currency'), $actor);
+
+            // Apply any held customer deposits from source bookings to this invoice.
+            $this->applyBookingDeposits($invoice->fresh('currency'), $actor);
 
             // Create External Debt record for AR tracking
             $this->createExternalDebt($invoice, $actor);
@@ -1431,6 +1437,127 @@ class SalesInvoiceService
         ]);
 
         $this->accountingEventBus->dispatch($payload);
+    }
+
+    /**
+     * For booking-derived invoices: if any source Booking has a received-but-not-applied
+     * deposit, dispatch BOOKING_DEPOSIT_APPLIED so the customer-deposit liability is
+     * cleared against the invoice's AR. The booking is then stamped as applied so a
+     * subsequent post (idempotent retry) won't re-apply it.
+     */
+    private function applyBookingDeposits(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $invoice->loadMissing('salesOrders:id');
+        $soIds = $invoice->salesOrders->pluck('id');
+        if ($soIds->isEmpty()) {
+            return;
+        }
+
+        $bookings = \App\Models\Booking::query()
+            ->whereIn('converted_sales_order_id', $soIds)
+            ->whereNotNull('deposit_received_at')
+            ->whereNull('deposit_applied_at')
+            ->where('deposit_received_amount', '>', 0)
+            ->lockForUpdate()
+            ->get();
+
+        if ($bookings->isEmpty()) {
+            return;
+        }
+
+        $totalDeposit = (float) $bookings->sum('deposit_received_amount');
+        if ($totalDeposit <= 0) {
+            return;
+        }
+
+        $exchangeRate = (float) $invoice->exchange_rate;
+        $base = $this->roundCost($totalDeposit * $exchangeRate);
+        $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::BOOKING_DEPOSIT_APPLIED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'sales_invoice',
+            $invoice->id,
+            $invoice->invoice_number,
+            $invoice->currency?->code ?? 'IDR',
+            $exchangeRate,
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+        );
+        $payload->setLines([
+            AccountingEntry::debit('customer_deposit', $base),
+            AccountingEntry::credit('receivable', $base),
+        ]);
+
+        $this->accountingEventBus->dispatch($payload);
+
+        $bookings->each(fn ($booking) => $booking->forceFill([
+            'deposit_applied_at' => now(),
+            'deposit_applied_to_invoice_id' => $invoice->id,
+        ])->save());
+    }
+
+    /**
+     * On invoice unpost: reverse deposit application for any booking that
+     * recorded *this* invoice as the applying invoice. Other invoices that
+     * applied other bookings' deposits stay untouched.
+     *
+     * Dr receivable / Cr customer_deposit  (per BOOKING_DEPOSIT_APPLIED_REVERSED config)
+     */
+    private function reverseAppliedBookingDeposits(SalesInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $bookings = \App\Models\Booking::query()
+            ->where('deposit_applied_to_invoice_id', $invoice->id)
+            ->whereNotNull('deposit_applied_at')
+            ->lockForUpdate()
+            ->get();
+
+        if ($bookings->isEmpty()) {
+            return;
+        }
+
+        $totalDeposit = (float) $bookings->sum('deposit_received_amount');
+        if ($totalDeposit <= 0) {
+            $bookings->each(fn ($booking) => $booking->forceFill([
+                'deposit_applied_at' => null,
+                'deposit_applied_to_invoice_id' => null,
+            ])->save());
+
+            return;
+        }
+
+        $exchangeRate = (float) ($invoice->exchange_rate ?: 1);
+        $base = $this->roundCost($totalDeposit * $exchangeRate);
+        $occurredAt = CarbonImmutable::now();
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::BOOKING_DEPOSIT_APPLIED_REVERSED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'sales_invoice',
+            $invoice->id,
+            $invoice->invoice_number.'-DEP-REV',
+            $invoice->currency?->code ?? 'IDR',
+            $exchangeRate,
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+        );
+        $payload->setLines([
+            AccountingEntry::debit('receivable', $base),
+            AccountingEntry::credit('customer_deposit', $base),
+        ]);
+
+        $this->accountingEventBus->dispatch($payload);
+
+        // Clear application markers so a re-post applies it again.
+        // deposit_received_at + deposit_received_amount stay set so the next
+        // post can re-apply without re-prompting for cash receipt.
+        $bookings->each(fn ($booking) => $booking->forceFill([
+            'deposit_applied_at' => null,
+            'deposit_applied_to_invoice_id' => null,
+        ])->save());
     }
 
     /**

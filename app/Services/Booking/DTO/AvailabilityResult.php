@@ -3,15 +3,15 @@
 namespace App\Services\Booking\DTO;
 
 use App\Models\ResourcePool;
-use Illuminate\Support\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 readonly class AvailabilityResult
 {
     public function __construct(
         public ResourcePool $pool,
-        public Carbon $start,
-        public Carbon $end,
+        public CarbonInterface $start,
+        public CarbonInterface $end,
         public int $requestedQty,
         public int $capacity,
         public int $bookedQty,

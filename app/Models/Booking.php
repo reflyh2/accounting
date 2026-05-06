@@ -15,8 +15,21 @@ class Booking extends Model
         'booked_at' => 'datetime',
         'held_until' => 'datetime',
         'deposit_amount' => 'decimal:2',
+        'deposit_received_amount' => 'decimal:2',
+        'deposit_received_at' => 'datetime',
+        'deposit_applied_at' => 'datetime',
         'fulfillment_mode' => FulfillmentMode::class,
     ];
+
+    public function depositAppliedToInvoice(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(SalesInvoice::class, 'deposit_applied_to_invoice_id');
+    }
+
+    public function depositCompanyBankAccount(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(CompanyBankAccount::class, 'deposit_company_bank_account_id');
+    }
 
     public function lines(): HasMany
     {
