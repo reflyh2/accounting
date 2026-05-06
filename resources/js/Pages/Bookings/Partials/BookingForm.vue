@@ -66,17 +66,26 @@ const selectedCompany = ref(
     form.company_id || (props.formOptions.companies.length > 1 ? null : props.formOptions.companies[0]?.id)
 );
 
-// Watch company change
-watch(selectedCompany, (newCompanyId) => {
+// Sync the initial selectedCompany value into the form so dependent URLs
+// (api.partners, api.products) get a populated company_id immediately.
+if (selectedCompany.value && !form.company_id) {
+    form.company_id = selectedCompany.value;
+}
+
+// Watch company change (only after mount; resets dependents)
+watch(selectedCompany, (newCompanyId, oldCompanyId) => {
     form.company_id = newCompanyId;
-    form.branch_id = null;
-    form.partner_id = null;
+    if (oldCompanyId !== undefined && oldCompanyId !== newCompanyId) {
+        form.branch_id = null;
+        form.partner_id = null;
+    }
 });
 
 // Auto-set company on mount
 onMounted(() => {
     if (!form.company_id && props.formOptions.companies.length === 1) {
         selectedCompany.value = props.formOptions.companies[0].id;
+        form.company_id = props.formOptions.companies[0].id;
     }
 });
 
@@ -117,6 +126,25 @@ const selectedCustomerLabel = computed(() => {
     const customer = props.formOptions.customers.find((c) => c.id === form.partner_id);
     return customer ? `${customer.code} — ${customer.name}` : '';
 });
+
+// Product search popover — mirrors SalesOrder/SalesInvoice patterns.
+// Filters by company and the bookable capability so only bookable products surface.
+const productSearchUrl = computed(() => route('api.products', {
+    company_id: form.company_id,
+    capability: 'bookable',
+}));
+
+const productTableHeaders = [
+    { key: 'name', label: 'Nama Produk' },
+    { key: 'code', label: 'Kode' },
+    { key: 'actions', label: '' },
+];
+
+function getProductDisplayValue(productId) {
+    if (!productId) return '';
+    const product = props.formOptions.products.find((p) => p.id === productId);
+    return product ? product.name : '';
+}
 
 // Channel options
 const channelOptions = computed(() => [
@@ -186,9 +214,24 @@ function getPoolsForProduct(productId) {
     return pools;
 }
 
-function handleProductChange(line) {
+function getProductVariants(productId) {
+    if (!productId) return [];
+    const product = props.formOptions.products.find((p) => p.id === productId);
+    return product?.variants || [];
+}
+
+function handleProductChange(line, productId) {
+    if (productId !== undefined) {
+        line.product_id = productId;
+    }
     line.product_variant_id = null;
     line.resource_pool_id = null;
+
+    const product = props.formOptions.products.find((p) => p.id === line.product_id);
+    if (product?.variants?.length === 1) {
+        line.product_variant_id = product.variants[0].id;
+    }
+
     const pools = getPoolsForProduct(line.product_id);
     if (pools.length === 1) {
         line.resource_pool_id = pools[0].id;
@@ -371,13 +414,26 @@ function submitForm(createAnother = false) {
                     <template v-for="(line, index) in form.lines" :key="index">
                     <tr>
                         <td class="border border-gray-300 px-1.5 py-1.5">
-                            <AppSelect
+                            <AppPopoverSearch
                                 v-model="line.product_id"
-                                :options="formOptions.products.map((p) => ({ value: p.id, label: p.name }))"
+                                :url="productSearchUrl"
+                                :tableHeaders="productTableHeaders"
+                                :displayKeys="['name']"
+                                :initialDisplayValue="getProductDisplayValue(line.product_id)"
                                 placeholder="Pilih Produk"
+                                modalTitle="Pilih Produk"
                                 :error="form.errors[`lines.${index}.product_id`]"
-                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
-                                @update:modelValue="handleProductChange(line)"
+                                :disabled="!form.company_id"
+                                @update:modelValue="handleProductChange(line, $event)"
+                                required
+                            />
+                            <AppSelect
+                                v-if="getProductVariants(line.product_id).length > 0"
+                                v-model="line.product_variant_id"
+                                :options="getProductVariants(line.product_id).map((v) => ({ value: v.id, label: v.sku }))"
+                                placeholder="Pilih Varian"
+                                :error="form.errors[`lines.${index}.product_variant_id`]"
+                                :margins="{ top: 2, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5">

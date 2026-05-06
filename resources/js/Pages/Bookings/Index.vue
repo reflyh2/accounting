@@ -164,6 +164,7 @@ function handleBulkDelete(ids) {
                         :columnFormatters="columnFormatters"
                         :columnRenderers="columnRenderers"
                         :customFilters="customFilters"
+                        :createRoute="{ name: 'bookings.create' }"
                         :editRoute="{ name: 'bookings.edit' }"
                         :viewRoute="{ name: 'bookings.show' }"
                         :deleteRoute="{ name: 'bookings.destroy' }"
