@@ -916,7 +916,11 @@ class SalesInvoiceController extends Controller
     {
         return Company::orderBy('name')
             ->get()
-            ->map(fn ($c) => ['value' => $c->id, 'label' => $c->name])
+            ->map(fn ($c) => [
+                'value' => $c->id,
+                'label' => $c->name,
+                'enable_secondary_quantity' => (bool) $c->enable_secondary_quantity,
+            ])
             ->toArray();
     }
 

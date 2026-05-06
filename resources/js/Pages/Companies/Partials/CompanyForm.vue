@@ -34,6 +34,7 @@ const form = useForm({
    tax_registration_number: props.company?.tax_registration_number || '',
    social_security_number: props.company?.social_security_number || '',
    enable_maker_checker: props.company?.enable_maker_checker || false,
+   enable_secondary_quantity: props.company?.enable_secondary_quantity || false,
    logo: null,
    create_another: false,
 });
@@ -236,6 +237,16 @@ function submitForm(createAnother = false) {
                v-model="form.enable_maker_checker"
                label="Aktifkan Maker-Checker (Pembuat dokumen tidak bisa menyetujui dokumen yang sama)"
                :error="form.errors.enable_maker_checker"
+            />
+         </div>
+
+         <!-- Sales Settings Section -->
+         <div class="mt-6 mb-4 border-t pt-4">
+            <h4 class="font-medium text-gray-700 mb-3">Pengaturan Penjualan</h4>
+            <AppCheckbox
+               v-model="form.enable_secondary_quantity"
+               label="Aktifkan Kuantitas & Satuan Sekunder pada faktur penjualan, sales order, dan delivery"
+               :error="form.errors.enable_secondary_quantity"
             />
          </div>
 
