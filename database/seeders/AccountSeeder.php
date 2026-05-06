@@ -243,20 +243,27 @@ class AccountSeeder extends Seeder
     private function createAccounts($accounts, $parentId, $company, $currency)
     {
         foreach ($accounts as $accountData) {
-            $account = new Account;
-            $account->name = $accountData['name'];
-            $account->type = $accountData['type'];
-            $account->parent_id = $parentId;
+            $account = $this->findExistingAccount($accountData, $parentId, $company);
 
-            if (isset($accountData['code'])) {
-                $account->code = $accountData['code'];
+            if ($account) {
+                // Re-run on an existing tenant: refresh classification fields but
+                // preserve the user's code (they may have customised it).
+                $account->fill([
+                    'name' => $accountData['name'],
+                    'type' => $accountData['type'],
+                    'parent_id' => $parentId,
+                ])->save();
             } else {
-                $account->code = $this->generateAccountCode($parentId);
+                $account = new Account;
+                $account->name = $accountData['name'];
+                $account->type = $accountData['type'];
+                $account->parent_id = $parentId;
+                $account->code = $accountData['code'] ?? $this->generateAccountCode($parentId);
+                $account->save();
             }
 
-            $account->save();
-            $account->companies()->attach($company->id);
-            $account->currencies()->attach($currency->id);
+            $account->companies()->syncWithoutDetaching([$company->id]);
+            $account->currencies()->syncWithoutDetaching([$currency->id]);
 
             if (isset($accountData['children'])) {
                 $this->createAccounts($accountData['children'], $account->id, $company, $currency);
@@ -264,10 +271,34 @@ class AccountSeeder extends Seeder
         }
     }
 
+    /**
+     * Locate an account that was previously seeded for this company.
+     *
+     * Lookup precedence:
+     *  - if the structure pins a code, match on (code, company) — survives renames.
+     *  - otherwise match on (name, parent_id, company) — survives code drift.
+     */
+    private function findExistingAccount(array $accountData, $parentId, $company): ?Account
+    {
+        $query = Account::withoutGlobalScopes()
+            ->whereHas('companies', fn ($q) => $q->where('companies.id', $company->id));
+
+        if (isset($accountData['code'])) {
+            return $query->where('code', $accountData['code'])->first();
+        }
+
+        return $query
+            ->where('name', $accountData['name'])
+            ->where('parent_id', $parentId)
+            ->first();
+    }
+
     private function generateAccountCode($parentId)
     {
-        $parentAccount = Account::find($parentId);
-        $siblingAccounts = Account::where('parent_id', $parentId)->get();
+        $parentAccount = Account::withoutGlobalScopes()->find($parentId);
+        $siblingAccounts = Account::withoutGlobalScopes()
+            ->where('parent_id', $parentId)
+            ->get();
         $lastChildNumber = 0;
 
         if ($siblingAccounts->isNotEmpty()) {
