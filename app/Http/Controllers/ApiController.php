@@ -110,6 +110,12 @@ class ApiController extends Controller
             });
         }
 
+        if ($request->capability) {
+            $query->whereHas('capabilities', function ($q) use ($request) {
+                $q->where('capability', $request->capability);
+            });
+        }
+
         if ($request->search) {
             $search = strtolower($request->search);
             $query->where(function ($q) use ($search) {
