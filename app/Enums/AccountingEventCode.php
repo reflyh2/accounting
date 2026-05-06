@@ -26,6 +26,8 @@ enum AccountingEventCode: string
     case COST_ALLOCATED = 'cost.allocated';
     case BOOKING_DEPOSIT_RECEIVED = 'booking.deposit_received';
     case BOOKING_DEPOSIT_REVERSED = 'booking.deposit_reversed';
+    case BOOKING_DEPOSIT_APPLIED = 'booking.deposit_applied';
+    case BOOKING_DEPOSIT_APPLIED_REVERSED = 'booking.deposit_applied_reversed';
     case BOOKING_PRINCIPAL_COGS_POSTED = 'booking.principal_cogs_posted';
     case BOOKING_PRINCIPAL_COGS_REVERSED = 'booking.principal_cogs_reversed';
     case BOOKING_AGENT_PASSTHROUGH_POSTED = 'booking.agent_passthrough_posted';
@@ -58,6 +60,8 @@ enum AccountingEventCode: string
             self::COST_ALLOCATED => 'Cost Allocated',
             self::BOOKING_DEPOSIT_RECEIVED => 'Booking Deposit Received',
             self::BOOKING_DEPOSIT_REVERSED => 'Booking Deposit Reversed',
+            self::BOOKING_DEPOSIT_APPLIED => 'Booking Deposit Applied to Invoice',
+            self::BOOKING_DEPOSIT_APPLIED_REVERSED => 'Booking Deposit Application Reversed',
             self::BOOKING_PRINCIPAL_COGS_POSTED => 'Booking Principal COGS Posted',
             self::BOOKING_PRINCIPAL_COGS_REVERSED => 'Booking Principal COGS Reversed',
             self::BOOKING_AGENT_PASSTHROUGH_POSTED => 'Booking Agent Passthrough Posted',

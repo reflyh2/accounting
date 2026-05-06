@@ -240,6 +240,20 @@ class GlEventConfigurationSeeder extends Seeder
                     ['role' => 'cash', 'direction' => 'credit', 'account_name' => 'Kas Besar'],
                 ],
             ],
+            AccountingEventCode::BOOKING_DEPOSIT_APPLIED->value => [
+                'description' => 'Journal entry when a held deposit is applied to a posted sales invoice',
+                'lines' => [
+                    ['role' => 'customer_deposit', 'direction' => 'debit', 'account_name' => 'Uang Muka Pelanggan'],
+                    ['role' => 'receivable', 'direction' => 'credit', 'account_name' => 'Piutang Usaha'],
+                ],
+            ],
+            AccountingEventCode::BOOKING_DEPOSIT_APPLIED_REVERSED->value => [
+                'description' => 'Journal entry when a deposit application is reversed (e.g. invoice unpost)',
+                'lines' => [
+                    ['role' => 'receivable', 'direction' => 'debit', 'account_name' => 'Piutang Usaha'],
+                    ['role' => 'customer_deposit', 'direction' => 'credit', 'account_name' => 'Uang Muka Pelanggan'],
+                ],
+            ],
             AccountingEventCode::BOOKING_PRINCIPAL_COGS_POSTED->value => [
                 'description' => 'COGS for reseller-mode booking invoice (supplier cost into clearing)',
                 'lines' => [
