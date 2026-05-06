@@ -44,6 +44,7 @@ class Company extends Model
         'default_backflush',
         'default_tax_jurisdiction_id',
         'enable_maker_checker',
+        'enable_secondary_quantity',
         'enabled_modules',
     ];
 
@@ -52,6 +53,7 @@ class Company extends Model
         'business_license_expiry' => 'date',
         'default_backflush' => 'boolean',
         'enable_maker_checker' => 'boolean',
+        'enable_secondary_quantity' => 'boolean',
         'enabled_modules' => 'array',
     ];
 

@@ -619,7 +619,7 @@ class SalesDeliveryController extends Controller
 
     private function companyOptions()
     {
-        return Company::orderBy('name')->get(['id', 'name']);
+        return Company::orderBy('name')->get(['id', 'name', 'enable_secondary_quantity']);
     }
 
     private function branchOptions()

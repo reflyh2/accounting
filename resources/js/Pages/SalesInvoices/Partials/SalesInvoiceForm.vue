@@ -123,9 +123,15 @@ const filteredBankAccounts = computed(() => {
 
 // Selected company (separate from form for chained loading)
 const selectedCompany = ref(
-    props.invoice?.company_id || 
+    props.invoice?.company_id ||
     (props.companies.length > 1 ? null : props.companies[0]?.value)
 );
+
+const showSecondaryQty = computed(() => {
+    if (!selectedCompany.value) return false;
+    const company = props.companies.find((c) => c.value === selectedCompany.value);
+    return !!company?.enable_secondary_quantity;
+});
 
 // Selected customer for popover search
 const selectedCustomerId = ref(props.selectedPartnerId || props.invoice?.partner_id || null);
@@ -1213,8 +1219,8 @@ function submitForm(createAnother = false) {
                             <th class="border border-gray-300 text-sm min-w-48 lg:min-w-48 px-1.5 py-1.5">Deskripsi</th>
                             <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Satuan</th>
                             <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty</th>
-                            <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty 2</th>
-                            <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Satuan 2</th>
+                            <th v-if="showSecondaryQty" class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Qty 2</th>
+                            <th v-if="showSecondaryQty" class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Satuan 2</th>
                             <th class="border border-gray-300 text-sm min-w-24 px-1.5 py-1.5">Harga Satuan</th>
                             <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Diskon (%)</th>
                             <th class="border border-gray-300 text-sm min-w-16 px-1.5 py-1.5">Pajak (%)</th>
@@ -1289,7 +1295,7 @@ function submitForm(createAnother = false) {
                             </td>
 
                             <!-- Qty 2 -->
-                            <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                            <td v-if="showSecondaryQty" class="border border-gray-300 px-1.5 py-1.5 align-top">
                                 <AppInput
                                     v-model="line.secondary_quantity"
                                     :numberFormat="true"
@@ -1300,7 +1306,7 @@ function submitForm(createAnother = false) {
                             </td>
 
                             <!-- Satuan 2 -->
-                            <td class="border border-gray-300 px-1.5 py-1.5 align-top">
+                            <td v-if="showSecondaryQty" class="border border-gray-300 px-1.5 py-1.5 align-top">
                                 <AppInput
                                     v-model="line.secondary_uom_label"
                                     placeholder="-"
