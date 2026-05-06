@@ -738,7 +738,7 @@ class SalesInvoiceService
         );
 
         $result = $this->inventoryService->issue($dto);
-        $totalCost = $this->roundCost((float) $result->value);
+        $totalCost = $this->roundCost((float) $result->totalValue);
 
         if ($totalCost <= 0) {
             return;
