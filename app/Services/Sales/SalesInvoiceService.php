@@ -507,6 +507,17 @@ class SalesInvoiceService
         if (in_array($debtStatus, [\App\Enums\DebtStatus::PARTIALLY_PAID, \App\Enums\DebtStatus::PAID, \App\Enums\DebtStatus::CLOSED], true)) {
             throw new SalesInvoiceException('Faktur tidak dapat di-unpost karena sudah memiliki pembayaran.');
         }
+
+        // Belt-and-suspenders: even if the status field wasn't bumped, any payment-detail
+        // row referencing this debt means a Payment touched it; unposting would orphan
+        // those rows (the FK is restrict-on-delete). Block here with a friendly message.
+        $hasPaymentDetails = \App\Models\ExternalDebtPaymentDetail::query()
+            ->where('external_debt_id', $invoice->externalDebt->id)
+            ->exists();
+
+        if ($hasPaymentDetails) {
+            throw new SalesInvoiceException('Faktur tidak dapat di-unpost karena sudah memiliki pembayaran.');
+        }
     }
 
     /**
