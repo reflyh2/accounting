@@ -178,10 +178,12 @@ class BookingConversionService
     private function buildLinePayloads(BookingLine $line, FulfillmentMode $mode): array
     {
         $description = $this->describeLine($line);
+        $uomId = $this->resolveUomId($line);
+
         $base = [
             'product_id' => $line->product_id,
             'product_variant_id' => $line->product_variant_id,
-            'uom_id' => $line->product?->default_uom_id,
+            'uom_id' => $uomId,
             'description' => $description,
             'tax_rate' => 0,
             'discount_rate' => 0,
@@ -218,6 +220,31 @@ class BookingConversionService
             'unit_price' => (float) $line->unit_price,
             'revenue_role' => 'gross_revenue',
         ])];
+    }
+
+    /**
+     * Pick the UoM for the resulting SO line. Mirrors the SalesOrderForm fallback chain:
+     * variant's UoM → product's default UoM. Throw a clear error if neither is set so
+     * the user gets a meaningful message instead of a leaked ModelNotFoundException → 404.
+     */
+    private function resolveUomId(BookingLine $line): int
+    {
+        $line->loadMissing(['productVariant.uom', 'product.defaultUom']);
+
+        $uomId = $line->productVariant?->uom_id
+            ?? $line->productVariant?->uom?->id
+            ?? $line->product?->default_uom_id
+            ?? $line->product?->defaultUom?->id;
+
+        if (! $uomId) {
+            throw new BookingConversionException(sprintf(
+                'Produk "%s" pada baris booking #%d tidak memiliki satuan default. Set satuan default produk atau pilih varian yang punya satuan sebelum mengonversi.',
+                $line->product?->name ?? 'Unknown',
+                $line->id
+            ));
+        }
+
+        return (int) $uomId;
     }
 
     private function describeLine(BookingLine $line): string
