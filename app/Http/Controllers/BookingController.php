@@ -291,13 +291,14 @@ class BookingController extends Controller
     {
         try {
             $salesOrder = $this->conversionService->convertToSalesOrder($booking);
-            dd($salesOrder);
         } catch (BookingConversionException $e) {
-            dd('excep');
             return Redirect::back()->with('error', $e->getMessage());
         } catch (BookingException $e) {
-            dd('exception');
             return Redirect::back()->with('error', $e->getMessage());
+        } catch (\App\Exceptions\SalesOrderException $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return Redirect::back()->with('error', 'Konversi gagal: data referensi (produk, satuan, atau pelanggan) tidak ditemukan.');
         }
 
         return Redirect::route('sales-orders.show', $salesOrder->id)
