@@ -289,7 +289,6 @@ class BookingController extends Controller
 
     public function convert(Booking $booking): RedirectResponse
     {
-        dd('out');
         try {
             dd('try');
             $salesOrder = $this->conversionService->convertToSalesOrder($booking);
