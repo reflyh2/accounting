@@ -146,7 +146,11 @@ class BookingConversionService
      */
     private function buildSalesOrderPayload(Booking $booking, FulfillmentMode $mode, array $overrides): array
     {
-        $orderDate = $overrides['order_date'] ?? Carbon::now()->toDateString();
+        // Source the SO's order_date from the booking's booked_at (the user-chosen
+        // booking date), so a backdated booking produces a backdated SO. Caller can
+        // still override via $overrides['order_date'] when needed.
+        $orderDate = $overrides['order_date']
+            ?? ($booking->booked_at ? $booking->booked_at->toDateString() : Carbon::now()->toDateString());
 
         $lines = [];
         foreach ($booking->lines as $line) {
