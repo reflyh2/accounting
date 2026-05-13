@@ -67,10 +67,10 @@ class SalesReportController extends Controller
             ->with('partner:id,name')
             ->whereBetween('order_date', [$startDate, $endDate]);
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereIn('company_id', (array) $filters['company_id']);
         }
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', (array) $filters['branch_id']);
         }
 
@@ -80,8 +80,8 @@ class SalesReportController extends Controller
             ->get();
 
         return [
-            'labels' => $results->map(fn($r) => $r->partner?->name ?? 'Unknown')->toArray(),
-            'data' => $results->pluck('total_value')->map(fn($v) => (float) $v)->toArray(),
+            'labels' => $results->map(fn ($r) => $r->partner?->name ?? 'Unknown')->toArray(),
+            'data' => $results->pluck('total_value')->map(fn ($v) => (float) $v)->toArray(),
         ];
     }
 
@@ -91,12 +91,13 @@ class SalesReportController extends Controller
         $endDate = $filters['end_date'];
 
         $applyFilters = function ($query) use ($filters) {
-            if (!empty($filters['company_id'])) {
+            if (! empty($filters['company_id'])) {
                 $query->whereIn('company_id', (array) $filters['company_id']);
             }
-            if (!empty($filters['branch_id'])) {
+            if (! empty($filters['branch_id'])) {
                 $query->whereIn('branch_id', (array) $filters['branch_id']);
             }
+
             return $query;
         };
 
@@ -134,12 +135,13 @@ class SalesReportController extends Controller
         $endDate = $filters['end_date'];
 
         $applyFilters = function ($query) use ($filters) {
-            if (!empty($filters['company_id'])) {
+            if (! empty($filters['company_id'])) {
                 $query->whereIn('company_id', (array) $filters['company_id']);
             }
-            if (!empty($filters['branch_id'])) {
+            if (! empty($filters['branch_id'])) {
                 $query->whereIn('branch_id', (array) $filters['branch_id']);
             }
+
             return $query;
         };
 
@@ -172,11 +174,11 @@ class SalesReportController extends Controller
             'datasets' => [
                 [
                     'label' => 'Sales Orders',
-                    'data' => array_map(fn($m) => (float) ($soMonthly[$m] ?? 0), $allMonths),
+                    'data' => array_map(fn ($m) => (float) ($soMonthly[$m] ?? 0), $allMonths),
                 ],
                 [
                     'label' => 'Sales Deliveries',
-                    'data' => array_map(fn($m) => (float) ($sdMonthly[$m] ?? 0), $allMonths),
+                    'data' => array_map(fn ($m) => (float) ($sdMonthly[$m] ?? 0), $allMonths),
                 ],
             ],
         ];
@@ -192,10 +194,10 @@ class SalesReportController extends Controller
             ->with('branch:id,name')
             ->whereBetween('order_date', [$startDate, $endDate]);
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereIn('company_id', (array) $filters['company_id']);
         }
-        if (!empty($filters['branch_id'])) {
+        if (! empty($filters['branch_id'])) {
             $query->whereIn('branch_id', (array) $filters['branch_id']);
         }
 
@@ -204,8 +206,8 @@ class SalesReportController extends Controller
             ->get();
 
         return [
-            'labels' => $results->map(fn($r) => $r->branch?->name ?? 'Unknown')->toArray(),
-            'data' => $results->pluck('total_value')->map(fn($v) => (float) $v)->toArray(),
+            'labels' => $results->map(fn ($r) => $r->branch?->name ?? 'Unknown')->toArray(),
+            'data' => $results->pluck('total_value')->map(fn ($v) => (float) $v)->toArray(),
         ];
     }
 
@@ -215,12 +217,13 @@ class SalesReportController extends Controller
         $endDate = $filters['end_date'];
 
         $applyFilters = function ($query) use ($filters) {
-            if (!empty($filters['company_id'])) {
+            if (! empty($filters['company_id'])) {
                 $query->whereIn('company_id', (array) $filters['company_id']);
             }
-            if (!empty($filters['branch_id'])) {
+            if (! empty($filters['branch_id'])) {
                 $query->whereIn('branch_id', (array) $filters['branch_id']);
             }
+
             return $query;
         };
 
@@ -289,11 +292,11 @@ class SalesReportController extends Controller
         $groupBy = $filters['group_by'] ?? 'document';
 
         $query = SalesOrder::with(['company', 'branch', 'partner', 'currency', 'salesPerson'])
-            ->when(!empty($filters['company_id']), fn($q) => $q->whereIn('company_id', (array) $filters['company_id']))
-            ->when(!empty($filters['branch_id']), fn($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
-            ->when(!empty($filters['partner_id']), fn($q) => $q->where('partner_id', $filters['partner_id']))
-            ->when(($filters['status'] ?? '') !== 'all', function($q) use ($filters) {
-                if (!empty($filters['status'])) {
+            ->when(! empty($filters['company_id']), fn ($q) => $q->whereIn('company_id', (array) $filters['company_id']))
+            ->when(! empty($filters['branch_id']), fn ($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
+            ->when(! empty($filters['partner_id']), fn ($q) => $q->where('partner_id', $filters['partner_id']))
+            ->when(($filters['status'] ?? '') !== 'all', function ($q) use ($filters) {
+                if (! empty($filters['status'])) {
                     $q->where('status', $filters['status']);
                 } else {
                     // Default: exclude cancelled
@@ -334,10 +337,10 @@ class SalesReportController extends Controller
         $groupBy = $filters['group_by'] ?? 'document';
 
         $query = SalesDelivery::with(['company', 'branch', 'partner', 'currency'])
-            ->when(!empty($filters['company_id']), fn($q) => $q->whereIn('company_id', (array) $filters['company_id']))
-            ->when(!empty($filters['branch_id']), fn($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
-            ->when(!empty($filters['partner_id']), fn($q) => $q->where('partner_id', $filters['partner_id']))
-            ->when(!empty($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->when(! empty($filters['company_id']), fn ($q) => $q->whereIn('company_id', (array) $filters['company_id']))
+            ->when(! empty($filters['branch_id']), fn ($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
+            ->when(! empty($filters['partner_id']), fn ($q) => $q->where('partner_id', $filters['partner_id']))
+            ->when(! empty($filters['status']), fn ($q) => $q->where('status', $filters['status']))
             ->whereBetween('delivery_date', [$filters['start_date'], $filters['end_date']])
             ->orderBy('delivery_date', 'desc');
 
@@ -371,12 +374,16 @@ class SalesReportController extends Controller
 
         $groupBy = $filters['group_by'] ?? 'document';
 
-        $query = SalesInvoice::with(['company', 'branch', 'partner', 'currency', 'lines.salesDeliveryLine', 'salesPerson'])
-            ->when(!empty($filters['company_id']), fn($q) => $q->whereIn('company_id', (array) $filters['company_id']))
-            ->when(!empty($filters['branch_id']), fn($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
-            ->when(!empty($filters['partner_id']), fn($q) => $q->where('partner_id', $filters['partner_id']))
-            ->when(($filters['status'] ?? '') !== 'all', function($q) use ($filters) {
-                if (!empty($filters['status'])) {
+        $query = SalesInvoice::with([
+            'company', 'branch', 'partner', 'currency', 'salesPerson',
+            'lines.salesDeliveryLine',
+            'lines.salesOrderLine.bookingLine.booking',
+        ])
+            ->when(! empty($filters['company_id']), fn ($q) => $q->whereIn('company_id', (array) $filters['company_id']))
+            ->when(! empty($filters['branch_id']), fn ($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
+            ->when(! empty($filters['partner_id']), fn ($q) => $q->where('partner_id', $filters['partner_id']))
+            ->when(($filters['status'] ?? '') !== 'all', function ($q) use ($filters) {
+                if (! empty($filters['status'])) {
                     $q->where('status', $filters['status']);
                 } else {
                     // Default: exclude cancelled
@@ -428,10 +435,10 @@ class SalesReportController extends Controller
         $groupBy = $filters['group_by'] ?? 'document';
 
         $query = SalesReturn::with(['company', 'branch', 'partner', 'currency', 'salesDelivery'])
-            ->when(!empty($filters['company_id']), fn($q) => $q->whereIn('company_id', (array) $filters['company_id']))
-            ->when(!empty($filters['branch_id']), fn($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
-            ->when(!empty($filters['partner_id']), fn($q) => $q->where('partner_id', $filters['partner_id']))
-            ->when(!empty($filters['status']), fn($q) => $q->where('status', $filters['status']))
+            ->when(! empty($filters['company_id']), fn ($q) => $q->whereIn('company_id', (array) $filters['company_id']))
+            ->when(! empty($filters['branch_id']), fn ($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
+            ->when(! empty($filters['partner_id']), fn ($q) => $q->where('partner_id', $filters['partner_id']))
+            ->when(! empty($filters['status']), fn ($q) => $q->where('status', $filters['status']))
             ->whereBetween('return_date', [$filters['start_date'], $filters['end_date']])
             ->orderBy('return_date', 'desc');
 
@@ -458,19 +465,43 @@ class SalesReportController extends Controller
     private function calculateInvoiceCogs(SalesInvoice $invoice): float
     {
         $cogs = 0;
-        
+
         foreach ($invoice->lines as $line) {
-            // Use COGS from delivery line if linked
-            if ($line->salesDeliveryLine && $line->salesDeliveryLine->cogs_total) {
-                // Pro-rate COGS based on quantity invoiced vs delivered
+            $lineCogs = 0.0;
+
+            // 1. SI line's tracked cost_total — set by CostingService when it attaches
+            //    inventory layer consumption, cost-pool allocation, or direct cost entries.
+            //    Covers self_operated booking pool allocations and inventory-tracked lines.
+            if ((float) $line->cost_total > 0) {
+                $lineCogs = (float) $line->cost_total;
+            }
+            // 2. Legacy fallback: COGS from the linked delivery line, pro-rated by invoiced qty.
+            elseif ($line->salesDeliveryLine && $line->salesDeliveryLine->cogs_total) {
                 $deliveredQty = $line->salesDeliveryLine->quantity ?? 1;
                 $invoicedQty = $line->quantity ?? 1;
-                $lineCogsRate = $line->salesDeliveryLine->cogs_total / $deliveredQty;
-                $cogs += $lineCogsRate * $invoicedQty;
-            } else {
-                // Fallback to delivery_value_base for direct invoices
-                $cogs += $line->delivery_value_base ?? 0;
+                $lineCogsRate = $line->salesDeliveryLine->cogs_total / max(1, $deliveredQty);
+                $lineCogs = $lineCogsRate * $invoicedQty;
             }
+            // 3. Direct invoice inventory issue fallback.
+            elseif ($line->delivery_value_base) {
+                $lineCogs = (float) $line->delivery_value_base;
+            }
+
+            // 4. Reseller booking supplier cost — BOOKING_PRINCIPAL_COGS_POSTED journals
+            //    Cr supplier_clearing but doesn't update SI line cost_total, so add it here.
+            //    Only when nothing else picked the cost up to avoid double counting.
+            if ($lineCogs === 0.0) {
+                $bookingLine = $line->salesOrderLine?->bookingLine;
+                if ($bookingLine && (float) $bookingLine->supplier_cost > 0) {
+                    $mode = $bookingLine->booking?->fulfillment_mode;
+                    $modeValue = is_string($mode) ? $mode : ($mode?->value);
+                    if ($modeValue === 'reseller') {
+                        $lineCogs = (float) $bookingLine->supplier_cost;
+                    }
+                }
+            }
+
+            $cogs += $lineCogs;
         }
 
         return $cogs;
@@ -480,35 +511,35 @@ class SalesReportController extends Controller
     {
         if ($groupBy === 'document') {
             $paginated = $query->paginate(50)->withQueryString();
-            
+
             // Add COGS and gross profit to each invoice
             $paginated->getCollection()->transform(function ($invoice) {
                 $cogs = $this->calculateInvoiceCogs($invoice);
                 $revenue = $invoice->total_amount ?? 0;
                 $grossProfit = $revenue - $cogs;
-                
+
                 $invoice->cogs = $cogs;
                 $invoice->gross_profit = $grossProfit;
                 $invoice->margin_percentage = $revenue > 0 ? round(($grossProfit / $revenue) * 100, 2) : 0;
-                
+
                 return $invoice;
             });
-            
+
             return $paginated;
         }
 
         $items = $query->get();
-        
+
         // Add COGS to each invoice
         $items = $items->map(function ($invoice) {
             $cogs = $this->calculateInvoiceCogs($invoice);
             $revenue = $invoice->total_amount ?? 0;
             $grossProfit = $revenue - $cogs;
-            
+
             $invoice->cogs = $cogs;
             $invoice->gross_profit = $grossProfit;
             $invoice->margin_percentage = $revenue > 0 ? round(($grossProfit / $revenue) * 100, 2) : 0;
-            
+
             return $invoice;
         });
 
@@ -519,6 +550,7 @@ class SalesReportController extends Controller
                         $totalRevenue = $groupItems->sum('total_amount');
                         $totalCogs = $groupItems->sum('cogs');
                         $grossProfit = $totalRevenue - $totalCogs;
+
                         return [
                             'group_name' => $groupItems->first()->partner?->name ?? 'Tanpa Customer',
                             'count' => $groupItems->count(),
@@ -536,11 +568,13 @@ class SalesReportController extends Controller
             case 'creator':
                 $creatorIds = $items->pluck('created_by')->unique()->filter();
                 $creators = User::whereIn('global_id', $creatorIds)->pluck('name', 'global_id');
+
                 return $items->groupBy('created_by')
                     ->map(function ($groupItems, $createdBy) use ($creators) {
                         $totalRevenue = $groupItems->sum('total_amount');
                         $totalCogs = $groupItems->sum('cogs');
                         $grossProfit = $totalRevenue - $totalCogs;
+
                         return [
                             'group_name' => $creators[$createdBy] ?? $createdBy ?: 'Unknown',
                             'count' => $groupItems->count(),
@@ -555,11 +589,13 @@ class SalesReportController extends Controller
             case 'salesperson':
                 $salespersonIds = $items->pluck('sales_person_id')->unique()->filter();
                 $salespersons = User::whereIn('global_id', $salespersonIds)->pluck('name', 'global_id');
+
                 return $items->groupBy('sales_person_id')
                     ->map(function ($groupItems, $salesPersonId) use ($salespersons) {
                         $totalRevenue = $groupItems->sum('total_amount');
                         $totalCogs = $groupItems->sum('cogs');
                         $grossProfit = $totalRevenue - $totalCogs;
+
                         return [
                             'group_name' => $salespersons[$salesPersonId] ?? 'Tanpa Salesperson',
                             'count' => $groupItems->count(),
@@ -577,6 +613,7 @@ class SalesReportController extends Controller
                         $totalRevenue = $groupItems->sum('total_amount');
                         $totalCogs = $groupItems->sum('cogs');
                         $grossProfit = $totalRevenue - $totalCogs;
+
                         return [
                             'group_name' => $status,
                             'count' => $groupItems->count(),
@@ -594,6 +631,7 @@ class SalesReportController extends Controller
                         $totalRevenue = $groupItems->sum('total_amount');
                         $totalCogs = $groupItems->sum('cogs');
                         $grossProfit = $totalRevenue - $totalCogs;
+
                         return [
                             'group_name' => $groupItems->first()->branch?->name ?? 'Tanpa Cabang',
                             'count' => $groupItems->count(),
@@ -611,6 +649,7 @@ class SalesReportController extends Controller
                         $totalRevenue = $groupItems->sum('total_amount');
                         $totalCogs = $groupItems->sum('cogs');
                         $grossProfit = $totalRevenue - $totalCogs;
+
                         return [
                             'group_name' => $groupItems->first()->company?->name ?? 'Tanpa Perusahaan',
                             'count' => $groupItems->count(),
@@ -634,12 +673,14 @@ class SalesReportController extends Controller
         $itemsData = collect();
 
         foreach ($documents as $document) {
-            if (!$document->lines) continue;
-            
+            if (! $document->lines) {
+                continue;
+            }
+
             foreach ($document->lines as $line) {
                 $productName = $line->salesOrderLine?->product?->name ?? $line->description ?? 'Unknown';
                 $variantName = $line->salesOrderLine?->variant?->name ?? null;
-                
+
                 // Calculate line COGS
                 $lineCogs = 0;
                 if ($line->salesDeliveryLine && $line->salesDeliveryLine->cogs_total) {
@@ -670,6 +711,7 @@ class SalesReportController extends Controller
                 $totalRevenue = $items->sum('total');
                 $totalCogs = $items->sum('cogs');
                 $grossProfit = $totalRevenue - $totalCogs;
+
                 return [
                     'group_name' => $productName,
                     'count' => $items->count(),
@@ -712,6 +754,7 @@ class SalesReportController extends Controller
             case 'creator':
                 $creatorIds = $query->pluck('created_by')->unique()->filter();
                 $creators = User::whereIn('global_id', $creatorIds)->pluck('name', 'global_id');
+
                 return $query->get()->groupBy('created_by')
                     ->map(function ($items, $createdBy) use ($valueField, $creators) {
                         return [
@@ -725,6 +768,7 @@ class SalesReportController extends Controller
             case 'salesperson':
                 $salespersonIds = $query->pluck('sales_person_id')->unique()->filter();
                 $salespersons = User::whereIn('global_id', $salespersonIds)->pluck('name', 'global_id');
+
                 return $query->get()->groupBy('sales_person_id')
                     ->map(function ($items, $salesPersonId) use ($valueField, $salespersons) {
                         return [
@@ -785,8 +829,10 @@ class SalesReportController extends Controller
         $itemsData = collect();
 
         foreach ($documents as $document) {
-            if (!$document->lines) continue;
-            
+            if (! $document->lines) {
+                continue;
+            }
+
             foreach ($document->lines as $line) {
                 // Get product name based on report type
                 if ($reportType === 'sales_invoices') {
@@ -827,21 +873,23 @@ class SalesReportController extends Controller
         $filters['start_date'] = $filters['start_date'] ?? date('Y-m-01');
         $filters['end_date'] = $filters['end_date'] ?? date('Y-m-d');
         $filters['group_by'] = $filters['group_by'] ?? 'document';
+
         return $filters;
     }
 
     private function getBranches(array $filters)
     {
         $query = Branch::query();
-        if (!empty($filters['company_id'])) {
-            $query->whereHas('branchGroup', fn($q) => $q->whereIn('company_id', (array) $filters['company_id']));
+        if (! empty($filters['company_id'])) {
+            $query->whereHas('branchGroup', fn ($q) => $q->whereIn('company_id', (array) $filters['company_id']));
         }
+
         return $query->orderBy('name', 'asc')->get();
     }
 
     private function getCustomers()
     {
-        return Partner::whereHas('roles', fn($q) => $q->where('role', 'customer'))
+        return Partner::whereHas('roles', fn ($q) => $q->where('role', 'customer'))
             ->orderBy('name', 'asc')
             ->get(['id', 'name']);
     }
@@ -876,6 +924,7 @@ class SalesReportController extends Controller
         foreach ($enumClass::cases() as $case) {
             $labels[$case->value] = $case->label();
         }
+
         return $labels;
     }
 }

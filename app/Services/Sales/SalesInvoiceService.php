@@ -471,6 +471,32 @@ class SalesInvoiceService
             $journal->journalEntries()->delete();
             $journal->delete();
         }
+
+        // Detach per-line cost attachments created by distributeInvoiceCostsToLines.
+        // Steps: delete InvoiceDetailCost rows pointing at the SALES_INVOICE-sourced
+        // CostEntries for this invoice, delete those CostEntries, then recompute
+        // each SI line's cost_total / unit_cost / gross_margin.
+        $costEntries = \App\Models\CostEntry::query()
+            ->where('source_type', \App\Enums\CostEntrySource::SALES_INVOICE->value)
+            ->where('source_id', $invoice->id)
+            ->get();
+
+        if ($costEntries->isNotEmpty()) {
+            $entryIds = $costEntries->pluck('id');
+
+            \App\Models\InvoiceDetailCost::query()
+                ->whereIn('cost_entry_id', $entryIds)
+                ->delete();
+
+            \App\Models\CostEntry::query()
+                ->whereIn('id', $entryIds)
+                ->delete();
+
+            $invoice->loadMissing('lines');
+            foreach ($invoice->lines as $line) {
+                $this->costingService->updateLineCostTotals($line->refresh());
+            }
+        }
     }
 
     private function deleteExternalDebt(SalesInvoice $invoice): void
@@ -1840,7 +1866,7 @@ class SalesInvoiceService
      */
     private function createCostEntries(SalesInvoice $invoice, ?Authenticatable $actor): void
     {
-        $invoice->loadMissing(['costs.costItem', 'branch', 'currency']);
+        $invoice->loadMissing(['costs.costItem', 'lines', 'branch', 'currency']);
 
         if ($invoice->costs->isEmpty()) {
             return;
@@ -1895,6 +1921,96 @@ class SalesInvoiceService
                 'primary_currency_debit' => 0,
                 'primary_currency_credit' => $primaryAmount,
             ]);
+        }
+
+        // Distribute invoice-level costs across SI lines (pro-rata by line_total_base)
+        // so sales report margin reflects them via SalesInvoiceLine.cost_total.
+        $this->distributeInvoiceCostsToLines($invoice, $validCosts, $actor);
+    }
+
+    /**
+     * Create a CostEntry per SalesInvoiceCost row and pro-rate its base-currency
+     * amount across the invoice's lines using CostingService::attachCostToLine,
+     * which in turn updates each line's cost_total / unit_cost / gross_margin.
+     *
+     * The journal entries created by createCostEntries above already hit the GL;
+     * this is purely a reporting attachment so the sales report can show margin.
+     */
+    private function distributeInvoiceCostsToLines(
+        SalesInvoice $invoice,
+        \Illuminate\Support\Collection $validCosts,
+        ?Authenticatable $actor
+    ): void {
+        $lines = $invoice->lines;
+        if ($lines->isEmpty()) {
+            return;
+        }
+
+        $totalLineBase = (float) $lines->sum(fn ($l) => (float) $l->line_total_base);
+        if ($totalLineBase <= 0) {
+            return;
+        }
+
+        $costDate = \Carbon\CarbonImmutable::parse($invoice->invoice_date ?? now());
+
+        foreach ($validCosts as $invoiceCost) {
+            $amount = (float) $invoiceCost->amount;
+            $exchangeRate = (float) ($invoiceCost->exchange_rate ?: 1);
+            $amountBase = $this->roundCost($amount * $exchangeRate);
+
+            $costEntry = $this->costingService->recordCostEntry(
+                new \App\Services\Costing\DTO\CostEntryDTO(
+                    companyId: $invoice->company_id,
+                    sourceType: \App\Enums\CostEntrySource::SALES_INVOICE,
+                    sourceId: $invoice->id,
+                    amount: $amount,
+                    currencyId: (int) $invoiceCost->currency_id,
+                    exchangeRate: $exchangeRate,
+                    costDate: $costDate,
+                    description: $invoiceCost->description
+                        ?: ($invoiceCost->costItem?->name ?? 'Invoice cost'),
+                ),
+                $actor
+            );
+
+            // Pro-rate by line_total_base, handle rounding drift on the last line.
+            $allocatedBase = 0.0;
+            $lastIndex = $lines->count() - 1;
+
+            foreach ($lines->values() as $idx => $line) {
+                $lineBase = (float) $line->line_total_base;
+                if ($lineBase <= 0) {
+                    continue;
+                }
+
+                if ($idx === $lastIndex) {
+                    // Send the remainder to the last positive line so the sum equals amountBase.
+                    $share = $this->roundCost($amountBase - $allocatedBase);
+                } else {
+                    $ratio = $lineBase / $totalLineBase;
+                    $share = $this->roundCost($amountBase * $ratio);
+                    $allocatedBase += $share;
+                }
+
+                if ($share <= 0) {
+                    continue;
+                }
+
+                $this->costingService->attachCostToLine(
+                    \App\Services\Costing\DTO\AttachCostDTO::fromCostEntry(
+                        salesInvoiceLineId: $line->id,
+                        costEntryId: $costEntry->id,
+                        amount: $share,
+                        amountBase: $share,
+                    )
+                );
+            }
+
+            // After attaching to all lines, refresh each line's cost totals so the
+            // SI line's cost_total / unit_cost / gross_margin reflect the new costs.
+            foreach ($lines as $line) {
+                $this->costingService->updateLineCostTotals($line->refresh());
+            }
         }
     }
 }
