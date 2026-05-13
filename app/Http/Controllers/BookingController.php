@@ -174,6 +174,7 @@ class BookingController extends Controller
                 'booking_type' => $data['booking_type'],
                 'booking_subtype' => $data['booking_subtype'] ?? $data['booking_type'],
                 'fulfillment_mode' => $data['fulfillment_mode'] ?? FulfillmentMode::SELF_OPERATED->value,
+                'booked_at' => isset($data['booked_at']) ? Carbon::parse($data['booked_at']) : $booking->booked_at,
                 'held_until' => $data['held_until'] ?? null,
                 'deposit_amount' => $data['deposit_amount'] ?? 0,
                 'deposit_payment_method' => $data['deposit_payment_method'] ?? null,
@@ -344,6 +345,7 @@ class BookingController extends Controller
             'booking_type' => ['required', 'in:accommodation,rental'],
             'booking_subtype' => ['nullable', 'string', 'max:40'],
             'fulfillment_mode' => ['nullable', 'in:'.implode(',', $modes)],
+            'booked_at' => ['nullable', 'date'],
             'held_until' => ['nullable', 'date'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'deposit_payment_method' => ['nullable', 'string', 'max:30'],
@@ -449,6 +451,7 @@ class BookingController extends Controller
                 ),
                 $data['lines']
             ),
+            isset($data['booked_at']) ? Carbon::parse($data['booked_at']) : null,
         );
     }
 

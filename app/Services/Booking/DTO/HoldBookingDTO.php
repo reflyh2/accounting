@@ -20,6 +20,7 @@ readonly class HoldBookingDTO
         public ?string $sourceChannel,
         public ?string $notes,
         public array $lines,
+        public ?CarbonInterface $bookedAt = null,
     ) {
     }
 }

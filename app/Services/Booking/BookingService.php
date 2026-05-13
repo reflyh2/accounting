@@ -72,7 +72,7 @@ class BookingService
                 'partner_id' => $dto->partnerId,
                 'booking_type' => $dto->bookingType,
                 'status' => BookingStatus::HOLD->value,
-                'booked_at' => now(),
+                'booked_at' => $dto->bookedAt ?? now(),
                 'held_until' => $dto->heldUntil,
                 'source_channel' => $dto->sourceChannel,
                 'deposit_amount' => $dto->depositAmount,

@@ -29,6 +29,9 @@ const form = useForm({
     booking_type: props.booking?.booking_type || 'accommodation',
     booking_subtype: props.booking?.booking_subtype || 'accommodation',
     fulfillment_mode: props.booking?.fulfillment_mode || 'self_operated',
+    booked_at: props.booking?.booked_at
+        ? new Date(props.booking.booked_at).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0],
     held_until: props.booking?.held_until ? new Date(props.booking.held_until).toISOString().split('T')[0] : '',
     deposit_amount: props.booking?.deposit_amount || 0,
     deposit_payment_method: props.booking?.deposit_payment_method || null,
@@ -364,8 +367,16 @@ function submitForm(createAnother = false) {
                     />
                 </div>
 
-                <!-- Hold Until, Deposit -->
+                <!-- Booking date, Hold Until, Deposit -->
                 <div class="grid grid-cols-3 gap-4">
+                    <AppInput
+                        v-model="form.booked_at"
+                        type="date"
+                        label="Tanggal Booking:"
+                        required
+                        :error="form.errors.booked_at"
+                    />
+
                     <AppInput
                         v-model="form.held_until"
                         type="date"
@@ -379,9 +390,11 @@ function submitForm(createAnother = false) {
                         label="Deposit:"
                         :error="form.errors.deposit_amount"
                     />
+                </div>
 
+                <!-- Deposit payment method, when applicable -->
+                <div v-if="hasDeposit" class="grid grid-cols-3 gap-4">
                     <AppSelect
-                        v-if="hasDeposit"
                         v-model="form.deposit_payment_method"
                         :options="formOptions.paymentMethods.map((m) => ({ value: m.value, label: m.label }))"
                         placeholder="Pilih Metode"
