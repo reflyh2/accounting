@@ -33,4 +33,17 @@ class SalesInvoiceCost extends Model
     {
         return $this->belongsTo(Currency::class);
     }
+
+    public function supplierPartner()
+    {
+        return $this->belongsTo(Partner::class, 'supplier_partner_id');
+    }
+
+    /**
+     * Polymorphic settlement marker. See BookingLine::settledBy for semantics.
+     */
+    public function settledBy()
+    {
+        return $this->morphTo();
+    }
 }

@@ -54,6 +54,7 @@ class AccountSeeder extends Seeder
                     ['name' => 'PPN Masukan', 'type' => 'aset_lancar_lainnya'],
                     ['name' => 'PPh 23 Penjualan', 'type' => 'aset_lancar_lainnya'],
                     ['name' => 'Transaksi Dalam Pelaksanaan', 'type' => 'aset_lancar_lainnya'],
+                    ['name' => 'Uang Muka Pemasok', 'type' => 'aset_lancar_lainnya'],
                     ['name' => 'Investasi Jangka Pendek', 'type' => 'aset_lancar_lainnya', 'children' => [
                         ['name' => 'Deposito', 'type' => 'aset_lancar_lainnya'],
                         ['name' => 'Obligasi', 'type' => 'aset_lancar_lainnya'],

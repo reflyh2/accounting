@@ -296,6 +296,36 @@ class GlEventConfigurationSeeder extends Seeder
                     ['role' => 'cogs_booking', 'direction' => 'credit', 'account_name' => 'Harga Pokok Penjualan Booking'],
                 ],
             ],
+
+            // ============ SUPPLIER DEPOSIT EVENTS ============
+            AccountingEventCode::SUPPLIER_DEPOSIT_PAID->value => [
+                'description' => 'Cash advance paid to a supplier; sits as an asset until consumed by cost obligations',
+                'lines' => [
+                    ['role' => 'supplier_advance', 'direction' => 'debit', 'account_name' => 'Uang Muka Pemasok'],
+                    ['role' => 'cash', 'direction' => 'credit', 'account_name' => 'Kas Besar'],
+                ],
+            ],
+            AccountingEventCode::SUPPLIER_DEPOSIT_REVERSED->value => [
+                'description' => 'Reversal of a supplier deposit (refund of unused balance)',
+                'lines' => [
+                    ['role' => 'cash', 'direction' => 'debit', 'account_name' => 'Kas Besar'],
+                    ['role' => 'supplier_advance', 'direction' => 'credit', 'account_name' => 'Uang Muka Pemasok'],
+                ],
+            ],
+            AccountingEventCode::SUPPLIER_DEPOSIT_CONSUMED->value => [
+                'description' => 'Booking or invoice cost obligation drawn from a prepaid supplier deposit',
+                'lines' => [
+                    ['role' => 'cogs_booking', 'direction' => 'debit', 'account_name' => 'Harga Pokok Penjualan Booking'],
+                    ['role' => 'supplier_advance', 'direction' => 'credit', 'account_name' => 'Uang Muka Pemasok'],
+                ],
+            ],
+            AccountingEventCode::SUPPLIER_DEPOSIT_CONSUMED_REVERSED->value => [
+                'description' => 'Reversal of a supplier deposit consumption (e.g. invoice unposted)',
+                'lines' => [
+                    ['role' => 'supplier_advance', 'direction' => 'debit', 'account_name' => 'Uang Muka Pemasok'],
+                    ['role' => 'cogs_booking', 'direction' => 'credit', 'account_name' => 'Harga Pokok Penjualan Booking'],
+                ],
+            ],
         ];
 
         $accountNames = collect($eventConfigurations)->pluck('lines.*.account_name')->flatten()->unique()->toArray();
