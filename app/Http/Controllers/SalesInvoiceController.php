@@ -177,7 +177,17 @@ class SalesInvoiceController extends Controller
                 ]),
             'costItems' => CostItem::where('is_active', true)
                 ->orderBy('name')
-                ->get(['id', 'code', 'name', 'company_id']),
+                ->get(['id', 'code', 'name', 'company_id', 'is_supplier_payable']),
+            'suppliers' => Partner::query()
+                ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
+                ->orderBy('name')
+                ->get(['id', 'name', 'code'])
+                ->map(fn (Partner $p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'code' => $p->code,
+                ])
+                ->toArray(),
             'users' => $this->userOptions(),
             'taxInvoiceCodeOptions' => TaxInvoiceCode::options(),
             'defaultTaxInvoiceCode' => TaxInvoiceCode::default()->value,
@@ -286,7 +296,17 @@ class SalesInvoiceController extends Controller
                 ]),
             'costItems' => CostItem::where('is_active', true)
                 ->orderBy('name')
-                ->get(['id', 'code', 'name', 'company_id']),
+                ->get(['id', 'code', 'name', 'company_id', 'is_supplier_payable']),
+            'suppliers' => Partner::query()
+                ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
+                ->orderBy('name')
+                ->get(['id', 'name', 'code'])
+                ->map(fn (Partner $p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'code' => $p->code,
+                ])
+                ->toArray(),
             'users' => $this->userOptions(),
             'taxInvoiceCodeOptions' => TaxInvoiceCode::options(),
             'filters' => Session::get('sales_invoices.index_filters', []),
@@ -480,6 +500,7 @@ class SalesInvoiceController extends Controller
             'costs' => 'nullable|array',
             'costs.*.description' => 'nullable|string|max:255',
             'costs.*.cost_item_id' => 'nullable|exists:cost_items,id',
+            'costs.*.supplier_partner_id' => 'nullable|exists:partners,id',
             'costs.*.amount' => 'required|numeric|min:0',
             'costs.*.percentage' => 'nullable|numeric|min:0|max:100',
             'costs.*.apply_timing' => 'nullable|string|in:before_tax,after_tax',

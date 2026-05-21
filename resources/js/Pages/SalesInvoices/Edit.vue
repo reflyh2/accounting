@@ -21,6 +21,7 @@ defineProps({
     paymentMethods: Array,
     companyBankAccounts: Array,
     costItems: Array,
+    suppliers: Array,
     users: Array,
     filters: Object,
     taxInvoiceCodeOptions: Object,
@@ -59,6 +60,7 @@ defineProps({
                             :paymentMethods="paymentMethods"
                             :companyBankAccounts="companyBankAccounts"
                             :costItems="costItems"
+                            :suppliers="suppliers"
                             :users="users"
                             :taxInvoiceCodeOptions="taxInvoiceCodeOptions"
                             :defaultTaxInvoiceCode="defaultTaxInvoiceCode"

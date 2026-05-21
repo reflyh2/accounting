@@ -36,32 +36,58 @@ watch(() => filterForm.value.company_id, () => { filterForm.value.partner_id = n
 watch(() => filterForm.value.partner_id, reload);
 
 // Selected obligations + PI header form.
-const selectedIds = ref([]);
+// Composite keys: `${kind}:${id}` so the same numeric id from different
+// source tables (booking_lines vs sales_invoice_costs) don't collide.
+const selectedKeys = ref([]);
+
+function keyFor(row) {
+    return `${row.kind}:${row.id}`;
+}
 
 const allSelected = computed(() =>
-    props.outstanding.length > 0 && selectedIds.value.length === props.outstanding.length
+    props.outstanding.length > 0 && selectedKeys.value.length === props.outstanding.length
 );
 
 function toggleAll() {
-    selectedIds.value = allSelected.value
+    selectedKeys.value = allSelected.value
         ? []
-        : props.outstanding.map((row) => row.id);
+        : props.outstanding.map(keyFor);
 }
 
-const selectedTotal = computed(() => {
-    return props.outstanding
-        .filter((row) => selectedIds.value.includes(row.id))
-        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
-});
+const selectedRows = computed(() =>
+    props.outstanding.filter((row) => selectedKeys.value.includes(keyFor(row)))
+);
+
+const selectedTotal = computed(() =>
+    selectedRows.value.reduce((sum, row) => sum + Number(row.amount || 0), 0)
+);
+
+const selectedBookingLineIds = computed(() =>
+    selectedRows.value
+        .filter((row) => row.kind === 'reseller_cost' || row.kind === 'agent_passthrough')
+        .map((row) => row.id)
+);
+
+const selectedSiCostIds = computed(() =>
+    selectedRows.value
+        .filter((row) => row.kind === 'si_direct_cost')
+        .map((row) => row.id)
+);
 
 function kindLabel(kind) {
-    return kind === 'agent_passthrough' ? 'Agen (Passthrough)' : 'Reseller';
+    return {
+        agent_passthrough: 'Agen (Passthrough)',
+        si_direct_cost: 'Biaya Langsung SI',
+        reseller_cost: 'Reseller',
+    }[kind] || kind;
 }
 
 function kindBadgeClass(kind) {
-    return kind === 'agent_passthrough'
-        ? 'bg-purple-100 text-purple-800'
-        : 'bg-blue-100 text-blue-800';
+    return {
+        agent_passthrough: 'bg-purple-100 text-purple-800',
+        si_direct_cost: 'bg-amber-100 text-amber-800',
+        reseller_cost: 'bg-blue-100 text-blue-800',
+    }[kind] || 'bg-gray-100 text-gray-800';
 }
 
 const piForm = useForm({
@@ -75,6 +101,7 @@ const piForm = useForm({
     vendor_invoice_number: '',
     notes: '',
     booking_line_ids: [],
+    sales_invoice_cost_ids: [],
 });
 
 // Mirror header filters into the PI form so the user doesn't repeat themselves.
@@ -89,7 +116,8 @@ watch(() => props.branches, (val) => {
 });
 
 function submit() {
-    piForm.booking_line_ids = selectedIds.value;
+    piForm.booking_line_ids = selectedBookingLineIds.value;
+    piForm.sales_invoice_cost_ids = selectedSiCostIds.value;
     piForm.post(route('obligation-billing.store'), { preserveScroll: true });
 }
 
@@ -149,9 +177,9 @@ function formatDate(value) {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="row in outstanding" :key="row.id" class="border-b hover:bg-gray-50">
+                        <tr v-for="row in outstanding" :key="`${row.kind}:${row.id}`" class="border-b hover:bg-gray-50">
                             <td class="px-2 py-2 border text-center">
-                                <input type="checkbox" :value="row.id" v-model="selectedIds" />
+                                <input type="checkbox" :value="keyFor(row)" v-model="selectedKeys" />
                             </td>
                             <td class="px-3 py-2 border">{{ row.booking_number }}</td>
                             <td class="px-3 py-2 border">
@@ -183,7 +211,7 @@ function formatDate(value) {
             </div>
 
             <!-- PI header form -->
-            <div v-if="selectedIds.length" class="mt-6 border-t pt-4">
+            <div v-if="selectedKeys.length" class="mt-6 border-t pt-4">
                 <h3 class="text-lg font-semibold mb-3">Detail PI</h3>
                 <form @submit.prevent="submit" class="space-y-3">
                     <div class="grid grid-cols-3 gap-3">
@@ -237,7 +265,7 @@ function formatDate(value) {
                     />
 
                     <div class="flex gap-2 justify-end">
-                        <AppSecondaryButton type="button" @click="selectedIds = []">Batal</AppSecondaryButton>
+                        <AppSecondaryButton type="button" @click="selectedKeys = []">Batal</AppSecondaryButton>
                         <AppPrimaryButton type="submit" :disabled="piForm.processing">
                             Buat PI Draft
                         </AppPrimaryButton>

@@ -9,6 +9,7 @@ use App\Models\BookingLine;
 use App\Models\GlEventConfiguration;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseInvoiceLine;
+use App\Models\SalesInvoiceCost;
 use Carbon\Carbon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
@@ -31,6 +32,8 @@ class ObligationBillingService
     public const KIND_RESELLER = 'reseller_cost';
 
     public const KIND_AGENT = 'agent_passthrough';
+
+    public const KIND_SI_COST = 'si_direct_cost';
 
     /**
      * Outstanding booking obligations for a supplier across all supported
@@ -55,10 +58,61 @@ class ObligationBillingService
         $agent = $this->outstandingAgentLines($companyId, $partnerId)
             ->map(fn ($line) => $this->presentLine($line, self::KIND_AGENT, (float) $line->passthrough_amount));
 
-        return $reseller->concat($agent)
+        $siCosts = $this->outstandingSiCosts($companyId, $partnerId)
+            ->map(fn ($cost) => $this->presentSiCost($cost));
+
+        return $reseller->concat($agent)->concat($siCosts)
             ->sortBy('start_datetime')
             ->values()
             ->all();
+    }
+
+    /**
+     * SalesInvoiceCost rows where the cost_item is flagged is_supplier_payable
+     * and the supplier_partner_id matches. Pulled in alongside booking
+     * obligations so the user bills all three kinds together when they
+     * share a supplier.
+     *
+     * @return Collection<int, SalesInvoiceCost>
+     */
+    private function outstandingSiCosts(int $companyId, int $partnerId): Collection
+    {
+        return SalesInvoiceCost::query()
+            ->with([
+                'salesInvoice:id,invoice_number,company_id,invoice_date,status',
+                'costItem:id,name,code,credit_account_id,is_supplier_payable',
+                'supplierPartner:id,name,code',
+            ])
+            ->where('supplier_partner_id', $partnerId)
+            ->where('amount', '>', 0)
+            ->whereNull('settled_by_type')
+            ->whereHas('costItem', fn ($q) => $q->where('is_supplier_payable', true))
+            ->whereHas('salesInvoice', fn ($q) => $q
+                ->where('company_id', $companyId)
+                ->where('status', InvoiceStatus::POSTED->value))
+            ->get();
+    }
+
+    private function presentSiCost(SalesInvoiceCost $cost): array
+    {
+        $invoice = $cost->salesInvoice;
+        $invoiceDate = $invoice?->invoice_date;
+
+        return [
+            'id' => $cost->id,
+            'kind' => self::KIND_SI_COST,
+            'amount' => (float) $cost->amount,
+            'booking_number' => $invoice?->invoice_number,
+            'booking_subtype' => $cost->costItem?->name,
+            'fulfillment_mode' => null,
+            'product_name' => $cost->description ?: $cost->costItem?->name,
+            'start_datetime' => $invoiceDate instanceof \Carbon\CarbonInterface
+                ? $invoiceDate->toIso8601String()
+                : (string) $invoiceDate,
+            'end_datetime' => null,
+            'qty' => 1,
+            'supplier_invoice_ref' => null,
+        ];
     }
 
     /**
@@ -142,39 +196,59 @@ class ObligationBillingService
      *     invoice_date:string, due_date?:string, exchange_rate?:float,
      *     vendor_invoice_number?:string, notes?:string,
      * }  $header
-     * @param  int[]  $bookingLineIds  obligation rows to bill
+     * @param  int[]  $bookingLineIds  reseller-cost or agent-passthrough rows
+     * @param  int[]  $salesInvoiceCostIds  SI direct cost rows tagged is_supplier_payable
      */
     public function generatePurchaseInvoice(
         array $header,
         array $bookingLineIds,
+        array $salesInvoiceCostIds = [],
         ?Authenticatable $actor = null
     ): PurchaseInvoice {
         $actor ??= Auth::user();
 
-        if (empty($bookingLineIds)) {
+        if (empty($bookingLineIds) && empty($salesInvoiceCostIds)) {
             throw new ObligationBillingException('Pilih minimal satu obligation untuk dibuatkan PI.');
         }
 
-        return DB::transaction(function () use ($header, $bookingLineIds, $actor) {
-            // Lock and validate the selected booking lines.
-            $lines = BookingLine::query()
-                ->with('booking')
-                ->whereIn('id', $bookingLineIds)
-                ->lockForUpdate()
-                ->get();
+        return DB::transaction(function () use ($header, $bookingLineIds, $salesInvoiceCostIds, $actor) {
+            $resolved = collect();
 
-            if ($lines->count() !== count($bookingLineIds)) {
-                throw new ObligationBillingException('Beberapa baris booking tidak ditemukan.');
+            if (! empty($bookingLineIds)) {
+                $lines = BookingLine::query()
+                    ->with('booking')
+                    ->whereIn('id', $bookingLineIds)
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($lines->count() !== count($bookingLineIds)) {
+                    throw new ObligationBillingException('Beberapa baris booking tidak ditemukan.');
+                }
+
+                $resolved = $resolved->concat($lines->map(fn ($line) => $this->resolveLineForBilling(
+                    $line,
+                    (int) $header['company_id'],
+                    (int) $header['partner_id']
+                )));
             }
 
-            // Resolve kind + amount + account per line. Throws if any line is
-            // malformed (wrong supplier/company, already settled, or in a
-            // booking mode the obligation flow doesn't support).
-            $resolved = $lines->map(fn ($line) => $this->resolveLineForBilling(
-                $line,
-                (int) $header['company_id'],
-                (int) $header['partner_id']
-            ));
+            if (! empty($salesInvoiceCostIds)) {
+                $costs = SalesInvoiceCost::query()
+                    ->with(['salesInvoice', 'costItem'])
+                    ->whereIn('id', $salesInvoiceCostIds)
+                    ->lockForUpdate()
+                    ->get();
+
+                if ($costs->count() !== count($salesInvoiceCostIds)) {
+                    throw new ObligationBillingException('Beberapa baris biaya SI tidak ditemukan.');
+                }
+
+                $resolved = $resolved->concat($costs->map(fn ($cost) => $this->resolveSiCostForBilling(
+                    $cost,
+                    (int) $header['company_id'],
+                    (int) $header['partner_id']
+                )));
+            }
 
             $invoiceDate = Carbon::parse($header['invoice_date']);
             $exchangeRate = (float) ($header['exchange_rate'] ?? 1);
@@ -200,15 +274,14 @@ class ObligationBillingService
 
             $lineNumber = 1;
             foreach ($resolved as $row) {
-                /** @var BookingLine $bookingLine */
-                $bookingLine = $row['line'];
+                $source = $row['source'];
                 $amount = (float) $row['amount'];
                 $amountBase = $amount * $exchangeRate;
 
                 $piLine = PurchaseInvoiceLine::create([
                     'purchase_invoice_id' => $invoice->id,
                     'line_number' => $lineNumber++,
-                    'description' => $this->describeBookingLine($bookingLine, $row['kind']),
+                    'description' => $row['description'],
                     'quantity' => 1,
                     'quantity_base' => 1,
                     'unit_price' => $amount,
@@ -218,11 +291,11 @@ class ObligationBillingService
                     'ppv_amount' => 0,
                     'tax_amount' => 0,
                     'account_id' => $row['account_id'],
-                    'source_type' => BookingLine::class,
-                    'source_id' => $bookingLine->id,
+                    'source_type' => $row['source_class'],
+                    'source_id' => $source->id,
                 ]);
 
-                $bookingLine->forceFill([
+                $source->forceFill([
                     'settled_by_type' => PurchaseInvoiceLine::class,
                     'settled_by_id' => $piLine->id,
                 ])->save();
@@ -233,8 +306,13 @@ class ObligationBillingService
     }
 
     /**
-     * Validate a booking line for billing and resolve its (kind, amount, account_id).
-     * Returns ['line' => BookingLine, 'kind' => string, 'amount' => float, 'account_id' => int].
+     * Validate a booking line for billing and resolve its (kind, amount, account_id,
+     * source, source_class, description). Throws if malformed.
+     *
+     * @return array{
+     *     source: BookingLine, source_class: class-string, kind: string,
+     *     amount: float, account_id: int, description: string
+     * }
      */
     private function resolveLineForBilling(BookingLine $line, int $companyId, int $partnerId): array
     {
@@ -263,7 +341,8 @@ class ObligationBillingService
 
         if ($mode === 'reseller' && (float) $line->supplier_cost > 0) {
             return [
-                'line' => $line,
+                'source' => $line,
+                'source_class' => BookingLine::class,
                 'kind' => self::KIND_RESELLER,
                 'amount' => (float) $line->supplier_cost,
                 'account_id' => $this->requireAccountForRole(
@@ -271,12 +350,14 @@ class ObligationBillingService
                     AccountingEventCode::BOOKING_PRINCIPAL_COGS_POSTED->value,
                     'supplier_clearing'
                 ),
+                'description' => $this->describeBookingLine($line, self::KIND_RESELLER),
             ];
         }
 
         if ($mode === 'agent' && (float) $line->passthrough_amount > 0) {
             return [
-                'line' => $line,
+                'source' => $line,
+                'source_class' => BookingLine::class,
                 'kind' => self::KIND_AGENT,
                 'amount' => (float) $line->passthrough_amount,
                 'account_id' => $this->requireAccountForRole(
@@ -284,6 +365,7 @@ class ObligationBillingService
                     AccountingEventCode::BOOKING_AGENT_PASSTHROUGH_POSTED->value,
                     'supplier_payable_passthrough'
                 ),
+                'description' => $this->describeBookingLine($line, self::KIND_AGENT),
             ];
         }
 
@@ -294,6 +376,64 @@ class ObligationBillingService
             (string) $line->supplier_cost,
             (string) $line->passthrough_amount
         ));
+    }
+
+    /**
+     * Validate a SalesInvoiceCost row for billing. Uses the CostItem's
+     * credit_account_id as the debit account (that's the account the SI
+     * cost entry credited at SI post time, so the PI debits it to clear).
+     *
+     * @return array{
+     *     source: SalesInvoiceCost, source_class: class-string, kind: string,
+     *     amount: float, account_id: int, description: string
+     * }
+     */
+    private function resolveSiCostForBilling(SalesInvoiceCost $cost, int $companyId, int $partnerId): array
+    {
+        if ($cost->settled_by_type !== null) {
+            throw new ObligationBillingException(sprintf(
+                'Biaya SI #%d sudah disettle.',
+                $cost->id
+            ));
+        }
+        if ((int) $cost->supplier_partner_id !== $partnerId) {
+            throw new ObligationBillingException(sprintf(
+                'Biaya SI #%d milik supplier lain.',
+                $cost->id
+            ));
+        }
+        if (! $cost->costItem || ! $cost->costItem->is_supplier_payable) {
+            throw new ObligationBillingException(sprintf(
+                'Biaya SI #%d bukan tagihan pemasok.',
+                $cost->id
+            ));
+        }
+        if ((int) $cost->salesInvoice?->company_id !== $companyId) {
+            throw new ObligationBillingException(sprintf(
+                'Biaya SI #%d milik perusahaan lain.',
+                $cost->id
+            ));
+        }
+        if (! $cost->costItem->credit_account_id) {
+            throw new ObligationBillingException(sprintf(
+                'Biaya SI #%d: cost item belum punya credit_account untuk dibilling.',
+                $cost->id
+            ));
+        }
+
+        return [
+            'source' => $cost,
+            'source_class' => SalesInvoiceCost::class,
+            'kind' => self::KIND_SI_COST,
+            'amount' => (float) $cost->amount,
+            'account_id' => (int) $cost->costItem->credit_account_id,
+            'description' => sprintf(
+                '[%s] %s%s',
+                $cost->salesInvoice?->invoice_number ?? '?',
+                $cost->costItem->name,
+                $cost->description ? ': '.$cost->description : ''
+            ),
+        ];
     }
 
     /**
