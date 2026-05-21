@@ -51,8 +51,18 @@ function toggleAll() {
 const selectedTotal = computed(() => {
     return props.outstanding
         .filter((row) => selectedIds.value.includes(row.id))
-        .reduce((sum, row) => sum + Number(row.supplier_cost || 0), 0);
+        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
 });
+
+function kindLabel(kind) {
+    return kind === 'agent_passthrough' ? 'Agen (Passthrough)' : 'Reseller';
+}
+
+function kindBadgeClass(kind) {
+    return kind === 'agent_passthrough'
+        ? 'bg-purple-100 text-purple-800'
+        : 'bg-blue-100 text-blue-800';
+}
 
 const piForm = useForm({
     company_id: null,
@@ -130,10 +140,11 @@ function formatDate(value) {
                                 <input type="checkbox" :checked="allSelected" @change="toggleAll" />
                             </th>
                             <th class="px-3 py-2 border text-left">Booking</th>
+                            <th class="px-3 py-2 border text-left">Jenis</th>
                             <th class="px-3 py-2 border text-left">Item</th>
                             <th class="px-3 py-2 border text-left">Periode</th>
                             <th class="px-3 py-2 border text-right">Qty</th>
-                            <th class="px-3 py-2 border text-right">Biaya Pemasok</th>
+                            <th class="px-3 py-2 border text-right">Jumlah</th>
                             <th class="px-3 py-2 border text-left">Ref Pemasok</th>
                         </tr>
                     </thead>
@@ -144,18 +155,23 @@ function formatDate(value) {
                             </td>
                             <td class="px-3 py-2 border">{{ row.booking_number }}</td>
                             <td class="px-3 py-2 border">
+                                <span :class="kindBadgeClass(row.kind)" class="text-xs px-2 py-0.5 rounded">
+                                    {{ kindLabel(row.kind) }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 border">
                                 {{ row.product_name }}
                                 <span v-if="row.booking_subtype" class="text-xs text-gray-500">/ {{ row.booking_subtype }}</span>
                             </td>
                             <td class="px-3 py-2 border">{{ formatDate(row.start_datetime) }} → {{ formatDate(row.end_datetime) }}</td>
                             <td class="px-3 py-2 border text-right">{{ row.qty }}</td>
-                            <td class="px-3 py-2 border text-right">{{ formatNumber(row.supplier_cost) }}</td>
+                            <td class="px-3 py-2 border text-right">{{ formatNumber(row.amount) }}</td>
                             <td class="px-3 py-2 border text-xs">{{ row.supplier_invoice_ref || '—' }}</td>
                         </tr>
                     </tbody>
                     <tfoot class="bg-gray-50">
                         <tr>
-                            <td colspan="5" class="px-3 py-2 border text-right font-semibold">Total Dipilih</td>
+                            <td colspan="6" class="px-3 py-2 border text-right font-semibold">Total Dipilih</td>
                             <td class="px-3 py-2 border text-right font-semibold">{{ formatNumber(selectedTotal) }}</td>
                             <td class="px-3 py-2 border"></td>
                         </tr>
