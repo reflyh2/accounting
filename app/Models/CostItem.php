@@ -14,10 +14,12 @@ class CostItem extends Model
         'debit_account_id',
         'credit_account_id',
         'is_active',
+        'is_supplier_payable',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_supplier_payable' => 'boolean',
     ];
 
     public function company(): BelongsTo

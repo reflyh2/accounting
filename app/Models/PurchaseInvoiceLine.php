@@ -46,5 +46,14 @@ class PurchaseInvoiceLine extends Model
     {
         return $this->belongsTo(Uom::class);
     }
-}
 
+    /**
+     * Polymorphic pointer back to the obligation row this PI line was
+     * generated from (BookingLine or SalesInvoiceCost). NULL for normal
+     * manual PI lines that don't originate from a settled obligation.
+     */
+    public function source(): \Illuminate\Database\Eloquent\Relations\MorphTo
+    {
+        return $this->morphTo();
+    }
+}

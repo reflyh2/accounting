@@ -63,4 +63,15 @@ class BookingLine extends Model
     {
         return $this->hasMany(BookingLineResource::class);
     }
+
+    /**
+     * Polymorphic settlement marker. Points at either:
+     *  - a PurchaseInvoiceLine (Option 1: billed via generated PI)
+     *  - a SupplierDepositConsumption (Option 2: drawn from prepaid supplier deposit)
+     * NULL means the supplier obligation is still outstanding.
+     */
+    public function settledBy(): \Illuminate\Database\Eloquent\Relations\MorphTo
+    {
+        return $this->morphTo();
+    }
 }

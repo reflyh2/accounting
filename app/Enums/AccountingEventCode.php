@@ -34,6 +34,10 @@ enum AccountingEventCode: string
     case BOOKING_AGENT_PASSTHROUGH_REVERSED = 'booking.agent_passthrough_reversed';
     case BOOKING_POOL_COGS_POSTED = 'booking.pool_cogs_posted';
     case BOOKING_POOL_COGS_REVERSED = 'booking.pool_cogs_reversed';
+    case SUPPLIER_DEPOSIT_PAID = 'supplier.deposit_paid';
+    case SUPPLIER_DEPOSIT_REVERSED = 'supplier.deposit_reversed';
+    case SUPPLIER_DEPOSIT_CONSUMED = 'supplier.deposit_consumed';
+    case SUPPLIER_DEPOSIT_CONSUMED_REVERSED = 'supplier.deposit_consumed_reversed';
 
     public function label(): string
     {
@@ -68,6 +72,10 @@ enum AccountingEventCode: string
             self::BOOKING_AGENT_PASSTHROUGH_REVERSED => 'Booking Agent Passthrough Reversed',
             self::BOOKING_POOL_COGS_POSTED => 'Booking Pool COGS Posted',
             self::BOOKING_POOL_COGS_REVERSED => 'Booking Pool COGS Reversed',
+            self::SUPPLIER_DEPOSIT_PAID => 'Supplier Deposit Paid',
+            self::SUPPLIER_DEPOSIT_REVERSED => 'Supplier Deposit Reversed',
+            self::SUPPLIER_DEPOSIT_CONSUMED => 'Supplier Deposit Consumed',
+            self::SUPPLIER_DEPOSIT_CONSUMED_REVERSED => 'Supplier Deposit Consumption Reversed',
         };
     }
 }
