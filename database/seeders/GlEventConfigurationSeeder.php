@@ -326,6 +326,20 @@ class GlEventConfigurationSeeder extends Seeder
                     ['role' => 'cogs_booking', 'direction' => 'credit', 'account_name' => 'Harga Pokok Penjualan Booking'],
                 ],
             ],
+            AccountingEventCode::PURCHASE_OBLIGATION_AP_POSTED->value => [
+                'description' => 'PI posting that clears obligation-side liabilities (booking/cost-item clearing) into AP. Per-line account override drives the debit; the role mapping below is a fallback only.',
+                'lines' => [
+                    ['role' => 'clearing', 'direction' => 'debit', 'account_name' => 'Transaksi Dalam Pelaksanaan'],
+                    ['role' => 'payable', 'direction' => 'credit', 'account_name' => 'Hutang Usaha dari Pembelian'],
+                ],
+            ],
+            AccountingEventCode::PURCHASE_OBLIGATION_AP_REVERSED->value => [
+                'description' => 'Reversal of obligation PI posting',
+                'lines' => [
+                    ['role' => 'payable', 'direction' => 'debit', 'account_name' => 'Hutang Usaha dari Pembelian'],
+                    ['role' => 'clearing', 'direction' => 'credit', 'account_name' => 'Transaksi Dalam Pelaksanaan'],
+                ],
+            ],
         ];
 
         $accountNames = collect($eventConfigurations)->pluck('lines.*.account_name')->flatten()->unique()->toArray();

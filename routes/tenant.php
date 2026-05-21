@@ -754,6 +754,11 @@ Route::middleware([
             ->name('purchase-invoices.print');
         Route::resource('purchase-invoices', PurchaseInvoiceController::class);
 
+        Route::get('obligation-billing', [\App\Http\Controllers\Purchasing\ObligationBillingController::class, 'index'])
+            ->name('obligation-billing.index');
+        Route::post('obligation-billing', [\App\Http\Controllers\Purchasing\ObligationBillingController::class, 'store'])
+            ->name('obligation-billing.store');
+
         Route::get('sales-invoices/export-xlsx', [SalesInvoiceController::class, 'exportXLSX'])->name('sales-invoices.export-xlsx');
         Route::get('sales-invoices/export-csv', [SalesInvoiceController::class, 'exportCSV'])->name('sales-invoices.export-csv');
         Route::get('sales-invoices/export-pdf', [SalesInvoiceController::class, 'exportPDF'])->name('sales-invoices.export-pdf');

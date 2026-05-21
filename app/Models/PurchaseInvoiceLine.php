@@ -47,6 +47,11 @@ class PurchaseInvoiceLine extends Model
         return $this->belongsTo(Uom::class);
     }
 
+    public function account()
+    {
+        return $this->belongsTo(Account::class);
+    }
+
     /**
      * Polymorphic pointer back to the obligation row this PI line was
      * generated from (BookingLine or SalesInvoiceCost). NULL for normal

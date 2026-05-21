@@ -74,6 +74,11 @@ class SalesOrder extends Model
         return $this->belongsTo(Partner::class);
     }
 
+    public function salesInvoices()
+    {
+        return $this->belongsToMany(SalesInvoice::class, 'sales_invoice_sales_order');
+    }
+
     public function shippingAddress()
     {
         return $this->belongsTo(PartnerAddress::class, 'shipping_address_id');
