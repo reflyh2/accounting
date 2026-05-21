@@ -38,6 +38,8 @@ enum AccountingEventCode: string
     case SUPPLIER_DEPOSIT_REVERSED = 'supplier.deposit_reversed';
     case SUPPLIER_DEPOSIT_CONSUMED = 'supplier.deposit_consumed';
     case SUPPLIER_DEPOSIT_CONSUMED_REVERSED = 'supplier.deposit_consumed_reversed';
+    case PURCHASE_OBLIGATION_AP_POSTED = 'purchase.obligation_ap_posted';
+    case PURCHASE_OBLIGATION_AP_REVERSED = 'purchase.obligation_ap_reversed';
 
     public function label(): string
     {
@@ -76,6 +78,8 @@ enum AccountingEventCode: string
             self::SUPPLIER_DEPOSIT_REVERSED => 'Supplier Deposit Reversed',
             self::SUPPLIER_DEPOSIT_CONSUMED => 'Supplier Deposit Consumed',
             self::SUPPLIER_DEPOSIT_CONSUMED_REVERSED => 'Supplier Deposit Consumption Reversed',
+            self::PURCHASE_OBLIGATION_AP_POSTED => 'Purchase Obligation AP Posted',
+            self::PURCHASE_OBLIGATION_AP_REVERSED => 'Purchase Obligation AP Reversed',
         };
     }
 }

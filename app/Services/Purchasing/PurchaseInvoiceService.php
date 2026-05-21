@@ -263,6 +263,8 @@ class PurchaseInvoiceService
 
             if ($invoice->purchaseOrders->isNotEmpty()) {
                 $this->unpostPoInvoice($invoice, $actor);
+            } elseif ($this->isObligationInvoice($invoice)) {
+                $this->unpostObligationInvoice($invoice, $actor);
             } else {
                 $this->unpostDirectInvoice($invoice, $actor);
             }
@@ -273,6 +275,81 @@ class PurchaseInvoiceService
                 'lines.purchaseOrderLine',
             ]);
         });
+    }
+
+    /**
+     * Reverse an obligation-PI post: dispatch PURCHASE_OBLIGATION_AP_REVERSED,
+     * delete the ExternalDebt, walk each PI line's polymorphic source pointer
+     * and clear the settled_by_* fields so the obligation re-appears in the
+     * outstanding billing list.
+     */
+    private function unpostObligationInvoice(PurchaseInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $this->dispatchObligationApReversedEvent($invoice, $actor);
+        $this->deleteExternalDebt($invoice);
+
+        foreach ($invoice->lines as $line) {
+            if (! $line->source_type || ! $line->source_id) {
+                continue;
+            }
+            $sourceModel = $line->source_type;
+            if (! class_exists($sourceModel)) {
+                continue;
+            }
+            /** @var \Illuminate\Database\Eloquent\Model|null $source */
+            $source = $sourceModel::find($line->source_id);
+            if ($source) {
+                $source->forceFill([
+                    'settled_by_type' => null,
+                    'settled_by_id' => null,
+                ])->save();
+            }
+        }
+
+        $invoice->update([
+            'status' => InvoiceStatus::DRAFT->value,
+            'posted_at' => null,
+            'posted_by' => null,
+            'updated_by' => $actor?->getAuthIdentifier(),
+        ]);
+    }
+
+    private function dispatchObligationApReversedEvent(PurchaseInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $exchangeRate = (float) ($invoice->exchange_rate ?? 1);
+        $currencyCode = $invoice->currency?->code ?? 'IDR';
+        $occurredAt = CarbonImmutable::now();
+
+        $totalPayableBase = 0.0;
+        $entries = [];
+
+        foreach ($invoice->lines as $line) {
+            $lineBase = (float) $line->line_total_base ?: ((float) $line->line_total * $exchangeRate);
+            $lineBase = $this->roundCost($lineBase);
+            $totalPayableBase += $lineBase;
+
+            $entries[] = AccountingEntry::credit('clearing', $lineBase, [
+                'account_id' => (int) $line->account_id,
+            ]);
+        }
+
+        $entries[] = AccountingEntry::debit('payable', $this->roundCost($totalPayableBase));
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::PURCHASE_OBLIGATION_AP_REVERSED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'purchase_invoice',
+            $invoice->id,
+            $invoice->invoice_number.'-REV',
+            $currencyCode,
+            $exchangeRate,
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+        );
+        $payload->setLines($entries);
+
+        $this->accountingEventBus->dispatch($payload);
     }
 
     private function unpostPoInvoice(PurchaseInvoice $invoice, ?Authenticatable $actor): void
@@ -510,8 +587,20 @@ class PurchaseInvoiceService
                 return $this->postPoInvoice($invoice, $actor);
             }
 
+            // Obligation PI: lines were generated from BookingLine / SalesInvoiceCost
+            // by ObligationBillingService. They carry source_type + account_id but
+            // no product_variant_id, so the goods receipt + inventory path doesn't apply.
+            if ($this->isObligationInvoice($invoice)) {
+                return $this->postObligationInvoice($invoice, $actor);
+            }
+
             return $this->postDirectInvoice($invoice, $actor);
         });
+    }
+
+    private function isObligationInvoice(PurchaseInvoice $invoice): bool
+    {
+        return $invoice->lines->every(fn ($line) => $line->source_type !== null && $line->account_id !== null);
     }
 
     private function postPoInvoice(PurchaseInvoice $invoice, ?Authenticatable $actor): PurchaseInvoice
@@ -615,6 +704,74 @@ class PurchaseInvoiceService
             'lines.purchaseOrderLine',
             'externalDebt',
         ]);
+    }
+
+    /**
+     * Post an obligation-style PI: lines were generated from BookingLine or
+     * SalesInvoiceCost rows via ObligationBillingService. Each line carries
+     * an explicit debit account_id (the clearing/payable account already
+     * sitting on the supplier side). Skips inventory receipt entirely.
+     */
+    private function postObligationInvoice(PurchaseInvoice $invoice, ?Authenticatable $actor): PurchaseInvoice
+    {
+        $invoice->update([
+            'status' => InvoiceStatus::POSTED->value,
+            'posted_at' => now(),
+            'posted_by' => $actor?->getAuthIdentifier(),
+            'updated_by' => $actor?->getAuthIdentifier(),
+        ]);
+
+        $this->dispatchObligationApPostedEvent($invoice, $actor);
+
+        // Create External Debt record so the obligation enters the standard
+        // Hutang Eksternal payment flow.
+        $this->createExternalDebt($invoice, $actor);
+
+        return $invoice->fresh(['lines', 'externalDebt']);
+    }
+
+    /**
+     * Dispatch PURCHASE_OBLIGATION_AP_POSTED for an obligation PI.
+     * One debit entry per line (account_id override pointing at the
+     * clearing/payable account the obligation originally credited),
+     * plus a single payable credit for the total.
+     */
+    private function dispatchObligationApPostedEvent(PurchaseInvoice $invoice, ?Authenticatable $actor): void
+    {
+        $exchangeRate = (float) ($invoice->exchange_rate ?? 1);
+        $currencyCode = $invoice->currency?->code ?? 'IDR';
+        $occurredAt = CarbonImmutable::parse($invoice->invoice_date ?? now());
+
+        $totalPayableBase = 0.0;
+        $entries = [];
+
+        foreach ($invoice->lines as $line) {
+            $lineBase = (float) $line->line_total_base ?: ((float) $line->line_total * $exchangeRate);
+            $lineBase = $this->roundCost($lineBase);
+            $totalPayableBase += $lineBase;
+
+            $entries[] = AccountingEntry::debit('clearing', $lineBase, [
+                'account_id' => (int) $line->account_id,
+            ]);
+        }
+
+        $entries[] = AccountingEntry::credit('payable', $this->roundCost($totalPayableBase));
+
+        $payload = new AccountingEventPayload(
+            AccountingEventCode::PURCHASE_OBLIGATION_AP_POSTED,
+            $invoice->company_id,
+            $invoice->branch_id,
+            'purchase_invoice',
+            $invoice->id,
+            $invoice->invoice_number,
+            $currencyCode,
+            $exchangeRate,
+            $occurredAt,
+            $actor?->getAuthIdentifier(),
+        );
+        $payload->setLines($entries);
+
+        $this->accountingEventBus->dispatch($payload);
     }
 
     private function postDirectInvoice(PurchaseInvoice $invoice, ?Authenticatable $actor): PurchaseInvoice
