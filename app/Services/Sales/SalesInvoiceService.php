@@ -1824,8 +1824,30 @@ class SalesInvoiceService
         $totalAmount = (float) $invoice->total_amount;
         $exchangeRate = (float) ($invoice->exchange_rate ?? 1);
 
+        // Subtract any booking deposit applied to this invoice — applyBookingDeposits
+        // ran earlier in the post pipeline and stamped deposit_applied_to_invoice_id
+        // on each affected booking. The journal already reduced AR via
+        // BOOKING_DEPOSIT_APPLIED, so the ExternalDebt amount must match.
+        $appliedDeposit = (float) \App\Models\Booking::query()
+            ->where('deposit_applied_to_invoice_id', $invoice->id)
+            ->sum('deposit_received_amount');
+
+        $outstandingAmount = round($totalAmount - $appliedDeposit, 2);
+        if ($outstandingAmount <= 0) {
+            // Deposit covered the full invoice — no AR to track. Don't create
+            // an ExternalDebt row at all; nothing to pay.
+            return;
+        }
+
         // Build notes with invoice information
         $notes = "Dibuat dari Faktur Penjualan: {$invoice->invoice_number}";
+        if ($appliedDeposit > 0) {
+            $notes .= sprintf(
+                "\nDeposit booking diterapkan: %s. Sisa piutang: %s.",
+                number_format($appliedDeposit, 2),
+                number_format($outstandingAmount, 2)
+            );
+        }
         if ($invoice->notes) {
             $notes .= "\n\n".$invoice->notes;
         }
@@ -1838,8 +1860,8 @@ class SalesInvoiceService
             'exchange_rate' => $exchangeRate,
             'issue_date' => $invoice->invoice_date,
             'due_date' => $invoice->due_date,
-            'amount' => $totalAmount,
-            'primary_currency_amount' => $this->roundMoney($totalAmount * $exchangeRate),
+            'amount' => $outstandingAmount,
+            'primary_currency_amount' => $this->roundMoney($outstandingAmount * $exchangeRate),
             'offset_account_id' => $offsetAccountId,
             'debt_account_id' => $debtAccountId,
             'status' => 'open',
