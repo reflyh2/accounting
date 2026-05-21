@@ -1,10 +1,15 @@
 <script setup>
 import { Head } from '@inertiajs/vue3';
 import { formatNumber } from '@/utils/numberFormat';
+import { onMounted } from 'vue';
 
 defineProps({
     item: Object,
     paymentMethodOptions: Object,
+});
+
+onMounted(() => {
+    window.print();
 });
 </script>
 
