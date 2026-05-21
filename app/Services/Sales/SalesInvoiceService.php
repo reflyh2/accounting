@@ -43,6 +43,7 @@ class SalesInvoiceService
         private readonly UserDiscountLimitResolver $discountLimitResolver,
         private readonly CostingService $costingService,
         private readonly InventoryService $inventoryService,
+        private readonly \App\Services\Purchasing\SupplierObligationRouter $obligationRouter,
     ) {}
 
     /**
@@ -345,6 +346,11 @@ class SalesInvoiceService
         // Reverse any booking deposit applied via this invoice
         $this->reverseAppliedBookingDeposits($invoice, $actor);
 
+        // Reverse any supplier-deposit consumptions made against this invoice's
+        // obligations. Restores deposit balances and clears settled_by on the
+        // source rows so the obligation can be billed or re-consumed.
+        $this->obligationRouter->reverseForInvoice($invoice, $actor);
+
         // Delete cost entry journals
         $this->deleteCostEntryJournals($invoice);
 
@@ -366,6 +372,9 @@ class SalesInvoiceService
 
         // Dispatch reversal accounting event
         $this->dispatchArReversedEvent($invoice, $actor);
+
+        // Reverse supplier-deposit consumptions for direct-invoice SI cost obligations.
+        $this->obligationRouter->reverseForInvoice($invoice, $actor);
 
         // Delete cost entry journals
         $this->deleteCostEntryJournals($invoice);
@@ -678,11 +687,21 @@ class SalesInvoiceService
             // Apply any held customer deposits from source bookings to this invoice.
             $this->applyBookingDeposits($invoice->fresh('currency'), $actor);
 
+            // Auto-consume supplier deposits FIFO against the obligations just posted.
+            // Must run AFTER the obligation events have hit supplier_clearing /
+            // supplier_payable_passthrough so the router can settle those balances.
+            $this->obligationRouter->routeForInvoice($invoice->fresh('currency'), $actor);
+
             // Create External Debt record for AR tracking
             $this->createExternalDebt($invoice, $actor);
 
             // Create CostEntry records from invoice costs
             $this->createCostEntries($invoice, $actor);
+
+            // For SI direct costs that the invoice cost flow journals, the router
+            // already ran above on the invoice-level obligation pass. createCostEntries
+            // also runs distributeInvoiceCostsToLines which is per-cost-row attachment;
+            // that doesn't affect supplier obligations and stays unchanged.
 
             return $invoice->fresh([
                 'salesOrders.partner',
@@ -739,6 +758,10 @@ class SalesInvoiceService
 
             // Create CostEntry records from invoice costs
             $this->createCostEntries($invoice, $actor);
+
+            // Direct invoice: route supplier obligations from is_supplier_payable
+            // CostItem rows. Booking COGS isn't relevant here (no source SO/booking).
+            $this->obligationRouter->routeForInvoice($invoice->fresh('currency'), $actor);
 
             return $invoice->fresh(['lines', 'currency', 'externalDebt', 'costs']);
         });
