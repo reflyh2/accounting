@@ -26,7 +26,7 @@ class CostItemController extends Controller
             'creditAccount:id,code,name',
         ]);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('lower(code) like ?', ["%{$search}%"])
@@ -34,7 +34,7 @@ class CostItemController extends Controller
             });
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $query->whereIn('company_id', (array) $filters['company_id']);
         }
 
@@ -70,11 +70,12 @@ class CostItemController extends Controller
     {
         $data = $request->validate([
             'company_id' => 'required|exists:companies,id',
-            'code' => 'required|string|max:20|unique:cost_items,code,NULL,id,company_id,' . $request->company_id,
+            'code' => 'required|string|max:20|unique:cost_items,code,NULL,id,company_id,'.$request->company_id,
             'name' => 'required|string|max:100',
             'debit_account_id' => 'required|exists:accounts,id',
             'credit_account_id' => 'required|exists:accounts,id',
             'is_active' => 'boolean',
+            'is_supplier_payable' => 'boolean',
         ]);
 
         $costItem = CostItem::create($data);
@@ -113,11 +114,12 @@ class CostItemController extends Controller
     {
         $data = $request->validate([
             'company_id' => 'required|exists:companies,id',
-            'code' => 'required|string|max:20|unique:cost_items,code,' . $costItem->id . ',id,company_id,' . $request->company_id,
+            'code' => 'required|string|max:20|unique:cost_items,code,'.$costItem->id.',id,company_id,'.$request->company_id,
             'name' => 'required|string|max:100',
             'debit_account_id' => 'required|exists:accounts,id',
             'credit_account_id' => 'required|exists:accounts,id',
             'is_active' => 'boolean',
+            'is_supplier_payable' => 'boolean',
         ]);
 
         $costItem->update($data);

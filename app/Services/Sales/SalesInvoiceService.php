@@ -1853,6 +1853,7 @@ class SalesInvoiceService
                 'sales_invoice_id' => $invoice->id,
                 'sales_order_cost_id' => $cost['sales_order_cost_id'] ?? null,
                 'cost_item_id' => $cost['cost_item_id'] ?? null,
+                'supplier_partner_id' => $cost['supplier_partner_id'] ?? null,
                 'description' => $cost['description'] ?? null,
                 'amount' => $cost['amount'],
                 'currency_id' => $cost['currency_id'] ?? $invoice->currency_id,

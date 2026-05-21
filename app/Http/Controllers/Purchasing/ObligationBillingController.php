@@ -73,9 +73,18 @@ class ObligationBillingController extends Controller
             'exchange_rate' => ['nullable', 'numeric', 'min:0'],
             'vendor_invoice_number' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string'],
-            'booking_line_ids' => ['required', 'array', 'min:1'],
+            'booking_line_ids' => ['array'],
             'booking_line_ids.*' => ['integer', 'exists:booking_lines,id'],
+            'sales_invoice_cost_ids' => ['array'],
+            'sales_invoice_cost_ids.*' => ['integer', 'exists:sales_invoice_costs,id'],
         ]);
+
+        $bookingLineIds = array_map('intval', $data['booking_line_ids'] ?? []);
+        $siCostIds = array_map('intval', $data['sales_invoice_cost_ids'] ?? []);
+
+        if (empty($bookingLineIds) && empty($siCostIds)) {
+            return Redirect::back()->withInput()->with('error', 'Pilih minimal satu tagihan untuk dibuatkan PI.');
+        }
 
         try {
             $invoice = $this->service->generatePurchaseInvoice(
@@ -90,7 +99,8 @@ class ObligationBillingController extends Controller
                     'vendor_invoice_number' => $data['vendor_invoice_number'] ?? null,
                     'notes' => $data['notes'] ?? null,
                 ],
-                bookingLineIds: array_map('intval', $data['booking_line_ids']),
+                bookingLineIds: $bookingLineIds,
+                salesInvoiceCostIds: $siCostIds,
             );
         } catch (ObligationBillingException $e) {
             return Redirect::back()->withInput()->with('error', $e->getMessage());

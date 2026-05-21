@@ -23,6 +23,7 @@ const form = useForm({
     debit_account_id: props.costItem?.debit_account_id || null,
     credit_account_id: props.costItem?.credit_account_id || null,
     is_active: props.costItem?.is_active ?? true,
+    is_supplier_payable: props.costItem?.is_supplier_payable ?? false,
     create_another: false,
 });
 
@@ -118,6 +119,11 @@ function submitForm(createAnother = false) {
         <AppCheckbox
             v-model="form.is_active"
             label="Aktif"
+        />
+
+        <AppCheckbox
+            v-model="form.is_supplier_payable"
+            label="Tagihan Pemasok (muncul di Tagihan dari Booking saat dipakai pada Faktur Penjualan)"
         />
 
         <div class="flex items-center pt-4">

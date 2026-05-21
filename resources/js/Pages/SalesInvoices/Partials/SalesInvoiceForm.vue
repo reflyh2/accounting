@@ -68,6 +68,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    suppliers: {
+        type: Array,
+        default: () => [],
+    },
     users: {
         type: Array,
         default: () => [],
@@ -490,6 +494,7 @@ function repopulateLinesFromSOs() {
                 sales_order_cost_id: cost.sales_order_cost_id,
                 description: cost.description,
                 cost_item_id: cost.cost_item_id,
+                supplier_partner_id: cost.supplier_partner_id || null,
                 amount: Number(cost.amount),
                 percentage: cost.percentage,
                 apply_timing: cost.apply_timing || 'before_tax',
@@ -549,6 +554,7 @@ function buildInitialCosts() {
             sales_order_cost_id: cost.sales_order_cost_id,
             description: cost.description,
             cost_item_id: cost.cost_item_id,
+            supplier_partner_id: cost.supplier_partner_id || null,
             amount: Number(cost.amount),
             percentage: cost.percentage,
             apply_timing: cost.apply_timing || 'before_tax',
@@ -564,6 +570,7 @@ function buildInitialCosts() {
                 sales_order_cost_id: cost.sales_order_cost_id,
                 description: cost.description,
                 cost_item_id: cost.cost_item_id,
+                supplier_partner_id: cost.supplier_partner_id || null,
                 amount: Number(cost.amount),
                 percentage: cost.percentage,
                 apply_timing: cost.apply_timing || 'before_tax',
@@ -579,12 +586,18 @@ function createEmptyCost() {
     return {
         description: '',
         cost_item_id: null,
+        supplier_partner_id: null,
         amount: 0,
         percentage: null,
         apply_timing: 'before_tax',
         currency_id: form.currency_id,
         exchange_rate: form.exchange_rate || 1,
     };
+}
+
+function isSupplierPayableCost(cost) {
+    const item = props.costItems.find((i) => i.id === cost.cost_item_id);
+    return !!item?.is_supplier_payable;
 }
 
 function addCost() {
@@ -1421,6 +1434,7 @@ function submitForm(createAnother = false) {
                     <tr class="bg-gray-100">
                         <th class="border border-gray-300 px-2 py-1.5 min-w-40">Biaya</th>
                         <th class="border border-gray-300 px-2 py-1.5 min-w-48">Catatan</th>
+                        <th class="border border-gray-300 px-2 py-1.5 min-w-40">Pemasok</th>
                         <th class="border border-gray-300 px-2 py-1.5 min-w-24">Persentase (%)</th>
                         <th class="border border-gray-300 px-2 py-1.5 min-w-32">Kalkulasi Dari</th>
                         <th class="border border-gray-300 px-2 py-1.5 min-w-28">Jumlah</th>
@@ -1443,6 +1457,16 @@ function submitForm(createAnother = false) {
                                 v-model="cost.description"
                                 placeholder="Deskripsi (opsional)"
                                 :error="form.errors?.[`costs.${index}.description`]"
+                                :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
+                            />
+                        </td>
+                        <td class="border border-gray-300 px-1.5 py-1.5">
+                            <AppSelect
+                                v-model="cost.supplier_partner_id"
+                                :options="suppliers.map(s => ({ value: s.id, label: `${s.code} - ${s.name}` }))"
+                                placeholder="Pemasok (opsional)"
+                                :disabled="!isSupplierPayableCost(cost)"
+                                :error="form.errors?.[`costs.${index}.supplier_partner_id`]"
                                 :margins="{ top: 0, right: 0, bottom: 0, left: 0 }"
                             />
                         </td>
