@@ -138,6 +138,7 @@ class CheckPermission
         'post' => 'post',
         'cancel' => 'cancel',
         'refund' => 'update',
+        'settle-from-deposit' => 'update',
         'send' => 'update',
         'confirm' => 'update',
         'close' => 'update',

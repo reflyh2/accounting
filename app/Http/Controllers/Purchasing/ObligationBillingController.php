@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\Currency;
 use App\Models\Partner;
 use App\Services\Purchasing\ObligationBillingService;
+use App\Services\Purchasing\SupplierObligationRouter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
@@ -19,6 +20,7 @@ class ObligationBillingController extends Controller
 {
     public function __construct(
         private readonly ObligationBillingService $service,
+        private readonly SupplierObligationRouter $router,
     ) {}
 
     public function index(Request $request): Response
@@ -108,5 +110,49 @@ class ObligationBillingController extends Controller
 
         return Redirect::route('purchase-invoices.edit', $invoice->id)
             ->with('success', 'PI draft berhasil dibuat dari tagihan supplier. Tinjau dan post bila sudah sesuai.');
+    }
+
+    /**
+     * Backfill action — settle selected outstanding obligations from any
+     * available supplier deposit balance (FIFO). Used when deposits were
+     * recorded after the SI was posted, or for bookings that predated the
+     * supplier-deposit feature so the router never ran for them.
+     */
+    public function settleFromDeposit(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'booking_line_ids' => ['array'],
+            'booking_line_ids.*' => ['integer', 'exists:booking_lines,id'],
+            'sales_invoice_cost_ids' => ['array'],
+            'sales_invoice_cost_ids.*' => ['integer', 'exists:sales_invoice_costs,id'],
+        ]);
+
+        $bookingLineIds = array_map('intval', $data['booking_line_ids'] ?? []);
+        $siCostIds = array_map('intval', $data['sales_invoice_cost_ids'] ?? []);
+
+        if (empty($bookingLineIds) && empty($siCostIds)) {
+            return Redirect::back()->with('error', 'Pilih minimal satu tagihan untuk disettle dari deposit.');
+        }
+
+        $stats = $this->router->backfillConsumeForObligations($bookingLineIds, $siCostIds);
+
+        if ($stats['consumed_count'] === 0) {
+            return Redirect::back()->with('error',
+                'Tidak ada konsumsi yang terjadi. Pastikan deposit pemasok tersedia dan tagihan belum disettle.'
+            );
+        }
+
+        $message = sprintf(
+            'Berhasil mengonsumsi %s dari deposit pemasok. %d tagihan dikonsumsi, %d tersisa sebagian, %d dilewati.',
+            number_format($stats['consumed_total'], 2),
+            $stats['fully_settled'],
+            $stats['consumed_count'] - $stats['fully_settled'],
+            $stats['skipped']
+        );
+
+        return Redirect::route('obligation-billing.index', [
+            'company_id' => $request->integer('company_id'),
+            'partner_id' => $request->integer('partner_id'),
+        ])->with('success', $message);
     }
 }
