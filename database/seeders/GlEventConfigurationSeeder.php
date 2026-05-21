@@ -313,17 +313,17 @@ class GlEventConfigurationSeeder extends Seeder
                 ],
             ],
             AccountingEventCode::SUPPLIER_DEPOSIT_CONSUMED->value => [
-                'description' => 'Booking or invoice cost obligation drawn from a prepaid supplier deposit',
+                'description' => 'Booking/invoice cost obligation drawn from a prepaid supplier deposit. The debit clears whichever supplier clearing account was credited by the original COGS/passthrough/direct-cost event; the actual account is provided per-entry as an account_id override, with the role here serving only as a fallback.',
                 'lines' => [
-                    ['role' => 'cogs_booking', 'direction' => 'debit', 'account_name' => 'Harga Pokok Penjualan Booking'],
+                    ['role' => 'clearing', 'direction' => 'debit', 'account_name' => 'Transaksi Dalam Pelaksanaan'],
                     ['role' => 'supplier_advance', 'direction' => 'credit', 'account_name' => 'Uang Muka Pemasok'],
                 ],
             ],
             AccountingEventCode::SUPPLIER_DEPOSIT_CONSUMED_REVERSED->value => [
-                'description' => 'Reversal of a supplier deposit consumption (e.g. invoice unposted)',
+                'description' => 'Reversal of a supplier deposit consumption (e.g. invoice unposted). Mirrors the consumption with the clearing role override.',
                 'lines' => [
                     ['role' => 'supplier_advance', 'direction' => 'debit', 'account_name' => 'Uang Muka Pemasok'],
-                    ['role' => 'cogs_booking', 'direction' => 'credit', 'account_name' => 'Harga Pokok Penjualan Booking'],
+                    ['role' => 'clearing', 'direction' => 'credit', 'account_name' => 'Transaksi Dalam Pelaksanaan'],
                 ],
             ],
             AccountingEventCode::PURCHASE_OBLIGATION_AP_POSTED->value => [
