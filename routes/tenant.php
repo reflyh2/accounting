@@ -759,6 +759,11 @@ Route::middleware([
         Route::post('obligation-billing', [\App\Http\Controllers\Purchasing\ObligationBillingController::class, 'store'])
             ->name('obligation-billing.store');
 
+        Route::post('supplier-deposits/{supplierDeposit}/refund', [\App\Http\Controllers\Purchasing\SupplierDepositController::class, 'refund'])
+            ->name('supplier-deposits.refund');
+        Route::resource('supplier-deposits', \App\Http\Controllers\Purchasing\SupplierDepositController::class)
+            ->only(['index', 'create', 'store', 'show']);
+
         Route::get('sales-invoices/export-xlsx', [SalesInvoiceController::class, 'exportXLSX'])->name('sales-invoices.export-xlsx');
         Route::get('sales-invoices/export-csv', [SalesInvoiceController::class, 'exportCSV'])->name('sales-invoices.export-csv');
         Route::get('sales-invoices/export-pdf', [SalesInvoiceController::class, 'exportPDF'])->name('sales-invoices.export-pdf');
