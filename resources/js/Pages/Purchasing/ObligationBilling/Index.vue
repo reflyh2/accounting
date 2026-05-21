@@ -121,6 +121,21 @@ function submit() {
     piForm.post(route('obligation-billing.store'), { preserveScroll: true });
 }
 
+function settleFromDeposit() {
+    if (!confirm('Sistem akan mengonsumsi deposit pemasok FIFO untuk tagihan yang dipilih. Lanjutkan?')) {
+        return;
+    }
+    router.post(route('obligation-billing.settle-from-deposit'), {
+        booking_line_ids: selectedBookingLineIds.value,
+        sales_invoice_cost_ids: selectedSiCostIds.value,
+        company_id: filterForm.value.company_id,
+        partner_id: filterForm.value.partner_id,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => { selectedKeys.value = []; },
+    });
+}
+
 function formatDate(value) {
     if (!value) return '-';
     return new Date(value).toLocaleDateString('id-ID', { dateStyle: 'medium' });
@@ -208,6 +223,18 @@ function formatDate(value) {
                 <div v-else class="text-sm text-gray-500 py-4 text-center border border-dashed rounded">
                     Tidak ada tagihan terbuka untuk pemasok ini pada perusahaan ini.
                 </div>
+            </div>
+
+            <!-- Quick action: settle selected obligations from supplier deposit
+                 (no PI generation needed). Useful for historical obligations
+                 where the auto-router didn't run at SI post time. -->
+            <div v-if="selectedKeys.length" class="mt-4 p-3 rounded bg-blue-50 border border-blue-200 flex justify-between items-center">
+                <div class="text-sm text-blue-900">
+                    Sudah ada deposit pemasok? Bisa langsung disettle tanpa membuat PI.
+                </div>
+                <AppSecondaryButton type="button" @click="settleFromDeposit">
+                    Settle dari Deposit Pemasok
+                </AppSecondaryButton>
             </div>
 
             <!-- PI header form -->

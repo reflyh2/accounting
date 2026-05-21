@@ -119,6 +119,210 @@ class SupplierObligationRouter
     }
 
     /**
+     * On-demand consumption against pre-existing obligations. Mirrors what
+     * routeForInvoice does at SI post time but operates on rows the user
+     * picked from the Tagihan dari Booking outstanding list, regardless of
+     * when the source SI was posted.
+     *
+     * Use case: deposit recorded after the SI posted, or the booking
+     * predated the supplier-deposit feature. The router never ran for those
+     * obligations; this backfill catches them up.
+     *
+     * @param  int[]  $bookingLineIds
+     * @param  int[]  $salesInvoiceCostIds
+     * @return array{
+     *     consumed_count:int, consumed_total:float, fully_settled:int, skipped:int
+     * }
+     */
+    public function backfillConsumeForObligations(
+        array $bookingLineIds,
+        array $salesInvoiceCostIds,
+        ?Authenticatable $actor = null
+    ): array {
+        $actor ??= Auth::user();
+
+        $stats = [
+            'consumed_count' => 0,
+            'consumed_total' => 0.0,
+            'fully_settled' => 0,
+            'skipped' => 0,
+        ];
+
+        // Booking lines
+        if (! empty($bookingLineIds)) {
+            $lines = BookingLine::query()
+                ->with('booking.convertedSalesOrder.salesInvoices')
+                ->whereIn('id', $bookingLineIds)
+                ->get();
+
+            foreach ($lines as $line) {
+                if ($this->backfillOneBookingLine($line, $stats, $actor)) {
+                    continue;
+                }
+                $stats['skipped']++;
+            }
+        }
+
+        // SI direct cost rows
+        if (! empty($salesInvoiceCostIds)) {
+            $costs = SalesInvoiceCost::query()
+                ->with(['salesInvoice', 'costItem'])
+                ->whereIn('id', $salesInvoiceCostIds)
+                ->get();
+
+            foreach ($costs as $cost) {
+                if ($this->backfillOneSiCost($cost, $stats, $actor)) {
+                    continue;
+                }
+                $stats['skipped']++;
+            }
+        }
+
+        $stats['consumed_total'] = round($stats['consumed_total'], 2);
+
+        return $stats;
+    }
+
+    private function backfillOneBookingLine(BookingLine $line, array &$stats, ?Authenticatable $actor): bool
+    {
+        if ($line->settled_by_type !== null) {
+            return false;
+        }
+
+        $booking = $line->booking;
+        $invoice = $booking?->convertedSalesOrder?->salesInvoices?->firstWhere('status', 'posted');
+        if (! $invoice) {
+            return false;
+        }
+
+        $mode = $booking->fulfillment_mode instanceof \BackedEnum
+            ? $booking->fulfillment_mode->value
+            : (string) $booking->fulfillment_mode;
+
+        $alreadyConsumed = (float) SupplierDepositConsumption::query()
+            ->where('consumed_by_type', BookingLine::class)
+            ->where('consumed_by_id', $line->id)
+            ->sum('amount');
+
+        if ($mode === 'reseller' && (float) $line->supplier_cost > 0) {
+            $remaining = round((float) $line->supplier_cost - $alreadyConsumed, 2);
+            if ($remaining <= 0) {
+                return false;
+            }
+            $beforeConsumed = $alreadyConsumed;
+            $this->routeForSource(
+                $line,
+                BookingLine::class,
+                (int) $invoice->company_id,
+                (int) $line->supplier_partner_id,
+                $remaining,
+                AccountingEventCode::BOOKING_PRINCIPAL_COGS_POSTED->value,
+                'supplier_clearing',
+                $invoice,
+                $actor
+            );
+            $this->tallyConsumed($line, BookingLine::class, $beforeConsumed, $stats);
+
+            return true;
+        }
+
+        if ($mode === 'agent' && (float) $line->passthrough_amount > 0) {
+            $remaining = round((float) $line->passthrough_amount - $alreadyConsumed, 2);
+            if ($remaining <= 0) {
+                return false;
+            }
+            $beforeConsumed = $alreadyConsumed;
+            $this->routeForSource(
+                $line,
+                BookingLine::class,
+                (int) $invoice->company_id,
+                (int) $line->supplier_partner_id,
+                $remaining,
+                AccountingEventCode::BOOKING_AGENT_PASSTHROUGH_POSTED->value,
+                'supplier_payable_passthrough',
+                $invoice,
+                $actor
+            );
+            $this->tallyConsumed($line, BookingLine::class, $beforeConsumed, $stats);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private function backfillOneSiCost(SalesInvoiceCost $cost, array &$stats, ?Authenticatable $actor): bool
+    {
+        if ($cost->settled_by_type !== null) {
+            return false;
+        }
+        $invoice = $cost->salesInvoice;
+        if (! $invoice || $invoice->status !== 'posted') {
+            return false;
+        }
+        $costItem = $cost->costItem;
+        if (! $costItem || ! $costItem->is_supplier_payable || ! $costItem->credit_account_id) {
+            return false;
+        }
+        if (! $cost->supplier_partner_id) {
+            return false;
+        }
+
+        $alreadyConsumed = (float) SupplierDepositConsumption::query()
+            ->where('consumed_by_type', SalesInvoiceCost::class)
+            ->where('consumed_by_id', $cost->id)
+            ->sum('amount');
+
+        $remaining = round((float) $cost->amount - $alreadyConsumed, 2);
+        if ($remaining <= 0) {
+            return false;
+        }
+
+        $beforeConsumed = $alreadyConsumed;
+        $this->routeForSiCost(
+            $cost,
+            (int) $invoice->company_id,
+            (int) $cost->supplier_partner_id,
+            $remaining,
+            (int) $costItem->credit_account_id,
+            $invoice,
+            $actor
+        );
+        $this->tallyConsumed($cost, SalesInvoiceCost::class, $beforeConsumed, $stats);
+
+        return true;
+    }
+
+    /**
+     * After a routeForSource/routeForSiCost call, look at how much was newly
+     * consumed by querying the difference in SupplierDepositConsumption sums
+     * and update the running stats.
+     */
+    private function tallyConsumed(
+        \Illuminate\Database\Eloquent\Model $source,
+        string $sourceClass,
+        float $beforeConsumed,
+        array &$stats
+    ): void {
+        $afterConsumed = (float) SupplierDepositConsumption::query()
+            ->where('consumed_by_type', $sourceClass)
+            ->where('consumed_by_id', $source->id)
+            ->sum('amount');
+
+        $delta = round($afterConsumed - $beforeConsumed, 2);
+        if ($delta > 0) {
+            $stats['consumed_count']++;
+            $stats['consumed_total'] += $delta;
+        }
+
+        // Re-read the source to see if it's now fully settled.
+        $fresh = $sourceClass::find($source->id);
+        if ($fresh?->settled_by_type) {
+            $stats['fully_settled']++;
+        }
+    }
+
+    /**
      * Reverse all consumptions for an invoice's obligations. Called from
      * SalesInvoiceService::unpostSoInvoice / unpostDirectInvoice after
      * the obligation reversal events.

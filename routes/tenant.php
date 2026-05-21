@@ -758,6 +758,8 @@ Route::middleware([
             ->name('obligation-billing.index');
         Route::post('obligation-billing', [\App\Http\Controllers\Purchasing\ObligationBillingController::class, 'store'])
             ->name('obligation-billing.store');
+        Route::post('obligation-billing/settle-from-deposit', [\App\Http\Controllers\Purchasing\ObligationBillingController::class, 'settleFromDeposit'])
+            ->name('obligation-billing.settle-from-deposit');
 
         Route::post('supplier-deposits/{supplierDeposit}/refund', [\App\Http\Controllers\Purchasing\SupplierDepositController::class, 'refund'])
             ->name('supplier-deposits.refund');
