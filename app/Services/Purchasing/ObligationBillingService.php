@@ -10,6 +10,7 @@ use App\Models\GlEventConfiguration;
 use App\Models\PurchaseInvoice;
 use App\Models\PurchaseInvoiceLine;
 use App\Models\SalesInvoiceCost;
+use App\Models\SupplierDepositConsumption;
 use Carbon\Carbon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Collection;
@@ -52,19 +53,73 @@ class ObligationBillingService
      */
     public function outstandingObligations(int $companyId, int $partnerId): array
     {
-        $reseller = $this->outstandingResellerLines($companyId, $partnerId)
-            ->map(fn ($line) => $this->presentLine($line, self::KIND_RESELLER, (float) $line->supplier_cost));
+        $resellerLines = $this->outstandingResellerLines($companyId, $partnerId);
+        $agentLines = $this->outstandingAgentLines($companyId, $partnerId);
 
-        $agent = $this->outstandingAgentLines($companyId, $partnerId)
-            ->map(fn ($line) => $this->presentLine($line, self::KIND_AGENT, (float) $line->passthrough_amount));
+        // Pre-compute consumed amount per source row so partial consumption is
+        // reflected in both the displayed remaining and the PI generation.
+        $bookingLineIds = $resellerLines->pluck('id')->concat($agentLines->pluck('id'))->unique()->all();
+        $bookingConsumed = $this->consumedAmountsByModel(BookingLine::class, $bookingLineIds);
 
-        $siCosts = $this->outstandingSiCosts($companyId, $partnerId)
-            ->map(fn ($cost) => $this->presentSiCost($cost));
+        $reseller = $resellerLines
+            ->map(function ($line) use ($bookingConsumed) {
+                $remaining = round((float) $line->supplier_cost - ($bookingConsumed[$line->id] ?? 0.0), 2);
+
+                return $remaining > 0
+                    ? $this->presentLine($line, self::KIND_RESELLER, $remaining)
+                    : null;
+            })
+            ->filter();
+
+        $agent = $agentLines
+            ->map(function ($line) use ($bookingConsumed) {
+                $remaining = round((float) $line->passthrough_amount - ($bookingConsumed[$line->id] ?? 0.0), 2);
+
+                return $remaining > 0
+                    ? $this->presentLine($line, self::KIND_AGENT, $remaining)
+                    : null;
+            })
+            ->filter();
+
+        $siCostRows = $this->outstandingSiCosts($companyId, $partnerId);
+        $siConsumed = $this->consumedAmountsByModel(SalesInvoiceCost::class, $siCostRows->pluck('id')->all());
+
+        $siCosts = $siCostRows
+            ->map(function ($cost) use ($siConsumed) {
+                $remaining = round((float) $cost->amount - ($siConsumed[$cost->id] ?? 0.0), 2);
+
+                return $remaining > 0
+                    ? $this->presentSiCost($cost, $remaining)
+                    : null;
+            })
+            ->filter();
 
         return $reseller->concat($agent)->concat($siCosts)
             ->sortBy('start_datetime')
             ->values()
             ->all();
+    }
+
+    /**
+     * Sum of consumption amounts per source id for a given source model.
+     *
+     * @param  int[]  $ids
+     * @return array<int, float> id => consumed amount
+     */
+    private function consumedAmountsByModel(string $sourceClass, array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+
+        return SupplierDepositConsumption::query()
+            ->where('consumed_by_type', $sourceClass)
+            ->whereIn('consumed_by_id', $ids)
+            ->selectRaw('consumed_by_id, sum(amount) as total')
+            ->groupBy('consumed_by_id')
+            ->pluck('total', 'consumed_by_id')
+            ->map(fn ($v) => (float) $v)
+            ->toArray();
     }
 
     /**
@@ -93,7 +148,7 @@ class ObligationBillingService
             ->get();
     }
 
-    private function presentSiCost(SalesInvoiceCost $cost): array
+    private function presentSiCost(SalesInvoiceCost $cost, float $remaining): array
     {
         $invoice = $cost->salesInvoice;
         $invoiceDate = $invoice?->invoice_date;
@@ -101,7 +156,7 @@ class ObligationBillingService
         return [
             'id' => $cost->id,
             'kind' => self::KIND_SI_COST,
-            'amount' => (float) $cost->amount,
+            'amount' => $remaining,
             'booking_number' => $invoice?->invoice_number,
             'booking_subtype' => $cost->costItem?->name,
             'fulfillment_mode' => null,
@@ -339,12 +394,27 @@ class ObligationBillingService
             ? $line->booking->fulfillment_mode->value
             : (string) $line->booking->fulfillment_mode;
 
+        // Subtract any partial deposit consumption already booked against this
+        // line so we bill the actual remaining liability, not the original amount.
+        $consumed = (float) SupplierDepositConsumption::query()
+            ->where('consumed_by_type', BookingLine::class)
+            ->where('consumed_by_id', $line->id)
+            ->sum('amount');
+
         if ($mode === 'reseller' && (float) $line->supplier_cost > 0) {
+            $remaining = round((float) $line->supplier_cost - $consumed, 2);
+            if ($remaining <= 0) {
+                throw new ObligationBillingException(sprintf(
+                    'Baris booking #%d sudah terkonsumsi penuh oleh deposit pemasok.',
+                    $line->id
+                ));
+            }
+
             return [
                 'source' => $line,
                 'source_class' => BookingLine::class,
                 'kind' => self::KIND_RESELLER,
-                'amount' => (float) $line->supplier_cost,
+                'amount' => $remaining,
                 'account_id' => $this->requireAccountForRole(
                     $companyId,
                     AccountingEventCode::BOOKING_PRINCIPAL_COGS_POSTED->value,
@@ -355,11 +425,19 @@ class ObligationBillingService
         }
 
         if ($mode === 'agent' && (float) $line->passthrough_amount > 0) {
+            $remaining = round((float) $line->passthrough_amount - $consumed, 2);
+            if ($remaining <= 0) {
+                throw new ObligationBillingException(sprintf(
+                    'Baris booking #%d sudah terkonsumsi penuh oleh deposit pemasok.',
+                    $line->id
+                ));
+            }
+
             return [
                 'source' => $line,
                 'source_class' => BookingLine::class,
                 'kind' => self::KIND_AGENT,
-                'amount' => (float) $line->passthrough_amount,
+                'amount' => $remaining,
                 'account_id' => $this->requireAccountForRole(
                     $companyId,
                     AccountingEventCode::BOOKING_AGENT_PASSTHROUGH_POSTED->value,
@@ -421,11 +499,25 @@ class ObligationBillingService
             ));
         }
 
+        // Subtract partial consumption (same pattern as booking lines).
+        $consumed = (float) SupplierDepositConsumption::query()
+            ->where('consumed_by_type', SalesInvoiceCost::class)
+            ->where('consumed_by_id', $cost->id)
+            ->sum('amount');
+
+        $remaining = round((float) $cost->amount - $consumed, 2);
+        if ($remaining <= 0) {
+            throw new ObligationBillingException(sprintf(
+                'Biaya SI #%d sudah terkonsumsi penuh oleh deposit pemasok.',
+                $cost->id
+            ));
+        }
+
         return [
             'source' => $cost,
             'source_class' => SalesInvoiceCost::class,
             'kind' => self::KIND_SI_COST,
-            'amount' => (float) $cost->amount,
+            'amount' => $remaining,
             'account_id' => (int) $cost->costItem->credit_account_id,
             'description' => sprintf(
                 '[%s] %s%s',

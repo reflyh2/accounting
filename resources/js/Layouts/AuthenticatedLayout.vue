@@ -373,6 +373,22 @@ const onboardingStep = computed(() => {
                                 Faktur Pembelian
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
+                                v-if="canViewPurchaseInvoices"
+                                :href="route('obligation-billing.index')"
+                                :active="route().current('obligation-billing.*')"
+                                class="pl-11"
+                            >
+                                Tagihan dari Booking
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                v-if="canViewPurchaseInvoices"
+                                :href="route('supplier-deposits.index')"
+                                :active="route().current('supplier-deposits.*')"
+                                class="pl-11"
+                            >
+                                Deposit Pemasok
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
                                 v-if="canViewPurchaseReturns"
                                 :href="route('purchase-returns.index')"
                                 :active="route().current('purchase-returns.*')"
@@ -988,6 +1004,20 @@ const onboardingStep = computed(() => {
                                             Faktur Pembelian
                                         </NavLink>
                                         <NavLink
+                                            :href="route('obligation-billing.index')"
+                                            :active="route().current('obligation-billing.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Tagihan dari Booking
+                                        </NavLink>
+                                        <NavLink
+                                            :href="route('supplier-deposits.index')"
+                                            :active="route().current('supplier-deposits.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Deposit Pemasok
+                                        </NavLink>
+                                        <NavLink
                                             :href="route('purchase-returns.index')"
                                             :active="route().current('purchase-returns.*')"
                                             class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
@@ -1049,6 +1079,22 @@ const onboardingStep = computed(() => {
                                             class="flex items-center"
                                         >
                                             Faktur Pembelian
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewPurchaseInvoices"
+                                            :href="route('obligation-billing.index')"
+                                            :active="route().current('obligation-billing.*')"
+                                            class="flex items-center"
+                                        >
+                                            Tagihan dari Booking
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewPurchaseInvoices"
+                                            :href="route('supplier-deposits.index')"
+                                            :active="route().current('supplier-deposits.*')"
+                                            class="flex items-center"
+                                        >
+                                            Deposit Pemasok
                                         </NavLink>
                                         <NavLink
                                             v-if="canViewPurchaseReturns"

@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Middleware to check permissions based on route names.
- * 
+ *
  * Maps route patterns to required permissions automatically.
  * Permissions are in format: module.resource.action (e.g., purchase.purchase_order.view)
  */
@@ -35,7 +35,7 @@ class CheckPermission
         'gl-event-configurations' => ['settings', 'companies'],
         'document-templates' => ['settings', 'companies'],
         'partners' => ['settings', 'partners'],
-        
+
         // Purchase
         'purchase-plans' => ['purchase', 'purchase_plan'],
         'purchase-orders' => ['purchase', 'purchase_order'],
@@ -43,20 +43,22 @@ class CheckPermission
         'purchase-invoices' => ['purchase', 'purchase_invoice'],
         'purchase-returns' => ['purchase', 'purchase_return'],
         'purchasing-reports' => ['purchase', 'purchase_order'],
-        
+        'obligation-billing' => ['purchase', 'purchase_invoice'],
+        'supplier-deposits' => ['accounting', 'payment'],
+
         // Sales
         'sales-orders' => ['sales', 'sales_order'],
         'sales-deliveries' => ['sales', 'delivery_order'],
         'sales-invoices' => ['sales', 'sales_invoice'],
         'sales-returns' => ['sales', 'sales_return'],
         'sales-reports' => ['sales', 'sales_order'],
-        
+
         // Inventory
         'inventory.receipts' => ['inventory', 'stock'],
         'inventory.shipments' => ['inventory', 'stock'],
         'inventory.adjustments' => ['inventory', 'adjustment'],
         'inventory.transfers' => ['inventory', 'transfer'],
-        
+
         // Accounting
         'accounts' => ['catalog', 'accounts'],
         'currencies' => ['catalog', 'currencies'],
@@ -73,14 +75,14 @@ class CheckPermission
         'cash-bank-book' => ['accounting', 'journal'],
         'income' => ['accounting', 'journal'],
         'balance-sheet' => ['accounting', 'journal'],
-        
+
         // Manufacturing
         'bill-of-materials' => ['manufacturing', 'bom'],
         'work-orders' => ['manufacturing', 'work_order'],
         'component-issues' => ['manufacturing', 'production'],
         'component-scraps' => ['manufacturing', 'production'],
         'finished-goods-receipts' => ['manufacturing', 'production'],
-        
+
         // Catalog
         'catalog.product-categories' => ['catalog', 'products'],
         'catalog.products' => ['catalog', 'products'],
@@ -88,7 +90,7 @@ class CheckPermission
         'catalog.price-list-items' => ['catalog', 'products'],
         'catalog.price-list-targets' => ['catalog', 'products'],
         'catalog.user-discount-limits' => ['catalog', 'products'],
-        
+
         // Assets
         'asset-categories' => ['accounting', 'journal'],
         'assets' => ['accounting', 'journal'],
@@ -101,13 +103,13 @@ class CheckPermission
         'asset-financing-agreements' => ['accounting', 'payment'],
         'asset-financing-payments' => ['accounting', 'payment'],
         'asset-invoice-payments' => ['accounting', 'payment'],
-        
+
         // Costing
         'costing.cost-entries' => ['accounting', 'journal'],
         'costing.cost-pools' => ['accounting', 'journal'],
         'costing.cost-items' => ['accounting', 'journal'],
         'costing.cost-allocations' => ['accounting', 'journal'],
-        
+
         // Booking
         'bookings' => ['sales', 'sales_order'],
         'resource-pools' => ['sales', 'sales_order'],
@@ -135,6 +137,7 @@ class CheckPermission
         'reject' => 'approve',
         'post' => 'post',
         'cancel' => 'cancel',
+        'refund' => 'update',
         'send' => 'update',
         'confirm' => 'update',
         'close' => 'update',
@@ -167,8 +170,8 @@ class CheckPermission
     public function handle(Request $request, Closure $next): Response
     {
         $routeName = $request->route()?->getName();
-        
-        if (!$routeName) {
+
+        if (! $routeName) {
             return $next($request);
         }
 
@@ -179,26 +182,26 @@ class CheckPermission
 
         // Get required permission
         $requiredPermission = $this->getRequiredPermission($routeName);
-        
-        if (!$requiredPermission) {
+
+        if (! $requiredPermission) {
             // No permission mapping found - allow access (unmapped routes are public)
             return $next($request);
         }
 
         // Get tenant user
         $centralUser = Auth::user();
-        if (!$centralUser) {
+        if (! $centralUser) {
             abort(403, 'Unauthenticated.');
         }
 
         $tenantUser = User::where('global_id', $centralUser->global_id)->first();
-        if (!$tenantUser) {
+        if (! $tenantUser) {
             abort(403, 'User not found in tenant.');
         }
 
         // Check if user has the permission (try/catch for non-existent permissions)
         try {
-            if (!$tenantUser->hasPermissionTo($requiredPermission)) {
+            if (! $tenantUser->hasPermissionTo($requiredPermission)) {
                 abort(403, 'Anda tidak memiliki akses untuk melakukan tindakan ini.');
             }
         } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
@@ -219,7 +222,7 @@ class CheckPermission
             if ($pattern === $routeName) {
                 return true;
             }
-            
+
             if (str_ends_with($pattern, '.*')) {
                 $prefix = substr($pattern, 0, -2);
                 if (str_starts_with($routeName, $prefix)) {
@@ -227,7 +230,7 @@ class CheckPermission
                 }
             }
         }
-        
+
         return false;
     }
 
@@ -240,7 +243,7 @@ class CheckPermission
         // Parse route name to get resource and action
         // e.g., "purchase-orders.index" -> resource: "purchase-orders", action: "index"
         $parts = explode('.', $routeName);
-        
+
         if (count($parts) < 2) {
             return null;
         }
@@ -250,8 +253,8 @@ class CheckPermission
 
         // Get module and permission resource from mapping
         $mapping = $this->routePermissionMap[$resource] ?? null;
-        
-        if (!$mapping) {
+
+        if (! $mapping) {
             return null;
         }
 
@@ -259,8 +262,8 @@ class CheckPermission
 
         // Get permission action
         $permissionAction = $this->actionMap[$action] ?? null;
-        
-        if (!$permissionAction) {
+
+        if (! $permissionAction) {
             return null;
         }
 
