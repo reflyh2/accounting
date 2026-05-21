@@ -85,12 +85,14 @@ class ExternalPayableCardController extends Controller
       $openingPayments = ExternalDebtPaymentDetail::query()
          ->join('external_debts as ed', 'ed.id', '=', 'external_debt_payment_details.external_debt_id')
          ->join('external_debt_payments as edp', 'edp.id', '=', 'external_debt_payment_details.external_debt_payment_id')
+         ->when(!empty($filters['company_id']), function ($q) {
+               $q->join('branches as b_ed', 'b_ed.id', '=', 'ed.branch_id')
+                 ->join('branch_groups as bg_ed', 'bg_ed.id', '=', 'b_ed.branch_group_id');
+         })
          ->where('ed.type', 'payable')
          ->whereIn('ed.partner_id', $partnerIds)
          ->when(!empty($filters['company_id']), function ($q) use ($filters) {
-               $q->whereHas('ed.branch.branchGroup', function ($bq) use ($filters) {
-                  $bq->whereIn('company_id', $filters['company_id']);
-               });
+               $q->whereIn('bg_ed.company_id', $filters['company_id']);
          })
          ->when(!empty($filters['branch_id']), function ($q) use ($filters) {
                $q->whereIn('ed.branch_id', $filters['branch_id']);
@@ -131,12 +133,14 @@ class ExternalPayableCardController extends Controller
       $payments = ExternalDebtPaymentDetail::query()
          ->join('external_debts as ed', 'ed.id', '=', 'external_debt_payment_details.external_debt_id')
          ->join('external_debt_payments as edp', 'edp.id', '=', 'external_debt_payment_details.external_debt_payment_id')
+         ->when(!empty($filters['company_id']), function ($q) {
+               $q->join('branches as b_ed', 'b_ed.id', '=', 'ed.branch_id')
+                 ->join('branch_groups as bg_ed', 'bg_ed.id', '=', 'b_ed.branch_group_id');
+         })
          ->where('ed.type', 'payable')
          ->whereIn('ed.partner_id', $partnerIds)
          ->when(!empty($filters['company_id']), function ($q) use ($filters) {
-               $q->whereHas('ed.branch.branchGroup', function ($bq) use ($filters) {
-                  $bq->whereIn('company_id', $filters['company_id']);
-               });
+               $q->whereIn('bg_ed.company_id', $filters['company_id']);
          })
          ->when(!empty($filters['branch_id']), function ($q) use ($filters) {
                $q->whereIn('ed.branch_id', $filters['branch_id']);
