@@ -24,23 +24,57 @@ use Illuminate\Support\Facades\DB;
 class ObligationBillingService
 {
     /**
-     * Outstanding reseller-booking obligations for a supplier:
-     *   - booking.fulfillment_mode = reseller
+     * Kind discriminators for outstanding obligations. Each kind sources the
+     * billable amount from a different BookingLine field and resolves a
+     * different clearing account at PI-generation time.
+     */
+    public const KIND_RESELLER = 'reseller_cost';
+
+    public const KIND_AGENT = 'agent_passthrough';
+
+    /**
+     * Outstanding booking obligations for a supplier across all supported
+     * kinds. Each row is normalised to {id, kind, amount, …display fields}
+     * so the UI renders them in one list and PI generation reads the per-row
+     * kind to pick the right clearing account.
+     *
+     * Common filters:
      *   - booking_lines.supplier_partner_id = $partnerId
-     *   - booking_lines.supplier_cost > 0
      *   - booking_lines.settled_by_* is NULL (not yet billed via PI nor consumed via deposit)
-     *   - the source Sales Invoice line's invoice is posted (i.e. the booking COGS journal fired)
+     *   - source Sales Invoice posted (booking COGS / passthrough journal already fired)
      *
-     * Returns the BookingLine collection with eager loads sufficient for the
-     * UI to render: booking, product, the SI that triggered COGS posting.
+     * Per-kind filters layer on top.
      *
-     * @return Collection<int,BookingLine>
+     * @return array<int, array<string, mixed>>
+     */
+    public function outstandingObligations(int $companyId, int $partnerId): array
+    {
+        $reseller = $this->outstandingResellerLines($companyId, $partnerId)
+            ->map(fn ($line) => $this->presentLine($line, self::KIND_RESELLER, (float) $line->supplier_cost));
+
+        $agent = $this->outstandingAgentLines($companyId, $partnerId)
+            ->map(fn ($line) => $this->presentLine($line, self::KIND_AGENT, (float) $line->passthrough_amount));
+
+        return $reseller->concat($agent)
+            ->sortBy('start_datetime')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Back-compat alias for callers that explicitly want only the
+     * reseller-mode obligations as BookingLine models.
      */
     public function outstandingResellerObligations(int $companyId, int $partnerId): Collection
     {
+        return $this->outstandingResellerLines($companyId, $partnerId);
+    }
+
+    private function outstandingResellerLines(int $companyId, int $partnerId): Collection
+    {
         return BookingLine::query()
             ->with([
-                'booking:id,booking_number,partner_id,company_id,booking_subtype,booked_at',
+                'booking:id,booking_number,partner_id,company_id,booking_subtype,booked_at,fulfillment_mode',
                 'booking.partner:id,name,code',
                 'product:id,name,code',
                 'supplier:id,name,code',
@@ -55,6 +89,46 @@ class ObligationBillingService
                 ->where('status', InvoiceStatus::POSTED->value))
             ->orderBy('start_datetime')
             ->get();
+    }
+
+    private function outstandingAgentLines(int $companyId, int $partnerId): Collection
+    {
+        return BookingLine::query()
+            ->with([
+                'booking:id,booking_number,partner_id,company_id,booking_subtype,booked_at,fulfillment_mode',
+                'booking.partner:id,name,code',
+                'product:id,name,code',
+                'supplier:id,name,code',
+            ])
+            ->where('supplier_partner_id', $partnerId)
+            ->where('passthrough_amount', '>', 0)
+            ->whereNull('settled_by_type')
+            ->whereHas('booking', fn ($q) => $q
+                ->where('company_id', $companyId)
+                ->where('fulfillment_mode', 'agent'))
+            ->whereHas('booking.convertedSalesOrder.salesInvoices', fn ($q) => $q
+                ->where('status', InvoiceStatus::POSTED->value))
+            ->orderBy('start_datetime')
+            ->get();
+    }
+
+    private function presentLine(BookingLine $line, string $kind, float $amount): array
+    {
+        return [
+            'id' => $line->id,
+            'kind' => $kind,
+            'amount' => $amount,
+            'booking_number' => $line->booking?->booking_number,
+            'booking_subtype' => $line->booking?->booking_subtype,
+            'fulfillment_mode' => $line->booking?->fulfillment_mode instanceof \BackedEnum
+                ? $line->booking->fulfillment_mode->value
+                : $line->booking?->fulfillment_mode,
+            'product_name' => $line->product?->name,
+            'start_datetime' => $line->start_datetime?->toIso8601String(),
+            'end_datetime' => $line->end_datetime?->toIso8601String(),
+            'qty' => (int) $line->qty,
+            'supplier_invoice_ref' => $line->supplier_invoice_ref,
+        ];
     }
 
     /**
@@ -93,42 +167,18 @@ class ObligationBillingService
                 throw new ObligationBillingException('Beberapa baris booking tidak ditemukan.');
             }
 
-            foreach ($lines as $line) {
-                if ($line->settled_by_type !== null) {
-                    throw new ObligationBillingException(sprintf(
-                        'Baris booking #%d sudah disettle.',
-                        $line->id
-                    ));
-                }
-                if ((int) $line->supplier_partner_id !== (int) $header['partner_id']) {
-                    throw new ObligationBillingException(sprintf(
-                        'Baris booking #%d milik supplier lain.',
-                        $line->id
-                    ));
-                }
-                if ((int) $line->booking->company_id !== (int) $header['company_id']) {
-                    throw new ObligationBillingException(sprintf(
-                        'Baris booking #%d milik perusahaan lain.',
-                        $line->id
-                    ));
-                }
-            }
-
-            $clearingAccountId = $this->resolveAccountForRole(
+            // Resolve kind + amount + account per line. Throws if any line is
+            // malformed (wrong supplier/company, already settled, or in a
+            // booking mode the obligation flow doesn't support).
+            $resolved = $lines->map(fn ($line) => $this->resolveLineForBilling(
+                $line,
                 (int) $header['company_id'],
-                AccountingEventCode::BOOKING_PRINCIPAL_COGS_POSTED->value,
-                'supplier_clearing'
-            );
-
-            if (! $clearingAccountId) {
-                throw new ObligationBillingException(
-                    'GL Event Configuration untuk supplier_clearing tidak ditemukan untuk perusahaan ini.'
-                );
-            }
+                (int) $header['partner_id']
+            ));
 
             $invoiceDate = Carbon::parse($header['invoice_date']);
             $exchangeRate = (float) ($header['exchange_rate'] ?? 1);
-            $subtotal = (float) $lines->sum('supplier_cost');
+            $subtotal = (float) $resolved->sum('amount');
 
             $invoice = PurchaseInvoice::create([
                 'company_id' => $header['company_id'],
@@ -149,14 +199,16 @@ class ObligationBillingService
             ]);
 
             $lineNumber = 1;
-            foreach ($lines as $bookingLine) {
-                $amount = (float) $bookingLine->supplier_cost;
+            foreach ($resolved as $row) {
+                /** @var BookingLine $bookingLine */
+                $bookingLine = $row['line'];
+                $amount = (float) $row['amount'];
                 $amountBase = $amount * $exchangeRate;
 
                 $piLine = PurchaseInvoiceLine::create([
                     'purchase_invoice_id' => $invoice->id,
                     'line_number' => $lineNumber++,
-                    'description' => $this->describeBookingLine($bookingLine),
+                    'description' => $this->describeBookingLine($bookingLine, $row['kind']),
                     'quantity' => 1,
                     'quantity_base' => 1,
                     'unit_price' => $amount,
@@ -165,7 +217,7 @@ class ObligationBillingService
                     'grn_value_base' => 0,
                     'ppv_amount' => 0,
                     'tax_amount' => 0,
-                    'account_id' => $clearingAccountId,
+                    'account_id' => $row['account_id'],
                     'source_type' => BookingLine::class,
                     'source_id' => $bookingLine->id,
                 ]);
@@ -178,6 +230,87 @@ class ObligationBillingService
 
             return $invoice->fresh(['lines', 'partner', 'currency', 'branch']);
         });
+    }
+
+    /**
+     * Validate a booking line for billing and resolve its (kind, amount, account_id).
+     * Returns ['line' => BookingLine, 'kind' => string, 'amount' => float, 'account_id' => int].
+     */
+    private function resolveLineForBilling(BookingLine $line, int $companyId, int $partnerId): array
+    {
+        if ($line->settled_by_type !== null) {
+            throw new ObligationBillingException(sprintf(
+                'Baris booking #%d sudah disettle.',
+                $line->id
+            ));
+        }
+        if ((int) $line->supplier_partner_id !== $partnerId) {
+            throw new ObligationBillingException(sprintf(
+                'Baris booking #%d milik supplier lain.',
+                $line->id
+            ));
+        }
+        if ((int) $line->booking->company_id !== $companyId) {
+            throw new ObligationBillingException(sprintf(
+                'Baris booking #%d milik perusahaan lain.',
+                $line->id
+            ));
+        }
+
+        $mode = $line->booking->fulfillment_mode instanceof \BackedEnum
+            ? $line->booking->fulfillment_mode->value
+            : (string) $line->booking->fulfillment_mode;
+
+        if ($mode === 'reseller' && (float) $line->supplier_cost > 0) {
+            return [
+                'line' => $line,
+                'kind' => self::KIND_RESELLER,
+                'amount' => (float) $line->supplier_cost,
+                'account_id' => $this->requireAccountForRole(
+                    $companyId,
+                    AccountingEventCode::BOOKING_PRINCIPAL_COGS_POSTED->value,
+                    'supplier_clearing'
+                ),
+            ];
+        }
+
+        if ($mode === 'agent' && (float) $line->passthrough_amount > 0) {
+            return [
+                'line' => $line,
+                'kind' => self::KIND_AGENT,
+                'amount' => (float) $line->passthrough_amount,
+                'account_id' => $this->requireAccountForRole(
+                    $companyId,
+                    AccountingEventCode::BOOKING_AGENT_PASSTHROUGH_POSTED->value,
+                    'supplier_payable_passthrough'
+                ),
+            ];
+        }
+
+        throw new ObligationBillingException(sprintf(
+            'Baris booking #%d tidak punya obligation supplier (mode=%s, supplier_cost=%s, passthrough=%s).',
+            $line->id,
+            $mode,
+            (string) $line->supplier_cost,
+            (string) $line->passthrough_amount
+        ));
+    }
+
+    /**
+     * Like resolveAccountForRole but throws when the mapping is missing.
+     */
+    private function requireAccountForRole(int $companyId, string $eventCode, string $role): int
+    {
+        $accountId = $this->resolveAccountForRole($companyId, $eventCode, $role);
+        if (! $accountId) {
+            throw new ObligationBillingException(sprintf(
+                'GL Event Configuration untuk role "%s" pada event %s tidak ditemukan untuk perusahaan ini.',
+                $role,
+                $eventCode
+            ));
+        }
+
+        return $accountId;
     }
 
     /**
@@ -197,14 +330,15 @@ class ObligationBillingService
         return $config?->lines->first()?->account_id;
     }
 
-    private function describeBookingLine(BookingLine $line): string
+    private function describeBookingLine(BookingLine $line, ?string $kind = null): string
     {
         $booking = $line->booking;
         $bookingNumber = $booking?->booking_number ?? '?';
         $product = $line->product?->name ?? 'Item';
         $when = $line->start_datetime?->format('Y-m-d') ?? '';
+        $tag = $kind === self::KIND_AGENT ? ' (passthrough)' : '';
 
-        return trim(sprintf('[%s] %s %s', $bookingNumber, $product, $when));
+        return trim(sprintf('[%s]%s %s %s', $bookingNumber, $tag, $product, $when));
     }
 
     /**

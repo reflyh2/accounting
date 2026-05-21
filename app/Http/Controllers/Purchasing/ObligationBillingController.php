@@ -28,21 +28,7 @@ class ObligationBillingController extends Controller
 
         $outstanding = [];
         if ($companyId && $partnerId) {
-            $outstanding = $this->service
-                ->outstandingResellerObligations($companyId, $partnerId)
-                ->map(fn ($line) => [
-                    'id' => $line->id,
-                    'booking_number' => $line->booking?->booking_number,
-                    'booking_subtype' => $line->booking?->booking_subtype,
-                    'product_name' => $line->product?->name,
-                    'start_datetime' => $line->start_datetime?->toIso8601String(),
-                    'end_datetime' => $line->end_datetime?->toIso8601String(),
-                    'qty' => (int) $line->qty,
-                    'supplier_cost' => (float) $line->supplier_cost,
-                    'supplier_invoice_ref' => $line->supplier_invoice_ref,
-                ])
-                ->values()
-                ->toArray();
+            $outstanding = $this->service->outstandingObligations($companyId, $partnerId);
         }
 
         return Inertia::render('Purchasing/ObligationBilling/Index', [
