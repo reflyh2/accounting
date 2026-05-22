@@ -144,7 +144,9 @@ const isSettingsActive = computed(() => {
         || route().current('locations.*')
         || route().current('uoms.*')
         || route().current('uom-conversions.*')
-        || route().current('uom-conversion-rules.*');
+        || route().current('uom-conversion-rules.*')
+        || route().current('general-settings.*')
+        || route().current('payment-terms.*');
 });
 
 const isAccountingActive = computed(() => {
@@ -222,6 +224,8 @@ const isPurchasingActive = computed(() => {
         || route().current('goods-receipts.*')
         || route().current('purchase-invoices.*')
         || route().current('purchase-returns.*')
+        || route().current('obligation-billing.*')
+        || route().current('supplier-deposits.*')
         || route().current('purchasing-reports.*');
 });
 
