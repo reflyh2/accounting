@@ -397,17 +397,19 @@ class SalesReportController extends Controller
 
         // Calculate totals with COGS
         $allInvoices = (clone $query)->get();
-        $totalRevenue = $allInvoices->sum('total_amount');
-        $totalCogs = $allInvoices->sum(function ($invoice) {
-            return $this->calculateInvoiceCogs($invoice);
-        });
-        $totalGrossProfit = $totalRevenue - $totalCogs;
+        $totalGross = $allInvoices->sum('total_amount');
+        $totalPassthrough = $allInvoices->sum(fn ($i) => $this->calculateInvoicePassthrough($i));
+        $totalNetRevenue = round($totalGross - $totalPassthrough, 2);
+        $totalCogs = $allInvoices->sum(fn ($invoice) => $this->calculateInvoiceCogs($invoice));
+        $totalGrossProfit = round($totalNetRevenue - $totalCogs, 2);
 
         $totals = [
-            'total_amount' => $totalRevenue,
+            'total_amount' => $totalGross,
+            'total_passthrough' => $totalPassthrough,
+            'net_revenue' => $totalNetRevenue,
             'total_cogs' => $totalCogs,
             'gross_profit' => $totalGrossProfit,
-            'margin_percentage' => $totalRevenue > 0 ? round(($totalGrossProfit / $totalRevenue) * 100, 2) : 0,
+            'margin_percentage' => $totalNetRevenue > 0 ? round(($totalGrossProfit / $totalNetRevenue) * 100, 2) : 0,
             'count' => $allInvoices->count(),
         ];
 
@@ -462,49 +464,109 @@ class SalesReportController extends Controller
         ]);
     }
 
+    private function attachCogsAndMargin(SalesInvoice $invoice): void
+    {
+        $cogs = $this->calculateInvoiceCogs($invoice);
+        $passthrough = $this->calculateInvoicePassthrough($invoice);
+        $netRevenue = round((float) $invoice->total_amount - $passthrough, 2);
+        $grossProfit = round($netRevenue - $cogs, 2);
+
+        $invoice->cogs = $cogs;
+        $invoice->passthrough = $passthrough;
+        $invoice->net_revenue = $netRevenue;
+        $invoice->gross_profit = $grossProfit;
+        $invoice->margin_percentage = $netRevenue > 0 ? round(($grossProfit / $netRevenue) * 100, 2) : 0;
+    }
+
+    /**
+     * Net revenue = invoice's gross total minus any passthrough portion that's
+     * really owed to a supplier (agent-mode booking lines). Used as the
+     * denominator for margin so agent invoices show realistic margins:
+     * commission alone, not commission + passthrough.
+     *
+     * For non-agent invoices (no passthrough lines), net_revenue == total_amount.
+     */
+    private function calculateInvoiceNetRevenue(SalesInvoice $invoice): float
+    {
+        $invoice->loadMissing('lines');
+
+        $passthrough = 0.0;
+        foreach ($invoice->lines as $line) {
+            if ($line->revenue_role === 'passthrough_supplier') {
+                $passthrough += (float) $line->line_total;
+            }
+        }
+
+        return round((float) $invoice->total_amount - $passthrough, 2);
+    }
+
+    private function calculateInvoicePassthrough(SalesInvoice $invoice): float
+    {
+        $invoice->loadMissing('lines');
+
+        $passthrough = 0.0;
+        foreach ($invoice->lines as $line) {
+            if ($line->revenue_role === 'passthrough_supplier') {
+                $passthrough += (float) $line->line_total;
+            }
+        }
+
+        return round($passthrough, 2);
+    }
+
     private function calculateInvoiceCogs(SalesInvoice $invoice): float
     {
         $cogs = 0;
-
         foreach ($invoice->lines as $line) {
-            $lineCogs = 0.0;
-
-            // 1. SI line's tracked cost_total — set by CostingService when it attaches
-            //    inventory layer consumption, cost-pool allocation, or direct cost entries.
-            //    Covers self_operated booking pool allocations and inventory-tracked lines.
-            if ((float) $line->cost_total > 0) {
-                $lineCogs = (float) $line->cost_total;
-            }
-            // 2. Legacy fallback: COGS from the linked delivery line, pro-rated by invoiced qty.
-            elseif ($line->salesDeliveryLine && $line->salesDeliveryLine->cogs_total) {
-                $deliveredQty = $line->salesDeliveryLine->quantity ?? 1;
-                $invoicedQty = $line->quantity ?? 1;
-                $lineCogsRate = $line->salesDeliveryLine->cogs_total / max(1, $deliveredQty);
-                $lineCogs = $lineCogsRate * $invoicedQty;
-            }
-            // 3. Direct invoice inventory issue fallback.
-            elseif ($line->delivery_value_base) {
-                $lineCogs = (float) $line->delivery_value_base;
-            }
-
-            // 4. Reseller booking supplier cost — BOOKING_PRINCIPAL_COGS_POSTED journals
-            //    Cr supplier_clearing but doesn't update SI line cost_total, so add it here.
-            //    Only when nothing else picked the cost up to avoid double counting.
-            if ($lineCogs === 0.0) {
-                $bookingLine = $line->salesOrderLine?->bookingLine;
-                if ($bookingLine && (float) $bookingLine->supplier_cost > 0) {
-                    $mode = $bookingLine->booking?->fulfillment_mode;
-                    $modeValue = is_string($mode) ? $mode : ($mode?->value);
-                    if ($modeValue === 'reseller') {
-                        $lineCogs = (float) $bookingLine->supplier_cost;
-                    }
-                }
-            }
-
-            $cogs += $lineCogs;
+            $cogs += $this->calculateLineCogs($line);
         }
 
         return $cogs;
+    }
+
+    /**
+     * Per-line COGS lookup. Authoritative for the report — used by both
+     * the invoice-level rollup and the items-grouping path so margins
+     * agree between groupings.
+     */
+    private function calculateLineCogs(\App\Models\SalesInvoiceLine $line): float
+    {
+        // 1. SI line's tracked cost_total — set by CostingService when it
+        //    attaches inventory layer consumption, cost-pool allocation, or
+        //    direct cost entries. Covers self_operated booking pool
+        //    allocations and inventory-tracked lines.
+        if ((float) $line->cost_total > 0) {
+            return (float) $line->cost_total;
+        }
+
+        // 2. Legacy fallback: COGS from the linked delivery line, pro-rated
+        //    by invoiced qty.
+        if ($line->salesDeliveryLine && $line->salesDeliveryLine->cogs_total) {
+            $deliveredQty = $line->salesDeliveryLine->quantity ?? 1;
+            $invoicedQty = $line->quantity ?? 1;
+            $lineCogsRate = $line->salesDeliveryLine->cogs_total / max(1, $deliveredQty);
+
+            return $lineCogsRate * $invoicedQty;
+        }
+
+        // 3. Direct invoice inventory issue fallback.
+        if ($line->delivery_value_base) {
+            return (float) $line->delivery_value_base;
+        }
+
+        // 4. Reseller booking supplier cost — BOOKING_PRINCIPAL_COGS_POSTED
+        //    journals Cr supplier_clearing but doesn't update SI line
+        //    cost_total, so add it here.
+        $bookingLine = $line->salesOrderLine?->bookingLine;
+        if ($bookingLine && (float) $bookingLine->supplier_cost > 0) {
+            $mode = $bookingLine->booking?->fulfillment_mode;
+            $modeValue = is_string($mode) ? $mode : ($mode?->value);
+            if ($modeValue === 'reseller') {
+                return (float) $bookingLine->supplier_cost;
+            }
+        }
+
+        return 0.0;
     }
 
     private function getGroupedDataWithCogs($query, string $groupBy, array $filters)
@@ -512,15 +574,11 @@ class SalesReportController extends Controller
         if ($groupBy === 'document') {
             $paginated = $query->paginate(50)->withQueryString();
 
-            // Add COGS and gross profit to each invoice
+            // Add COGS, net revenue, gross profit, and margin to each invoice.
+            // Net revenue subtracts agent passthrough so margins aren't diluted
+            // by money the company is just passing through to a supplier.
             $paginated->getCollection()->transform(function ($invoice) {
-                $cogs = $this->calculateInvoiceCogs($invoice);
-                $revenue = $invoice->total_amount ?? 0;
-                $grossProfit = $revenue - $cogs;
-
-                $invoice->cogs = $cogs;
-                $invoice->gross_profit = $grossProfit;
-                $invoice->margin_percentage = $revenue > 0 ? round(($grossProfit / $revenue) * 100, 2) : 0;
+                $this->attachCogsAndMargin($invoice);
 
                 return $invoice;
             });
@@ -530,15 +588,8 @@ class SalesReportController extends Controller
 
         $items = $query->get();
 
-        // Add COGS to each invoice
         $items = $items->map(function ($invoice) {
-            $cogs = $this->calculateInvoiceCogs($invoice);
-            $revenue = $invoice->total_amount ?? 0;
-            $grossProfit = $revenue - $cogs;
-
-            $invoice->cogs = $cogs;
-            $invoice->gross_profit = $grossProfit;
-            $invoice->margin_percentage = $revenue > 0 ? round(($grossProfit / $revenue) * 100, 2) : 0;
+            $this->attachCogsAndMargin($invoice);
 
             return $invoice;
         });
@@ -547,17 +598,21 @@ class SalesReportController extends Controller
             case 'customer':
                 return $items->groupBy('partner_id')
                     ->map(function ($groupItems) {
-                        $totalRevenue = $groupItems->sum('total_amount');
+                        $totalGross = $groupItems->sum('total_amount');
+                        $totalPassthrough = $groupItems->sum('passthrough');
+                        $totalNetRevenue = round($totalGross - $totalPassthrough, 2);
                         $totalCogs = $groupItems->sum('cogs');
-                        $grossProfit = $totalRevenue - $totalCogs;
+                        $grossProfit = round($totalNetRevenue - $totalCogs, 2);
 
                         return [
                             'group_name' => $groupItems->first()->partner?->name ?? 'Tanpa Customer',
                             'count' => $groupItems->count(),
-                            'total_value' => $totalRevenue,
+                            'total_value' => $totalGross,
+                            'total_passthrough' => $totalPassthrough,
+                            'net_revenue' => $totalNetRevenue,
                             'total_cogs' => $totalCogs,
                             'gross_profit' => $grossProfit,
-                            'margin_percentage' => $totalRevenue > 0 ? round(($grossProfit / $totalRevenue) * 100, 2) : 0,
+                            'margin_percentage' => $totalNetRevenue > 0 ? round(($grossProfit / $totalNetRevenue) * 100, 2) : 0,
                             'items' => $groupItems,
                         ];
                     })->values();
@@ -571,17 +626,21 @@ class SalesReportController extends Controller
 
                 return $items->groupBy('created_by')
                     ->map(function ($groupItems, $createdBy) use ($creators) {
-                        $totalRevenue = $groupItems->sum('total_amount');
+                        $totalGross = $groupItems->sum('total_amount');
+                        $totalPassthrough = $groupItems->sum('passthrough');
+                        $totalNetRevenue = round($totalGross - $totalPassthrough, 2);
                         $totalCogs = $groupItems->sum('cogs');
-                        $grossProfit = $totalRevenue - $totalCogs;
+                        $grossProfit = round($totalNetRevenue - $totalCogs, 2);
 
                         return [
                             'group_name' => $creators[$createdBy] ?? $createdBy ?: 'Unknown',
                             'count' => $groupItems->count(),
-                            'total_value' => $totalRevenue,
+                            'total_value' => $totalGross,
+                            'total_passthrough' => $totalPassthrough,
+                            'net_revenue' => $totalNetRevenue,
                             'total_cogs' => $totalCogs,
                             'gross_profit' => $grossProfit,
-                            'margin_percentage' => $totalRevenue > 0 ? round(($grossProfit / $totalRevenue) * 100, 2) : 0,
+                            'margin_percentage' => $totalNetRevenue > 0 ? round(($grossProfit / $totalNetRevenue) * 100, 2) : 0,
                             'items' => $groupItems,
                         ];
                     })->values();
@@ -592,17 +651,21 @@ class SalesReportController extends Controller
 
                 return $items->groupBy('sales_person_id')
                     ->map(function ($groupItems, $salesPersonId) use ($salespersons) {
-                        $totalRevenue = $groupItems->sum('total_amount');
+                        $totalGross = $groupItems->sum('total_amount');
+                        $totalPassthrough = $groupItems->sum('passthrough');
+                        $totalNetRevenue = round($totalGross - $totalPassthrough, 2);
                         $totalCogs = $groupItems->sum('cogs');
-                        $grossProfit = $totalRevenue - $totalCogs;
+                        $grossProfit = round($totalNetRevenue - $totalCogs, 2);
 
                         return [
                             'group_name' => $salespersons[$salesPersonId] ?? 'Tanpa Salesperson',
                             'count' => $groupItems->count(),
-                            'total_value' => $totalRevenue,
+                            'total_value' => $totalGross,
+                            'total_passthrough' => $totalPassthrough,
+                            'net_revenue' => $totalNetRevenue,
                             'total_cogs' => $totalCogs,
                             'gross_profit' => $grossProfit,
-                            'margin_percentage' => $totalRevenue > 0 ? round(($grossProfit / $totalRevenue) * 100, 2) : 0,
+                            'margin_percentage' => $totalNetRevenue > 0 ? round(($grossProfit / $totalNetRevenue) * 100, 2) : 0,
                             'items' => $groupItems,
                         ];
                     })->values();
@@ -610,17 +673,21 @@ class SalesReportController extends Controller
             case 'status':
                 return $items->groupBy('status')
                     ->map(function ($groupItems, $status) {
-                        $totalRevenue = $groupItems->sum('total_amount');
+                        $totalGross = $groupItems->sum('total_amount');
+                        $totalPassthrough = $groupItems->sum('passthrough');
+                        $totalNetRevenue = round($totalGross - $totalPassthrough, 2);
                         $totalCogs = $groupItems->sum('cogs');
-                        $grossProfit = $totalRevenue - $totalCogs;
+                        $grossProfit = round($totalNetRevenue - $totalCogs, 2);
 
                         return [
                             'group_name' => $status,
                             'count' => $groupItems->count(),
-                            'total_value' => $totalRevenue,
+                            'total_value' => $totalGross,
+                            'total_passthrough' => $totalPassthrough,
+                            'net_revenue' => $totalNetRevenue,
                             'total_cogs' => $totalCogs,
                             'gross_profit' => $grossProfit,
-                            'margin_percentage' => $totalRevenue > 0 ? round(($grossProfit / $totalRevenue) * 100, 2) : 0,
+                            'margin_percentage' => $totalNetRevenue > 0 ? round(($grossProfit / $totalNetRevenue) * 100, 2) : 0,
                             'items' => $groupItems,
                         ];
                     })->values();
@@ -628,17 +695,21 @@ class SalesReportController extends Controller
             case 'branch':
                 return $items->groupBy('branch_id')
                     ->map(function ($groupItems) {
-                        $totalRevenue = $groupItems->sum('total_amount');
+                        $totalGross = $groupItems->sum('total_amount');
+                        $totalPassthrough = $groupItems->sum('passthrough');
+                        $totalNetRevenue = round($totalGross - $totalPassthrough, 2);
                         $totalCogs = $groupItems->sum('cogs');
-                        $grossProfit = $totalRevenue - $totalCogs;
+                        $grossProfit = round($totalNetRevenue - $totalCogs, 2);
 
                         return [
                             'group_name' => $groupItems->first()->branch?->name ?? 'Tanpa Cabang',
                             'count' => $groupItems->count(),
-                            'total_value' => $totalRevenue,
+                            'total_value' => $totalGross,
+                            'total_passthrough' => $totalPassthrough,
+                            'net_revenue' => $totalNetRevenue,
                             'total_cogs' => $totalCogs,
                             'gross_profit' => $grossProfit,
-                            'margin_percentage' => $totalRevenue > 0 ? round(($grossProfit / $totalRevenue) * 100, 2) : 0,
+                            'margin_percentage' => $totalNetRevenue > 0 ? round(($grossProfit / $totalNetRevenue) * 100, 2) : 0,
                             'items' => $groupItems,
                         ];
                     })->values();
@@ -646,17 +717,21 @@ class SalesReportController extends Controller
             case 'company':
                 return $items->groupBy('company_id')
                     ->map(function ($groupItems) {
-                        $totalRevenue = $groupItems->sum('total_amount');
+                        $totalGross = $groupItems->sum('total_amount');
+                        $totalPassthrough = $groupItems->sum('passthrough');
+                        $totalNetRevenue = round($totalGross - $totalPassthrough, 2);
                         $totalCogs = $groupItems->sum('cogs');
-                        $grossProfit = $totalRevenue - $totalCogs;
+                        $grossProfit = round($totalNetRevenue - $totalCogs, 2);
 
                         return [
                             'group_name' => $groupItems->first()->company?->name ?? 'Tanpa Perusahaan',
                             'count' => $groupItems->count(),
-                            'total_value' => $totalRevenue,
+                            'total_value' => $totalGross,
+                            'total_passthrough' => $totalPassthrough,
+                            'net_revenue' => $totalNetRevenue,
                             'total_cogs' => $totalCogs,
                             'gross_profit' => $grossProfit,
-                            'margin_percentage' => $totalRevenue > 0 ? round(($grossProfit / $totalRevenue) * 100, 2) : 0,
+                            'margin_percentage' => $totalNetRevenue > 0 ? round(($grossProfit / $totalNetRevenue) * 100, 2) : 0,
                             'items' => $groupItems,
                         ];
                     })->values();
@@ -678,19 +753,16 @@ class SalesReportController extends Controller
             }
 
             foreach ($document->lines as $line) {
+                // Skip agent passthrough lines — they're amounts collected on
+                // behalf of a supplier, not a product the company sold.
+                if ($line->revenue_role === 'passthrough_supplier') {
+                    continue;
+                }
+
                 $productName = $line->salesOrderLine?->product?->name ?? $line->description ?? 'Unknown';
                 $variantName = $line->salesOrderLine?->variant?->name ?? null;
 
-                // Calculate line COGS
-                $lineCogs = 0;
-                if ($line->salesDeliveryLine && $line->salesDeliveryLine->cogs_total) {
-                    $deliveredQty = $line->salesDeliveryLine->quantity ?? 1;
-                    $invoicedQty = $line->quantity ?? 1;
-                    $lineCogsRate = $line->salesDeliveryLine->cogs_total / $deliveredQty;
-                    $lineCogs = $lineCogsRate * $invoicedQty;
-                } else {
-                    $lineCogs = $line->delivery_value_base ?? 0;
-                }
+                $lineCogs = $this->calculateLineCogs($line);
 
                 $itemsData->push([
                     'document' => $document,
