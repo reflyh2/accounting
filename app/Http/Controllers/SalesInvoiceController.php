@@ -789,6 +789,8 @@ class SalesInvoiceController extends Controller
 
     private function transformInvoice(SalesInvoice $invoice): array
     {
+        $appliedDeposit = $this->appliedBookingDepositFor($invoice);
+
         return [
             'id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
@@ -804,6 +806,8 @@ class SalesInvoiceController extends Controller
             'tax_total' => (float) $invoice->tax_total,
             'shipping_charge' => (float) $invoice->shipping_charge,
             'total_amount' => (float) $invoice->total_amount,
+            'applied_booking_deposit' => $appliedDeposit,
+            'net_amount_due' => max(0.0, round((float) $invoice->total_amount - $appliedDeposit, 2)),
             'delivery_value_base' => (float) $invoice->delivery_value_base,
             'revenue_variance' => (float) $invoice->revenue_variance,
             'payment_method' => $invoice->payment_method,
@@ -1030,6 +1034,20 @@ class SalesInvoiceController extends Controller
             ->toArray();
     }
 
+    /**
+     * Sum of booking deposits applied to this invoice. Used by Show / Print
+     * to show the customer's deposit credit as a deduction line so the
+     * "amount due" is the actual outstanding receivable rather than the
+     * gross invoice total. The corresponding GL journal already fired via
+     * BOOKING_DEPOSIT_APPLIED at SI post time.
+     */
+    private function appliedBookingDepositFor(SalesInvoice $invoice): float
+    {
+        return (float) \App\Models\Booking::query()
+            ->where('deposit_applied_to_invoice_id', $invoice->id)
+            ->sum('deposit_received_amount');
+    }
+
     public function print(SalesInvoice $salesInvoice, DocumentTemplateService $templateService): Response
     {
         $salesInvoice->load([
@@ -1050,6 +1068,8 @@ class SalesInvoiceController extends Controller
             $renderedContent = $templateService->renderTemplate($template, $salesInvoice);
         }
 
+        $appliedDeposit = $this->appliedBookingDepositFor($salesInvoice);
+
         return Inertia::render('SalesInvoices/Print', [
             'salesInvoice' => [
                 'id' => $salesInvoice->id,
@@ -1061,6 +1081,8 @@ class SalesInvoiceController extends Controller
                 'tax_total' => (float) $salesInvoice->tax_total,
                 'shipping_charge' => (float) $salesInvoice->shipping_charge,
                 'total_amount' => (float) $salesInvoice->total_amount,
+                'applied_booking_deposit' => $appliedDeposit,
+                'net_amount_due' => max(0.0, round((float) $salesInvoice->total_amount - $appliedDeposit, 2)),
                 'exchange_rate' => (float) $salesInvoice->exchange_rate,
                 'notes' => $salesInvoice->notes,
                 'is_direct_invoice' => $salesInvoice->isDirectInvoice(),

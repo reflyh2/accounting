@@ -191,6 +191,18 @@ const deleteInvoice = () => {
                                         <td :colspan="footerColspan" class="border border-gray-300 px-4 py-2 font-semibold text-right">Total</td>
                                         <td class="border border-gray-300 px-4 py-2 text-right font-semibold" :colspan="hasOtherCurrency ? 2 : 1">{{ formatNumber(invoice.total_amount) }}</td>
                                     </tr>
+                                    <tr v-if="invoice.applied_booking_deposit > 0">
+                                        <td :colspan="footerColspan" class="border border-gray-300 px-4 py-2 font-semibold text-right text-green-700">Deposit Booking</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right font-semibold text-green-700" :colspan="hasOtherCurrency ? 2 : 1">
+                                            ({{ formatNumber(invoice.applied_booking_deposit) }})
+                                        </td>
+                                    </tr>
+                                    <tr v-if="invoice.applied_booking_deposit > 0">
+                                        <td :colspan="footerColspan" class="border border-gray-300 px-4 py-2 font-bold text-right">Sisa Tagihan</td>
+                                        <td class="border border-gray-300 px-4 py-2 text-right font-bold" :colspan="hasOtherCurrency ? 2 : 1">
+                                            {{ formatNumber(invoice.net_amount_due) }}
+                                        </td>
+                                    </tr>
                                 </tfoot>
                             </table>
                         </div>

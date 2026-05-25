@@ -154,6 +154,16 @@ function statusLabel(status) {
                     <td class="text-right font-bold">Total:</td>
                     <td class="text-right font-bold">{{ formatNumber(salesInvoice.total_amount) }}</td>
                 </tr>
+                <tr v-if="salesInvoice.applied_booking_deposit > 0">
+                    <td :colspan="hasSecondaryQuantity ? 8 : 6"></td>
+                    <td class="text-right font-semibold">Deposit Booking:</td>
+                    <td class="text-right">({{ formatNumber(salesInvoice.applied_booking_deposit) }})</td>
+                </tr>
+                <tr v-if="salesInvoice.applied_booking_deposit > 0" class="total-row">
+                    <td :colspan="hasSecondaryQuantity ? 8 : 6"></td>
+                    <td class="text-right font-bold">Sisa Tagihan:</td>
+                    <td class="text-right font-bold">{{ formatNumber(salesInvoice.net_amount_due) }}</td>
+                </tr>
             </tfoot>
         </table>
 
