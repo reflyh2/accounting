@@ -378,6 +378,7 @@ class SalesReportController extends Controller
             'company', 'branch', 'partner', 'currency', 'salesPerson',
             'lines.salesDeliveryLine',
             'lines.salesOrderLine.bookingLine.booking',
+            'costs:id,sales_invoice_id,cost_item_id,amount',
         ])
             ->when(! empty($filters['company_id']), fn ($q) => $q->whereIn('company_id', (array) $filters['company_id']))
             ->when(! empty($filters['branch_id']), fn ($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
@@ -516,12 +517,29 @@ class SalesReportController extends Controller
 
     private function calculateInvoiceCogs(SalesInvoice $invoice): float
     {
-        $cogs = 0;
+        $lineCogs = 0.0;
         foreach ($invoice->lines as $line) {
-            $cogs += $this->calculateLineCogs($line);
+            $lineCogs += $this->calculateLineCogs($line);
         }
 
-        return $cogs;
+        // Fallback path #5 — invoice-level SalesInvoiceCost rows with null
+        // cost_item_id. BookingConversionService::attachResellerCosts creates
+        // exactly one such row per reseller booking with amount = total
+        // supplier cost. createCostEntries silently skips them (no debit/credit
+        // accounts), so they never update cost_total via distributeInvoiceCostsToLines.
+        // For reseller bookings the per-line path #4 should normally already
+        // catch the same total; max() keeps us safe against both:
+        //   - path #4 firing correctly (lineCogs >= rowsCogs → no change)
+        //   - path #4 missing (broken booking link, lazy-load failure) → rows save us
+        // Manually-added null-cost-item rows on non-booking SIs would also be
+        // counted, but that's already a data-entry edge case the user should
+        // address by picking a CostItem.
+        $invoice->loadMissing('costs');
+        $rowsCogs = (float) $invoice->costs
+            ->whereNull('cost_item_id')
+            ->sum('amount');
+
+        return round(max($lineCogs, $rowsCogs), 2);
     }
 
     /**
