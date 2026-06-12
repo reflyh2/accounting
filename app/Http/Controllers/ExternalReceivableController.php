@@ -37,7 +37,7 @@ class ExternalReceivableController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where(DB::raw('lower(number)'), 'like', "%$search%")
                     ->orWhere(DB::raw('lower(notes)'), 'like', "%$search%")
-                    ->orWhereHas('externalDebt.partner', function ($qp) use ($search) {
+                    ->orWhereHas('partner', function ($qp) use ($search) {
                         $qp->where(DB::raw('lower(name)'), 'like', "%$search%");
                     })
                     ->orWhereHas('branch', function ($qb) use ($search) {
@@ -59,9 +59,7 @@ class ExternalReceivableController extends Controller
         }
 
         if (! empty($filters['partner_id'])) {
-            $query->whereHas('externalDebt', function ($q) use ($filters) {
-                $q->whereIn('partner_id', $filters['partner_id']);
-            });
+            $query->whereIn('partner_id', $filters['partner_id']);
         }
 
         if (! empty($filters['from_date'])) {
