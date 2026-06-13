@@ -244,6 +244,8 @@ class GeneralLedgerController extends Controller
                 $sheet->setCellValue('F' . $row, $balance += ($data['account']->balance_type === 'debit' ? $mutation['primary_currency_debit'] - $mutation['primary_currency_credit'] : $mutation['primary_currency_credit'] - $mutation['primary_currency_debit']));
                 $row++;
             }
+
+            $sheet->getStyle('D2:F' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
             
             // Ending balance
             $sheet->setCellValue('A' . $row, 'Saldo Akhir');

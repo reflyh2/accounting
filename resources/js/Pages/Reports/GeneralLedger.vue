@@ -207,9 +207,10 @@ function getJournalViewRoute(journal) {
                                     {{ 
                                         (() => {
                                             try {
+                                                const currentIndex = data.mutations.indexOf(mutation);
                                                 return formatNumber((data.opening_balance || 0) + 
                                                     data.mutations
-                                                        .filter(m => m && m.id <= mutation.id)
+                                                        .slice(0, currentIndex + 1)
                                                         .reduce((sum, m) => {
                                                             if (!m) return sum;
                                                             return data.account.balance_type === 'debit'
@@ -222,7 +223,7 @@ function getJournalViewRoute(journal) {
                                             }
                                         })()
                                     }}
-                                  </ReportTD>
+                                </ReportTD>
                                 </tr>
                                 <tr class="group">
                                   <ReportTD :colspan="3" class="font-semibold">

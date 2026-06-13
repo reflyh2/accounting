@@ -4,7 +4,7 @@
     <style>
         body { font-family: sans-serif; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size:12px; }
         th { background-color: #f5f5f5; }
         .text-right { text-align: right; }
         .account-header { margin: 20px 0 10px; font-weight: bold; }
@@ -46,7 +46,7 @@
          <tbody>
                <tr>
                   <td colspan="5" class="font-bold">Saldo Awal</td>
-                  <td class="text-right font-bold">{{ number_format($data['opening_balance'], 0, ',', '.') }}</td>
+                  <td class="text-right font-bold">{{ number_format($data['opening_balance'], 2, ',', '.') }}</td>
                </tr>
 
                @php
@@ -66,25 +66,25 @@
                      <td>{{ $mutation['journal']['journal_number'] }}</td>
                      <td>{{ $mutation['journal']['description'] }}</td>
                      <td class="text-right">
-                           {{ $mutation['primary_currency_debit'] > 0 ? number_format($mutation['primary_currency_debit'], 0, ',', '.') : '-' }}
+                           {{ $mutation['primary_currency_debit'] > 0 ? number_format($mutation['primary_currency_debit'], 2, ',', '.') : '-' }}
                      </td>
                      <td class="text-right">
-                           {{ $mutation['primary_currency_credit'] > 0 ? number_format($mutation['primary_currency_credit'], 0, ',', '.') : '-' }}
+                           {{ $mutation['primary_currency_credit'] > 0 ? number_format($mutation['primary_currency_credit'], 2, ',', '.') : '-' }}
                      </td>
-                     <td class="text-right">{{ number_format($balance, 0, ',', '.') }}</td>
+                     <td class="text-right">{{ number_format($balance, 2, ',', '.') }}</td>
                   </tr>
                @endforeach
 
                <tr>
                   <td colspan="3" class="font-bold">Saldo Akhir</td>
                   <td class="text-right font-bold">
-                     {{ number_format(collect($data['mutations'])->sum('primary_currency_debit'), 0, ',', '.') }}
+                     {{ number_format(collect($data['mutations'])->sum('primary_currency_debit'), 2, ',', '.') }}
                   </td>
                   <td class="text-right font-bold">
-                     {{ number_format(collect($data['mutations'])->sum('primary_currency_credit'), 0, ',', '.') }}
+                     {{ number_format(collect($data['mutations'])->sum('primary_currency_credit'), 2, ',', '.') }}
                   </td>
                   <td class="text-right font-bold">
-                     {{ number_format($data['ending_balance'], 0, ',', '.') }}
+                     {{ number_format($data['ending_balance'], 2, ',', '.') }}
                   </td>
                </tr>
          </tbody>
