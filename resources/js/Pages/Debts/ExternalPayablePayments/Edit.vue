@@ -13,6 +13,7 @@ defineProps({
     currencies: Array,
     debts: Array,
     accounts: Array,
+    paymentMethodOptions: Array,
 });
 </script>
 
