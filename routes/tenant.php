@@ -403,6 +403,7 @@ Route::middleware([
         Route::get('sales-reports/orders', [SalesReportController::class, 'salesOrders'])->name('sales-reports.orders');
         Route::get('sales-reports/deliveries', [SalesReportController::class, 'salesDeliveries'])->name('sales-reports.deliveries');
         Route::get('sales-reports/invoices', [SalesReportController::class, 'salesInvoices'])->name('sales-reports.invoices');
+        Route::get('sales-reports/invoices/download', [SalesReportController::class, 'downloadInvoices'])->name('sales-reports.invoices.download');
         Route::get('sales-reports/returns', [SalesReportController::class, 'salesReturns'])->name('sales-reports.returns');
 
         // Inventory Reports
