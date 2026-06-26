@@ -80,6 +80,7 @@ const initialValue = ref(props.modelValue);
 const hasChanged = ref(false);
 const searchTerm = ref('');
 const searchInput = ref(null);
+const scrollableAncestors = ref([]);
 
 const selectValue = computed({
    get: () => props.modelValue,
@@ -162,11 +163,12 @@ function toggleDropdown() {
    isOpen.value = !isOpen.value;
    if (isOpen.value) {
       nextTick(() => {
-         positionDropdown();
+         startTrackingPosition();
          focusSearchInput();
       });
    } else {
-      searchTerm.value = ''; // Clear search when closing
+      searchTerm.value = '';
+      stopTrackingPosition();
    }
 }
 
@@ -182,16 +184,66 @@ function handleSearchInput(event) {
    searchTerm.value = event.target.value;
 }
 
-function positionDropdown() {
-  if (!selectRef.value || !dropdownRef.value) return;
+const dropdownPosition = ref({ top: 0, bottom: 0, left: 0, width: 0 });
+let rafId = null;
+
+function updateDropdownPosition() {
+  if (!selectRef.value) return;
 
   const selectRect = selectRef.value.getBoundingClientRect();
   const viewportHeight = window.innerHeight;
-
   const spaceBelow = viewportHeight - selectRect.bottom;
   const spaceAbove = selectRect.top;
 
   isOpenUpwards.value = spaceBelow < 300 && spaceAbove > spaceBelow;
+  dropdownPosition.value = {
+    top: selectRect.bottom,
+    bottom: window.innerHeight - selectRect.top,
+    left: selectRect.left,
+    width: selectRect.width,
+  };
+
+  if (isOpen.value) {
+    rafId = requestAnimationFrame(updateDropdownPosition);
+  }
+}
+
+function positionDropdown() {
+  updateDropdownPosition();
+}
+
+function startTrackingPosition() {
+  if (rafId) cancelAnimationFrame(rafId);
+  updateDropdownPosition();
+}
+
+function stopTrackingPosition() {
+  if (rafId) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+}
+
+function getScrollableAncestors(element) {
+  const ancestors = [];
+  let parent = element.parentElement;
+  while (parent) {
+    const { overflow, overflowY, overflowX } = window.getComputedStyle(parent);
+    if (/auto|scroll/.test(overflow + overflowY + overflowX)) {
+      ancestors.push(parent);
+    }
+    parent = parent.parentElement;
+  }
+  return ancestors;
+}
+
+function addScrollableAncestorListeners() {
+  if (!selectRef.value) return;
+  scrollableAncestors.value = getScrollableAncestors(selectRef.value);
+}
+
+function removeScrollableAncestorListeners() {
+  scrollableAncestors.value = [];
 }
 
 // Add this computed property
@@ -200,18 +252,17 @@ const dropdownContent = computed(() => {
 });
 
 const dropdownStyle = computed(() => {
-  if (!isOpen.value || !selectRef.value) return {};
-  
-  const rect = selectRef.value.getBoundingClientRect();
+  if (!isOpen.value) return {};
+
   const style = {
-    width: `${rect.width}px`,
-    left: `${rect.left}px`,
+    width: `${dropdownPosition.value.width}px`,
+    left: `${dropdownPosition.value.left}px`,
   };
 
   if (isOpenUpwards.value) {
-    style.bottom = `${window.innerHeight - rect.top}px`;
+    style.bottom = `${dropdownPosition.value.bottom}px`;
   } else {
-    style.top = `${rect.bottom}px`;
+    style.top = `${dropdownPosition.value.top}px`;
   }
 
   return style;
@@ -223,14 +274,15 @@ const dropdownZIndexClass = computed(() => {
 
 onMounted(() => {
    document.addEventListener('click', closeDropdown);
-   window.addEventListener('scroll', positionDropdown);
-   window.addEventListener('resize', positionDropdown);
+   window.addEventListener('resize', updateDropdownPosition);
+   addScrollableAncestorListeners();
 });
 
 onUnmounted(() => {
    document.removeEventListener('click', closeDropdown);
-   window.removeEventListener('scroll', positionDropdown);
-   window.removeEventListener('resize', positionDropdown);
+   window.removeEventListener('resize', updateDropdownPosition);
+   stopTrackingPosition();
+   removeScrollableAncestorListeners();
 });
 </script>
 
