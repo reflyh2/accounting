@@ -228,7 +228,11 @@ class InventoryReportController extends Controller
                 return [
                     'id' => $item->id,
                     'product_name' => $item->productVariant?->product?->name ?? '-',
-                    'variant_name' => $item->productVariant?->name ?? '-',
+                    'variant_name' => (function () use ($item) {
+                        if (!$item->productVariant) return '-';
+                        $attrs = $item->productVariant->attrs_json ?? [];
+                        return collect($attrs)->values()->implode(', ') ?: '-';
+                    })(),
                     'category' => $item->productVariant?->product?->category?->name ?? '-',
                     'uom' => $item->productVariant?->uom?->abbreviation ?? $item->productVariant?->uom?->name ?? '-',
                     'location' => $item->location?->name ?? '-',
@@ -627,7 +631,11 @@ class InventoryReportController extends Controller
             ->get()
             ->map(fn ($v) => [
                 'value' => $v->id,
-                'label' => $v->product?->name.($v->name ? ' - '.$v->name : ''),
+                'label' => $v->product?->name . (function() use ($v) {
+                    $attrs = $v->attrs_json ?? [];
+                    $variantName = collect($attrs)->values()->implode(', ');
+                    return $variantName ? ' - ' . $variantName : '';
+                })(),
             ]);
     }
 }

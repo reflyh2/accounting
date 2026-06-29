@@ -244,7 +244,7 @@
                                 <a href="{{ route('central.login') }}"
                                     class="uppercase text-sm tracking-widest hover:text-blue-300">{{ __('marketing.nav.login') }}</a>
                                 @if (Route::has('register'))
-                                    <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
+                                    <a href="https://wa.me/6281255554847?text=Halo%2C%20Saya%20ingin%20menjadwalkan%20demo%20Finfas%20Pro" target="_blank" rel="noopener noreferrer"
                                         class="uppercase text-sm tracking-widest bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-500 hover:scale-105 transition-all shadow-lg shadow-blue-500/30">{{ __('marketing.nav.book_demo') }}</a>
                                 @endif
                             @endauth
@@ -282,7 +282,7 @@
                                 <a href="{{ route('central.login') }}"
                                     class="text-center uppercase text-sm tracking-widest border border-blue-400/30 px-6 py-3 rounded-full hover:bg-blue-600 hover:border-blue-600 transition-all">{{ __('marketing.nav.login') }}</a>
                                 @if (Route::has('register'))
-                                    <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
+                                    <a href="https://wa.me/6281255554847?text=Halo%2C%20Saya%20ingin%20menjadwalkan%20demo%20Finfas%20Pro" target="_blank" rel="noopener noreferrer"
                                         class="text-center uppercase text-sm tracking-widest bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/30">{{ __('marketing.nav.book_demo') }}</a>
                                 @endif
                             @endauth
@@ -691,7 +691,7 @@
                 <p class="text-xl text-blue-100/80 mb-12 max-w-2xl mx-auto">
                     {{ __('marketing.demo_cta.subtitle') }}
                 </p>
-                <a href="#" onclick="event.preventDefault(); alert('Demo booking form coming soon!');"
+                <a href="https://wa.me/6281255554847?text=Halo%2C%20Saya%20ingin%20menjadwalkan%20demo%20Finfas%20Pro" target="_blank" rel="noopener noreferrer"
                     class="inline-block px-10 py-5 bg-white text-blue-900 rounded-full uppercase tracking-wider text-sm hover:scale-105 transition-transform font-bold shadow-xl">
                     {{ __('marketing.demo_cta.button') }}
                 </a>

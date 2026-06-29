@@ -88,9 +88,10 @@ class ExternalPayableCardController extends Controller
          ->where('ed.type', 'payable')
          ->whereIn('ed.partner_id', $partnerIds)
          ->when(!empty($filters['company_id']), function ($q) use ($filters) {
-               $q->whereHas('ed.branch.branchGroup', function ($bq) use ($filters) {
+               $branchIds = Branch::whereHas('branchGroup', function ($bq) use ($filters) {
                   $bq->whereIn('company_id', $filters['company_id']);
-               });
+               })->pluck('id');
+               $q->whereIn('ed.branch_id', $branchIds);
          })
          ->when(!empty($filters['branch_id']), function ($q) use ($filters) {
                $q->whereIn('ed.branch_id', $filters['branch_id']);
@@ -134,9 +135,10 @@ class ExternalPayableCardController extends Controller
          ->where('ed.type', 'payable')
          ->whereIn('ed.partner_id', $partnerIds)
          ->when(!empty($filters['company_id']), function ($q) use ($filters) {
-               $q->whereHas('ed.branch.branchGroup', function ($bq) use ($filters) {
+               $branchIds = Branch::whereHas('branchGroup', function ($bq) use ($filters) {
                   $bq->whereIn('company_id', $filters['company_id']);
-               });
+               })->pluck('id');
+               $q->whereIn('ed.branch_id', $branchIds);
          })
          ->when(!empty($filters['branch_id']), function ($q) use ($filters) {
                $q->whereIn('ed.branch_id', $filters['branch_id']);

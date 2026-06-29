@@ -106,6 +106,7 @@ class IncomeReportController extends Controller
         $revenueAccounts = Account::where('type', 'pendapatan')
             ->when(! $isDetailed, fn ($q) => $q->where('level', 0))
             ->when($isDetailed, fn ($q) => $q->whereIn('level', [0, 1]))
+            ->orderBy('code')
             ->get();
 
         $revenueData = $this->mapAndFilter($revenueAccounts, $currentBalances, $previousBalances, $ytdBalances, $isDetailed);
@@ -113,6 +114,7 @@ class IncomeReportController extends Controller
         $cogsAccounts = Account::where('type', 'beban_pokok_penjualan')
             ->when(! $isDetailed, fn ($q) => $q->where('level', 0))
             ->when($isDetailed, fn ($q) => $q->whereIn('level', [0, 1]))
+            ->orderBy('code')
             ->get();
 
         $cogsData = $this->mapAndFilter($cogsAccounts, $currentBalances, $previousBalances, $ytdBalances, $isDetailed);
@@ -143,6 +145,7 @@ class IncomeReportController extends Controller
         $operationalAccounts = Account::where('type', 'beban')
             ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
             ->when($isDetailed, fn ($q) => $q->whereIn('level', [1, 2]))
+            ->orderBy('code')
             ->get();
 
         $operationalData = $this->mapAndFilter($operationalAccounts, $currentBalances, $previousBalances, $ytdBalances, $isDetailed);
@@ -158,6 +161,7 @@ class IncomeReportController extends Controller
         $otherIncomeAccounts = Account::where('type', 'pendapatan_lainnya')
             ->when(! $isDetailed, fn ($q) => $q->where('level', 0))
             ->when($isDetailed, fn ($q) => $q->whereIn('level', [0, 1]))
+            ->orderBy('code')
             ->get();
 
         $otherIncomeData = $this->mapAndFilter($otherIncomeAccounts, $currentBalances, $previousBalances, $ytdBalances, $isDetailed);
@@ -166,6 +170,7 @@ class IncomeReportController extends Controller
         $otherExpensesAccounts = Account::where('type', 'beban_lainnya')
             ->when(! $isDetailed, fn ($q) => $q->where('level', 0))
             ->when($isDetailed, fn ($q) => $q->whereIn('level', [0, 1]))
+            ->orderBy('code')
             ->get();
 
         $otherExpensesData = $this->mapAndFilter($otherExpensesAccounts, $currentBalances, $previousBalances, $ytdBalances, $isDetailed);
@@ -206,6 +211,7 @@ class IncomeReportController extends Controller
         $depreciationAccounts = Account::where('type', 'beban_penyusutan')
             ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
             ->when($isDetailed, fn ($q) => $q->whereIn('level', [1, 2]))
+            ->orderBy('code')
             ->get();
 
         $depreciationData = $this->mapAndFilter($depreciationAccounts, $currentBalances, $previousBalances, $ytdBalances, $isDetailed);
@@ -214,6 +220,7 @@ class IncomeReportController extends Controller
         $amortizationAccounts = Account::where('type', 'beban_amortisasi')
             ->when(! $isDetailed, fn ($q) => $q->where('level', 1))
             ->when($isDetailed, fn ($q) => $q->whereIn('level', [1, 2]))
+            ->orderBy('code')
             ->get();
 
         $amortizationData = $this->mapAndFilter($amortizationAccounts, $currentBalances, $previousBalances, $ytdBalances, $isDetailed);

@@ -146,7 +146,7 @@ const closingValue = props.data?.length
                             <div>
                                 <span class="text-sm text-blue-600">Produk:</span>
                                 <span class="ml-2 font-bold text-blue-900">
-                                    {{ product.product?.name }}{{ product.name ? ` - ${product.name}` : '' }}
+                                    {{ product.product?.name }}{{ product.sku ? ` - ${product.sku}` : '' }}
                                 </span>
                             </div>
                             <div>
@@ -168,67 +168,69 @@ const closingValue = props.data?.length
 
                     <!-- Stock Card Table -->
                     <template v-if="product && data !== null">
-                        <ReportTable>
-                            <thead>
-                                <tr class="bg-gray-100">
-                                    <ReportTH sticky>Tanggal</ReportTH>
-                                    <ReportTH sticky>No. Transaksi</ReportTH>
-                                    <ReportTH sticky class="text-center">Tipe</ReportTH>
-                                    <ReportTH sticky>Dari</ReportTH>
-                                    <ReportTH sticky>Ke</ReportTH>
-                                    <ReportTH sticky class="text-right">Masuk</ReportTH>
-                                    <ReportTH sticky class="text-right">Keluar</ReportTH>
-                                    <ReportTH sticky class="text-right">Biaya/Unit</ReportTH>
-                                    <ReportTH sticky class="text-right">Saldo</ReportTH>
-                                    <ReportTH sticky class="text-right">Nilai Saldo</ReportTH>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Opening Balance Row -->
-                                <tr class="group bg-gray-50 font-semibold">
-                                    <ReportTD :colspan="5">Saldo Awal</ReportTD>
-                                    <ReportTD class="text-right">-</ReportTD>
-                                    <ReportTD class="text-right">-</ReportTD>
-                                    <ReportTD class="text-right">-</ReportTD>
-                                    <ReportTD class="text-right font-bold">{{ formatNumber(openingBalance) }}</ReportTD>
-                                    <ReportTD class="text-right font-bold">{{ formatCurrency(openingValue) }}</ReportTD>
-                                </tr>
+                        <div class="overflow-x-auto">
+                            <ReportTable>
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <ReportTH sticky>Tanggal</ReportTH>
+                                        <ReportTH sticky>No. Transaksi</ReportTH>
+                                        <ReportTH sticky class="text-center">Tipe</ReportTH>
+                                        <ReportTH sticky>Dari</ReportTH>
+                                        <ReportTH sticky>Ke</ReportTH>
+                                        <ReportTH sticky class="text-right">Masuk</ReportTH>
+                                        <ReportTH sticky class="text-right">Keluar</ReportTH>
+                                        <ReportTH sticky class="text-right">Biaya/Unit</ReportTH>
+                                        <ReportTH sticky class="text-right">Saldo</ReportTH>
+                                        <ReportTH sticky class="text-right">Nilai Saldo</ReportTH>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Opening Balance Row -->
+                                    <tr class="group bg-gray-50 font-semibold">
+                                        <ReportTD :colspan="5">Saldo Awal</ReportTD>
+                                        <ReportTD class="text-right">-</ReportTD>
+                                        <ReportTD class="text-right">-</ReportTD>
+                                        <ReportTD class="text-right">-</ReportTD>
+                                        <ReportTD class="text-right font-bold">{{ formatNumber(openingBalance) }}</ReportTD>
+                                        <ReportTD class="text-right font-bold">{{ formatCurrency(openingValue) }}</ReportTD>
+                                    </tr>
 
-                                <!-- Movement Rows -->
-                                <tr v-for="(item, index) in data" :key="index" class="group hover:bg-gray-50">
-                                    <ReportTD>{{ formatDate(item.date) }}</ReportTD>
-                                    <ReportTD class="font-medium">{{ item.transaction_number }}</ReportTD>
-                                    <ReportTD class="text-center">
-                                        <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', getTypeBadgeClass(item.transaction_type)]">
-                                            {{ getTypeLabel(item.transaction_type) }}
-                                        </span>
-                                    </ReportTD>
-                                    <ReportTD>{{ item.location_from || '-' }}</ReportTD>
-                                    <ReportTD>{{ item.location_to || '-' }}</ReportTD>
-                                    <ReportTD class="text-right text-green-700 font-medium">{{ item.qty_in > 0 ? formatNumber(item.qty_in) : '-' }}</ReportTD>
-                                    <ReportTD class="text-right text-red-700 font-medium">{{ item.qty_out > 0 ? formatNumber(item.qty_out) : '-' }}</ReportTD>
-                                    <ReportTD class="text-right">{{ formatUnitCost(item.unit_cost) }}</ReportTD>
-                                    <ReportTD class="text-right font-bold">{{ formatNumber(item.balance) }}</ReportTD>
-                                    <ReportTD class="text-right font-bold">{{ formatCurrency(item.balance_value) }}</ReportTD>
-                                </tr>
+                                    <!-- Movement Rows -->
+                                    <tr v-for="(item, index) in data" :key="index" class="group hover:bg-gray-50">
+                                        <ReportTD>{{ formatDate(item.date) }}</ReportTD>
+                                        <ReportTD class="font-medium">{{ item.transaction_number }}</ReportTD>
+                                        <ReportTD class="text-center">
+                                            <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', getTypeBadgeClass(item.transaction_type)]">
+                                                {{ getTypeLabel(item.transaction_type) }}
+                                            </span>
+                                        </ReportTD>
+                                        <ReportTD>{{ item.location_from || '-' }}</ReportTD>
+                                        <ReportTD>{{ item.location_to || '-' }}</ReportTD>
+                                        <ReportTD class="text-right text-green-700 font-medium">{{ item.qty_in > 0 ? formatNumber(item.qty_in) : '-' }}</ReportTD>
+                                        <ReportTD class="text-right text-red-700 font-medium">{{ item.qty_out > 0 ? formatNumber(item.qty_out) : '-' }}</ReportTD>
+                                        <ReportTD class="text-right">{{ formatUnitCost(item.unit_cost) }}</ReportTD>
+                                        <ReportTD class="text-right font-bold">{{ formatNumber(item.balance) }}</ReportTD>
+                                        <ReportTD class="text-right font-bold">{{ formatCurrency(item.balance_value) }}</ReportTD>
+                                    </tr>
 
-                                <!-- Closing Balance Row -->
-                                <tr class="group bg-gray-50 font-semibold">
-                                    <ReportTD :colspan="5">Saldo Akhir</ReportTD>
-                                    <ReportTD class="text-right">-</ReportTD>
-                                    <ReportTD class="text-right">-</ReportTD>
-                                    <ReportTD class="text-right">-</ReportTD>
-                                    <ReportTD class="text-right font-bold">{{ formatNumber(closingBalance) }}</ReportTD>
-                                    <ReportTD class="text-right font-bold">{{ formatCurrency(closingValue) }}</ReportTD>
-                                </tr>
+                                    <!-- Closing Balance Row -->
+                                    <tr class="group bg-gray-50 font-semibold">
+                                        <ReportTD :colspan="5">Saldo Akhir</ReportTD>
+                                        <ReportTD class="text-right">-</ReportTD>
+                                        <ReportTD class="text-right">-</ReportTD>
+                                        <ReportTD class="text-right">-</ReportTD>
+                                        <ReportTD class="text-right font-bold">{{ formatNumber(closingBalance) }}</ReportTD>
+                                        <ReportTD class="text-right font-bold">{{ formatCurrency(closingValue) }}</ReportTD>
+                                    </tr>
 
-                                <tr v-if="!data?.length" class="group">
-                                    <ReportTD :colspan="10" class="text-center text-gray-500 py-8">
-                                        Tidak ada mutasi untuk periode ini.
-                                    </ReportTD>
-                                </tr>
-                            </tbody>
-                        </ReportTable>
+                                    <tr v-if="!data?.length" class="group">
+                                        <ReportTD :colspan="10" class="text-center text-gray-500 py-8">
+                                            Tidak ada mutasi untuk periode ini.
+                                        </ReportTD>
+                                    </tr>
+                                </tbody>
+                            </ReportTable>
+                        </div>
                     </template>
 
                     <!-- Empty State -->
