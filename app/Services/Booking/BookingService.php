@@ -232,7 +232,7 @@ class BookingService
             $booking->booking_number,
             'IDR',
             1.0,
-            CarbonImmutable::now(),
+            $booking->booked_at,            
             $actor?->getAuthIdentifier(),
         );
         $payload->setLines([
