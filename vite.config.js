@@ -17,4 +17,26 @@ export default defineConfig({
             },
         }),
     ],
+    optimizeDeps: {
+        include: [
+            'vue',
+            '@inertiajs/vue3',
+            '@headlessui/vue',
+            'axios',
+            'lodash',
+        ],
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    'vendor-vue': ['vue', '@inertiajs/vue3'],
+                    'vendor-ui': ['@headlessui/vue'],
+                    'vendor-charts': ['chart.js', 'vue-chartjs'],
+                    'vendor-date': ['date-fns'],
+                    'vendor-utils': ['lodash'],
+                },
+            },
+        },
+    },
 });

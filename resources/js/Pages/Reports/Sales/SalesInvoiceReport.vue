@@ -4,9 +4,12 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import AppSelect from '@/Components/AppSelect.vue';
 import AppInput from '@/Components/AppInput.vue';
+import AppDropdown from '@/Components/AppDropdown.vue';
+import AppUtilityButton from '@/Components/AppUtilityButton.vue';
 import SalesReportTabs from '@/Tabs/SalesReportTabs.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import Pagination from '@/Components/Pagination.vue';
+import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     companies: Array,
@@ -86,6 +89,21 @@ function getProfitClass(value) {
     if (value < 0) return 'text-red-600';
     return 'text-gray-600';
 }
+
+const downloadOptions = [
+   { format: 'xlsx', label: 'Download Excel' },
+   { format: 'pdf', label: 'Download PDF' },
+];
+
+function downloadReport(format) {
+    const params = {
+        ...form.value,
+        format,
+        download: true
+    };
+
+    window.open(route('sales-reports.invoices.download', params));
+}
 </script>
 
 <template>
@@ -142,6 +160,18 @@ function getProfitClass(value) {
                         <AppPrimaryButton @click="generateReport">
                             Tampilkan Laporan
                         </AppPrimaryButton>
+
+                        <AppDropdown
+                         v-if="totals"
+                         :items="downloadOptions"
+                         @select="downloadReport($event.format)"
+                         class="ml-2"
+                        >
+                            <AppUtilityButton>
+                                <ArrowDownTrayIcon class="w-5 h-5 mr-1" />
+                                Download
+                            </AppUtilityButton>
+                        </AppDropdown>
                     </div>
 
                     <!-- Summary with COGS and Gross Profit -->

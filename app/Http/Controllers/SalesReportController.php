@@ -14,8 +14,12 @@ use App\Models\SalesInvoice;
 use App\Models\SalesOrder;
 use App\Models\SalesReturn;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class SalesReportController extends Controller
 {
@@ -425,6 +429,159 @@ class SalesReportController extends Controller
             'totals' => $totals,
             'statusLabels' => $this->getStatusLabels(InvoiceStatus::class),
         ]);
+    }
+
+    public function downloadInvoices(Request $request): mixed
+    {
+        $filters = $this->getDefaultFilters($request);
+        $format = $filters['format'] ?? 'xlsx';
+
+        $query = SalesInvoice::with([
+            'company', 'branch', 'partner', 'currency', 'salesPerson',
+            'lines.salesDeliveryLine',
+            'lines.salesOrderLine.bookingLine.booking',
+            'costs:id,sales_invoice_id,cost_item_id,amount',
+        ])
+            ->when(! empty($filters['company_id']), fn ($q) => $q->whereIn('company_id', (array) $filters['company_id']))
+            ->when(! empty($filters['branch_id']), fn ($q) => $q->whereIn('branch_id', (array) $filters['branch_id']))
+            ->when(! empty($filters['partner_id']), fn ($q) => $q->where('partner_id', $filters['partner_id']))
+            ->when(($filters['status'] ?? '') !== 'all', function ($q) use ($filters) {
+                if (! empty($filters['status'])) {
+                    $q->where('status', $filters['status']);
+                } else {
+                    $q->where('status', '!=', InvoiceStatus::CANCELED->value);
+                }
+            })
+            ->whereBetween('invoice_date', [$filters['start_date'], $filters['end_date']])
+            ->orderBy('invoice_date', 'desc');
+
+        $invoices = $query->get();
+
+        $invoices->transform(function ($invoice) {
+            $this->attachCogsAndMargin($invoice);
+
+            return $invoice;
+        });
+
+        $statusLabels = $this->getStatusLabels(InvoiceStatus::class);
+
+        switch ($format) {
+            case 'xlsx':
+                return $this->downloadInvoicesExcel($invoices, $filters, $statusLabels);
+            case 'pdf':
+                return $this->downloadInvoicesPdf($invoices, $filters, $statusLabels);
+            default:
+                abort(400, 'Invalid format');
+        }
+    }
+
+    private function downloadInvoicesExcel($invoices, array $filters, array $statusLabels): void
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->setCellValue('A1', 'Laporan Faktur Penjualan');
+        $sheet->mergeCells('A1:I1');
+        $sheet->getStyle('A1:I1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A1:I1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:I1')->getFont()->setSize(16);
+
+        $sheet->setCellValue('A2', date('d/m/Y', strtotime($filters['start_date'])) . ' s/d ' . date('d/m/Y', strtotime($filters['end_date'])));
+        $sheet->mergeCells('A2:I2');
+        $sheet->getStyle('A2:I2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A2:I2')->getFont()->setSize(12);
+
+        $nextRow = 3;
+        if (! empty($filters['company_id'])) {
+            $companies = Company::whereIn('id', (array) $filters['company_id'])->pluck('name')->implode(', ');
+            $sheet->setCellValue('A' . $nextRow, 'Perusahaan: ' . $companies);
+            $sheet->mergeCells('A' . $nextRow . ':I' . $nextRow);
+            $sheet->getStyle('A' . $nextRow . ':I' . $nextRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $nextRow++;
+        }
+
+        if (! empty($filters['branch_id'])) {
+            $branches = Branch::whereIn('id', (array) $filters['branch_id'])->pluck('name')->implode(', ');
+            $sheet->setCellValue('A' . $nextRow, 'Cabang: ' . $branches);
+            $sheet->mergeCells('A' . $nextRow . ':I' . $nextRow);
+            $sheet->getStyle('A' . $nextRow . ':I' . $nextRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $nextRow++;
+        }
+
+        $row = $nextRow + 1;
+
+        // Headers
+        $headers = ['No. Invoice', 'Tanggal', 'Customer', 'Salesperson', 'Revenue', 'COGS', 'Gross Profit', 'Margin (%)', 'Status'];
+        foreach ($headers as $col => $header) {
+            $sheet->setCellValueByColumnAndRow($col + 1, $row, $header);
+        }
+        $sheet->getStyle('A' . $row . ':I' . $row)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $row . ':I' . $row)->applyFromArray([
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F3F4F6'],
+            ],
+        ]);
+        $row++;
+
+        // Data rows
+        foreach ($invoices as $invoice) {
+            $sheet->setCellValue('A' . $row, $invoice->invoice_number);
+            $sheet->setCellValue('B' . $row, date('d/m/Y', strtotime($invoice->invoice_date)));
+            $sheet->setCellValue('C' . $row, $invoice->partner?->name ?? '-');
+            $sheet->setCellValue('D' . $row, $invoice->salesPerson?->name ?? '-');
+            $sheet->setCellValue('E' . $row, (float) $invoice->total_amount);
+            $sheet->setCellValue('F' . $row, (float) $invoice->cogs);
+            $sheet->setCellValue('G' . $row, (float) $invoice->gross_profit);
+            $sheet->setCellValue('H' . $row, (float) $invoice->margin_percentage);
+            $sheet->setCellValue('I' . $row, $statusLabels[$invoice->status] ?? $invoice->status);
+            $row++;
+        }
+
+        // Format number columns
+        $sheet->getStyle('E' . ($nextRow + 2) . ':G' . ($row - 1))->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('H' . ($nextRow + 2) . ':H' . ($row - 1))->getNumberFormat()->setFormatCode('#,##0.00');
+
+        // Totals row
+        $totalGross = $invoices->sum('total_amount');
+        $totalCogs = $invoices->sum('cogs');
+        $totalProfit = $invoices->sum('gross_profit');
+        $marginPct = $totalGross > 0 ? round(($totalProfit / $totalGross) * 100, 2) : 0;
+
+        $sheet->setCellValue('A' . $row, 'TOTAL');
+        $sheet->setCellValue('E' . $row, $totalGross);
+        $sheet->setCellValue('F' . $row, $totalCogs);
+        $sheet->setCellValue('G' . $row, $totalProfit);
+        $sheet->setCellValue('H' . $row, $marginPct);
+        $sheet->getStyle('A' . $row . ':I' . $row)->getFont()->setBold(true);
+        $sheet->getStyle('E' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle('H' . $row . ':H' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
+
+        // Auto-size columns
+        foreach (range('A', 'I') as $columnID) {
+            $sheet->getColumnDimension($columnID)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+
+        $filename = 'laporan-faktur-penjualan-' . date('Y-m-d') . '.xlsx';
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        $writer->save('php://output');
+        exit;
+    }
+
+    private function downloadInvoicesPdf($invoices, array $filters, array $statusLabels): \Illuminate\Http\Response
+    {
+        $pdf = Pdf::loadView('reports.sales-invoice', [
+            'invoices' => $invoices,
+            'filters' => $filters,
+            'statusLabels' => $statusLabels,
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('laporan-faktur-penjualan-' . date('Y-m-d') . '.pdf');
     }
 
     public function salesReturns(Request $request)
