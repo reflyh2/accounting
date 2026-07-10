@@ -470,11 +470,17 @@ class SalesInvoiceService
 
     private function deleteCostEntryJournals(SalesInvoice $invoice): void
     {
-        // Delete journals created by createCostEntries
+        // Delete journals created by createCostEntries and bookinhg
         $journals = \App\Models\Journal::where('reference_number', $invoice->invoice_number)
-            ->where('journal_type', 'sales')
-            ->where('description', 'like', 'Direct Costs%')
-            ->get();
+            ->where(function ($query) {
+                $query->where(function ($q) {
+                    $q->where('journal_type', 'sales')
+                        ->where('description', 'like', 'Direct Costs%');
+                })->orWhere(function ($q) {
+                    $q->where('journal_type', 'general')
+                        ->where('description', 'like', 'Booking Principal COGS Posted%');
+                });
+            })->get();
 
         foreach ($journals as $journal) {
             $journal->journalEntries()->delete();
@@ -1912,18 +1918,26 @@ class SalesInvoiceService
      */
     private function createCostEntries(SalesInvoice $invoice, ?Authenticatable $actor): void
     {
-        $invoice->loadMissing(['costs.costItem', 'lines', 'branch', 'currency']);
+        $invoice->loadMissing(['costs.costItem', 'costs.salesOrderCost', 'lines.salesOrderLine.bookingLine.booking', 'branch', 'currency']);
 
         if ($invoice->costs->isEmpty()) {
             return;
         }
 
-        // Filter costs that have valid cost items with accounts
+        // Filter costs that have valid cost items with accounts and are NOT booking reseller costs
         $validCosts = $invoice->costs->filter(function ($cost) {
+            $isBookingResellerCost = false;
+            $desc = $cost->description ?? '';
+            $soDesc = $cost->salesOrderCost?->description ?? '';
+            if (str_contains($desc, 'Biaya supplier dari Booking') || str_contains($soDesc, 'Biaya supplier dari Booking')) {
+                $isBookingResellerCost = true;
+            }
+
             return $cost->costItem
                 && $cost->costItem->debit_account_id
                 && $cost->costItem->credit_account_id
-                && (float) $cost->amount > 0;
+                && (float) $cost->amount > 0
+                && ! $isBookingResellerCost;
         });
 
         if ($validCosts->isEmpty()) {
