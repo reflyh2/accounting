@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\HandlesImportErrors;
 use App\Imports\ImportRollbackException;
 use App\Imports\PartnersImport;
 use App\Models\Company;
+use App\Models\Currency;
 use App\Models\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -80,6 +81,7 @@ class PartnerController extends Controller
             'filters' => $filters,
             'companies' => Company::orderBy('name', 'asc')->get(),
             'availableRoles' => Partner::getRoles(),
+            'currencies' => Currency::orderBy('code', 'asc')->get(['id', 'code', 'name', 'is_primary']),
         ]);
     }
 
@@ -248,6 +250,7 @@ class PartnerController extends Controller
             'filters' => $filters,
             'companies' => Company::orderBy('name', 'asc')->get(),
             'availableRoles' => Partner::getRoles(),
+            'currencies' => Currency::orderBy('code', 'asc')->get(['id', 'code', 'name', 'is_primary']),
         ]);
     }
 

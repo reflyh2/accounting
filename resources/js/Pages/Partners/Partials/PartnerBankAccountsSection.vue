@@ -1,6 +1,7 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, computed } from 'vue';
 import AppInput from '@/Components/AppInput.vue';
+import AppSelect from '@/Components/AppSelect.vue';
 import { TrashIcon, PlusCircleIcon } from '@heroicons/vue/24/solid';
 
 const props = defineProps({
@@ -12,6 +13,23 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    currencies: {
+        type: Array,
+        default: () => [],
+    },
+});
+
+const currencyOptions = computed(() =>
+    props.currencies.map(currency => ({
+        value: currency.code,
+        label: currency.code,
+        description: currency.name,
+    }))
+);
+
+const defaultCurrency = computed(() => {
+    const primary = props.currencies.find(currency => currency.is_primary);
+    return primary?.code ?? props.currencies[0]?.code ?? 'IDR';
 });
 
 const emit = defineEmits(['update:bank-accounts']);
@@ -46,7 +64,7 @@ function addRow() {
         branch_name: '',
         swift_code: '',
         iban: '',
-        currency: '',
+        currency: defaultCurrency.value,
         is_primary: rows.value.length === 0,
         is_active: true,
         notes: '',
@@ -105,7 +123,7 @@ function togglePrimary(index) {
                             <AppInput v-model="row.iban" :error="props.errors[`bank_accounts.${index}.iban`]" placeholder="IBAN" :margins="{ top: 0, right: 0, bottom: 0 }" />
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5">
-                            <AppInput v-model="row.currency" :error="props.errors[`bank_accounts.${index}.currency`]" placeholder="Mis. IDR" :margins="{ top: 0, right: 0, bottom: 0, left: 0 }" />
+                            <AppSelect v-model="row.currency" :options="currencyOptions" :error="props.errors[`bank_accounts.${index}.currency`]" placeholder="Mata Uang" :margins="{ top: 0, right: 0, bottom: 0, left: 0 }" />
                         </td>
                         <td class="border border-gray-300 px-1.5 py-1.5 text-center">
                             <input type="checkbox" :checked="row.is_primary" @change="() => togglePrimary(index)" class="w-4 h-4" />

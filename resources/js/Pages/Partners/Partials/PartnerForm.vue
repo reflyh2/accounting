@@ -15,6 +15,10 @@ const props = defineProps({
     companies: Array,
     filters: Object,
     availableRoles: Object,
+    currencies: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const form = useForm({
@@ -620,7 +624,7 @@ function submitForm(createAnother = false) {
 
             <!-- Bank Accounts Tab -->
             <div v-show="activeTab === 'bank'">
-                <PartnerBankAccountsSection v-model:bank-accounts="form.bank_accounts" :errors="form.errors" />
+                <PartnerBankAccountsSection v-model:bank-accounts="form.bank_accounts" :errors="form.errors" :currencies="props.currencies" />
             </div>
 
             <!-- Addresses Tab -->
