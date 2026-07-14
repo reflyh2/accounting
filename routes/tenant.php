@@ -764,6 +764,10 @@ Route::middleware([
 
         Route::post('supplier-deposits/{supplierDeposit}/refund', [\App\Http\Controllers\Purchasing\SupplierDepositController::class, 'refund'])
             ->name('supplier-deposits.refund');
+        Route::post('supplier-deposits/{supplierDeposit}/consume-custom', [\App\Http\Controllers\Purchasing\SupplierDepositController::class, 'consumeCustom'])
+            ->name('supplier-deposits.consume-custom');
+        Route::get('supplier-deposits/supplier/{partner}', [\App\Http\Controllers\Purchasing\SupplierDepositController::class, 'supplierDetail'])
+            ->name('supplier-deposits.supplier-detail');
         Route::resource('supplier-deposits', \App\Http\Controllers\Purchasing\SupplierDepositController::class)
             ->only(['index', 'create', 'store', 'show']);
 
@@ -800,6 +804,7 @@ Route::middleware([
         Route::post('bookings/{booking}/check-out', [\App\Http\Controllers\BookingController::class, 'checkOut'])->name('bookings.check-out');
         Route::post('bookings/{booking}/cancel', [\App\Http\Controllers\BookingController::class, 'cancel'])->name('bookings.cancel');
         Route::post('booking-lines/{bookingLine}/assign-instance', [\App\Http\Controllers\BookingController::class, 'assignInstance'])->name('bookings.assign-instance');
+        Route::patch('booking-lines/{bookingLine}/supplier-cost', [\App\Http\Controllers\BookingController::class, 'updateLineSupplierCost'])->name('bookings.update-supplier-cost');
         Route::post('bookings/{booking}/convert-to-sales-order', [\App\Http\Controllers\BookingController::class, 'convert'])->name('bookings.convert');
         Route::resource('bookings', \App\Http\Controllers\BookingController::class);
 

@@ -9,6 +9,7 @@ use App\Models\AccountingEventLog;
 use App\Models\GlEventConfiguration;
 use App\Models\Journal;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class JournalAccountingEventPublisher implements AccountingEventPublisher
 {
@@ -150,11 +151,17 @@ class JournalAccountingEventPublisher implements AccountingEventPublisher
 
     private function proposeDescription(AccountingEventPayload $payload): string
     {
-        return sprintf(
+        $desc = sprintf(
             '%s - %s',
             $payload->code->label(),
             $payload->documentNumber ?? 'No Ref'
         );
+
+        if (! empty($payload->meta['notes'])) {
+            $desc .= ' - '.$payload->meta['notes'];
+        }
+
+        return $desc;
     }
 
     private function getCurrencyId(string $code): int

@@ -2,15 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\AvoidDuplicateConstraintOnSoftDelete;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Auth;
-use App\Traits\AvoidDuplicateConstraintOnSoftDelete;
 
 class Partner extends Model
 {
-    use HasFactory, SoftDeletes, AvoidDuplicateConstraintOnSoftDelete;
+    use AvoidDuplicateConstraintOnSoftDelete, HasFactory, SoftDeletes;
 
     protected $guarded = [];
 
@@ -22,7 +22,7 @@ class Partner extends Model
             $lastPartner = self::withTrashed()->orderBy('id', 'desc')->first();
             $lastCode = $lastPartner ? intval(substr($lastPartner->code, 3)) : 0;
             $newCode = str_pad($lastCode + 1, 4, '0', STR_PAD_LEFT);
-            $model->code = 'PTR' . $newCode;
+            $model->code = 'PTR'.$newCode;
 
             if (Auth::check()) {
                 $model->created_by = Auth::user()->global_id;
@@ -106,6 +106,11 @@ class Partner extends Model
         return $this->hasMany(PartnerAddress::class);
     }
 
+    public function supplierDeposits()
+    {
+        return $this->hasMany(SupplierDeposit::class, 'partner_id');
+    }
+
     // Helper methods to check roles
     public function isSupplier()
     {
@@ -130,7 +135,7 @@ class Partner extends Model
             'asset_supplier' => 'Pemasok Aset',
             'asset_customer' => 'Pelanggan Aset',
             'creditor' => 'Kreditor',
-            'others' => 'Lainnya'
+            'others' => 'Lainnya',
         ];
     }
-} 
+}
