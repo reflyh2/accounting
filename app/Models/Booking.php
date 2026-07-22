@@ -36,6 +36,16 @@ class Booking extends Model
         return $this->hasMany(BookingLine::class);
     }
 
+    public function deposits(): HasMany
+    {
+        return $this->hasMany(BookingDeposit::class);
+    }
+
+    public function getTotalDepositAmountAttribute(): float
+    {
+        return (float) $this->deposits()->sum('amount');
+    }
+
     public function partner(): BelongsTo
     {
         return $this->belongsTo(Partner::class);
@@ -69,5 +79,27 @@ class Booking extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by', 'global_id');
+    }
+
+    public function hasInvoice(): bool
+    {
+        \Illuminate\Support\Facades\Log::info('hasInvoice called', [
+            'booking_id' => $this->id,
+            'converted_sales_order_id' => $this->converted_sales_order_id,
+            'connection' => \Illuminate\Support\Facades\DB::connection()->getName(),
+            'database' => \Illuminate\Support\Facades\DB::connection()->getDatabaseName(),
+            'sales_orders' => \App\Models\SalesOrder::all()->map(fn ($so) => $so->only('id', 'order_number'))->toArray(),
+            'convertedSalesOrder_exists' => $this->convertedSalesOrder !== null,
+        ]);
+
+        if ($this->deposit_applied_to_invoice_id !== null) {
+            return true;
+        }
+
+        if ($this->converted_sales_order_id !== null) {
+            return $this->convertedSalesOrder?->salesInvoices()->exists() ?? false;
+        }
+
+        return false;
     }
 }

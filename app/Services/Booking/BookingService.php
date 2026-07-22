@@ -232,7 +232,7 @@ class BookingService
             $booking->booking_number,
             'IDR',
             1.0,
-            $booking->booked_at,            
+            $booking->booked_at,
             $actor?->getAuthIdentifier(),
         );
         $payload->setLines([
@@ -337,7 +337,8 @@ class BookingService
 
     private function createBookingLine(Booking $booking, Product $product, BookingLineDTO $dto): BookingLine
     {
-        $amount = $this->calculateLineAmount($booking->booking_type, $product, $dto);
+        // $amount = $this->calculateLineAmount($booking->booking_type, $product, $dto);
+        $amount = (float) $dto->unitPrice * (int) $dto->qty;
 
         return $booking->lines()->create([
             'product_id' => $dto->productId,

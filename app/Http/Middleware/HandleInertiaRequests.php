@@ -2,13 +2,13 @@
 
 namespace App\Http\Middleware;
 
-use Illuminate\Http\Request;
-use Inertia\Middleware;
-use App\Models\User;
 use App\Models\Company;
 use App\Models\Currency;
+use App\Models\User;
 use App\Models\UserSetting;
 use App\Services\ModuleAccessService;
+use Illuminate\Http\Request;
+use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -22,7 +22,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Determine the current asset version.
      */
-    public function version(Request $request): string|null
+    public function version(Request $request): ?string
     {
         return parent::version($request);
     }
@@ -53,11 +53,11 @@ class HandleInertiaRequests extends Middleware
         if ($centralUser) {
             // Get the current tenant
             $tenant = tenant();
-            
+
             if ($tenant) {
                 // Find the corresponding tenant user
-                $tenantUser = User::where('global_id', $centralUser->global_id)->first();
-                
+                $tenantUser = User::with('roles')->where('global_id', $centralUser->global_id)->first();
+
                 if ($tenantUser) {
                     // Get all permissions for the tenant user
                     $permissions = $tenantUser->getAllPermissions()->pluck('name');
@@ -105,7 +105,7 @@ class HandleInertiaRequests extends Middleware
      */
     protected function getCurrentCompany(?User $tenantUser): ?Company
     {
-        if (!$tenantUser) {
+        if (! $tenantUser) {
             return null;
         }
 
@@ -126,6 +126,7 @@ class HandleInertiaRequests extends Middleware
         if ($branch?->branchGroup?->company) {
             // Store in session for future requests
             session(['current_company_id' => $branch->branchGroup->company->id]);
+
             return $branch->branchGroup->company;
         }
 

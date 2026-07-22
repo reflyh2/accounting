@@ -807,6 +807,8 @@ Route::middleware([
         Route::patch('booking-lines/{bookingLine}/supplier-cost', [\App\Http\Controllers\BookingController::class, 'updateLineSupplierCost'])->name('bookings.update-supplier-cost');
         Route::post('bookings/{booking}/convert-to-sales-order', [\App\Http\Controllers\BookingController::class, 'convert'])->name('bookings.convert');
         Route::resource('bookings', \App\Http\Controllers\BookingController::class);
+        Route::post('bookings/{booking}/deposits', [\App\Http\Controllers\BookingDepositController::class, 'store'])->name('booking-deposits.store');
+        Route::delete('bookings/{booking}/deposits/{deposit}', [\App\Http\Controllers\BookingDepositController::class, 'destroy'])->name('booking-deposits.destroy');
 
         Route::post('booking-allocations/{allocation}/reverse', [\App\Http\Controllers\BookingAllocationController::class, 'reverse'])->name('booking-allocations.reverse');
         Route::resource('booking-allocations', \App\Http\Controllers\BookingAllocationController::class)

@@ -42,8 +42,18 @@ const pageGroups = computed(() => {
     return Object.keys(props.permissions || {});
 });
 
+const permissionExists = (pageGroup, page, action) => {
+    const permissionName = `${pageGroup}.${page}.${action}`;
+    const pagePerms = props.permissions[pageGroup]?.[page] || [];
+    return pagePerms.some(p => p.name === permissionName);
+};
+
 const togglePagePermissions = (pageGroup, page) => {
-    const actions = ['view', 'create', 'update', 'delete'];
+    const actions = ['view', 'create', 'update', 'delete', 'approve', 'post', 'cancel']
+        .filter(action => permissionExists(pageGroup, page, action));
+    
+    if (actions.length === 0) return;
+
     const allChecked = actions.every(action => hasPermission(`${pageGroup}.${page}.${action}`));
     
     actions.forEach(action => {
@@ -63,25 +73,32 @@ const togglePagePermissions = (pageGroup, page) => {
 
 const togglePageGroupPermissions = (pageGroup) => {
     const pages = Object.keys(props.permissions[pageGroup]);
-    const actions = ['view', 'create', 'update', 'delete'];
-    const allChecked = pages.every(page => 
-        actions.every(action => hasPermission(`${pageGroup}.${page}.${action}`))
-    );
+    const actions = ['view', 'create', 'update', 'delete', 'approve', 'post', 'cancel'];
     
+    const existingPermissions = [];
     pages.forEach(page => {
         actions.forEach(action => {
-            const permission = `${pageGroup}.${page}.${action}`;
-            if (allChecked) {
-                const index = form.permissions.indexOf(permission);
-                if (index !== -1) {
-                    form.permissions.splice(index, 1);
-                }
-            } else {
-                if (!form.permissions.includes(permission)) {
-                    form.permissions.push(permission);
-                }
+            if (permissionExists(pageGroup, page, action)) {
+                existingPermissions.push(`${pageGroup}.${page}.${action}`);
             }
         });
+    });
+
+    if (existingPermissions.length === 0) return;
+
+    const allChecked = existingPermissions.every(permission => hasPermission(permission));
+    
+    existingPermissions.forEach(permission => {
+        if (allChecked) {
+            const index = form.permissions.indexOf(permission);
+            if (index !== -1) {
+                form.permissions.splice(index, 1);
+            }
+        } else {
+            if (!form.permissions.includes(permission)) {
+                form.permissions.push(permission);
+            }
+        }
     });
 };
 
@@ -151,6 +168,15 @@ const translatePage = (pageGroup, page) => {
                                           Hapus
                                        </th>
                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Setujui
+                                       </th>
+                                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Post
+                                       </th>
+                                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Batalkan
+                                       </th>
+                                       <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                        </th>
                                  </tr>
                               </thead>
@@ -159,8 +185,9 @@ const translatePage = (pageGroup, page) => {
                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                           {{ translatePage(pageGroup, page) }}
                                        </td>
-                                       <td v-for="action in ['view', 'create', 'update', 'delete']" :key="action" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                       <td v-for="action in ['view', 'create', 'update', 'delete', 'approve', 'post', 'cancel']" :key="action" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                           <input
+                                             v-if="permissionExists(pageGroup, page, action)"
                                              type="checkbox"
                                              :id="`${pageGroup}.${page}.${action}`"
                                              :value="`${pageGroup}.${page}.${action}`"

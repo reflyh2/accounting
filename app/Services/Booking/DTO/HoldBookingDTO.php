@@ -7,11 +7,9 @@ use Carbon\CarbonInterface;
 readonly class HoldBookingDTO
 {
     /**
-     * @param BookingLineDTO[] $lines
+     * @param  BookingLineDTO[]  $lines
      */
     public function __construct(
-        public ?int $companyId,
-        public ?int $branchId,
         public int $partnerId,
         public int $currencyId,
         public string $bookingType,
@@ -21,7 +19,7 @@ readonly class HoldBookingDTO
         public ?string $notes,
         public array $lines,
         public ?CarbonInterface $bookedAt = null,
-    ) {
-    }
+        public ?int $companyId = null,
+        public ?int $branchId = null,
+    ) {}
 }
-

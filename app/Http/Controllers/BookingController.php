@@ -6,6 +6,7 @@ use App\Enums\BookingStatus;
 use App\Enums\FulfillmentMode;
 use App\Exceptions\BookingConversionException;
 use App\Exceptions\BookingException;
+use App\Http\Requests\UpdateBookingLineSupplierCostRequest;
 use App\Models\Booking;
 use App\Models\Currency;
 use App\Models\Partner;
@@ -13,6 +14,7 @@ use App\Models\Product;
 use App\Models\ResourcePool;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingConversionService;
+use App\Services\Booking\BookingLineSupplierCostService;
 use App\Services\Booking\BookingService;
 use App\Services\Booking\DTO\BookingLineDTO;
 use App\Services\Booking\DTO\HoldBookingDTO;
@@ -31,6 +33,7 @@ class BookingController extends Controller
         private readonly BookingService $bookingService,
         private readonly AvailabilityService $availabilityService,
         private readonly BookingConversionService $conversionService,
+        private readonly BookingLineSupplierCostService $supplierCostService,
     ) {}
 
     public function index(Request $request): Response
@@ -130,12 +133,33 @@ class BookingController extends Controller
             'lines.assignedInstance',
             'lines.resources.resourceInstance',
             'creator',
+            'deposits.companyBankAccount',
         ]);
+
+        $paymentMethods = collect(\App\Enums\PaymentMethod::cases())
+            ->map(fn ($m) => ['value' => $m->value, 'label' => $m->label()])
+            ->toArray();
+
+        $companyBankAccounts = \App\Models\CompanyBankAccount::query()
+            ->where('is_active', true)
+            ->where('company_id', $booking->company_id)
+            ->orderBy('bank_name')
+            ->get(['id', 'company_id', 'bank_name', 'account_number', 'account_holder_name', 'account_id'])
+            ->map(fn ($b) => [
+                'id' => $b->id,
+                'company_id' => $b->company_id,
+                'label' => "{$b->bank_name} - {$b->account_number} ({$b->account_holder_name})",
+            ])
+            ->toArray();
+
+        $booking->setAttribute('has_invoice', $booking->hasInvoice());
 
         return Inertia::render('Bookings/Show', [
             'booking' => $booking,
             'filters' => Session::get('bookings.index_filters', []),
             'allowedTransitions' => $this->getAllowedTransitions($booking),
+            'paymentMethods' => $paymentMethods,
+            'companyBankAccounts' => $companyBankAccounts,
         ]);
     }
 
@@ -176,9 +200,6 @@ class BookingController extends Controller
                 'fulfillment_mode' => $data['fulfillment_mode'] ?? FulfillmentMode::SELF_OPERATED->value,
                 'booked_at' => isset($data['booked_at']) ? Carbon::parse($data['booked_at']) : $booking->booked_at,
                 'held_until' => $data['held_until'] ?? null,
-                'deposit_amount' => $data['deposit_amount'] ?? 0,
-                'deposit_payment_method' => $data['deposit_payment_method'] ?? null,
-                'deposit_company_bank_account_id' => $data['deposit_company_bank_account_id'] ?? null,
                 'source_channel' => $data['source_channel'] ?? null,
                 'notes' => $data['notes'] ?? null,
             ]);
@@ -288,6 +309,22 @@ class BookingController extends Controller
         return Redirect::back()->with('success', 'Instance berhasil di-assign.');
     }
 
+    public function updateLineSupplierCost(
+        UpdateBookingLineSupplierCostRequest $request,
+        \App\Models\BookingLine $bookingLine
+    ): RedirectResponse {
+        try {
+            $this->supplierCostService->updateSupplierCost(
+                $bookingLine,
+                (float) $request->validated('supplier_cost')
+            );
+        } catch (BookingException $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        }
+
+        return Redirect::back()->with('success', 'Harga supplier berhasil diperbarui.');
+    }
+
     public function convert(Booking $booking): RedirectResponse
     {
         try {
@@ -347,9 +384,6 @@ class BookingController extends Controller
             'fulfillment_mode' => ['nullable', 'in:'.implode(',', $modes)],
             'booked_at' => ['nullable', 'date'],
             'held_until' => ['nullable', 'date'],
-            'deposit_amount' => ['nullable', 'numeric', 'min:0'],
-            'deposit_payment_method' => ['nullable', 'string', 'max:30'],
-            'deposit_company_bank_account_id' => ['nullable', 'exists:company_bank_accounts,id'],
             'source_channel' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
             'lines' => ['required', 'array', 'min:1'],
@@ -368,6 +402,53 @@ class BookingController extends Controller
             'lines.*.passthrough_amount' => ['nullable', 'numeric', 'min:0'],
             'lines.*.supplier_invoice_ref' => ['nullable', 'string', 'max:120'],
             'lines.*.meta' => ['nullable', 'array'],
+        ], [
+            'company_id.required' => 'Perusahaan wajib diisi.',
+            'company_id.exists' => 'Perusahaan tidak valid.',
+            'branch_id.required' => 'Cabang wajib diisi.',
+            'branch_id.exists' => 'Cabang tidak valid.',
+            'partner_id.required' => 'Pelanggan wajib diisi.',
+            'partner_id.exists' => 'Pelanggan tidak valid.',
+            'currency_id.required' => 'Mata uang wajib diisi.',
+            'currency_id.exists' => 'Mata uang tidak valid.',
+            'booking_type.required' => 'Tipe booking wajib diisi.',
+            'booking_type.in' => 'Tipe booking tidak valid.',
+            'booking_subtype.max' => 'Sub-tipe booking tidak boleh lebih dari :max karakter.',
+            'fulfillment_mode.in' => 'Mode fulfillment tidak valid.',
+            'booked_at.date' => 'Tanggal booking harus berupa tanggal yang valid.',
+            'held_until.date' => 'Tanggal penahanan (held until) harus berupa tanggal yang valid.',
+            'source_channel.max' => 'Saluran sumber tidak boleh lebih dari :max karakter.',
+            'lines.required' => 'Detail booking wajib diisi.',
+            'lines.array' => 'Detail booking harus berupa array.',
+            'lines.min' => 'Minimal harus ada :min baris detail booking.',
+            'lines.*.product_id.required' => 'Produk wajib diisi pada baris detail.',
+            'lines.*.product_id.exists' => 'Produk tidak valid pada baris detail.',
+            'lines.*.resource_pool_id.required' => 'Resource pool wajib diisi pada baris detail.',
+            'lines.*.resource_pool_id.exists' => 'Resource pool tidak valid pada baris detail.',
+            'lines.*.product_variant_id.exists' => 'Varian produk tidak valid pada baris detail.',
+            'lines.*.supplier_partner_id.exists' => 'Supplier tidak valid pada baris detail.',
+            'lines.*.start_datetime.required' => 'Tanggal & waktu mulai wajib diisi pada baris detail.',
+            'lines.*.start_datetime.date' => 'Tanggal & waktu mulai harus berupa tanggal yang valid pada baris detail.',
+            'lines.*.end_datetime.required' => 'Tanggal & waktu selesai wajib diisi pada baris detail.',
+            'lines.*.end_datetime.date' => 'Tanggal & waktu selesai harus berupa tanggal yang valid pada baris detail.',
+            'lines.*.end_datetime.after' => 'Tanggal & waktu selesai harus setelah tanggal & waktu mulai pada baris detail.',
+            'lines.*.qty.required' => 'Kuantitas wajib diisi pada baris detail.',
+            'lines.*.qty.integer' => 'Kuantitas harus berupa angka bulat pada baris detail.',
+            'lines.*.qty.min' => 'Kuantitas minimal :min pada baris detail.',
+            'lines.*.unit_price.required' => 'Harga satuan wajib diisi pada baris detail.',
+            'lines.*.unit_price.numeric' => 'Harga satuan harus berupa angka pada baris detail.',
+            'lines.*.unit_price.min' => 'Harga satuan tidak boleh kurang dari :min pada baris detail.',
+            'lines.*.tax_amount.numeric' => 'Nominal pajak harus berupa angka pada baris detail.',
+            'lines.*.tax_amount.min' => 'Nominal pajak tidak boleh kurang dari :min pada baris detail.',
+            'lines.*.deposit_required.numeric' => 'Uang jaminan harus berupa angka pada baris detail.',
+            'lines.*.deposit_required.min' => 'Uang jaminan tidak boleh kurang dari :min pada baris detail.',
+            'lines.*.supplier_cost.numeric' => 'Harga supplier harus berupa angka pada baris detail.',
+            'lines.*.supplier_cost.min' => 'Harga supplier tidak boleh kurang dari :min pada baris detail.',
+            'lines.*.commission_amount.numeric' => 'Komisi harus berupa angka pada baris detail.',
+            'lines.*.commission_amount.min' => 'Komisi tidak boleh kurang dari :min pada baris detail.',
+            'lines.*.passthrough_amount.numeric' => 'Passthrough harus berupa angka pada baris detail.',
+            'lines.*.passthrough_amount.min' => 'Passthrough tidak boleh kurang dari :min pada baris detail.',
+            'lines.*.supplier_invoice_ref.max' => 'Referensi invoice supplier tidak boleh lebih dari :max karakter pada baris detail.',
         ]);
 
         $mode = FulfillmentMode::tryFrom($data['fulfillment_mode'] ?? FulfillmentMode::SELF_OPERATED->value)
@@ -375,19 +456,31 @@ class BookingController extends Controller
 
         foreach (($data['lines'] ?? []) as $idx => $line) {
             if ($mode === FulfillmentMode::RESELLER) {
-                if (empty($line['supplier_partner_id']) || (float) ($line['supplier_cost'] ?? 0) <= 0) {
-                    abort(422, 'Mode Reseller membutuhkan supplier dan supplier_cost pada baris '.($idx + 1).'.');
+                $errors = [];
+                if (empty($line['supplier_partner_id'])) {
+                    $errors["lines.{$idx}.supplier_partner_id"] = 'Supplier wajib diisi pada baris '.($idx + 1).'.';
+                }
+                if ((float) ($line['supplier_cost'] ?? 0) <= 0) {
+                    $errors["lines.{$idx}.supplier_cost"] = 'Supplier cost wajib diisi pada baris '.($idx + 1).'.';
+                }
+                if (! empty($errors)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages($errors);
                 }
             }
             if ($mode === FulfillmentMode::AGENT) {
+                $errors = [];
                 if (empty($line['supplier_partner_id'])) {
-                    abort(422, 'Mode Agent membutuhkan supplier pada baris '.($idx + 1).'.');
+                    $errors["lines.{$idx}.supplier_partner_id"] = 'Supplier wajib diisi pada baris '.($idx + 1).'.';
                 }
                 $commission = (float) ($line['commission_amount'] ?? 0);
                 $passthrough = (float) ($line['passthrough_amount'] ?? 0);
                 $amount = (float) $line['unit_price'] * (int) $line['qty'];
                 if (abs(($commission + $passthrough) - $amount) > 0.01) {
-                    abort(422, 'Komisi + passthrough harus sama dengan total baris '.($idx + 1).'.');
+                    $errors["lines.{$idx}.commission_amount"] = 'Komisi + passthrough harus sama dengan total baris '.($idx + 1).'.';
+                    $errors["lines.{$idx}.passthrough_amount"] = 'Komisi + passthrough harus sama dengan total baris '.($idx + 1).'.';
+                }
+                if (! empty($errors)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages($errors);
                 }
             }
         }
@@ -403,8 +496,6 @@ class BookingController extends Controller
         $booking->update([
             'booking_subtype' => $data['booking_subtype'] ?? $data['booking_type'],
             'fulfillment_mode' => $data['fulfillment_mode'] ?? FulfillmentMode::SELF_OPERATED->value,
-            'deposit_payment_method' => $data['deposit_payment_method'] ?? null,
-            'deposit_company_bank_account_id' => $data['deposit_company_bank_account_id'] ?? null,
         ]);
 
         $booking->loadMissing('lines');
@@ -428,13 +519,11 @@ class BookingController extends Controller
     private function makeHoldDto(array $data): HoldBookingDTO
     {
         return new HoldBookingDTO(
-            $data['company_id'],
-            $data['branch_id'],
             $data['partner_id'],
             $data['currency_id'],
             $data['booking_type'],
             isset($data['held_until']) ? Carbon::parse($data['held_until']) : null,
-            $data['deposit_amount'] ?? null,
+            null, // deposit_amount is removed from booking form
             $data['source_channel'] ?? null,
             $data['notes'] ?? null,
             array_map(
@@ -452,6 +541,8 @@ class BookingController extends Controller
                 $data['lines']
             ),
             isset($data['booked_at']) ? Carbon::parse($data['booked_at']) : null,
+            $data['company_id'],
+            $data['branch_id'],
         );
     }
 

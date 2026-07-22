@@ -169,6 +169,8 @@ function handleBulkDelete(ids) {
                         :viewRoute="{ name: 'bookings.show' }"
                         :deleteRoute="{ name: 'bookings.destroy' }"
                         :indexRoute="{ name: 'bookings.index' }"
+                        :canEdit="(item) => item.status === 'hold'"
+                        :canDelete="(item) => ['hold', 'canceled'].includes(item.status)"
                         :sortable="sortableColumns"
                         :defaultSort="defaultSort"
                         :currentSort="currentSort"
