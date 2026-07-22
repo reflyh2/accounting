@@ -10,7 +10,7 @@ defineProps({
 <template>
    <button
       :type="type"
-      class="px-3 py-2 bg-white border border-red-500 text-red-700 text-sm rounded hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-50 focus:ring-opacity-50"
+      class="px-3 py-2 bg-white border border-red-500 text-red-700 text-sm rounded hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-50 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
    >
       <span class="flex items-center">
          <slot></slot>

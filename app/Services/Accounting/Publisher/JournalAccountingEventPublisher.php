@@ -14,6 +14,8 @@ class JournalAccountingEventPublisher implements AccountingEventPublisher
 {
     public function send(AccountingEventPayload $payload, AccountingEventLog $log): void
     {
+        \App\Models\AccountingPeriod::validatePostingAllowed($payload->occurredAt, $payload->companyId);
+
         DB::transaction(function () use ($payload) {
             $config = $this->resolveConfiguration($payload);
 
@@ -150,11 +152,17 @@ class JournalAccountingEventPublisher implements AccountingEventPublisher
 
     private function proposeDescription(AccountingEventPayload $payload): string
     {
-        return sprintf(
+        $desc = sprintf(
             '%s - %s',
             $payload->code->label(),
             $payload->documentNumber ?? 'No Ref'
         );
+
+        if (! empty($payload->meta['notes'])) {
+            $desc .= ' - '.$payload->meta['notes'];
+        }
+
+        return $desc;
     }
 
     private function getCurrencyId(string $code): int

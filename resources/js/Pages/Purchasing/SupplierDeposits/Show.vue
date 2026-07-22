@@ -1,24 +1,38 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, useForm, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppBackLink from '@/Components/AppBackLink.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
 import AppDangerButton from '@/Components/AppDangerButton.vue';
 import AppInput from '@/Components/AppInput.vue';
+import AppSelect from '@/Components/AppSelect.vue';
 import AppModal from '@/Components/AppModal.vue';
 import { formatNumber } from '@/utils/numberFormat';
 
 const props = defineProps({
     deposit: Object,
-    filters: Object,
+    partnerId: Number,
+    accounts: Array,
 });
 
 const showRefund = ref(false);
 const refundAmount = ref(null);
 
+const showConsume = ref(false);
+const consumeForm = useForm({
+    amount: null,
+    account_id: '',
+    consumed_at: new Date().toISOString().substr(0, 10),
+    notes: '',
+});
+
 const canRefund = computed(() => Number(props.deposit.balance) > 0);
+
+const hasInsufficientBalance = computed(() => {
+    return consumeForm.amount && Number(consumeForm.amount) > Number(props.deposit.balance);
+});
 
 function statusLabel(status) {
     return { open: 'Saldo Tersedia', exhausted: 'Habis Dipakai', refunded: 'Direfund' }[status] || status;
@@ -51,6 +65,16 @@ function submitRefund() {
         }
     );
 }
+
+function submitConsume() {
+    consumeForm.post(route('supplier-deposits.consume-custom', props.deposit.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showConsume.value = false;
+            consumeForm.reset();
+        },
+    });
+}
 </script>
 
 <template>
@@ -60,7 +84,7 @@ function submitRefund() {
         <template #header><h2>Detail Deposit Pemasok</h2></template>
 
         <div class="mx-auto bg-white shadow-sm sm:rounded border border-gray-200 p-6 space-y-4">
-            <AppBackLink :href="route('supplier-deposits.index', filters)" text="Kembali ke Daftar Deposit" />
+            <AppBackLink :href="route('supplier-deposits.supplier-detail', props.partnerId)" text="Kembali ke Detail Pemasok" />
 
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
@@ -69,7 +93,10 @@ function submitRefund() {
                         {{ statusLabel(deposit.status) }}
                     </span>
                 </div>
-                <AppDangerButton v-if="canRefund" @click="showRefund = true">Refund</AppDangerButton>
+                <div class="flex items-center gap-2">
+                    <AppPrimaryButton v-if="canRefund" @click="showConsume = true">Gunakan Deposit</AppPrimaryButton>
+                    <AppDangerButton v-if="canRefund" @click="showRefund = true">Refund</AppDangerButton>
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
@@ -101,7 +128,21 @@ function submitRefund() {
                 <tbody>
                     <tr v-for="c in deposit.consumptions" :key="c.id" class="border-b">
                         <td class="px-3 py-2 border">{{ formatDateTime(c.consumed_at) }}</td>
-                        <td class="px-3 py-2 border text-xs">{{ c.consumed_by_type }}#{{ c.consumed_by_id }}</td>
+                        <td class="px-3 py-2 border text-xs">
+                            <template v-if="c.consumed_by_type === 'App\\Models\\Journal'">
+                                <Link :href="route('journals.show', c.consumed_by_id)" class="text-blue-600 hover:underline">
+                                    Jurnal #{{ c.consumed_by_id }}
+                                </Link>
+                            </template>
+                            <template v-else-if="c.consumed_by_type === 'App\\Models\\SalesInvoice'">
+                                <Link :href="route('sales-invoices.show', c.consumed_by_id)" class="text-blue-600 hover:underline">
+                                    Invoice #{{ c.consumed_by_id }}
+                                </Link>
+                            </template>
+                            <template v-else>
+                                {{ c.consumed_by_type.split('\\').pop() }}#{{ c.consumed_by_id }}
+                            </template>
+                        </td>
                         <td class="px-3 py-2 border text-right">{{ formatNumber(c.amount) }}</td>
                         <td class="px-3 py-2 border">{{ c.notes || '—' }}</td>
                     </tr>
@@ -112,19 +153,110 @@ function submitRefund() {
             </table>
         </div>
 
-        <AppModal :show="showRefund" @close="showRefund = false" title="Refund Deposit">
-            <p class="text-sm text-gray-600 mb-3">
-                Kosongkan jumlah untuk refund seluruh saldo sisa ({{ formatNumber(deposit.balance) }}).
+      <AppModal :show="showRefund" @close="showRefund = false">
+    <template #title>
+        Refund Deposit
+    </template>
+
+    <template #content>
+        <div class="mb-4">
+            <p class="text-sm text-gray-500">
+                Sisa Saldo
             </p>
+
+            <p class="text-3xl font-bold text-green-600">
+                {{ formatNumber(deposit.balance) }}
+            </p>
+        </div>
+
+        <AppInput
+            v-model="refundAmount"
+            :numberFormat="true"
+            label="Jumlah Refund (opsional):"
+        />
+
+        <p class="text-sm text-red-500 italic mt-1">
+            * Kosongkan jumlah jika ingin melakukan refund seluruh saldo.
+        </p>
+    </template>
+
+    <template #footer>
+        <div class="flex justify-end gap-2">
+            <AppSecondaryButton @click="showRefund = false">
+                Batal
+            </AppSecondaryButton>
+
+            <AppPrimaryButton @click="submitRefund">
+                Refund
+            </AppPrimaryButton>
+        </div>
+    </template>
+</AppModal>
+
+<AppModal :show="showConsume" @close="showConsume = false">
+    <template #title>
+        Gunakan Deposit
+    </template>
+
+    <template #content>
+        <div class="mb-4">
+            <p class="text-sm text-gray-500">
+                Sisa Saldo
+            </p>
+
+            <p class="text-3xl font-bold text-green-600">
+                {{ formatNumber(deposit.balance) }}
+            </p>
+        </div>
+
+        <div class="space-y-4">
             <AppInput
-                v-model="refundAmount"
-                :numberFormat="true"
-                label="Jumlah Refund (opsional):"
+                v-model="consumeForm.consumed_at"
+                type="date"
+                label="Tanggal Penggunaan:"
+                :error="consumeForm.errors.consumed_at"
+                required
             />
-            <div class="flex justify-end gap-2 mt-3">
-                <AppSecondaryButton @click="showRefund = false">Batal</AppSecondaryButton>
-                <AppDangerButton @click="submitRefund">Refund</AppDangerButton>
-            </div>
-        </AppModal>
+
+            <AppSelect
+                v-model="consumeForm.account_id"
+                :options="accounts.map(acc => ({ value: acc.id, label: `${acc.code} - ${acc.name}` }))"
+                label="Akun Tujuan (Debit):"
+                :error="consumeForm.errors.account_id"
+                :inModal="true"
+                required
+            />
+
+            <AppInput
+                v-model="consumeForm.amount"
+                :numberFormat="true"
+                label="Jumlah Penggunaan:"
+                :error="consumeForm.errors.amount"
+                required
+            />
+            <p v-if="hasInsufficientBalance" class="text-xs text-red-600 -mt-0 mb-2 italic font-light">
+                Saldo tidak mencukupi
+            </p>
+
+            <AppInput
+                v-model="consumeForm.notes"
+                label="Catatan / Keterangan:"
+                :error="consumeForm.errors.notes"
+            />
+        </div>
+    </template>
+
+    <template #footer>
+        <div class="flex justify-end gap-2">
+            <AppSecondaryButton @click="showConsume = false">
+                Batal
+            </AppSecondaryButton>
+
+            <AppPrimaryButton @click="submitConsume" :disabled="consumeForm.processing || hasInsufficientBalance">
+                Gunakan
+            </AppPrimaryButton>
+        </div>
+    </template>
+</AppModal>
     </AuthenticatedLayout>
 </template>

@@ -240,6 +240,20 @@ class PurchaseInvoiceService
         $this->assertDraft($invoice);
 
         DB::transaction(function () use ($invoice) {
+            $invoice->loadMissing('lines');
+
+            foreach ($invoice->lines as $line) {
+                if ($line->source_type && $line->source_id && class_exists($line->source_type)) {
+                    $source = $line->source_type::find($line->source_id);
+                    if ($source) {
+                        $source->forceFill([
+                            'settled_by_type' => null,
+                            'settled_by_id' => null,
+                        ])->save();
+                    }
+                }
+            }
+
             $invoice->lines()->delete();
             $invoice->purchaseOrders()->detach();
             $invoice->delete();

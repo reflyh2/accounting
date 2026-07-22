@@ -33,9 +33,6 @@ const form = useForm({
         ? new Date(props.booking.booked_at).toISOString().split('T')[0]
         : new Date().toISOString().split('T')[0],
     held_until: props.booking?.held_until ? new Date(props.booking.held_until).toISOString().split('T')[0] : '',
-    deposit_amount: props.booking?.deposit_amount || 0,
-    deposit_payment_method: props.booking?.deposit_payment_method || null,
-    deposit_company_bank_account_id: props.booking?.deposit_company_bank_account_id || null,
     source_channel: props.booking?.source_channel || null,
     notes: props.booking?.notes || '',
     lines: props.booking?.lines?.map((line) => ({
@@ -198,26 +195,6 @@ const isReseller = computed(() => form.fulfillment_mode === 'reseller');
 const isAgent = computed(() => form.fulfillment_mode === 'agent');
 const requiresSupplier = computed(() => isReseller.value || isAgent.value);
 
-const hasDeposit = computed(() => Number(form.deposit_amount) > 0);
-
-// Cash methods land in the cash role's default account; only non-cash methods need a bank pick.
-const depositMethodNeedsBank = computed(() => {
-    if (!form.deposit_payment_method) return false;
-    return form.deposit_payment_method !== 'cash';
-});
-
-const depositBankAccountOptions = computed(() => {
-    return (props.formOptions.companyBankAccounts || [])
-        .filter((b) => !form.company_id || b.company_id === form.company_id)
-        .map((b) => ({ value: b.id, label: b.label }));
-});
-
-// Reset bank account choice when deposit conditions change.
-watch([() => form.deposit_amount, () => form.deposit_payment_method, () => form.company_id], () => {
-    if (!hasDeposit.value || !depositMethodNeedsBank.value) {
-        form.deposit_company_bank_account_id = null;
-    }
-});
 
 function addEntry() {
     form.lines.push(createEmptyLine());
@@ -367,8 +344,8 @@ function submitForm(createAnother = false) {
                     />
                 </div>
 
-                <!-- Booking date, Hold Until, Deposit -->
-                <div class="grid grid-cols-3 gap-4">
+                <!-- Booking date, Hold Until -->
+                <div class="grid grid-cols-2 gap-4">
                     <AppInput
                         v-model="form.booked_at"
                         type="date"
@@ -382,36 +359,6 @@ function submitForm(createAnother = false) {
                         type="date"
                         label="Hold Sampai:"
                         :error="form.errors.held_until"
-                    />
-
-                    <AppInput
-                        v-model="form.deposit_amount"
-                        :numberFormat="true"
-                        label="Deposit:"
-                        :error="form.errors.deposit_amount"
-                    />
-                </div>
-
-                <!-- Deposit payment method, when applicable -->
-                <div v-if="hasDeposit" class="grid grid-cols-3 gap-4">
-                    <AppSelect
-                        v-model="form.deposit_payment_method"
-                        :options="formOptions.paymentMethods.map((m) => ({ value: m.value, label: m.label }))"
-                        placeholder="Pilih Metode"
-                        label="Metode Pembayaran Deposit:"
-                        :error="form.errors.deposit_payment_method"
-                    />
-                </div>
-
-                <!-- Bank account for deposit (when not cash) -->
-                <div v-if="hasDeposit && depositMethodNeedsBank" class="grid grid-cols-2 gap-4">
-                    <AppSelect
-                        v-model="form.deposit_company_bank_account_id"
-                        :options="depositBankAccountOptions"
-                        placeholder="Pilih Rekening Penerima"
-                        label="Rekening Bank Deposit:"
-                        :disabled="!form.company_id"
-                        :error="form.errors.deposit_company_bank_account_id"
                     />
                 </div>
 
@@ -441,7 +388,6 @@ function submitForm(createAnother = false) {
                     <li>Pilih pelanggan yang akan booking</li>
                     <li>Pilih tipe booking (Akomodasi atau Rental)</li>
                     <li>Masukkan baris booking dengan produk, pool, waktu, dan harga</li>
-                    <li>Deposit adalah uang muka yang harus dibayar customer</li>
                     <li>Hold sampai adalah batas waktu untuk konfirmasi booking</li>
                 </ul>
             </div>

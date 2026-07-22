@@ -222,6 +222,8 @@ function handleBulkDelete(ids) {
                         :viewRoute="{ name: 'sales-orders.show' }"
                         :deleteRoute="{ name: 'sales-orders.destroy' }"
                         :indexRoute="{ name: 'sales-orders.index' }"
+                        :canEdit="(item) => ['draft', 'quote'].includes(item.status)"
+                        :canDelete="(item) => ['draft', 'quote'].includes(item.status)"
                         :sortable="sortableColumns"
                         :defaultSort="defaultSort"
                         :currentSort="currentSort"

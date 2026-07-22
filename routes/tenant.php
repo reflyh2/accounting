@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AccountingPeriodController;
 use App\Http\Controllers\Api\AvailabilityController;
 use App\Http\Controllers\Api\BookingController as ApiBookingController;
 use App\Http\Controllers\Api\InventoryAvailabilityController;
@@ -220,6 +221,10 @@ Route::middleware([
         Route::get('/general-settings', [GeneralSettingsController::class, 'index'])->name('general-settings.index');
         Route::put('/general-settings', [GeneralSettingsController::class, 'update'])->name('general-settings.update');
 
+        // Accounting Periods
+        Route::post('accounting-periods/{accounting_period}/close', [AccountingPeriodController::class, 'close'])->name('accounting-periods.close');
+        Route::resource('accounting-periods', AccountingPeriodController::class)->only(['index', 'store', 'destroy']);
+
         // Settings Routes
         Route::prefix('settings')->name('settings.')->group(function () {
             Route::resource('payment-terms', \App\Http\Controllers\Settings\PaymentTermController::class);
@@ -326,12 +331,12 @@ Route::middleware([
         Route::get('currencies/export-pdf', [CurrencyController::class, 'exportPDF'])->name('currencies.export-pdf');
         Route::resource('currencies', CurrencyController::class);
 
-        Route::delete('journals/bulk-delete', [JournalController::class, 'bulkDelete'])->name('journals.bulk-delete');
+        Route::delete('journals/bulk-delete', [JournalController::class, 'bulkDelete'])->middleware('period.lock')->name('journals.bulk-delete');
         Route::get('journals/export-xlsx', [JournalController::class, 'exportXLSX'])->name('journals.export-xlsx');
         Route::get('journals/export-csv', [JournalController::class, 'exportCSV'])->name('journals.export-csv');
         Route::get('journals/export-pdf', [JournalController::class, 'exportPDF'])->name('journals.export-pdf');
         Route::get('journals/{journal}/print', [JournalController::class, 'print'])->name('journals.print');
-        Route::resource('journals', JournalController::class);
+        Route::resource('journals', JournalController::class)->middleware('period.lock');
 
         Route::delete('gl-event-configurations/bulk-delete', [GlEventConfigurationController::class, 'bulkDelete'])->name('gl-event-configurations.bulk-delete');
         Route::get('gl-event-configurations/export-xlsx', [GlEventConfigurationController::class, 'exportXLSX'])->name('gl-event-configurations.export-xlsx');
@@ -358,19 +363,19 @@ Route::middleware([
         // Company Bank Accounts
         Route::resource('company-bank-accounts', \App\Http\Controllers\CompanyBankAccountController::class);
 
-        Route::delete('cash-receipt-journals/bulk-delete', [CashReceiptJournalController::class, 'bulkDelete'])->name('cash-receipt-journals.bulk-delete');
+        Route::delete('cash-receipt-journals/bulk-delete', [CashReceiptJournalController::class, 'bulkDelete'])->middleware('period.lock')->name('cash-receipt-journals.bulk-delete');
         Route::get('cash-receipt-journals/export-xlsx', [CashReceiptJournalController::class, 'exportXLSX'])->name('cash-receipt-journals.export-xlsx');
         Route::get('cash-receipt-journals/export-csv', [CashReceiptJournalController::class, 'exportCSV'])->name('cash-receipt-journals.export-csv');
         Route::get('cash-receipt-journals/export-pdf', [CashReceiptJournalController::class, 'exportPDF'])->name('cash-receipt-journals.export-pdf');
         Route::get('cash-receipt-journals/{journalId}/print', [CashReceiptJournalController::class, 'print'])->name('cash-receipt-journals.print');
-        Route::resource('cash-receipt-journals', CashReceiptJournalController::class);
+        Route::resource('cash-receipt-journals', CashReceiptJournalController::class)->middleware('period.lock');
 
-        Route::delete('cash-payment-journals/bulk-delete', [CashPaymentJournalController::class, 'bulkDelete'])->name('cash-payment-journals.bulk-delete');
+        Route::delete('cash-payment-journals/bulk-delete', [CashPaymentJournalController::class, 'bulkDelete'])->middleware('period.lock')->name('cash-payment-journals.bulk-delete');
         Route::get('cash-payment-journals/export-xlsx', [CashPaymentJournalController::class, 'exportXLSX'])->name('cash-payment-journals.export-xlsx');
         Route::get('cash-payment-journals/export-csv', [CashPaymentJournalController::class, 'exportCSV'])->name('cash-payment-journals.export-csv');
         Route::get('cash-payment-journals/export-pdf', [CashPaymentJournalController::class, 'exportPDF'])->name('cash-payment-journals.export-pdf');
         Route::get('cash-payment-journals/{journalId}/print', [CashPaymentJournalController::class, 'print'])->name('cash-payment-journals.print');
-        Route::resource('cash-payment-journals', CashPaymentJournalController::class);
+        Route::resource('cash-payment-journals', CashPaymentJournalController::class)->middleware('period.lock');
 
         Route::get('general-ledger', [GeneralLedgerController::class, 'index'])->name('general-ledger.index');
         Route::get('general-ledger/download', [GeneralLedgerController::class, 'download'])->name('general-ledger.download');
@@ -546,45 +551,46 @@ Route::middleware([
 
         // Debts (Hutang/Piutang)
         Route::get('external-payables/import-template', [ExternalPayableController::class, 'importTemplate'])->name('external-payables.import-template');
-        Route::post('external-payables/import', [ExternalPayableController::class, 'import'])->name('external-payables.import');
-        Route::resource('external-payables', ExternalPayableController::class)->parameters([
+        Route::post('external-payables/import', [ExternalPayableController::class, 'import'])->middleware('period.lock')->name('external-payables.import');
+        Route::resource('external-payables', ExternalPayableController::class)->middleware('period.lock')->parameters([
             'external-payables' => 'debt',
         ]);
         Route::get('external-receivables/import-template', [ExternalReceivableController::class, 'importTemplate'])->name('external-receivables.import-template');
-        Route::post('external-receivables/import', [ExternalReceivableController::class, 'import'])->name('external-receivables.import');
-        Route::resource('external-receivables', ExternalReceivableController::class)->parameters([
+        Route::post('external-receivables/import', [ExternalReceivableController::class, 'import'])->middleware('period.lock')->name('external-receivables.import');
+        Route::resource('external-receivables', ExternalReceivableController::class)->middleware('period.lock')->parameters([
             'external-receivables' => 'debt',
         ]);
         // External Debt Payments (separate modules; unified table)
-        Route::delete('external-payable-payments/bulk-delete', [ExternalPayablePaymentController::class, 'bulkDelete'])->name('external-payable-payments.bulk-delete');
+        Route::delete('external-payable-payments/bulk-delete', [ExternalPayablePaymentController::class, 'bulkDelete'])->middleware('period.lock')->name('external-payable-payments.bulk-delete');
         Route::get('external-payable-payments/export-xlsx', [ExternalPayablePaymentController::class, 'exportXLSX'])->name('external-payable-payments.export-xlsx');
         Route::get('external-payable-payments/export-csv', [ExternalPayablePaymentController::class, 'exportCSV'])->name('external-payable-payments.export-csv');
         Route::get('external-payable-payments/export-pdf', [ExternalPayablePaymentController::class, 'exportPDF'])->name('external-payable-payments.export-pdf');
         Route::get('external-payable-payments/{externalPayablePayment}/print', [ExternalPayablePaymentController::class, 'print'])->name('external-payable-payments.print');
-        Route::resource('external-payable-payments', ExternalPayablePaymentController::class);
+        Route::resource('external-payable-payments', ExternalPayablePaymentController::class)->middleware('period.lock');
 
-        Route::delete('external-receivable-payments/bulk-delete', [ExternalReceivablePaymentController::class, 'bulkDelete'])->name('external-receivable-payments.bulk-delete');
+        Route::delete('external-receivable-payments/bulk-delete', [ExternalReceivablePaymentController::class, 'bulkDelete'])->middleware('period.lock')->name('external-receivable-payments.bulk-delete');
         Route::get('external-receivable-payments/export-xlsx', [ExternalReceivablePaymentController::class, 'exportXLSX'])->name('external-receivable-payments.export-xlsx');
         Route::get('external-receivable-payments/export-csv', [ExternalReceivablePaymentController::class, 'exportCSV'])->name('external-receivable-payments.export-csv');
         Route::get('external-receivable-payments/export-pdf', [ExternalReceivablePaymentController::class, 'exportPDF'])->name('external-receivable-payments.export-pdf');
         Route::get('external-receivable-payments/{externalReceivablePayment}/print', [ExternalReceivablePaymentController::class, 'print'])->name('external-receivable-payments.print');
-        Route::resource('external-receivable-payments', ExternalReceivablePaymentController::class);
+        Route::resource('external-receivable-payments', ExternalReceivablePaymentController::class)->middleware('period.lock');
+
         // Combined Internal Debts
-        Route::delete('internal-debts/bulk-delete', [InternalDebtController::class, 'bulkDelete'])->name('internal-debts.bulk-delete');
+        Route::delete('internal-debts/bulk-delete', [InternalDebtController::class, 'bulkDelete'])->middleware('period.lock')->name('internal-debts.bulk-delete');
         Route::get('internal-debts/export-xlsx', [InternalDebtController::class, 'exportXLSX'])->name('internal-debts.export-xlsx');
         Route::get('internal-debts/export-csv', [InternalDebtController::class, 'exportCSV'])->name('internal-debts.export-csv');
-        Route::put('internal-debts/{internalDebt}/approve', [InternalDebtController::class, 'approve'])->name('internal-debts.approve');
-        Route::put('internal-debts/{internalDebt}/reject', [InternalDebtController::class, 'reject'])->name('internal-debts.reject');
-        Route::resource('internal-debts', InternalDebtController::class);
+        Route::put('internal-debts/{internalDebt}/approve', [InternalDebtController::class, 'approve'])->middleware('period.lock')->name('internal-debts.approve');
+        Route::put('internal-debts/{internalDebt}/reject', [InternalDebtController::class, 'reject'])->middleware('period.lock')->name('internal-debts.reject');
+        Route::resource('internal-debts', InternalDebtController::class)->middleware('period.lock');
 
         // Internal Debt Payments (unified)
-        Route::delete('internal-debt-payments/bulk-delete', [InternalDebtPaymentController::class, 'bulkDelete'])->name('internal-debt-payments.bulk-delete');
+        Route::delete('internal-debt-payments/bulk-delete', [InternalDebtPaymentController::class, 'bulkDelete'])->middleware('period.lock')->name('internal-debt-payments.bulk-delete');
         Route::get('internal-debt-payments/export-xlsx', [InternalDebtPaymentController::class, 'exportXLSX'])->name('internal-debt-payments.export-xlsx');
         Route::get('internal-debt-payments/export-csv', [InternalDebtPaymentController::class, 'exportCSV'])->name('internal-debt-payments.export-csv');
         Route::get('internal-debt-payments/export-pdf', [InternalDebtPaymentController::class, 'exportPDF'])->name('internal-debt-payments.export-pdf');
-        Route::put('internal-debt-payments/{internalDebtPayment}/approve', [InternalDebtPaymentController::class, 'approve'])->name('internal-debt-payments.approve');
-        Route::put('internal-debt-payments/{internalDebtPayment}/reject', [InternalDebtPaymentController::class, 'reject'])->name('internal-debt-payments.reject');
-        Route::resource('internal-debt-payments', InternalDebtPaymentController::class);
+        Route::put('internal-debt-payments/{internalDebtPayment}/approve', [InternalDebtPaymentController::class, 'approve'])->middleware('period.lock')->name('internal-debt-payments.approve');
+        Route::put('internal-debt-payments/{internalDebtPayment}/reject', [InternalDebtPaymentController::class, 'reject'])->middleware('period.lock')->name('internal-debt-payments.reject');
+        Route::resource('internal-debt-payments', InternalDebtPaymentController::class)->middleware('period.lock');
 
         // Tax Management Routes
         Route::delete('tax-jurisdictions/bulk-delete', [TaxJurisdictionController::class, 'bulkDelete'])->name('tax-jurisdictions.bulk-delete');
@@ -696,11 +702,11 @@ Route::middleware([
         Route::resource('goods-receipts', GoodsReceiptController::class);
 
         Route::get('api/suppliers-with-grns', [PurchaseReturnController::class, 'apiSuppliersWithGRNs'])->name('api.suppliers-with-grns');
-        Route::delete('purchase-returns/bulk-delete', [PurchaseReturnController::class, 'bulkDelete'])->name('purchase-returns.bulk-delete');
+        Route::delete('purchase-returns/bulk-delete', [PurchaseReturnController::class, 'bulkDelete'])->middleware('period.lock')->name('purchase-returns.bulk-delete');
         Route::get('purchase-returns/export-xlsx', [PurchaseReturnController::class, 'exportXLSX'])->name('purchase-returns.export-xlsx');
         Route::get('purchase-returns/export-csv', [PurchaseReturnController::class, 'exportCSV'])->name('purchase-returns.export-csv');
         Route::get('purchase-returns/export-pdf', [PurchaseReturnController::class, 'exportPDF'])->name('purchase-returns.export-pdf');
-        Route::resource('purchase-returns', PurchaseReturnController::class);
+        Route::resource('purchase-returns', PurchaseReturnController::class)->middleware('period.lock');
 
         // Purchase Plans Routes
         Route::post('purchase-plans/{purchase_plan}/confirm', [PurchasePlanController::class, 'confirm'])
@@ -743,47 +749,60 @@ Route::middleware([
         Route::get('sales-deliveries/{sales_delivery}/print', [SalesDeliveryController::class, 'print'])
             ->name('sales-deliveries.print');
         Route::resource('sales-deliveries', SalesDeliveryController::class);
-        Route::delete('purchase-invoices/bulk-delete', [PurchaseInvoiceController::class, 'bulkDelete'])->name('purchase-invoices.bulk-delete');
+        Route::delete('purchase-invoices/bulk-delete', [PurchaseInvoiceController::class, 'bulkDelete'])->middleware('period.lock')->name('purchase-invoices.bulk-delete');
         Route::get('purchase-invoices/export-xlsx', [PurchaseInvoiceController::class, 'exportXLSX'])->name('purchase-invoices.export-xlsx');
         Route::get('purchase-invoices/export-csv', [PurchaseInvoiceController::class, 'exportCSV'])->name('purchase-invoices.export-csv');
         Route::get('purchase-invoices/export-pdf', [PurchaseInvoiceController::class, 'exportPDF'])->name('purchase-invoices.export-pdf');
         Route::post('purchase-invoices/{purchase_invoice}/post', [PurchaseInvoiceController::class, 'post'])
+            ->middleware('period.lock')
             ->name('purchase-invoices.post');
         Route::post('purchase-invoices/{purchase_invoice}/unpost', [PurchaseInvoiceController::class, 'unpost'])
+            ->middleware('period.lock')
             ->name('purchase-invoices.unpost');
         Route::get('purchase-invoices/{purchase_invoice}/print', [PurchaseInvoiceController::class, 'print'])
             ->name('purchase-invoices.print');
-        Route::resource('purchase-invoices', PurchaseInvoiceController::class);
+        Route::resource('purchase-invoices', PurchaseInvoiceController::class)->middleware('period.lock');
 
         Route::get('obligation-billing', [\App\Http\Controllers\Purchasing\ObligationBillingController::class, 'index'])
             ->name('obligation-billing.index');
         Route::post('obligation-billing', [\App\Http\Controllers\Purchasing\ObligationBillingController::class, 'store'])
+            ->middleware('period.lock')
             ->name('obligation-billing.store');
         Route::post('obligation-billing/settle-from-deposit', [\App\Http\Controllers\Purchasing\ObligationBillingController::class, 'settleFromDeposit'])
+            ->middleware('period.lock')
             ->name('obligation-billing.settle-from-deposit');
 
         Route::post('supplier-deposits/{supplierDeposit}/refund', [\App\Http\Controllers\Purchasing\SupplierDepositController::class, 'refund'])
+            ->middleware('period.lock')
             ->name('supplier-deposits.refund');
+        Route::post('supplier-deposits/{supplierDeposit}/consume-custom', [\App\Http\Controllers\Purchasing\SupplierDepositController::class, 'consumeCustom'])
+            ->middleware('period.lock')
+            ->name('supplier-deposits.consume-custom');
+        Route::get('supplier-deposits/supplier/{partner}', [\App\Http\Controllers\Purchasing\SupplierDepositController::class, 'supplierDetail'])
+            ->name('supplier-deposits.supplier-detail');
         Route::resource('supplier-deposits', \App\Http\Controllers\Purchasing\SupplierDepositController::class)
+            ->middleware('period.lock')
             ->only(['index', 'create', 'store', 'show']);
 
         Route::get('sales-invoices/export-xlsx', [SalesInvoiceController::class, 'exportXLSX'])->name('sales-invoices.export-xlsx');
         Route::get('sales-invoices/export-csv', [SalesInvoiceController::class, 'exportCSV'])->name('sales-invoices.export-csv');
         Route::get('sales-invoices/export-pdf', [SalesInvoiceController::class, 'exportPDF'])->name('sales-invoices.export-pdf');
         Route::post('sales-invoices/{sales_invoice}/post', [SalesInvoiceController::class, 'post'])
+            ->middleware('period.lock')
             ->name('sales-invoices.post');
         Route::post('sales-invoices/{sales_invoice}/unpost', [SalesInvoiceController::class, 'unpost'])
+            ->middleware('period.lock')
             ->name('sales-invoices.unpost');
         Route::get('sales-invoices/{sales_invoice}/print', [SalesInvoiceController::class, 'print'])
             ->name('sales-invoices.print');
-        Route::resource('sales-invoices', SalesInvoiceController::class);
+        Route::resource('sales-invoices', SalesInvoiceController::class)->middleware('period.lock');
 
         Route::get('api/customers-with-deliveries', [SalesReturnController::class, 'apiCustomersWithDeliveries'])->name('api.customers-with-deliveries');
-        Route::delete('sales-returns/bulk-delete', [SalesReturnController::class, 'bulkDelete'])->name('sales-returns.bulk-delete');
+        Route::delete('sales-returns/bulk-delete', [SalesReturnController::class, 'bulkDelete'])->middleware('period.lock')->name('sales-returns.bulk-delete');
         Route::get('sales-returns/export-xlsx', [SalesReturnController::class, 'exportXLSX'])->name('sales-returns.export-xlsx');
         Route::get('sales-returns/export-csv', [SalesReturnController::class, 'exportCSV'])->name('sales-returns.export-csv');
         Route::get('sales-returns/export-pdf', [SalesReturnController::class, 'exportPDF'])->name('sales-returns.export-pdf');
-        Route::resource('sales-returns', SalesReturnController::class);
+        Route::resource('sales-returns', SalesReturnController::class)->middleware('period.lock');
 
         // Resource Pools Routes
         Route::delete('resource-pools/bulk-delete', [\App\Http\Controllers\ResourcePoolController::class, 'bulkDelete'])->name('resource-pools.bulk-delete');
@@ -800,8 +819,11 @@ Route::middleware([
         Route::post('bookings/{booking}/check-out', [\App\Http\Controllers\BookingController::class, 'checkOut'])->name('bookings.check-out');
         Route::post('bookings/{booking}/cancel', [\App\Http\Controllers\BookingController::class, 'cancel'])->name('bookings.cancel');
         Route::post('booking-lines/{bookingLine}/assign-instance', [\App\Http\Controllers\BookingController::class, 'assignInstance'])->name('bookings.assign-instance');
+        Route::patch('booking-lines/{bookingLine}/supplier-cost', [\App\Http\Controllers\BookingController::class, 'updateLineSupplierCost'])->name('bookings.update-supplier-cost');
         Route::post('bookings/{booking}/convert-to-sales-order', [\App\Http\Controllers\BookingController::class, 'convert'])->name('bookings.convert');
         Route::resource('bookings', \App\Http\Controllers\BookingController::class);
+        Route::post('bookings/{booking}/deposits', [\App\Http\Controllers\BookingDepositController::class, 'store'])->name('booking-deposits.store');
+        Route::delete('bookings/{booking}/deposits/{deposit}', [\App\Http\Controllers\BookingDepositController::class, 'destroy'])->name('booking-deposits.destroy');
 
         Route::post('booking-allocations/{allocation}/reverse', [\App\Http\Controllers\BookingAllocationController::class, 'reverse'])->name('booking-allocations.reverse');
         Route::resource('booking-allocations', \App\Http\Controllers\BookingAllocationController::class)

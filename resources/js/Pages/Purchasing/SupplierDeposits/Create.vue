@@ -1,6 +1,6 @@
 <script setup>
 import { computed, watch } from 'vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AppPrimaryButton from '@/Components/AppPrimaryButton.vue';
 import AppSecondaryButton from '@/Components/AppSecondaryButton.vue';
@@ -11,12 +11,21 @@ import AppTextarea from '@/Components/AppTextarea.vue';
 const props = defineProps({
     formOptions: Object,
     today: String,
+    partnerId: Number,
 });
 
+const preselectedPartner = props.partnerId 
+    ? props.formOptions.suppliers.find(s => s.id === props.partnerId) 
+    : null;
+
+const preselectedCompanyId = preselectedPartner && preselectedPartner.company_ids.length === 1
+    ? preselectedPartner.company_ids[0]
+    : (props.formOptions.companies.length === 1 ? props.formOptions.companies[0].id : null);
+
 const form = useForm({
-    company_id: props.formOptions.companies.length === 1 ? props.formOptions.companies[0].id : null,
+    company_id: preselectedCompanyId,
     branch_id: null,
-    partner_id: null,
+    partner_id: props.partnerId || null,
     currency_id: props.formOptions.currencies?.[0]?.id || null,
     exchange_rate: 1,
     deposit_date: props.today,
@@ -57,6 +66,14 @@ watch(() => form.payment_method, () => {
 
 function submit() {
     form.post(route('supplier-deposits.store'), { preserveScroll: true });
+}
+
+function handleCancel() {
+    if (props.partnerId) {
+        router.visit(route('supplier-deposits.index', { partner_id: props.partnerId }));
+    } else {
+        router.visit(route('supplier-deposits.index'));
+    }
 }
 </script>
 
@@ -156,7 +173,7 @@ function submit() {
                 />
 
                 <div class="flex gap-2 justify-end">
-                    <AppSecondaryButton @click="$inertia.visit(route('supplier-deposits.index'))">Batal</AppSecondaryButton>
+                    <AppSecondaryButton type="button" @click="handleCancel">Batal</AppSecondaryButton>
                     <AppPrimaryButton type="submit" :disabled="form.processing">Catat Deposit</AppPrimaryButton>
                 </div>
             </form>

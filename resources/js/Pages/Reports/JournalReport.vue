@@ -52,6 +52,27 @@ function getTypeLabel(type) {
     return props.typeLabels?.[type] || type;
 }
 
+function getJournalViewRoute(journal) {
+    const routes = {
+        'general': 'journals.show',
+        'cash_receipt': 'cash-receipt-journals.show',
+        'cash_payment': 'cash-payment-journals.show',
+        'retained_earnings': 'journals.show',
+        'asset_purchase': 'journals.show',
+        'asset_financing_payment': 'journals.show',
+        'asset_rental_payment': 'journals.show',
+        'asset_depreciation': 'journals.show',
+        'asset_amortization': 'journals.show',
+    };
+
+    let routeName = 'journals.show';
+    if (routes[journal.journal_type]) {
+        routeName = routes[journal.journal_type];
+    }
+    
+    return route(routeName, journal.id);
+}
+
 const grandTotals = computed(() => {
     if (!props.journalData?.length) return { debit: 0, credit: 0 };
     let debit = 0;
@@ -135,7 +156,9 @@ const grandTotals = computed(() => {
                                             {{ formatDate(journal.date) }}
                                         </ReportTD>
                                         <ReportTD v-if="idx === 0" :rowspan="journal.journal_entries.length" class="align-top font-medium border-b">
-                                            {{ journal.journal_number }}
+                                            <a :href="getJournalViewRoute(journal)" target="_blank" class="text-main-500 hover:text-main-800">
+                                                {{ journal.journal_number }}
+                                            </a>
                                         </ReportTD>
                                         <ReportTD v-if="idx === 0" :rowspan="journal.journal_entries.length" class="align-top border-b">
                                             <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap">

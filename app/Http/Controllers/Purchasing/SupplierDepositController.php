@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Purchasing;
 
 use App\Exceptions\SupplierDepositException;
 use App\Http\Controllers\Controller;
+use App\Models\Account;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\CompanyBankAccount;
@@ -30,35 +31,56 @@ class SupplierDepositController extends Controller
         $filters = $request->all() ?: Session::get('supplier_deposits.index_filters', []);
         Session::put('supplier_deposits.index_filters', $filters);
 
-        $filters = Arr::only($filters, ['search', 'company_id', 'partner_id', 'status', 'per_page']);
+        $filters = Arr::only($filters, ['search', 'per_page']);
+
+        $query = Partner::query()
+            ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
+            ->whereHas('supplierDeposits')
+            ->withSum('supplierDeposits as total_amount', 'amount')
+            ->withSum('supplierDeposits as total_balance', 'balance')
+            ->when(! empty($filters['search']), fn ($q) => $q->where(function ($qq) use ($filters) {
+                $search = strtolower($filters['search']);
+                $qq->whereRaw('lower(name) like ?', ["%{$search}%"])
+                    ->orWhereRaw('lower(code) like ?', ["%{$search}%"]);
+            }))
+            ->orderBy('name');
+
+        $perPage = (int) ($filters['per_page'] ?? 20);
+
+        return Inertia::render('Purchasing/SupplierDeposits/Index', [
+            'suppliers' => $query->paginate($perPage)->withQueryString(),
+            'filters' => $filters,
+        ]);
+    }
+
+    public function supplierDetail(Request $request, Partner $partner): Response
+    {
+        $filters = $request->all() ?: Session::get("supplier_deposits.detail_filters.{$partner->id}", []);
+        Session::put("supplier_deposits.detail_filters.{$partner->id}", $filters);
+
+        $filters = Arr::only($filters, ['search', 'company_id', 'status', 'per_page']);
 
         $query = SupplierDeposit::query()
+            ->where('partner_id', $partner->id)
             ->with([
-                'partner:id,name,code',
                 'company:id,name',
                 'currency:id,code',
             ])
             ->when(! empty($filters['search']), fn ($q) => $q->where(function ($qq) use ($filters) {
                 $search = strtolower($filters['search']);
-                $qq->whereRaw('lower(deposit_number) like ?', ["%{$search}%"])
-                    ->orWhereHas('partner', fn ($pq) => $pq->whereRaw('lower(name) like ?', ["%{$search}%"]));
+                $qq->whereRaw('lower(deposit_number) like ?', ["%{$search}%"]);
             }))
             ->when(! empty($filters['company_id']), fn ($q) => $q->whereIn('company_id', (array) $filters['company_id']))
-            ->when(! empty($filters['partner_id']), fn ($q) => $q->whereIn('partner_id', (array) $filters['partner_id']))
             ->when(! empty($filters['status']), fn ($q) => $q->whereIn('status', (array) $filters['status']))
             ->orderByDesc('deposit_date');
 
         $perPage = (int) ($filters['per_page'] ?? 20);
 
-        return Inertia::render('Purchasing/SupplierDeposits/Index', [
+        return Inertia::render('Purchasing/SupplierDeposits/SupplierDetail', [
+            'partner' => $partner,
             'deposits' => $query->paginate($perPage)->withQueryString(),
             'filters' => $filters,
             'companies' => Company::orderBy('name')->get(['id', 'name'])->toArray(),
-            'suppliers' => Partner::query()
-                ->whereHas('roles', fn ($q) => $q->where('role', 'supplier'))
-                ->orderBy('name')
-                ->get(['id', 'name', 'code'])
-                ->toArray(),
             'statusOptions' => [
                 ['value' => 'open', 'label' => 'Saldo Tersedia'],
                 ['value' => 'exhausted', 'label' => 'Habis Dipakai'],
@@ -72,6 +94,7 @@ class SupplierDepositController extends Controller
         return Inertia::render('Purchasing/SupplierDeposits/Create', [
             'formOptions' => $this->formOptions(),
             'today' => now()->toDateString(),
+            'partnerId' => request('partner_id') ? (int) request('partner_id') : null,
         ]);
     }
 
@@ -124,9 +147,18 @@ class SupplierDepositController extends Controller
             'consumptions',
         ]);
 
+        $accounts = Account::whereHas('companies', function ($query) use ($supplierDeposit) {
+            $query->where('companies.id', $supplierDeposit->company_id);
+        })
+            ->where('type', '!=', 'kas_bank')
+            ->orderBy('code')
+            ->get(['id', 'code', 'name'])
+            ->toArray();
+
         return Inertia::render('Purchasing/SupplierDeposits/Show', [
             'deposit' => $supplierDeposit,
-            'filters' => Session::get('supplier_deposits.index_filters', []),
+            'partnerId' => $supplierDeposit->partner_id,
+            'accounts' => $accounts,
         ]);
     }
 
@@ -147,6 +179,25 @@ class SupplierDepositController extends Controller
 
         return Redirect::route('supplier-deposits.show', $supplierDeposit->id)
             ->with('success', 'Refund berhasil dicatat.');
+    }
+
+    public function consumeCustom(Request $request, SupplierDeposit $supplierDeposit): RedirectResponse
+    {
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'account_id' => ['required', 'exists:accounts,id'],
+            'consumed_at' => ['required', 'date'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $this->service->consumeCustom($supplierDeposit, $data, $request->user());
+        } catch (SupplierDepositException $e) {
+            return Redirect::back()->with('error', $e->getMessage());
+        }
+
+        return Redirect::route('supplier-deposits.show', $supplierDeposit->id)
+            ->with('success', 'Penggunaan deposit berhasil dicatat.');
     }
 
     private function formOptions(): array

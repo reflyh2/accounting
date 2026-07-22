@@ -262,6 +262,95 @@ class SupplierDepositService
         $this->accountingEventBus->dispatch($payload);
     }
 
+    /**
+     * Consume a supplier deposit manually for other purposes.
+     */
+    public function consumeCustom(SupplierDeposit $deposit, array $data, ?Authenticatable $actor = null): \App\Models\SupplierDepositConsumption
+    {
+        $actor ??= Auth::user();
+        $amount = (float) $data['amount'];
+        $debitAccountId = (int) $data['account_id'];
+        $consumedAt = Carbon::parse($data['consumed_at']);
+
+        if ($amount <= 0) {
+            throw new SupplierDepositException('Jumlah penggunaan harus lebih dari nol.');
+        }
+
+        return DB::transaction(function () use ($deposit, $amount, $debitAccountId, $consumedAt, $data, $actor) {
+            /** @var SupplierDeposit $locked */
+            $locked = SupplierDeposit::query()->whereKey($deposit->id)->lockForUpdate()->first();
+            $balance = (float) $locked->balance;
+
+            if ($amount > $balance + 0.001) {
+                throw new SupplierDepositException(sprintf(
+                    'Saldo deposit hanya %s, tidak cukup untuk penggunaan %s.',
+                    number_format($balance, 2),
+                    number_format($amount, 2)
+                ));
+            }
+
+            $exchangeRate = (float) ($locked->exchange_rate ?: 1);
+            $amountBase = round($amount * $exchangeRate, 4);
+
+            // Create temporary consumption pointing to itself
+            $consumption = \App\Models\SupplierDepositConsumption::create([
+                'supplier_deposit_id' => $locked->id,
+                'consumed_by_type' => \App\Models\SupplierDepositConsumption::class,
+                'consumed_by_id' => 0,
+                'amount' => $amount,
+                'amount_base' => $amountBase,
+                'consumed_at' => $consumedAt,
+                'notes' => $data['notes'] ?? 'Penggunaan deposit manual',
+                'created_by' => $actor?->getAuthIdentifier(),
+            ]);
+
+            // Update polymorphic ID to point to the consumption itself
+            $consumption->update(['consumed_by_id' => $consumption->id]);
+
+            // Update deposit balance
+            $newBalance = round($balance - $amount, 2);
+            $locked->update([
+                'balance' => $newBalance,
+                'status' => $newBalance < 0.005 ? 'exhausted' : 'open',
+            ]);
+
+            // Dispatch accounting event
+            $refNumber = $locked->deposit_number.'-MAN-'.$consumption->id;
+
+            $payload = new AccountingEventPayload(
+                AccountingEventCode::SUPPLIER_DEPOSIT_CONSUMED,
+                $locked->company_id,
+                $locked->branch_id,
+                'supplier_deposit_consumption',
+                $consumption->id,
+                $refNumber,
+                $locked->currency?->code ?? 'IDR',
+                $exchangeRate,
+                CarbonImmutable::parse($consumedAt),
+                $actor?->getAuthIdentifier(),
+                ['notes' => $data['notes'] ?? 'Penggunaan deposit manual'],
+            );
+
+            $payload->setLines([
+                AccountingEntry::debit('clearing', $amountBase, ['account_id' => $debitAccountId]),
+                AccountingEntry::credit('supplier_advance', $amountBase, ['account_id' => (int) $locked->advance_account_id]),
+            ]);
+
+            $this->accountingEventBus->dispatch($payload);
+
+            // Find the generated journal and link it
+            $journal = \App\Models\Journal::where('reference_number', $refNumber)->first();
+            if ($journal) {
+                $consumption->update([
+                    'consumed_by_type' => \App\Models\Journal::class,
+                    'consumed_by_id' => $journal->id,
+                ]);
+            }
+
+            return $consumption;
+        });
+    }
+
     private function generateNumber(int $companyId, int $branchId, Carbon $depositDate): string
     {
         $prefix = 'SDEP';
