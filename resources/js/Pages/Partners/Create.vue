@@ -8,6 +8,7 @@ defineProps({
    filters: Object,
    companies: Array,
    availableRoles: Object,
+   currencies: Array,
 });
 </script>
 
@@ -26,7 +27,7 @@ defineProps({
                   <div class="mb-6">
                      <AppBackLink :href="route('partners.index', filters)" text="Kembali ke Daftar Partner" />
                   </div>
-                  <PartnerForm :companies="companies" :filters="filters" :availableRoles="availableRoles" />
+                  <PartnerForm :companies="companies" :filters="filters" :availableRoles="availableRoles" :currencies="currencies" />
                </div>
             </div>
          </div>

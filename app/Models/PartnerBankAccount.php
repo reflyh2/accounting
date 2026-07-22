@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class PartnerBankAccount extends Model
 {
@@ -19,7 +19,7 @@ class PartnerBankAccount extends Model
     protected static function boot()
     {
         parent::boot();
-        
+
         static::creating(function ($model) {
             // If this is set as primary, remove primary from other accounts
             if ($model->is_primary) {
@@ -39,6 +39,11 @@ class PartnerBankAccount extends Model
         });
     }
 
+    public function setCurrencyAttribute(?string $value): void
+    {
+        $this->attributes['currency'] = filled($value) ? $value : 'IDR';
+    }
+
     public function partner()
     {
         return $this->belongsTo(Partner::class);
@@ -48,4 +53,4 @@ class PartnerBankAccount extends Model
     {
         return "{$this->bank_name} - {$this->account_number} ({$this->account_holder_name})";
     }
-} 
+}
