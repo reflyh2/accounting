@@ -9,12 +9,13 @@ use App\Models\AccountingEventLog;
 use App\Models\GlEventConfiguration;
 use App\Models\Journal;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class JournalAccountingEventPublisher implements AccountingEventPublisher
 {
     public function send(AccountingEventPayload $payload, AccountingEventLog $log): void
     {
+        \App\Models\AccountingPeriod::validatePostingAllowed($payload->occurredAt, $payload->companyId);
+
         DB::transaction(function () use ($payload) {
             $config = $this->resolveConfiguration($payload);
 

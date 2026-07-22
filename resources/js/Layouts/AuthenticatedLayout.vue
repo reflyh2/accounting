@@ -832,6 +832,14 @@ const onboardingStep = computed(() => {
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
                                 v-if="canViewCompanies"
+                                :href="route('accounting-periods.index')"
+                                :active="route().current('accounting-periods.*')"
+                                class="pl-11"
+                            >
+                                Periode Akuntansi
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                v-if="canViewCompanies"
                                 :href="route('companies.index')"
                                 :active="route().current('companies.*') || route().current('branches.*') || route().current('branch-groups.*')"
                                 class="pl-11"
@@ -2051,6 +2059,14 @@ const onboardingStep = computed(() => {
                                         </NavLink>
                                         <NavLink
                                             v-if="canViewCompanies"
+                                            :href="route('accounting-periods.index')"
+                                            :active="route().current('accounting-periods.*')"
+                                            class="flex items-center px-2 py-1 text-sm hover:bg-gray-50 rounded"
+                                        >
+                                            Periode Akuntansi
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewCompanies"
                                             :href="route('companies.index')"
                                             :active="
                                                 route().current('companies.*')
@@ -2172,6 +2188,14 @@ const onboardingStep = computed(() => {
                                             class="flex items-center"
                                         >
                                             General
+                                        </NavLink>
+                                        <NavLink
+                                            v-if="canViewCompanies"
+                                            :href="route('accounting-periods.index')"
+                                            :active="route().current('accounting-periods.*')"
+                                            class="flex items-center"
+                                        >
+                                            Periode Akuntansi
                                         </NavLink>
                                         <NavLink
                                             v-if="canViewCompanies"
